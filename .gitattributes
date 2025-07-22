@@ -1,2 +1,30 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Python 檔案統一 LF 換行
+*.py text eol=lf
+
+# Jupyter notebook 統一 LF 換行
+*.ipynb text eol=lf
+
+# Markdown/文字檔案 LF 換行
+*.md text eol=lf
+*.txt text eol=lf
+*.csv text eol=lf
+
+# Parquet、二進位檔案不做 diff
+*.parquet binary
+*.pkl binary
+*.xlsx binary
+*.xls binary
+*.egg binary
+*.pyd binary
+*.so binary
+*.dll binary
+
+# Windows/Unix 批次檔案
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# 保持 .sh 檔案 LF 換行
+*.sh text eol=lf
+
+# 強制 .gitattributes 本身用 LF
+.gitattributes text eol=lf

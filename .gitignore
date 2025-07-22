@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+*.pyo
+
+# Virtual env
+venv/
+env/
+.venv/
+
+# Logs
+logs/
+*.log
+
+# Data/Results
+records/**/*.parquet
+records/**/*.csv
+records/**/*.txt
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE/Editor
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Build
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Test cache
+.pytest_cache/
+
+# Local env
+.env 
