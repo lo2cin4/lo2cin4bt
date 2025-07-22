@@ -156,8 +156,10 @@ lo2cin4bt/
   - 每次回測會產生一個唯一檔名（如 `20250723_97dpnzl6.parquet`）。
 - **統計分析結果**：
   - 存放於 `stats_analysis_results/` 資料夾，包含 `processed_data.csv`、`stats_report.txt` 等。
+- **交易分析**：
+  - 會讀取 `records/backtester/` 下的 parquet 檔案，計算後會產生新的 `.parquet` 檔案並放至`records/metricstracker/`內 。
 - **可視化平台**：
-  - 會自動讀取 `records/backtester/` 下的 parquet 檔案，並以互動式圖表展示。
+  - 會自動讀取 `records/metricstracker/` 下的 parquet 檔案，並以互動式圖表展示。
 - **日誌檔案**：
   - 所有錯誤與執行日誌會存於 `logs/backtest_errors.log`。
 - **自訂導出**：
