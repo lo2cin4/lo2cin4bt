@@ -67,7 +67,7 @@ from typing import Dict, List
 class ReportGenerator:
     """報告生成與數據匯出模組"""
 
-    def __init__(self, output_dir: str = "../records/statanalyser"):
+    def __init__(self, output_dir: str = "records/statanalyser"):
         self.output_dir = output_dir
         os.makedirs(output_dir, exist_ok=True)
 

@@ -64,9 +64,13 @@ import pandas as pd
 import numpy as np
 from binance.client import Client
 from datetime import datetime
+import logging
 
 
 class BinanceLoader:
+    def __init__(self):
+        self.logger = logging.getLogger("lo2cin4bt.dataloader.BinanceLoader")
+
     def load(self):
         """從 Binance API 載入數據"""
         symbol = input("請輸入交易對（例如 BTCUSDT，預設 BTCUSDT）：").strip() or "BTCUSDT"
@@ -84,7 +88,7 @@ class BinanceLoader:
             client = Client()
             klines = client.get_historical_klines(symbol, interval, start_date, end_date)
             if not klines:
-                print(f"錯誤：無法獲取 '{symbol}' 的數據")
+                self.logger.warning(f"無法獲取 '{symbol}' 的數據")
                 return None, interval
 
             # 轉換為 DataFrame
@@ -122,11 +126,12 @@ class BinanceLoader:
             # 檢查缺失值
             for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
                 missing_ratio = data[col].isna().mean()
-                print(f"{col} 缺失值比例：{missing_ratio:.2%}")
+                self.logger.warning(f"{col} 缺失值比例：{missing_ratio:.2%}")
 
-            print(f"從 Binance 載入 '{symbol}' 成功，行數：{len(data)}")
+            self.logger.info(f"從 Binance 載入 '{symbol}' 成功，行數：{len(data)}")
             print("已計算收益率：open_return, close_return, open_logreturn, close_logreturn")
             return data, interval
         except Exception as e:
+            self.logger.error(f"Binance 載入錯誤：{e}")
             print(f"錯誤：{e}")
             return None, interval

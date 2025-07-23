@@ -127,17 +127,13 @@ def setup_logging(log_queue=None):
         root_logger.setLevel(logging.DEBUG)
         root_logger.handlers = []
         root_logger.addHandler(QueueHandler(log_queue))
-        
-        # 添加控制台輸出
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-        console_formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] [%(name)s]: %(message)s")
-        console_handler.setFormatter(console_formatter)
-        root_logger.addHandler(console_handler)
-        
-        # 記錄程式啟動
+        # 移除 console_handler，讓 logger 只寫檔不顯示在終端
+        # console_handler = logging.StreamHandler()
+        # console_handler.setLevel(logging.INFO)
+        # console_formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] [%(name)s]: %(message)s")
+        # console_handler.setFormatter(console_formatter)
+        # root_logger.addHandler(console_handler)
         root_logger.info("=== 程式啟動 ===")
-        # print("[DEBUG] 日誌系統已初始化")
     else:
         # 子進程只設置 QueueHandler，log_queue 必須由主進程傳入
         root_logger = logging.getLogger("lo2cin4bt")

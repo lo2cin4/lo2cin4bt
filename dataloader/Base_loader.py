@@ -65,6 +65,7 @@ from .Predictor_loader import PredictorLoader  # 自定義模組：載入預測�
 from .Validator_loader import DataValidator  # 自定義模組：驗證和清洗數據
 from .Calculator_loader import ReturnCalculator  # 自定義模組：計算收益率
 from .DataExporter_loader import DataExporter  # 自定義模組：導出數據為 CSV/XLSX/JSON
+import logging
 
 class DataLoader:
     def __init__(self):
@@ -73,21 +74,12 @@ class DataLoader:
         """
         self.data = None  # 儲存載入的數據（pandas DataFrame）
         self.source = None  # 記錄價格數據來源（1: 文件, 2: Yahoo Finance, 3: Binance）
+        self.frequency = None # 新增：儲存數據頻率
+        self.logger = logging.getLogger("lo2cin4bt.dataloader") # 新增：初始化 logger
 
     def load_data(self):
-        """交互式載入價格與預測因子數據，並提示問題
-        使用模組:
-            - pandas (pd): 數據處理和概覽顯示
-            - FileLoader: 從文件載入價格數據
-            - YahooFinanceLoader: 從 Yahoo Finance 載入價格數據
-            - BinanceLoader: 從 Binance API 載入價格數據
-            - PredictorLoader: 載入預測因子數據
-            - DataValidator: 驗證和清洗數據
-            - ReturnCalculator: 計算收益率
-            - DataExporter: 導出最終數據
-        返回: pandas DataFrame 或 None（若載入失敗）
-        """
-        print("\n=== 數據載入 ===")
+        """交互式載入價格與預測因子數據，並提示問題"""
+        self.logger.info("=== 開始數據載入 ===")
 
         # 選擇價格數據來源
         print("請選擇價格數據來源：")
@@ -113,6 +105,7 @@ class DataLoader:
             self.data, self.frequency = loader.load()
             if self.data is not None:
                 break
+            self.logger.error("價格數據載入失敗，請重新選擇數據來源與輸入參數。")
             print("價格數據載入失敗，請重新選擇數據來源與輸入參數。\n")
             print("請選擇價格數據來源：")
             print("1. Excel/CSV 文件")
@@ -129,16 +122,15 @@ class DataLoader:
         validator = DataValidator(self.data)  # 使用 DataValidator 模組驗證數據
         self.data = validator.validate_and_clean()  # 調用 validate_and_clean 方法清洗數據
         if self.data is None:
+            self.logger.error("價格數據清洗失敗，程式終止")
             print("價格數據清洗失敗，程式終止")
             return None
+        self.logger.info("價格數據載入與清洗完成")
 
         # 計算收益率
         calculator = ReturnCalculator(self.data)  # 使用 ReturnCalculator 模組計算收益率
         self.data = calculator.calculate_returns()  # 調用 calculate_returns 方法更新數據
         price_data = self.data  # 儲存價格數據副本以供後續使用
-
-        print("\n價格數據載入完成，概覽：")
-        print(self.data.head())  # 使用 pandas 的 head 方法顯示數據前幾行
 
         # 載入預測因子數據
         predictor_loader = PredictorLoader(price_data=price_data)  # 使用 PredictorLoader 模組載入預測因子
@@ -146,22 +138,22 @@ class DataLoader:
         if isinstance(predictor_data, str) and predictor_data == "__SKIP_STATANALYSER__":
             if not hasattr(self, "frequency") or self.frequency is None:
                 self.frequency = "1d"
+            self.logger.info("未載入預測因子，僅使用價格數據。")
             return "__SKIP_STATANALYSER__"
         elif predictor_data is not None:
             self.data = predictor_data
         else:
-            print("未載入預測因子，僅使用價格數據。")
+            self.logger.info("未載入預測因子，僅使用價格數據。")
             self.data = price_data
 
         # 重新驗證合併數據
         validator = DataValidator(self.data)  # 使用 DataValidator 模組驗證合併數據
         self.data = validator.validate_and_clean()  # 再次調用 validate_and_clean 方法
         if self.data is None:
+            self.logger.error("合併數據清洗失敗，程式終止")
             print("合併數據清洗失敗，程式終止")
             return None
-
-        print("\n最終數據（價格與預測因子）載入完成，概覽：")
-        print(self.data.head())  # 使用 pandas 的 head 方法顯示最終數據概覽
+        self.logger.info("最終數據（價格與預測因子）載入完成")
 
         # 提示導出數據
         export_choice = input("\n是否導出合併後數據(xlsx/csv/json)？(y/n，預設n)：").strip().lower() or 'n'

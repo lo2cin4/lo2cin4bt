@@ -62,9 +62,13 @@ flowchart TD
 """
 import pandas as pd
 import yfinance as yf
+import logging
 
 
 class YahooFinanceLoader:
+    def __init__(self):
+        self.logger = logging.getLogger("lo2cin4bt.dataloader.YahooFinanceLoader")
+
     def load(self):
         """從 Yahoo Finance 載入數據，參考 vectorbt 的標準化處理"""
         from datetime import datetime
@@ -88,11 +92,9 @@ class YahooFinanceLoader:
 
             # 檢查數據是否為 DataFrame 並非空
             if not isinstance(data, pd.DataFrame) or data.empty:
+                self.logger.error(f"無法獲取 '{ticker}' 的數據，可能股票代碼無效或日期範圍錯誤")
                 print(f"錯誤：無法獲取 '{ticker}' 的數據，可能股票代碼無效或日期範圍錯誤")
                 return None, frequency
-
-            # 打印原始數據結構以便診斷
-            print(f"原始數據欄位：{list(data.columns)}")
 
             # 處理可能的數據結構
             if isinstance(data, pd.Series):
@@ -107,6 +109,7 @@ class YahooFinanceLoader:
                     data.columns = [col[0] for col in data.columns]
                 data = data.reset_index()
             else:
+                self.logger.error(f"意外的數據類型 {type(data)}")
                 print(f"錯誤：意外的數據類型 {type(data)}")
                 return None, frequency
 
@@ -156,24 +159,30 @@ class YahooFinanceLoader:
                 try:
                     invalid_rows = data[['Open', 'High', 'Low', 'Close']].isna().all(axis=1)
                 except Exception as e:
+                    self.logger.warning(f"檢查無效行時出錯：{e}")
                     print(f"檢查無效行時出錯：{e}")
                     invalid_rows = None
                 if isinstance(invalid_rows, pd.Series):
                     if invalid_rows.any():
+                        self.logger.warning(f"'{ticker}' 數據包含 {invalid_rows.sum()} 個無效行，將移除")
                         print(f"警告：'{ticker}' 數據包含 {invalid_rows.sum()} 個無效行，將移除")
                         data = data[~invalid_rows]
                 else:
+                    self.logger.warning("invalid_rows 不是 Series，跳過無效行移除")
                     print("警告：invalid_rows 不是 Series，跳過無效行移除")
             else:
+                self.logger.warning("data 不是 DataFrame，跳過無效行檢查")
                 print("警告：data 不是 DataFrame，跳過無效行檢查")
 
             if not isinstance(data, pd.DataFrame) or data.empty:
+                self.logger.error(f"'{ticker}' 數據在清洗後為空")
                 print(f"錯誤：'{ticker}' 數據在清洗後為空")
                 return None, frequency
 
-            print(f"從 Yahoo Finance 載入 '{ticker}' 成功，行數：{len(data)}")
+            self.logger.info(f"從 Yahoo Finance 載入 '{ticker}' 成功，行數：{len(data)}")
             return data, frequency
 
         except Exception as e:
+            self.logger.error(f"Yahoo Finance 載入錯誤：{e}")
             print(f"Yahoo Finance 載入錯誤：{e}")
             return None, frequency

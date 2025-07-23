@@ -63,24 +63,27 @@ import numpy as np
 import os
 import openpyxl
 from .Validator_loader import DataValidator
+import logging
 
 
 class PredictorLoader:
     def __init__(self, price_data):
         """初始化 PredictorLoader，必須提供價格數據"""
         self.price_data = price_data
+        self.logger = logging.getLogger("lo2cin4bt.dataloader.PredictorLoader")
 
     def load(self):
         """載入預測因子數據，與價格數據對齊並合併"""
         try:
             # 獲取用戶輸入
-            file_path = input("請輸入預測因子 Excel/CSV/json 文件名稱（例如 D:\\lo2cin4BT\\predictors.xlsx，直接 Enter 跳過）：").strip()
+            file_path = input("請輸入預測因子 Excel/CSV/json 文件名稱（例如 D:\\lo2cin4bt\\predictors.xlsx，直接 Enter 跳過）：").strip()
             if file_path == "":
                 return "__SKIP_STATANALYSER__"
             time_format = input("請輸入時間格式（例如 %Y-%m-%d，或留空自動推斷）：").strip() or None
 
             # 檢查檔案存在
             if not os.path.exists(file_path):
+                self.logger.error(f"找不到文件 '{file_path}'")
                 print(f"錯誤：找不到文件 '{file_path}'")
                 return None
 
@@ -90,14 +93,15 @@ class PredictorLoader:
             elif file_path.endswith('.csv'):
                 data = pd.read_csv(file_path)
             else:
+                self.logger.error("僅支持 .xlsx 或 .csv 格式")
                 print("錯誤：僅支持 .xlsx 或 .csv 格式")
                 return None
-
-            print(f"載入檔案 '{file_path}' 成功，原始欄位：{list(data.columns)}")
+            self.logger.info(f"載入檔案 '{file_path}' 成功，原始欄位：{list(data.columns)}")
 
             # 標準化時間欄位
             time_col = self._identify_time_col(data.columns, file_path)
             if not time_col:
+                self.logger.error("無法確定時間欄位，程式終止")
                 print("錯誤：無法確定時間欄位，程式終止")
                 return None
 
@@ -105,36 +109,38 @@ class PredictorLoader:
             try:
                 data['Time'] = pd.to_datetime(data['Time'], format=time_format, errors='coerce')
                 if data['Time'].isna().sum() > 0:
+                    self.logger.warning(f"{data['Time'].isna().sum()} 個時間值無效，將移除")
                     print(f"警告：{data['Time'].isna().sum()} 個時間值無效，將移除")
                     print("\n以下是檔案的前幾行數據：")
                     print(data.head())
-                    print(
-                        f"\n建議：請檢查 '{file_path}' 的 'Time' 欄，確保日期格式為 YYYY-MM-DD（如 2023-01-01）或其他一致格式")
+                    print(f"\n建議：請檢查 '{file_path}' 的 'Time' 欄，確保日期格式為 YYYY-MM-DD（如 2023-01-01）或其他一致格式")
                     data = data.dropna(subset=['Time'])
             except Exception as e:
+                self.logger.error(f"時間格式轉換失敗：{e}")
                 print(f"錯誤：時間格式轉換失敗：{e}")
                 print("\n以下是檔案的前幾行數據：")
                 print(data.head())
-                print(
-                    f"\n建議：請檢查 '{file_path}' 的 'Time' 欄，確保日期格式為 YYYY-MM-DD（如 2023-01-01）或其他一致格式")
+                print(f"\n建議：請檢查 '{file_path}' 的 'Time' 欄，確保日期格式為 YYYY-MM-DD（如 2023-01-01）或其他一致格式")
                 return None
 
             # 清洗數據
             validator = DataValidator(data)
             cleaned_data = validator.validate_and_clean()
             if cleaned_data is None or cleaned_data.empty:
+                self.logger.error("資料清洗後為空")
                 print("錯誤：資料清洗後為空")
                 return None
 
             # 時間對齊與合併
             merged_data = self._align_and_merge(cleaned_data)
             if merged_data is None:
+                self.logger.error("合併數據失敗")
                 return None
-
-            print(f"合併數據成功，行數：{len(merged_data)}")
+            self.logger.info(f"合併數據成功，行數：{len(merged_data)}")
             return merged_data
 
         except Exception as e:
+            self.logger.error(f"PredictorLoader 錯誤：{e}")
             print(f"PredictorLoader 錯誤：{e}")
             return None
 
@@ -233,6 +239,7 @@ class PredictorLoader:
                 if 'Time' in price_data.columns:
                     price_data = price_data.set_index('Time')
                 else:
+                    self.logger.error("價格數據缺少 'Time' 欄位或索引")
                     print("錯誤：價格數據缺少 'Time' 欄位或索引")
                     return None
 
@@ -241,6 +248,7 @@ class PredictorLoader:
                 if 'Time' in predictor_data.columns:
                     predictor_data = predictor_data.set_index('Time')
                 else:
+                    self.logger.error("預測因子數據缺少 'Time' 欄位或索引")
                     print("錯誤：預測因子數據缺少 'Time' 欄位或索引")
                     return None
 
@@ -248,6 +256,7 @@ class PredictorLoader:
             merged = price_data.merge(predictor_data, left_index=True, right_index=True, how='inner')
 
             if merged.empty:
+                self.logger.error("價格數據與預測因子數據無時間交集，無法合併")
                 print("錯誤：價格數據與預測因子數據無時間交集，無法合併")
                 return None
 
@@ -257,5 +266,6 @@ class PredictorLoader:
             return merged
 
         except Exception as e:
+            self.logger.error(f"時間對齊與合併錯誤：{e}")
             print(f"時間對齊與合併錯誤：{e}")
             return None
