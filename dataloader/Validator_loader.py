@@ -58,17 +58,14 @@ flowchart TD
 - 專案 README
 """
 import pandas as pd
-import logging
 
 class DataValidator:
     def __init__(self, data):
         self.data = data.copy()
-        self.logger = logging.getLogger("lo2cin4bt.dataloader.DataValidator")
 
     def validate_and_clean(self):
         """驗證和清洗數據，支援動態欄位"""
         if 'Time' not in self.data.columns:
-            self.logger.warning("無 'Time' 欄位，將生成序列索引")
             print("警告：無 'Time' 欄位，將生成序列索引")
             self.data['Time'] = pd.date_range(start='2020-01-01', periods=len(self.data))
 
@@ -78,12 +75,10 @@ class DataValidator:
             if isinstance(self.data[col], (pd.Series, list, tuple)):
                 self.data[col] = pd.to_numeric(self.data[col], errors='coerce')
                 missing_ratio = self.data[col].isna().mean()
+                print(f"{col} 缺失值比例：{missing_ratio:.2%}")
                 if missing_ratio > 0:
-                    self.logger.warning(f"{col} 缺失值比例：{missing_ratio:.2%}")
-                    print(f"{col} 缺失值比例：{missing_ratio:.2%}")
                     self._handle_missing_values(col)
             else:
-                self.logger.warning(f"欄位 '{col}' 類型無效（{type(self.data[col])}），將設置為缺失值")
                 print(f"警告：欄位 '{col}' 類型無效（{type(self.data[col])}），將設置為缺失值")
                 self.data[col] = pd.Series([pd.NA] * len(self.data), index=self.data.index)
 
@@ -101,7 +96,6 @@ class DataValidator:
             try:
                 if choice == 'A':
                     self.data[col] = self.data[col].ffill()
-                    self.logger.info(f"已選擇前向填充 {col}")
                     print(f"已選擇前向填充 {col}")
                     break
                 elif choice.startswith('B,'):
@@ -111,13 +105,11 @@ class DataValidator:
                     self.data[col] = self.data[col].fillna(
                         self.data[col].rolling(window=n, min_periods=1).mean()
                     )
-                    self.logger.info(f"已選擇前 {n} 期均值填充 {col}")
                     print(f"已選擇前 {n} 期均值填充 {col}")
                     break
                 elif choice.startswith('C,'):
                     x = float(choice.split(',')[1])
                     self.data[col] = self.data[col].fillna(x)
-                    self.logger.info(f"已選擇固定值 {x} 填充 {col}")
                     print(f"已選擇固定值 {x} 填充 {col}")
                     break
                 else:
@@ -127,7 +119,6 @@ class DataValidator:
 
         remaining_nans = self.data[col].isna().sum()
         if remaining_nans > 0:
-            self.logger.warning(f"{col} 仍有 {remaining_nans} 個缺失值，將用 0 填充")
             print(f"警告：{col} 仍有 {remaining_nans} 個缺失值，將用 0 填充")
             self.data[col] = self.data[col].fillna(0)
 
@@ -136,12 +127,10 @@ class DataValidator:
         try:
             self.data['Time'] = pd.to_datetime(self.data['Time'], errors='coerce')
             if self.data['Time'].isna().sum() > 0:
-                self.logger.warning(f"{self.data['Time'].isna().sum()} 個時間值無效，將移除")
                 print(f"警告：{self.data['Time'].isna().sum()} 個時間值無效，將移除")
                 self.data = self.data.dropna(subset=['Time'])
 
             if self.data['Time'].duplicated().any():
-                self.logger.warning("'Time' 欄位有重複值，將按 Time 聚合（取平均值）")
                 print("警告：'Time' 欄位有重複值，將按 Time 聚合（取平均值）")
                 self.data = self.data.groupby('Time').mean(numeric_only=True).reset_index()
 
@@ -150,7 +139,6 @@ class DataValidator:
             self.data = self.data.sort_values('Time')
 
         except Exception as e:
-            self.logger.error(f"處理時間索引時出錯：{e}")
             print(f"處理時間索引時出錯：{e}")
             self.data['Time'] = pd.date_range(start='2020-01-01', periods=len(self.data))
             self.data = self.data.reset_index(drop=True)

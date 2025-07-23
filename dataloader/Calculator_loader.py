@@ -60,12 +60,10 @@ flowchart TD
 import pandas as pd
 import numpy as np
 from numba import jit
-import logging
 
 class ReturnCalculator:
     def __init__(self, data):
         self.data = data.copy()
-        self.logger = logging.getLogger("lo2cin4bt.dataloader.ReturnCalculator")
 
     def calculate_returns(self):
         """計算 open_return, close_return, open_logreturn, close_logreturn"""
@@ -81,7 +79,6 @@ class ReturnCalculator:
                 close_col = cand
                 break
         if open_col is None or close_col is None:
-            self.logger.error("缺少 open/Open 或 close/Close 欄位，無法計算收益率")
             print("錯誤：缺少 open/Open 或 close/Close 欄位，無法計算收益率")
             return self.data
 
@@ -97,6 +94,7 @@ class ReturnCalculator:
         self.data['open_logreturn'] = self._calc_log_return(open_prices)
         self.data['close_logreturn'] = self._calc_log_return(close_prices)
 
+        print("已計算收益率：open_return, close_return, open_logreturn, close_logreturn")
         return self.data
 
     @staticmethod

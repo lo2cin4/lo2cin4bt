@@ -127,13 +127,17 @@ def setup_logging(log_queue=None):
         root_logger.setLevel(logging.DEBUG)
         root_logger.handlers = []
         root_logger.addHandler(QueueHandler(log_queue))
-        # 移除 console_handler，讓 logger 只寫檔不顯示在終端
+        
+        # 添加控制台輸出
         # console_handler = logging.StreamHandler()
         # console_handler.setLevel(logging.INFO)
         # console_formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] [%(name)s]: %(message)s")
         # console_handler.setFormatter(console_formatter)
         # root_logger.addHandler(console_handler)
+        
+        # 記錄程式啟動
         root_logger.info("=== 程式啟動 ===")
+        # print("[DEBUG] 日誌系統已初始化")
     else:
         # 子進程只設置 QueueHandler，log_queue 必須由主進程傳入
         root_logger = logging.getLogger("lo2cin4bt")
@@ -184,7 +188,6 @@ def standardize_data_for_stats(data):
             # 處理無限值和 NaN
             for col in ['close_return', 'close_logreturn', 'open_return', 'open_logreturn']:
                 df[col] = df[col].replace([np.inf, -np.inf], np.nan).fillna(0)
-            #print("[DEBUG] 已計算收益率欄位")
         else:
             print("[DEBUG] 警告：缺少 close 欄位，無法計算收益率")
     
@@ -327,15 +330,15 @@ def main():
                 reporter = ReportGenerator()
                 reporter.save_report(results)
                 reporter.save_data(updated_data, format="csv")
-                print("[DEBUG] 統計分析完成")
+                print("統計分析完成")
                 logger.info("統計分析完成")
             # 回測
             run_backtest = 'y'
             if run_backtest == 'y':
-                print("[DEBUG] 開始回測...")
+                print("開始回測...")
                 backtester = BaseBacktester(data, frequency, logger)
                 backtester.run()
-                print("[DEBUG] 回測完成")
+                print("回測完成")
                 logger.info("回測完成")
             # 交易分析
             analyze_backtest = 'y'
@@ -425,7 +428,7 @@ def main():
             reporter = ReportGenerator()
             reporter.save_report(results)
             reporter.save_data(updated_data, format="csv")
-            print("[DEBUG] 統計分析完成")
+            print("統計分析完成")
             logger.info("統計分析完成")
         elif choice == "3":
             # 回測交易
@@ -433,13 +436,13 @@ def main():
             importer = DataImporter()
             data, frequency = importer.load_and_standardize_data()
             if data is None:
-                print("[DEBUG] 數據載入失敗，程式終止")
+                print("數據載入失敗，程式終止")
                 logger.error("數據載入失敗")
                 return
             if isinstance(data, str) and data == "__SKIP_STATANALYSER__":
                 backtester = BaseBacktester(importer.data, frequency, logger)
                 backtester.run()
-                print("[DEBUG] 回測完成")
+                print("回測完成")
                 logger.info("回測完成")
                 # 統一進入多選 parquet 分析互動
                 from metricstracker.DataImporter_metricstracker import list_parquet_files, show_parquet_files, select_files
@@ -488,10 +491,10 @@ def main():
             data, diff_cols, used_series = predictor_loader.process_difference(data, predictor_col)
             logger.info(f"差分處理完成，差分欄位：{diff_cols}")
             # 回測
-            print("[DEBUG] 開始回測...")
+            print("開始回測...")
             backtester = BaseBacktester(data, frequency, logger)
             backtester.run()
-            print("[DEBUG] 回測完成")
+            print("回測完成")
             logger.info("回測完成")
             # 交易分析
             # 統一進入多選 parquet 分析互動
@@ -540,11 +543,8 @@ def main():
             logger.info("[主選單] 可視化平台")
             try:
                 from plotter.Base_plotter import BasePlotter
-                print("[DEBUG] 導入BasePlotter成功")
                 plotter = BasePlotter(logger=logger)
-                print("[DEBUG] BasePlotter實例化完成")
                 plotter.run(host='127.0.0.1', port=8050, debug=False)
-                print("[DEBUG] plotter.run()已呼叫")
             except ImportError as e:
                 print(f"❌ 導入 plotter 模組失敗: {e}")
                 logger.error(f"導入 plotter 模組失敗: {e}")
