@@ -19,6 +19,10 @@ records/**/*.parquet
 records/**/*.csv
 records/**/*.txt
 
+# 但不要忽略資料夾和 .gitkeep
+!records/**/
+!records/**/.gitkeep
+
 # Jupyter
 .ipynb_checkpoints/
 
