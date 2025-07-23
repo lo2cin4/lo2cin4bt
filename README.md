@@ -30,6 +30,7 @@
 - 更多技術指標，包括 RSI, percentile
 - 參數平原 (Parameter plateau)
 - 穩健性測試 (Robustness Check)
+- 多個預測因子在單一策略進行回測
 - 更多數據接口
 - AI 相關功能
 > 歡迎任何 issue、建議或貢獻，一起讓 lo2cin4BT 變得更好！
@@ -38,7 +39,7 @@
 
 ## ❓ 為什麼選擇 lo2cin4BT？
 
-1. **全程無需寫程式**，只要在終端機選擇操作，超適合新手
+1. **全程無需寫程式**，只要在終端機選擇操作，加上大量提示，超適合新手
 2. **三大核心**：統計分析、回測、可視化平台一次滿足
 3. **大量中文註解**，輕鬆理解程式運作，方便二次開發
 4. **高內聚低耦合設計**，易於修改擴展
@@ -62,6 +63,30 @@
    python main.py
    ```
 7. 按照畫面指示選擇數據來源、回測參數，即可開始！
+
+---
+
+## 💻 推薦開發環境：VS Code & Cursor
+
+### 安裝 VS Code
+1. 前往 [Visual Studio Code 官方網站](https://code.visualstudio.com/) 下載並安裝 VS Code。
+2. 安裝 Python 擴充套件（Extension）：
+   - 開啟 VS Code，點選左側 Extensions（方塊圖示），搜尋「Python」並安裝。
+
+### 安裝 Cursor（AI 編輯器，可選）
+1. 前往 [Cursor 官方網站](https://www.cursor.so/) 下載並安裝 Cursor。
+2. Cursor 介面與 VS Code 幾乎一致，支援 AI 助理協作。
+
+### 用 VS Code / Cursor 開啟本專案
+1. 開啟 VS Code 或 Cursor。
+2. 點選「File」→「Open Folder...」，選擇剛剛解壓縮的專案資料夾。
+3. 建議在左側 EXPLORER 檢視所有檔案結構，右側可直接點擊 .py 檔案進行編輯。
+4. 內建終端機（Terminal）：
+   - 點選「Terminal」→「New Terminal」，即可在專案根目錄下執行 pip、python 等指令。
+
+### 執行與除錯
+- 在 VS Code/Cursor 內直接按 F5 或點選「Run」→「Start Debugging」可進行除錯。
+- 也可在內建終端機輸入 `python main.py` 直接執行。
 
 ---
 
