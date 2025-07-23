@@ -30,7 +30,7 @@
 - 更多技術指標，包括 RSI, percentile
 - 參數平原 (Parameter plateau)
 - 穩健性測試 (Robustness Check)
-- 修改 print 的位置，盡量放在各自庫內的 Base.py
+- 重新整理代碼以維持封裝，如 main 只負責記錄全域 log、調動各庫的 Base.py 和傳送資料
 - 多個預測因子在單一策略進行回測
 - 更多數據接口
 - AI 相關功能
