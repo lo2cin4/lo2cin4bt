@@ -64,7 +64,10 @@ import pandas as pd
 import yfinance as yf
 from rich.console import Console
 from rich.panel import Panel
+import sys
+import io
 console = Console()
+from dataloader.Validator_loader import print_dataframe_table
 
 
 class YahooFinanceLoader:
@@ -76,7 +79,7 @@ class YahooFinanceLoader:
         default_end = datetime.now().strftime("%Y-%m-%d")
         console.print("[bold #dbac30]請輸入股票或指數代碼（例如 TSLA，預設 TSLA）：[/bold #dbac30]")
         ticker = input().strip() or default_ticker
-        console.print("[bold #dbac30]請輸入時間間隔（例如 1d, 1h，預設 1d）：[/bold #dbac30]")
+        console.print("[bold #dbac30]輸入價格數據的周期 (例如 1d 代替日線，1h 代表 1小時線，預設 1d)：[/bold #dbac30]")
         frequency = input().strip() or "1d"
         console.print(f"[bold #dbac30]請輸入開始日期（例如 2020-01-01，預設 {default_start}）：[/bold #dbac30]")
         start_date = input().strip() or default_start
@@ -84,6 +87,9 @@ class YahooFinanceLoader:
         end_date = input().strip() or default_end
 
         try:
+            # 捕捉 yfinance 的 stderr 輸出
+            old_stderr = sys.stderr
+            sys.stderr = io.StringIO()
             # 下載數據，設置參數模仿 vectorbt
             data = yf.download(
                 ticker,
@@ -92,14 +98,21 @@ class YahooFinanceLoader:
                 auto_adjust=False,
                 progress=False
             )
+            yf_err = sys.stderr.getvalue()
+            sys.stderr = old_stderr
+
+            # 若有 Failed download 等訊息，加入 Panel 錯誤顯示
+            extra_msg = ""
+            if yf_err.strip():
+                extra_msg = f"\n[red]{yf_err.strip()}[/red]"
 
             # 檢查數據是否為 DataFrame 並非空
             if not isinstance(data, pd.DataFrame) or data.empty:
-                console.print(Panel(f"❌ 無法獲取 '{ticker}' 的數據，可能股票代碼無效或日期範圍錯誤。", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
+                console.print(Panel(f"❌ 無法獲取 '{ticker}' 的數據，可能股票代碼無效或日期範圍錯誤。{extra_msg}", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
                 return None, frequency
 
             # 打印原始數據結構以便診斷
-            console.print(Panel(f"原始數據欄位：{list(data.columns)}", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#dbac30"))
+            print_dataframe_table(data.head(), title="原始數據預覽（前5行）")
 
             # 處理可能的數據結構
             if isinstance(data, pd.Series):

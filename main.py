@@ -249,7 +249,11 @@ def main():
         )
     )
     console.print("[bold #dbac30]請選擇要執行的功能（1, 2, 3, 4, 5，預設1）：[/bold #dbac30]")
-    choice = input().strip() or "1"
+    while True:
+        choice = input().strip() or "1"
+        if choice in ["1", "2", "3", "4", "5"]:
+            break
+        console.print(Panel("❌ 無效選擇，請重新輸入 1~5。", title="[bold #8f1511]🏁 主選單[/bold #8f1511]", border_style="#8f1511"))
 
     try:
         if choice == "1":
@@ -312,6 +316,16 @@ def main():
                 return
             # 只有在不是 __SKIP_STATANALYSER__ 時才呼叫 select_predictor_factor
             logger.info(f"數據載入成功，形狀：{data.shape}，頻率：{frequency}")
+            console.print(Panel(
+                "請選擇要差分的預測因子（預設 X）\n\n"
+                "[差分說明]\n"
+                "差分（Differencing）是時間序列分析常用的預處理方法，\n"
+                "可以消除數據中的趨勢與季節性，讓資料更穩定，有助於提升統計檢定與回測策略的準確性。\n"
+                "例如：原始因子有明顯上升趨勢時，差分後可專注於變化幅度，避免誤判因子與報酬的關聯。\n\n"
+                "選擇你想要進行差分處理的預測因子，系統會自動產生差分欄位供後續分析選用。",
+                title="[bold #dbac30]🧮 差分處理說明[/bold #dbac30]",
+                border_style="#dbac30"
+            ))
             predictor_col = select_predictor_factor(data)
             predictor_loader = PredictorLoader(data)
             data, diff_cols, used_series = predictor_loader.process_difference(data, predictor_col)
@@ -572,8 +586,7 @@ def main():
                 print(f"❌ 可視化平台啟動失敗: {e}")
                 logger.error(f"可視化平台啟動失敗: {e}")
         else:
-            print("無效選擇，請重新啟動程式。")
-            logger.error("無效選擇，程式終止")
+            pass
     except Exception as e:
         print(f"[DEBUG] 程式執行過程中發生錯誤：{e}")
         logger.error(f"程式執行錯誤：{e}")

@@ -74,7 +74,7 @@ class BinanceLoader:
         """從 Binance API 載入數據"""
         console.print("[bold #dbac30]請輸入交易對（例如 BTCUSDT，預設 BTCUSDT）：[/bold #dbac30]")
         symbol = input().strip() or "BTCUSDT"
-        console.print("[bold #dbac30]請輸入時間間隔（例如 1d, 1h，預設 1d）：[/bold #dbac30]")
+        console.print("[bold #dbac30]輸入價格數據的周期 (例如 1d 代替日線，1h 代表 1小時線，預設 1d)：[/bold #dbac30]")
         interval = input().strip() or "1d"
         
         # 預設開始日期為 2020-01-01，結束日期為運行當日

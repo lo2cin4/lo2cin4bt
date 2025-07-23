@@ -67,6 +67,7 @@ from .Calculator_loader import ReturnCalculator  # 自定義模組：計算收�
 from .DataExporter_loader import DataExporter  # 自定義模組：導出數據為 CSV/XLSX/JSON
 from rich.console import Console
 from rich.panel import Panel
+from dataloader.Validator_loader import print_dataframe_table
 console = Console()
 
 class DataLoader:
@@ -102,16 +103,8 @@ class DataLoader:
             self.data, self.frequency = loader.load()
             if self.data is not None:
                 break
-            console.print(Panel("[bold #8f1511]價格數據載入失敗，請重新選擇數據來源與輸入參數。[/bold #8f1511]", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
-            console.print("[bold white]請選擇價格數據來源：[/bold white]")
-            console.print("[white]1. Excel/CSV 文件\n2. Yahoo Finance\n3. Binance API[/white]")
-            while True:
-                console.print("[bold #dbac30]輸入你的選擇（1, 2, 3）：[/bold #dbac30]")
-                choice = input().strip()
-                if choice in ['1', '2', '3']:
-                    self.source = choice
-                    break
-                console.print("[bold #8f1511]錯誤：請輸入 1, 2 或 3。[/bold #8f1511]")
+            # 若 loader 回傳 (None, None)，直接回到數據來源選擇
+            return self.load_data()
         # 驗證和清洗價格數據
         validator = DataValidator(self.data)
         self.data = validator.validate_and_clean()
@@ -123,7 +116,7 @@ class DataLoader:
         self.data = calculator.calculate_returns()
         price_data = self.data
         # 價格數據載入完成 Panel
-        console.print(Panel("[bold #dbac30]價格數據載入完成，概覽：[/bold #dbac30]\n" + str(self.data.head()), title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#dbac30"))
+        print_dataframe_table(self.data.head(), title="價格數據載入完成，概覽")
         # 載入預測因子數據
         predictor_loader = PredictorLoader(price_data=price_data)
         predictor_data = predictor_loader.load()
@@ -143,7 +136,7 @@ class DataLoader:
             console.print(Panel("[bold #8f1511]合併數據清洗失敗，程式終止[/bold #8f1511]", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
             return None
         # 最終數據載入完成 Panel
-        console.print(Panel("[bold #dbac30]最終數據（價格與預測因子）載入完成，概覽：[/bold #dbac30]\n" + str(self.data.head()), title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#dbac30"))
+        print_dataframe_table(self.data.head(), title="最終數據（價格與預測因子）載入完成，概覽")
         # 提示導出數據
         console.print("[bold #dbac30]\n是否導出合併後數據(xlsx/csv/json)？(y/n，預設n)：[/bold #dbac30]")
         export_choice = input().strip().lower() or 'n'

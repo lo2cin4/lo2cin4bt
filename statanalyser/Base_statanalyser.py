@@ -61,12 +61,15 @@ import pandas as pd
 import numpy as np
 from abc import ABC, abstractmethod
 from typing import Tuple,Dict
+from rich.console import Console
+from rich.panel import Panel
+console = Console()
 
 class BaseStatAnalyser(ABC):
     """統計分析基類，處理數據輸入與公共方法"""
 
     @staticmethod
-    def select_predictor_factor(data, default_factor=None):
+    def select_predictor_factor(data, default_factor=None, for_diff=False):
         """
         讓用戶選擇要用於統計分析的預測因子
         """
@@ -77,13 +80,18 @@ class BaseStatAnalyser(ABC):
             default = default_factor
         else:
             default = available_factors[0]
-        print(f"\n可用預測因子欄位：{available_factors}")
+        console.print(Panel(f"可用預測因子欄位：{available_factors}", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#dbac30"))
+        if for_diff:
+            msg = f"請選擇要用來進行差分處理的預測因子（預設 {default}）\n差分的目的是讓資料更平穩，減少趨勢對統計分析的干擾。"
+        else:
+            msg = f"請選擇要用於統計分析的預測因子（預設 {default}）\n（可選擇剛剛產生的差分欄位）"
         while True:
-            selected_factor = input(f"請選擇要用於統計分析的預測因子（預設 {default}）：").strip() or default
+            console.print(f"[bold #dbac30]{msg}[/bold #dbac30]")
+            selected_factor = input().strip() or default
             if selected_factor not in available_factors:
-                print(f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}）")
+                console.print(Panel(f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}）", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
                 continue
-            print(f"已選擇預測因子: {selected_factor}")
+            console.print(Panel(f"已選擇預測因子: {selected_factor}", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#dbac30"))
             return selected_factor
 
     @classmethod

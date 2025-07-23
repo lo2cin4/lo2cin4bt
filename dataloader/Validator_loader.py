@@ -63,6 +63,17 @@ from rich.panel import Panel
 from rich.table import Table
 console = Console()
 
+def print_dataframe_table(df, title=None):
+    table = Table(title=title, show_lines=True, border_style="#dbac30")
+    for col in df.columns:
+        table.add_column(str(col), style="bold white")
+    for _, row in df.iterrows():
+        table.add_row(*[
+            f"[#1e90ff]{v}[/#1e90ff]" if isinstance(v, (int, float, complex)) and not isinstance(v, bool) else str(v)
+            for v in row
+        ])
+    console.print(table)
+
 class DataValidator:
     def __init__(self, data):
         self.data = data.copy()
@@ -75,20 +86,11 @@ class DataValidator:
 
         # 動態識別數值欄位（排除 Time）
         numeric_cols = [col for col in self.data.columns if col != 'Time']
-        missing_table = Table(title="缺失值比例", show_lines=True, border_style="#dbac30")
-        missing_table.add_column("欄位", style="bold white")
-        missing_table.add_column("缺失值比例", style="#1e90ff")
-        for col in numeric_cols:
-            if isinstance(self.data[col], (pd.Series, list, tuple)):
-                self.data[col] = pd.to_numeric(self.data[col], errors='coerce')
-                missing_ratio = self.data[col].isna().mean()
-                missing_table.add_row(col, f"{missing_ratio:.2%}")
-                if missing_ratio > 0:
-                    self._handle_missing_values(col)
-            else:
-                console.print(Panel(f"警告：欄位 '{col}' 類型無效（{type(self.data[col])}），將設置為缺失值", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
-                self.data[col] = pd.Series([pd.NA] * len(self.data), index=self.data.index)
-        console.print(missing_table)
+        missing_df = pd.DataFrame({
+            '欄位': numeric_cols,
+            '缺失值比例': [f"{self.data[col].isna().mean():.2%}" for col in numeric_cols]
+        })
+        print_dataframe_table(missing_df)
 
         self._handle_time_index()
         return self.data

@@ -60,6 +60,10 @@ flowchart TD
 import pandas as pd  # 用於數據處理和導出為 CSV、JSON、XLSX
 import os  # 用於檔案路徑操作（本例中未直接使用，但可能用於後續擴展）
 import openpyxl  # 用於 Excel 文件寫入（to_excel 方法需要）
+from rich.console import Console
+from rich.panel import Panel
+from dataloader.Validator_loader import print_dataframe_table
+console = Console()
 
 class DataExporter:
     def __init__(self, data):
@@ -73,39 +77,39 @@ class DataExporter:
     def export(self):
         """交互式導出數據為 JSON, CSV 或 XLSX，統一導出到 records 目錄"""
         try:
-            print("\n=== 數據導出 ===")
-            print("請選擇導出格式：")
-            print("1. CSV")
-            print("2. XLSX (Excel)")
-            print("3. JSON")
+            console.print(Panel("💾 數據導出", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#dbac30"))
+            console.print("[bold #dbac30]請選擇導出格式：[/bold #dbac30]")
+            console.print("[bold white]1. CSV\n2. XLSX (Excel)\n3. JSON[/bold white]")
             while True:
-                choice = input("輸入你的選擇（1, 2, 3）：").strip()
+                console.print("[bold #dbac30]輸入你的選擇（1, 2, 3）：[/bold #dbac30]")
+                choice = input().strip()
                 if choice in ['1', '2', '3']:
                     break
-                print("錯誤：請輸入 1, 2 或 3。")
+                console.print(Panel("❌ 錯誤：請輸入 1, 2 或 3。", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
 
             # 獲取輸出檔案名稱
             default_name = "output_data"
-            file_name = input(f"請輸入輸出檔案名稱（預設：{default_name}，不含副檔名）：").strip() or default_name
+            console.print(f"[bold #dbac30]請輸入輸出檔案名稱（預設：{default_name}，不含副檔名）：[/bold #dbac30]")
+            file_name = input().strip() or default_name
 
             # 統一導出到 records 目錄
-            records_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "records")
+            records_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "records", "dataloader")
             os.makedirs(records_dir, exist_ok=True)
 
             if choice == '1':
                 file_path = os.path.join(records_dir, f"{file_name}.csv")
                 self.data.to_csv(file_path, index=False)
-                print(f"數據成功導出為 CSV：{file_path}")
+                console.print(Panel(f"✅ 數據成功導出為 CSV：{file_path}", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="green"))
             elif choice == '2':
                 file_path = os.path.join(records_dir, f"{file_name}.xlsx")
                 self.data.to_excel(file_path, index=False, engine='openpyxl')
-                print(f"數據成功導出為 XLSX：{file_path}")
+                console.print(Panel(f"✅ 數據成功導出為 XLSX：{file_path}", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="green"))
             else:
                 file_path = os.path.join(records_dir, f"{file_name}.json")
                 self.data.to_json(file_path, orient='records', lines=True, date_format='iso')
-                print(f"數據成功導出為 JSON：{file_path}")
+                console.print(Panel(f"✅ 數據成功導出為 JSON：{file_path}", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="green"))
 
         except PermissionError:
-            print(f"錯誤：無法寫入檔案 '{file_path}'，請檢查權限或關閉已開啟的檔案")
+            console.print(Panel(f"❌ 錯誤：無法寫入檔案 '{file_path}'，請檢查權限或關閉已開啟的檔案", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="red"))
         except Exception as e:
-            print(f"數據導出錯誤：{e}")
+            console.print(Panel(f"❌ 數據導出錯誤：{e}", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="red"))

@@ -82,7 +82,7 @@ class ReturnCalculator:
                 close_col = cand
                 break
         if open_col is None or close_col is None:
-            print("錯誤：缺少 open/Open 或 close/Close 欄位，無法計算收益率")
+            console.print(Panel("❌ 錯誤：缺少 open/Open 或 close/Close 欄位，無法計算收益率", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
             return self.data
 
         # 使用 numpy 向量化計算
