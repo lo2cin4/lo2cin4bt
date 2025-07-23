@@ -65,6 +65,9 @@ from .Predictor_loader import PredictorLoader  # 自定義模組：載入預測�
 from .Validator_loader import DataValidator  # 自定義模組：驗證和清洗數據
 from .Calculator_loader import ReturnCalculator  # 自定義模組：計算收益率
 from .DataExporter_loader import DataExporter  # 自定義模組：導出數據為 CSV/XLSX/JSON
+from rich.console import Console
+from rich.panel import Panel
+console = Console()
 
 class DataLoader:
     def __init__(self):
@@ -75,32 +78,19 @@ class DataLoader:
         self.source = None  # 記錄價格數據來源（1: 文件, 2: Yahoo Finance, 3: Binance）
 
     def load_data(self):
-        """交互式載入價格與預測因子數據，並提示問題
-        使用模組:
-            - pandas (pd): 數據處理和概覽顯示
-            - FileLoader: 從文件載入價格數據
-            - YahooFinanceLoader: 從 Yahoo Finance 載入價格數據
-            - BinanceLoader: 從 Binance API 載入價格數據
-            - PredictorLoader: 載入預測因子數據
-            - DataValidator: 驗證和清洗數據
-            - ReturnCalculator: 計算收益率
-            - DataExporter: 導出最終數據
-        返回: pandas DataFrame 或 None（若載入失敗）
-        """
-        print("\n=== 數據載入 ===")
-
-        # 選擇價格數據來源
-        print("請選擇價格數據來源：")
-        print("1. Excel/CSV 文件")
-        print("2. Yahoo Finance")
-        print("3. Binance API")
+        # 數據來源選單 Panel
+        console.print(Panel(
+            "[bold white]請選擇價格數據來源：\n1. Excel/CSV 文件\n2. Yahoo Finance\n3. Binance API[/bold white]",
+            title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+            border_style="#dbac30"
+        ))
         while True:
-            choice = input("輸入你的選擇（1, 2, 3）：").strip()  # 標準 Python 輸入
+            console.print("[bold #dbac30]輸入你的選擇（1, 2, 3）：[/bold #dbac30]")
+            choice = input().strip()
             if choice in ['1', '2', '3']:
                 self.source = choice
                 break
-            print("錯誤：請輸入 1, 2 或 3。")
-
+            console.print("[bold #8f1511]錯誤：請輸入 1, 2 或 3。[/bold #8f1511]")
         # 載入價格數據
         while True:
             if self.source == '1':
@@ -109,40 +99,34 @@ class DataLoader:
                 loader = YahooFinanceLoader()
             else:
                 loader = BinanceLoader()
-
             self.data, self.frequency = loader.load()
             if self.data is not None:
                 break
-            print("價格數據載入失敗，請重新選擇數據來源與輸入參數。\n")
-            print("請選擇價格數據來源：")
-            print("1. Excel/CSV 文件")
-            print("2. Yahoo Finance")
-            print("3. Binance API")
+            console.print(Panel("[bold #8f1511]價格數據載入失敗，請重新選擇數據來源與輸入參數。[/bold #8f1511]", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
+            console.print("[bold white]請選擇價格數據來源：[/bold white]")
+            console.print("[white]1. Excel/CSV 文件\n2. Yahoo Finance\n3. Binance API[/white]")
             while True:
-                choice = input("輸入你的選擇（1, 2, 3）：").strip()
+                console.print("[bold #dbac30]輸入你的選擇（1, 2, 3）：[/bold #dbac30]")
+                choice = input().strip()
                 if choice in ['1', '2', '3']:
                     self.source = choice
                     break
-                print("錯誤：請輸入 1, 2 或 3。")
-
+                console.print("[bold #8f1511]錯誤：請輸入 1, 2 或 3。[/bold #8f1511]")
         # 驗證和清洗價格數據
-        validator = DataValidator(self.data)  # 使用 DataValidator 模組驗證數據
-        self.data = validator.validate_and_clean()  # 調用 validate_and_clean 方法清洗數據
+        validator = DataValidator(self.data)
+        self.data = validator.validate_and_clean()
         if self.data is None:
-            print("價格數據清洗失敗，程式終止")
+            console.print(Panel("[bold #8f1511]價格數據清洗失敗，程式終止[/bold #8f1511]", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
             return None
-
         # 計算收益率
-        calculator = ReturnCalculator(self.data)  # 使用 ReturnCalculator 模組計算收益率
-        self.data = calculator.calculate_returns()  # 調用 calculate_returns 方法更新數據
-        price_data = self.data  # 儲存價格數據副本以供後續使用
-
-        print("\n價格數據載入完成，概覽：")
-        print(self.data.head())  # 使用 pandas 的 head 方法顯示數據前幾行
-
+        calculator = ReturnCalculator(self.data)
+        self.data = calculator.calculate_returns()
+        price_data = self.data
+        # 價格數據載入完成 Panel
+        console.print(Panel("[bold #dbac30]價格數據載入完成，概覽：[/bold #dbac30]\n" + str(self.data.head()), title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#dbac30"))
         # 載入預測因子數據
-        predictor_loader = PredictorLoader(price_data=price_data)  # 使用 PredictorLoader 模組載入預測因子
-        predictor_data = predictor_loader.load()  # 調用 load 方法合併預測因子數據
+        predictor_loader = PredictorLoader(price_data=price_data)
+        predictor_data = predictor_loader.load()
         if isinstance(predictor_data, str) and predictor_data == "__SKIP_STATANALYSER__":
             if not hasattr(self, "frequency") or self.frequency is None:
                 self.frequency = "1d"
@@ -150,23 +134,20 @@ class DataLoader:
         elif predictor_data is not None:
             self.data = predictor_data
         else:
-            print("未載入預測因子，僅使用價格數據。")
+            console.print(Panel("[bold #8f1511]未載入預測因子，僅使用價格數據。[/bold #8f1511]", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
             self.data = price_data
-
         # 重新驗證合併數據
-        validator = DataValidator(self.data)  # 使用 DataValidator 模組驗證合併數據
-        self.data = validator.validate_and_clean()  # 再次調用 validate_and_clean 方法
+        validator = DataValidator(self.data)
+        self.data = validator.validate_and_clean()
         if self.data is None:
-            print("合併數據清洗失敗，程式終止")
+            console.print(Panel("[bold #8f1511]合併數據清洗失敗，程式終止[/bold #8f1511]", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
             return None
-
-        print("\n最終數據（價格與預測因子）載入完成，概覽：")
-        print(self.data.head())  # 使用 pandas 的 head 方法顯示最終數據概覽
-
+        # 最終數據載入完成 Panel
+        console.print(Panel("[bold #dbac30]最終數據（價格與預測因子）載入完成，概覽：[/bold #dbac30]\n" + str(self.data.head()), title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#dbac30"))
         # 提示導出數據
-        export_choice = input("\n是否導出合併後數據(xlsx/csv/json)？(y/n，預設n)：").strip().lower() or 'n'
+        console.print("[bold #dbac30]\n是否導出合併後數據(xlsx/csv/json)？(y/n，預設n)：[/bold #dbac30]")
+        export_choice = input().strip().lower() or 'n'
         if export_choice == 'y':
-            exporter = DataExporter(self.data)  # 使用 DataExporter 模組導出數據
-            exporter.export()  # 調用 export 方法交互式導出數據
-
+            exporter = DataExporter(self.data)
+            exporter.export()
         return self.data

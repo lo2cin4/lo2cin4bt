@@ -60,6 +60,9 @@ flowchart TD
 import pandas as pd
 import numpy as np
 from numba import jit
+from rich.console import Console
+from rich.panel import Panel
+console = Console()
 
 class ReturnCalculator:
     def __init__(self, data):
@@ -93,8 +96,7 @@ class ReturnCalculator:
         # 計算對數收益率
         self.data['open_logreturn'] = self._calc_log_return(open_prices)
         self.data['close_logreturn'] = self._calc_log_return(close_prices)
-
-        print("已計算收益率：open_return, close_return, open_logreturn, close_logreturn")
+        console.print(Panel("已計算收益率：open_return, close_return, open_logreturn, close_logreturn", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#dbac30"))
         return self.data
 
     @staticmethod

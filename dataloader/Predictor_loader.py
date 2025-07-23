@@ -63,6 +63,9 @@ import numpy as np
 import os
 import openpyxl
 from .Validator_loader import DataValidator
+from rich.console import Console
+from rich.panel import Panel
+console = Console()
 
 
 class PredictorLoader:
@@ -73,57 +76,54 @@ class PredictorLoader:
     def load(self):
         """載入預測因子數據，與價格數據對齊並合併"""
         try:
-            # 獲取用戶輸入
-            file_path = input("請輸入預測因子 Excel/CSV/json 文件名稱（例如 D:\\lo2cin4BT\\predictors.xlsx，直接 Enter 跳過）：").strip()
+            console.print("[bold #dbac30]請輸入預測因子 Excel/CSV/json 文件名稱（例如 D:\\lo2cin4BT\\predictors.xlsx，直接 Enter 跳過）：[/bold #dbac30]")
+            file_path = input().strip()
             if file_path == "":
                 return "__SKIP_STATANALYSER__"
-            time_format = input("請輸入時間格式（例如 %Y-%m-%d，或留空自動推斷）：").strip() or None
+            console.print("[bold #dbac30]請輸入時間格式（例如 %Y-%m-%d，或留空自動推斷）：[/bold #dbac30]")
+            time_format = input().strip() or None
 
             # 檢查檔案存在
             if not os.path.exists(file_path):
-                print(f"錯誤：找不到文件 '{file_path}'")
+                console.print(Panel(f"❌ 找不到文件 '{file_path}'", title="[bold #8f1511]🧑‍💻 PredictorLoader[/bold #8f1511]", border_style="#8f1511"))
                 return None
 
             # 讀取檔案
             if file_path.endswith('.xlsx'):
+                import pandas as pd
                 data = pd.read_excel(file_path, engine='openpyxl')
             elif file_path.endswith('.csv'):
+                import pandas as pd
                 data = pd.read_csv(file_path)
             else:
-                print("錯誤：僅支持 .xlsx 或 .csv 格式")
+                console.print(Panel("❌ 僅支持 .xlsx 或 .csv 格式", title="[bold #8f1511]🧑‍💻 PredictorLoader[/bold #8f1511]", border_style="#8f1511"))
                 return None
 
-            print(f"載入檔案 '{file_path}' 成功，原始欄位：{list(data.columns)}")
+            console.print(Panel(f"載入檔案 '{file_path}' 成功，原始欄位：{list(data.columns)}", title="[bold #8f1511]🧑‍💻 PredictorLoader[/bold #8f1511]", border_style="#dbac30"))
 
             # 標準化時間欄位
             time_col = self._identify_time_col(data.columns, file_path)
             if not time_col:
-                print("錯誤：無法確定時間欄位，程式終止")
+                console.print(Panel("❌ 無法確定時間欄位，程式終止", title="[bold #8f1511]🧑‍💻 PredictorLoader[/bold #8f1511]", border_style="#8f1511"))
                 return None
 
             data = data.rename(columns={time_col: 'Time'})
             try:
+                import pandas as pd
                 data['Time'] = pd.to_datetime(data['Time'], format=time_format, errors='coerce')
                 if data['Time'].isna().sum() > 0:
-                    print(f"警告：{data['Time'].isna().sum()} 個時間值無效，將移除")
-                    print("\n以下是檔案的前幾行數據：")
-                    print(data.head())
-                    print(
-                        f"\n建議：請檢查 '{file_path}' 的 'Time' 欄，確保日期格式為 YYYY-MM-DD（如 2023-01-01）或其他一致格式")
+                    console.print(Panel(f"⚠️ {data['Time'].isna().sum()} 個時間值無效，將移除\n以下是檔案的前幾行數據：\n{data.head()}\n建議：請檢查 '{file_path}' 的 'Time' 欄，確保日期格式為 YYYY-MM-DD（如 2023-01-01）或其他一致格式", title="[bold #8f1511]🧑‍💻 PredictorLoader[/bold #8f1511]", border_style="#8f1511"))
                     data = data.dropna(subset=['Time'])
             except Exception as e:
-                print(f"錯誤：時間格式轉換失敗：{e}")
-                print("\n以下是檔案的前幾行數據：")
-                print(data.head())
-                print(
-                    f"\n建議：請檢查 '{file_path}' 的 'Time' 欄，確保日期格式為 YYYY-MM-DD（如 2023-01-01）或其他一致格式")
+                console.print(Panel(f"❌ 時間格式轉換失敗：{e}\n以下是檔案的前幾行數據：\n{data.head()}\n建議：請檢查 '{file_path}' 的 'Time' 欄，確保日期格式為 YYYY-MM-DD（如 2023-01-01）或其他一致格式", title="[bold #8f1511]🧑‍💻 PredictorLoader[/bold #8f1511]", border_style="#8f1511"))
                 return None
 
             # 清洗數據
+            from .Validator_loader import DataValidator
             validator = DataValidator(data)
             cleaned_data = validator.validate_and_clean()
             if cleaned_data is None or cleaned_data.empty:
-                print("錯誤：資料清洗後為空")
+                console.print(Panel("❌ 資料清洗後為空", title="[bold #8f1511]🧑‍💻 PredictorLoader[/bold #8f1511]", border_style="#8f1511"))
                 return None
 
             # 時間對齊與合併
@@ -131,11 +131,11 @@ class PredictorLoader:
             if merged_data is None:
                 return None
 
-            print(f"合併數據成功，行數：{len(merged_data)}")
+            console.print(Panel(f"合併數據成功，行數：{len(merged_data)}", title="[bold #8f1511]🧑‍💻 PredictorLoader[/bold #8f1511]", border_style="#dbac30"))
             return merged_data
 
         except Exception as e:
-            print(f"PredictorLoader 錯誤：{e}")
+            console.print(Panel(f"❌ PredictorLoader 錯誤：{e}", title="[bold #8f1511]🧑‍💻 PredictorLoader[/bold #8f1511]", border_style="#8f1511"))
             return None
 
     def get_diff_options(self, series):

@@ -62,6 +62,9 @@ flowchart TD
 """
 import pandas as pd
 import yfinance as yf
+from rich.console import Console
+from rich.panel import Panel
+console = Console()
 
 
 class YahooFinanceLoader:
@@ -71,10 +74,14 @@ class YahooFinanceLoader:
         default_ticker = "TSLA"
         default_start = "2020-01-01"
         default_end = datetime.now().strftime("%Y-%m-%d")
-        ticker = input(f"請輸入股票或指數代碼（例如 TSLA，預設 {default_ticker}）：").strip() or default_ticker
-        frequency = input("請輸入時間間隔（例如 1d, 1h，預設 1d）：").strip() or "1d"
-        start_date = input(f"請輸入開始日期（例如 2020-01-01，預設 {default_start}）：").strip() or default_start
-        end_date = input(f"請輸入結束日期（例如 2024-12-31，預設 {default_end}）：").strip() or default_end
+        console.print("[bold #dbac30]請輸入股票或指數代碼（例如 TSLA，預設 TSLA）：[/bold #dbac30]")
+        ticker = input().strip() or default_ticker
+        console.print("[bold #dbac30]請輸入時間間隔（例如 1d, 1h，預設 1d）：[/bold #dbac30]")
+        frequency = input().strip() or "1d"
+        console.print(f"[bold #dbac30]請輸入開始日期（例如 2020-01-01，預設 {default_start}）：[/bold #dbac30]")
+        start_date = input().strip() or default_start
+        console.print(f"[bold #dbac30]請輸入結束日期（例如 2024-12-31，預設 {default_end}）：[/bold #dbac30]")
+        end_date = input().strip() or default_end
 
         try:
             # 下載數據，設置參數模仿 vectorbt
@@ -88,11 +95,11 @@ class YahooFinanceLoader:
 
             # 檢查數據是否為 DataFrame 並非空
             if not isinstance(data, pd.DataFrame) or data.empty:
-                print(f"錯誤：無法獲取 '{ticker}' 的數據，可能股票代碼無效或日期範圍錯誤")
+                console.print(Panel(f"❌ 無法獲取 '{ticker}' 的數據，可能股票代碼無效或日期範圍錯誤。", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
                 return None, frequency
 
             # 打印原始數據結構以便診斷
-            print(f"原始數據欄位：{list(data.columns)}")
+            console.print(Panel(f"原始數據欄位：{list(data.columns)}", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#dbac30"))
 
             # 處理可能的數據結構
             if isinstance(data, pd.Series):
@@ -107,7 +114,7 @@ class YahooFinanceLoader:
                     data.columns = [col[0] for col in data.columns]
                 data = data.reset_index()
             else:
-                print(f"錯誤：意外的數據類型 {type(data)}")
+                console.print(Panel(f"❌ 意外的數據型別 {type(data)}", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
                 return None, frequency
 
             # 標準化欄位名稱（首字大寫）
@@ -133,7 +140,7 @@ class YahooFinanceLoader:
             required_cols = ['Time', 'Open', 'High', 'Low', 'Close', 'Volume']
             missing_cols = [col for col in required_cols if col not in data.columns]
             if missing_cols:
-                print(f"警告：缺少欄位 {missing_cols}，將設置為缺失值")
+                console.print(Panel(f"⚠️ 缺少欄位 {missing_cols}，將設為缺失值", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
                 for col in missing_cols:
                     data[col] = pd.NA
 
@@ -143,12 +150,12 @@ class YahooFinanceLoader:
             # 驗證並轉換數值欄位
             for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
                 if not isinstance(data[col], pd.Series):
-                    print(f"警告：欄位 '{col}' 不是 Series，類型為 {type(data[col])}，轉為 Series")
+                    console.print(Panel(f"⚠️ 欄位 '{col}' 不是 Series，型別為 {type(data[col])}，轉為 Series", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
                     data[col] = pd.Series(data[col], index=data.index)
                 try:
                     data[col] = pd.to_numeric(data[col], errors='coerce')
                 except Exception as e:
-                    print(f"警告：無法轉換欄位 '{col}' 為數值：{e}")
+                    console.print(Panel(f"⚠️ 無法轉換欄位 '{col}' 為數值：{e}", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
                     data[col] = pd.NA
 
             # 檢查數據有效性（大寫欄位）
@@ -156,24 +163,24 @@ class YahooFinanceLoader:
                 try:
                     invalid_rows = data[['Open', 'High', 'Low', 'Close']].isna().all(axis=1)
                 except Exception as e:
-                    print(f"檢查無效行時出錯：{e}")
+                    console.print(Panel(f"檢查無效行時出錯：{e}", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
                     invalid_rows = None
                 if isinstance(invalid_rows, pd.Series):
                     if invalid_rows.any():
-                        print(f"警告：'{ticker}' 數據包含 {invalid_rows.sum()} 個無效行，將移除")
+                        console.print(Panel(f"⚠️ '{ticker}' 數據包含 {invalid_rows.sum()} 個無效行，將移除", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
                         data = data[~invalid_rows]
                 else:
-                    print("警告：invalid_rows 不是 Series，跳過無效行移除")
+                    console.print(Panel("⚠️ invalid_rows 不是 Series，跳過無效行移除", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
             else:
-                print("警告：data 不是 DataFrame，跳過無效行檢查")
+                console.print(Panel("⚠️ data 不是 DataFrame，跳過無效行檢查", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
 
             if not isinstance(data, pd.DataFrame) or data.empty:
-                print(f"錯誤：'{ticker}' 數據在清洗後為空")
+                console.print(Panel(f"❌ '{ticker}' 數據在清洗後為空", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
                 return None, frequency
 
-            print(f"從 Yahoo Finance 載入 '{ticker}' 成功，行數：{len(data)}")
+            console.print(Panel(f"從 Yahoo Finance 載入 '{ticker}' 成功，行數：{len(data)}", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#dbac30"))
             return data, frequency
 
         except Exception as e:
-            print(f"Yahoo Finance 載入錯誤：{e}")
+            console.print(Panel(f"❌ Yahoo Finance 載入錯誤：{e}", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
             return None, frequency

@@ -62,6 +62,9 @@ flowchart TD
 import pandas as pd  # 用於讀取 Excel/CSV 文件、數據處理（如重命名欄位、填充缺失值）
 import os  # 用於檢查文件是否存在（os.path.exists）
 import openpyxl  # 用於支持 Excel 文件讀取（pd.read_excel 的引擎）
+from rich.console import Console
+from rich.panel import Panel
+console = Console()
 
 class FileLoader:
     def load(self):
@@ -74,12 +77,14 @@ class FileLoader:
         返回: pandas DataFrame 或 None（若載入失敗）
         """
         while True:
-            file_name = input("請輸入文件名稱（例如 data.xlsx 或 data.csv）：").strip()
-            frequency = input("請輸入時間間隔（例如 1d, 1h，預設 1d）：").strip() or "1d"
+            console.print("[bold #dbac30]請輸入文件名稱（例如 data.xlsx 或 data.csv）：[/bold #dbac30]")
+            file_name = input().strip()
+            console.print("[bold #dbac30]請輸入時間間隔（例如 1d, 1h，預設 1d）：[/bold #dbac30]")
+            frequency = input().strip() or "1d"
             try:
                 # 檢查文件是否存在
                 if not os.path.exists(file_name):  # 使用 os 模組檢查文件路徑
-                    print(f"錯誤：找不到文件 '{file_name}'")
+                    console.print(Panel(f"❌ 找不到文件 '{file_name}'", title="[bold #8f1511]📁 FileLoader[/bold #8f1511]", border_style="#8f1511"))
                     continue
                 # 根據文件擴展名選擇讀取方式
                 if file_name.endswith('.xlsx'):
@@ -87,15 +92,15 @@ class FileLoader:
                 elif file_name.endswith('.csv'):
                     data = pd.read_csv(file_name)  # 使用 pandas 的 read_csv
                 else:
-                    print("錯誤：僅支援 .xlsx 或 .csv 文件")
+                    console.print(Panel("❌ 僅支援 .xlsx 或 .csv 文件", title="[bold #8f1511]📁 FileLoader[/bold #8f1511]", border_style="#8f1511"))
                     continue
 
                 # 標準化欄位名稱
                 data = self._standardize_columns(data)  # 調用內部方法，依賴 pandas
-                print(f"數據加載成功，行數：{len(data)}")  # 使用標準 Python 的 len 函數
+                console.print(Panel(f"數據加載成功，行數：{len(data)}", title="[bold #8f1511]📁 FileLoader[/bold #8f1511]", border_style="#dbac30"))  # 使用標準 Python 的 len 函數
                 return data, frequency
             except Exception as e:
-                print(f"讀取文件時出錯：{e}")  # 標準 Python 異常處理
+                console.print(Panel(f"❌ 讀取文件時出錯：{e}", title="[bold #8f1511]📁 FileLoader[/bold #8f1511]", border_style="#8f1511"))  # 標準 Python 異常處理
 
     def _standardize_columns(self, data):
         """將數據欄位標準化為 Time, Open, High, Low, Close, Volume
@@ -128,13 +133,14 @@ class FileLoader:
         required_cols = ['Time', 'Open', 'High', 'Low', 'Close']
         missing_cols = [col for col in required_cols if col not in data.columns]  # 標準 Python 列表推導式，檢查 pandas columns
         if missing_cols:
-            print(f"警告：缺少欄位 {missing_cols}，將從用戶輸入補充")
+            console.print(Panel(f"⚠️ 缺少欄位 {missing_cols}，將從用戶輸入補充", title="[bold #8f1511]📁 FileLoader[/bold #8f1511]", border_style="#8f1511"))
             for col in missing_cols:
                 data[col] = pd.NA  # 使用 pandas 的 pd.NA 填充缺失欄位
 
         # 處理 volume 欄位（可選）
         if 'Volume' not in data.columns:  # 使用 pandas 的 columns 屬性檢查
-            choice = input("數據缺少 Volume 欄位，是否填充內容？(y/n)：").strip().lower()  # 標準 Python 輸入
+            console.print("[bold #dbac30]數據缺少 Volume 欄位，是否填充內容？(y/n)：[/bold #dbac30]")
+            choice = input().strip().lower()  # 標準 Python 輸入
             if choice == 'y':
                 data['Volume'] = pd.NA  # 使用 pandas 的 pd.NA 填充
             else:

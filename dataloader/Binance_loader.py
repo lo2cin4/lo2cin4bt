@@ -64,27 +64,34 @@ import pandas as pd
 import numpy as np
 from binance.client import Client
 from datetime import datetime
+from rich.console import Console
+from rich.panel import Panel
+console = Console()
 
 
 class BinanceLoader:
     def load(self):
         """從 Binance API 載入數據"""
-        symbol = input("請輸入交易對（例如 BTCUSDT，預設 BTCUSDT）：").strip() or "BTCUSDT"
-        interval = input("請輸入時間間隔（例如 1d, 1h，預設 1d）：").strip() or "1d"
+        console.print("[bold #dbac30]請輸入交易對（例如 BTCUSDT，預設 BTCUSDT）：[/bold #dbac30]")
+        symbol = input().strip() or "BTCUSDT"
+        console.print("[bold #dbac30]請輸入時間間隔（例如 1d, 1h，預設 1d）：[/bold #dbac30]")
+        interval = input().strip() or "1d"
         
         # 預設開始日期為 2020-01-01，結束日期為運行當日
         default_start = "2020-01-01"
         default_end = datetime.now().strftime("%Y-%m-%d")
         
-        start_date = input(f"請輸入開始日期（例如 2023-01-01，預設 {default_start}）：").strip() or default_start
-        end_date = input(f"請輸入結束日期（例如 2023-12-31，預設 {default_end}）：").strip() or default_end
+        console.print(f"[bold #dbac30]請輸入開始日期（例如 2023-01-01，預設 {default_start}）：[/bold #dbac30]")
+        start_date = input().strip() or default_start
+        console.print(f"[bold #dbac30]請輸入結束日期（例如 2023-12-31，預設 {default_end}）：[/bold #dbac30]")
+        end_date = input().strip() or default_end
 
         try:
             # 使用無憑證的 Client
             client = Client()
             klines = client.get_historical_klines(symbol, interval, start_date, end_date)
             if not klines:
-                print(f"錯誤：無法獲取 '{symbol}' 的數據")
+                console.print(Panel(f"❌ 無法獲取 '{symbol}' 的數據", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
                 return None, interval
 
             # 轉換為 DataFrame
@@ -120,13 +127,15 @@ class BinanceLoader:
             data['close_logreturn'] = np.log(data['Close'] / data['Close'].shift(1)).fillna(0)
 
             # 檢查缺失值
+            # 缺失值比例 Panel
+            missing_msgs = []
             for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
                 missing_ratio = data[col].isna().mean()
-                print(f"{col} 缺失值比例：{missing_ratio:.2%}")
+                missing_msgs.append(f"{col} 缺失值比例：{missing_ratio:.2%}")
+            console.print(Panel("\n".join(missing_msgs), title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#dbac30"))
 
-            print(f"從 Binance 載入 '{symbol}' 成功，行數：{len(data)}")
-            print("已計算收益率：open_return, close_return, open_logreturn, close_logreturn")
+            console.print(Panel(f"從 Binance 載入 '{symbol}' 成功，行數：{len(data)}\n已計算收益率：open_return, close_return, open_logreturn, close_logreturn", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#dbac30"))
             return data, interval
         except Exception as e:
-            print(f"錯誤：{e}")
+            console.print(Panel(f"❌ {e}", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
             return None, interval

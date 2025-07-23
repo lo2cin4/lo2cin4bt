@@ -210,6 +210,10 @@ def select_parquet_file(parquet_dir):
         idx = 0
     return parquet_files[idx]
 
+from rich.console import Console
+from rich.panel import Panel
+console = Console()
+
 def main():
     global listener, log_queue
     
@@ -224,18 +228,32 @@ def main():
     
     logger.info("程式開始執行")
 
-    print("\n=== lo2cin4BT 主選單 ===")
-    print("1. 全面回測 (載入數據→統計分析→回測交易→交易分析→可視化平台)")
-    print("2. 統計分析 (載入數據→統計分析)")
-    print("3. 回測交易 (載入數據→回測交易→交易分析→可視化平台)")
-    print("4. 交易分析 (直接分析現有回測結果→可視化平台)")
-    print("5. 可視化平台 (讀取 metricstracker 數據並顯示)")
-    choice = input("請選擇要執行的功能（1, 2, 3, 4, 5，預設1）：").strip() or "1"
+    console.print(
+        Panel(
+            "[bold #dbac30]🚀 lo2cin4bt[/bold #dbac30]\n[white]The best backtest engine for non-coders and quant beginners (probably).[/white]",
+            title="[bold #8f1511]Welcome![/bold #8f1511]",
+            border_style="#dbac30",
+            padding=(1, 4),
+        )
+    )
+    # 主選單
+    console.print(
+        Panel(
+            "[bold white]1. 全面回測 (載入數據→統計分析→回測交易→交易分析→可視化平台)\n"
+            "2. 統計分析 (載入數據→統計分析)\n"
+            "3. 回測交易 (載入數據→回測交易→交易分析→可視化平台)\n"
+            "4. 交易分析 (分析現有回測結果→績效分析→可視化平台)\n"
+            "5. 可視化平台 (僅讀取 metricstracker 數據並顯示)[/bold white]",
+            title="[bold #8f1511]🏁 主選單[/bold #8f1511]",
+            border_style="#dbac30"
+        )
+    )
+    console.print("[bold #dbac30]請選擇要執行的功能（1, 2, 3, 4, 5，預設1）：[/bold #dbac30]")
+    choice = input().strip() or "1"
 
     try:
         if choice == "1":
-            # 全面回測
-            logger.info("[主選單] 全面回測")
+            # 全面回測，直接呼叫 DataImporter 處理所有數據來源互動
             importer = DataImporter()
             data, frequency = importer.load_and_standardize_data()
             if data is None:
