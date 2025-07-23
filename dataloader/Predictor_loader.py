@@ -78,13 +78,14 @@ class PredictorLoader:
         """載入預測因子數據，與價格數據對齊並合併"""
         try:
             console.print(Panel(
+                "🟢 選擇價格數據來源\n🔴 輸入預測因子 🔵\n🔴 選擇差分預測因子 🔵\n🔴 導出合併後數據 🔵\n\n🔵可跳過\n\n"
                 "你可以提供一份你認為能預測價格的「預測因子」數據檔案（如 Excel/CSV/JSON），\n"
                 "例如：BTC ETF 資金流入數據、Google Trends、其他資產價格等。\n\n"
                 "系統會自動對齊時間，並用這些因子做後續的統計分析與回測。\n"
                 "你也可以輸入另一份價格數據，並選擇用哪個欄位作為預測因子（例如用 AAPL 股價預測 NVDA 股價）。\n\n"
                 "如果留空，系統只會用剛才載入的價格數據，適合用於技術分析策略（如均線回測），\n"
                 "並會直接跳過統計分析，進行回測。",
-                title="[bold #dbac30]📝 輸入預測因子[/bold #dbac30]",
+                title="[bold #dbac30]📊 數據載入 Dataloader 步驟：輸入預測因子[/bold #dbac30]",
                 border_style="#dbac30"
             ))
             console.print("[bold #dbac30]請輸入預測因子 Excel/CSV/json 文件名稱\n（留空代表只用價格數據進行回測，並跳過統計分析）：[/bold #dbac30]")

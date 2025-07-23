@@ -259,25 +259,14 @@ class BacktestEngine:
         # 分離開倉和平倉參數
         entry_params = list(params_tuple[:len(condition_pair['entry'])])
         exit_params = list(params_tuple[len(condition_pair['entry']):len(condition_pair['entry']) + len(condition_pair['exit'])])
-        
-        # print(f"[DEBUG] 分離後的 entry_params: {len(entry_params)} 個")
-        # print(f"[DEBUG] 分離後的 exit_params: {len(exit_params)} 個")
-        
         try:
             # 驗證預測因子
             if predictor not in self.data.columns:
                 raise ValueError(f"預測因子 {predictor} 不存在，數據欄位: {list(self.data.columns)}")
             
-            # print(f"[DEBUG] 預測因子驗證通過：{predictor}")
-            # print(f"[DEBUG] 開倉參數數量：{len(entry_params)}")
-            # print(f"[DEBUG] 平倉參數數量：{len(exit_params)}")
-            
             # 產生信號
             entry_signals = self._generate_signals(entry_params, predictor)
             exit_signals = self._generate_signals(exit_params, predictor, entry_signals)  # 傳遞開倉信號給平倉信號生成
-            
-            # print(f"[DEBUG] 開倉信號數量：{len(entry_signals)}")
-            # print(f"[DEBUG] 平倉信號數量：{len(exit_signals)}")
             
             # 組合信號
             # print(f"{Backtest_id} combine_signals 前 entry_signals 型別: {type(entry_signals)}, exit_signals 型別: {type(exit_signals)}")

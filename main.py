@@ -240,20 +240,19 @@ def main():
     console.print(
         Panel(
             "[bold white]1. 全面回測 (載入數據→統計分析→回測交易→交易分析→可視化平台)\n"
-            "2. 統計分析 (載入數據→統計分析)\n"
-            "3. 回測交易 (載入數據→回測交易→交易分析→可視化平台)\n"
-            "4. 交易分析 (分析現有回測結果→績效分析→可視化平台)\n"
-            "5. 可視化平台 (僅讀取 metricstracker 數據並顯示)[/bold white]",
+            "2. 回測交易 (載入數據→回測交易→交易分析→可視化平台)\n"
+            "3. 交易分析 (metricstracker + 可視化平台)\n"
+            "4. 可視化平台 (僅讀取 metricstracker 數據並顯示)[/bold white]",
             title="[bold #8f1511]🏁 主選單[/bold #8f1511]",
             border_style="#dbac30"
         )
     )
-    console.print("[bold #dbac30]請選擇要執行的功能（1, 2, 3, 4, 5，預設1）：[/bold #dbac30]")
+    console.print("[bold #dbac30]請選擇要執行的功能（1, 2, 3, 4，預設1）：[/bold #dbac30]")
     while True:
         choice = input().strip() or "1"
-        if choice in ["1", "2", "3", "4", "5"]:
+        if choice in ["1", "2", "3", "4"]:
             break
-        console.print(Panel("❌ 無效選擇，請重新輸入 1~5。", title="[bold #8f1511]🏁 主選單[/bold #8f1511]", border_style="#8f1511"))
+        console.print(Panel("❌ 無效選擇，請重新輸入 1~4。", title="[bold #8f1511]🏁 主選單[/bold #8f1511]", border_style="#8f1511"))
 
     try:
         if choice == "1":
@@ -317,16 +316,25 @@ def main():
             # 只有在不是 __SKIP_STATANALYSER__ 時才呼叫 select_predictor_factor
             logger.info(f"數據載入成功，形狀：{data.shape}，頻率：{frequency}")
             console.print(Panel(
-                "請選擇要差分的預測因子（預設 X）\n\n"
+                "🟢 選擇價格數據來源\n🟢 輸入預測因子 🔵\n🟢 導出合併後數據 🔵\n🟢 選擇差分預測因子 🔵\n\n🔵可跳過\n\n"
                 "[差分說明]\n"
                 "差分（Differencing）是時間序列分析常用的預處理方法，\n"
                 "可以消除數據中的趨勢與季節性，讓資料更穩定，有助於提升統計檢定與回測策略的準確性。\n"
                 "例如：原始因子有明顯上升趨勢時，差分後可專注於變化幅度，避免誤判因子與報酬的關聯。\n\n"
                 "選擇你想要進行差分處理的預測因子，系統會自動產生差分欄位供後續分析選用。",
-                title="[bold #dbac30]🧮 差分處理說明[/bold #dbac30]",
+                title="[bold #dbac30]📊 數據載入 Dataloader 步驟：選擇差分預測因子[/bold #dbac30]",
                 border_style="#dbac30"
             ))
-            predictor_col = select_predictor_factor(data)
+            # 差分前互動：讓用戶輸入要差分的預測因子
+            available_factors = [col for col in data.columns if col not in ['Time', 'Open', 'High', 'Low', 'Close', 'Volume', 'open_return', 'close_return', 'open_logreturn', 'close_logreturn']]
+            default = available_factors[0]
+            while True:
+                console.print(f"[bold #dbac30]請輸入要差分的預測因子（可選: {available_factors}，預設 {default}）：[/bold #dbac30]")
+                predictor_col = input().strip() or default
+                if predictor_col not in available_factors:
+                    console.print(Panel(f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}）", title="[bold #dbac30]📊 數據載入 Dataloader 步驟：選擇差分預測因子[/bold #dbac30]", border_style="#8f1511"))
+                    continue
+                break
             predictor_loader = PredictorLoader(data)
             data, diff_cols, used_series = predictor_loader.process_difference(data, predictor_col)
             logger.info(f"差分處理完成，差分欄位：{diff_cols}")
@@ -416,53 +424,6 @@ def main():
                     except Exception as e:
                         print(f"❌ 可視化平台啟動失敗: {e}")
         elif choice == "2":
-            # 統計分析
-            logger.info("[主選單] 統計分析")
-            importer = DataImporter()
-            data, frequency = importer.load_and_standardize_data()
-            if data is None:
-                print("[DEBUG] 數據載入失敗，程式終止")
-                logger.error("數據載入失敗")
-                return
-            if isinstance(data, str) and data == "__SKIP_STATANALYSER__":
-                return
-            logger.info(f"數據載入成功，形狀：{data.shape}，頻率：{frequency}")
-            predictor_col = select_predictor_factor(data)
-            predictor_loader = PredictorLoader(data)
-            data, diff_cols, used_series = predictor_loader.process_difference(data, predictor_col)
-            logger.info(f"差分處理完成，差分欄位：{diff_cols}")
-            selected_col = select_predictor_factor(data, default_factor=diff_cols[0] if diff_cols else None)
-            used_series = data[selected_col]
-            stats_data = standardize_data_for_stats(data)
-            updated_data = stats_data.copy()
-            updated_data[predictor_col] = used_series
-            freq = input("\n請輸入數據頻率以計算自相關性（D=日，H=小時，T=分鐘，預設D）：").strip().upper() or 'D'
-            if freq not in ['D', 'H', 'T']:
-                print("輸入錯誤，自動設為D（日）")
-                freq = 'D'
-            analyzers = [
-                CorrelationTest(updated_data, predictor_col, "close_return"),
-                StationarityTest(updated_data, predictor_col, "close_return"),
-                AutocorrelationTest(updated_data, predictor_col, "close_return", freq=freq),
-                DistributionTest(updated_data, predictor_col, "close_return"),
-                SeasonalAnalysis(updated_data, predictor_col, "close_return"),
-            ]
-            results = {}
-            for analyzer in analyzers:
-                test_name = f"{analyzer.__class__.__name__}_{analyzer.predictor_col}"
-                try:
-                    analyzer.analyze()
-                    results[test_name] = analyzer.results if hasattr(analyzer, 'results') else None
-                except Exception as e:
-                    print(f"[DEBUG] Error in {test_name}: {e}")
-                    logger.error(f"統計分析失敗 {test_name}: {e}")
-                    results[test_name] = {"error": str(e)}
-            reporter = ReportGenerator()
-            reporter.save_report(results)
-            reporter.save_data(updated_data, format="csv")
-            print("統計分析完成")
-            logger.info("統計分析完成")
-        elif choice == "3":
             # 回測交易
             logger.info("[主選單] 回測交易")
             importer = DataImporter()
@@ -569,8 +530,51 @@ def main():
                     plotter.run(host='127.0.0.1', port=8050, debug=False)
                 except Exception as e:
                     print(f"❌ 可視化平台啟動失敗: {e}")
+        elif choice == "3":
+            # 交易分析（metricstracker + 可視化平台）
+            logger.info("[主選單] 交易分析（metricstracker→可視化平台）")
+            # 統一進入多選 parquet 分析互動
+            from metricstracker.DataImporter_metricstracker import list_parquet_files, show_parquet_files, select_files
+            import pandas as pd
+            directory = os.path.join(os.path.dirname(__file__), 'records', 'backtester')
+            directory = os.path.abspath(directory)
+            files = list_parquet_files(directory)
+            if not files:
+                print(f"❌ 找不到任何parquet檔案於 {directory}")
+                return
+            show_parquet_files(files)
+            user_input = input("請輸入要分析的檔案編號（可用逗號分隔多選，或輸入al/all全選）：").strip() or '1'
+            selected_files = select_files(files, user_input)
+            if not selected_files:
+                print("未選擇任何檔案，返回主選單。")
+                return
+            print("\n=== 已選擇檔案 ===")
+            for f in selected_files:
+                print(f)
+            for orig_parquet_path in selected_files:
+                print(f"\n已選擇檔案: {orig_parquet_path}")
+                df = pd.read_parquet(orig_parquet_path)
+                time_unit = input("請輸入年化時間單位（如日線股票252，日線幣365，預設為252）：").strip()
+                if time_unit == "":
+                    time_unit = 252
+                else:
+                    time_unit = int(time_unit)
+                risk_free_rate = input("請輸入無風險利率（%）（輸入n代表n% ，預設為2）：").strip()
+                if risk_free_rate == "":
+                    risk_free_rate = 2.0 / 100
+                else:
+                    risk_free_rate = float(risk_free_rate) / 100
+                MetricsExporter.export(df, orig_parquet_path, time_unit, risk_free_rate)
+            run_plotter = input("是否啟動可視化平台？(y/n，預設y)：").strip().lower() or 'y'
+            if run_plotter == 'y':
+                try:
+                    from plotter.Base_plotter import BasePlotter
+                    plotter = BasePlotter(logger=logger)
+                    plotter.run(host='127.0.0.1', port=8050, debug=False)
+                except Exception as e:
+                    print(f"❌ 可視化平台啟動失敗: {e}")
         elif choice == "4":
-            # 主選單4流程不變，直接用多選 parquet 互動
+            # 可視化平台
             print("[DEBUG] 選擇可視化平台")
             logger.info("[主選單] 可視化平台")
             try:

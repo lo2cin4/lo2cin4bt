@@ -79,6 +79,14 @@ class DataLoader:
         self.source = None  # 記錄價格數據來源（1: 文件, 2: Yahoo Finance, 3: Binance）
 
     def load_data(self):
+        # 步驟1：選擇價格數據來源
+        console.print(Panel(
+            "🟢 選擇價格數據來源\n🔴 輸入預測因子 🔵\n🔴 導出合併後數據 🔵\n🔴 選擇差分預測因子 🔵\n\n🔵可跳過\n\n"
+            "請選擇你要載入的價格數據來源，可選擇本地 Excel/CSV、Yahoo Finance 或 Binance API。\n"
+            "這一步會決定後續所有分析與回測的基礎數據。",
+            title="[bold #dbac30]📊 數據載入 Dataloader 步驟：選擇價格數據來源[/bold #dbac30]",
+            border_style="#dbac30"
+        ))
         # 數據來源選單 Panel
         console.print(Panel(
             "[bold white]請選擇價格數據來源：\n1. Excel/CSV 文件\n2. Yahoo Finance\n3. Binance API[/bold white]",
@@ -92,7 +100,7 @@ class DataLoader:
                 self.source = choice
                 break
             console.print("[bold #8f1511]錯誤：請輸入 1, 2 或 3。[/bold #8f1511]")
-        # 載入價格數據
+        # 步驟2：載入價格數據
         while True:
             if self.source == '1':
                 loader = FileLoader()
@@ -137,10 +145,19 @@ class DataLoader:
             return None
         # 最終數據載入完成 Panel
         print_dataframe_table(self.data.head(), title="最終數據（價格與預測因子）載入完成，概覽")
+        # 步驟3：導出合併後數據
+        console.print(Panel(
+            "🟢 選擇價格數據來源\n🟢 輸入預測因子 🔵\n🟢 導出合併後數據 🔵\n🔴 選擇差分預測因子 🔵\n\n🔵可跳過\n\n"
+            "你可以將合併後的數據導出為 xlsx/csv/json 檔案，方便後續分析或保存。\n"
+            "這一步可跳過，若不導出，數據仍會自動進入後續回測與分析流程。",
+            title="[bold #dbac30]📊 數據載入 Dataloader 步驟：導出合併後數據[/bold #dbac30]",
+            border_style="#dbac30"
+        ))
         # 提示導出數據
         console.print("[bold #dbac30]\n是否導出合併後數據(xlsx/csv/json)？(y/n，預設n)：[/bold #dbac30]")
         export_choice = input().strip().lower() or 'n'
         if export_choice == 'y':
             exporter = DataExporter(self.data)
             exporter.export()
+
         return self.data
