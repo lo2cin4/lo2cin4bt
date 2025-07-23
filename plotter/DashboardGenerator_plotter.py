@@ -172,9 +172,9 @@ class DashboardGenerator:
                 dbc.Container([
                     dbc.NavbarBrand("Lo2cin4BT 可視化平台", className="ms-2"),
                     dbc.Nav([
-                        dbc.NavItem(dbc.NavLink("官網", href="https://lo2cin4.com", target="_blank", style={"color": "#ecbc4f", "fontWeight": "bold"})),
-                        dbc.NavItem(dbc.NavLink("終生會員", href="https://lo2cin4.com/membership/", target="_blank", style={"color": "#ecbc4f", "fontWeight": "bold"})),
-                        dbc.NavItem(dbc.NavLink("其他連結", href="https://linktr.ee/lo2cin4", target="_blank", style={"color": "#ecbc4f", "fontWeight": "bold"})),
+                        dbc.NavItem(dbc.NavLink("lo2cin4官網", href="https://lo2cin4.com", target="_blank", style={"color": "#ecbc4f", "fontWeight": "bold"})),
+                        dbc.NavItem(dbc.NavLink("lo2cin4終身會籍詳情", href="https://lo2cin4.com/membership/", target="_blank", style={"color": "#ecbc4f", "fontWeight": "bold"})),
+                        dbc.NavItem(dbc.NavLink("其他社群連結", href="https://linktr.ee/lo2cin4", target="_blank", style={"color": "#ecbc4f", "fontWeight": "bold"})),
                     ], className="ms-auto", style={"gap": "1.2rem"})
                 ]),
                 color="primary",
