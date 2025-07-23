@@ -95,6 +95,7 @@
 ### 1. 價格文件（非必須）
 - 支援 Excel（.xlsx）、CSV
 - 必要欄位：Time, Open, High, Low, Close, Volume
+- 目前僅支援單一預測因子進行回測與差分，未來將開放多預測因子功能，敬請期待！
 - 範例：
   | Time | Open | High | Low | Close | Volume |
   |------|------|------|-----|-------|--------|
