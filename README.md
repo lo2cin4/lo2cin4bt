@@ -30,6 +30,7 @@
 - 更多技術指標，包括 RSI, percentile
 - 參數平原 (Parameter plateau)
 - 穩健性測試 (Robustness Check)
+- 修改 print 的位置，盡量放在各自庫內的 Base.py
 - 多個預測因子在單一策略進行回測
 - 更多數據接口
 - AI 相關功能
