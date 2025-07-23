@@ -11,7 +11,7 @@ plotly>=5.0.0
 tqdm>=4.66.2
 pyarrow>=10.0.0
 black>=24.3.0
-
+kaleido
 
 # plotter 可視化平台依賴
 dash>=2.15.0

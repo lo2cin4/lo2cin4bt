@@ -337,7 +337,6 @@ def main():
             run_backtest = 'y'
             if run_backtest == 'y':
                 print("[DEBUG] 開始回測...")
-                logger.info("開始回測")
                 backtester = BaseBacktester(data, frequency, logger)
                 backtester.run()
                 print("[DEBUG] 回測完成")
@@ -494,7 +493,6 @@ def main():
             logger.info(f"差分處理完成，差分欄位：{diff_cols}")
             # 回測
             print("[DEBUG] 開始回測...")
-            logger.info("開始回測")
             backtester = BaseBacktester(data, frequency, logger)
             backtester.run()
             print("[DEBUG] 回測完成")

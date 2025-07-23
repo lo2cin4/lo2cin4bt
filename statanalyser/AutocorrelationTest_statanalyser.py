@@ -129,7 +129,7 @@ class AutocorrelationTest(BaseStatAnalyser):
             fig.update_xaxes(title_text='Lag', row=2, col=1)
             fig.update_yaxes(title_text='Autocorrelation', row=1, col=1)
             fig.update_yaxes(title_text='Partial Autocorrelation', row=2, col=1)
-            fig.show()
+            fig.show(renderer="browser")
         else:
             print("跳過 ACF 和 PACF 圖片生成")
 
