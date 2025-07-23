@@ -66,7 +66,7 @@
 
 ---
 
-## 💻 推薦開發環境：VS Code & Cursor
+## 💻 推薦新手開發環境：VS Code & Cursor
 
 ### 安裝 VS Code
 1. 前往 [Visual Studio Code 官方網站](https://code.visualstudio.com/) 下載並安裝 VS Code。
