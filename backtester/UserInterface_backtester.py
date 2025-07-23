@@ -200,6 +200,8 @@ class UserInterface:
     def _get_indicator_input(self, prompt: str, valid_indicators: List[str]) -> List[str]:
         """獲取指標輸入"""
         while True:
+            if "開倉" in prompt:
+                print("※ 輸入多個指標時，必須全部同時滿足才會開倉/平倉。")
             user_input = input(f"請輸入{prompt} (用逗號分隔，例如 MA1,BOLL2，或輸入 'none' 結束，或輸入 'default' 用預設策略): ").strip()
             if user_input.lower() == 'none':
                 return []
