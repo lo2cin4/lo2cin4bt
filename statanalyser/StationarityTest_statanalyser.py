@@ -63,6 +63,9 @@ from .Base_statanalyser import BaseStatAnalyser
 from statsmodels.tsa.stattools import adfuller, kpss
 import warnings
 from typing import Dict
+from rich.panel import Panel
+from rich.console import Console
+from rich.table import Table
 
 class StationarityTest(BaseStatAnalyser):
     """平穩性檢驗模組"""
@@ -79,21 +82,22 @@ class StationarityTest(BaseStatAnalyser):
         step_content = (
             "🟢 選擇用於統計分析的預測因子\n"
             "🟢 收益率相關性檢驗[自動]\n"
-            "🟢 平穩性檢驗[自動]\n"
-            "🔴 輸出ACF 或 PACF 互動圖片\n"
+            "🟢 ADF/KPSS 平穩性檢驗[自動]\n"
+            "🔴 ACF/PACF 自相關性檢驗[自動]\n"
+            "🔴 生成 ACF 或 PACF 互動圖片\n"
             "🔴 統計分佈檢驗[自動]\n"
             "🔴 季節性檢驗[自動]\n\n"
             f"2. '{self.predictor_col}' 平穩性檢驗（ADF/KPSS）\n"
-            "檢驗名稱：平穩性檢驗（ADF/KPSS）\n"
-            "檢驗功能：判斷序列是否為平穩過程，適合用於傳統時間序列建模。\n"
+            "檢驗功能：判斷序列是否為平穩過程，適合用於傳統時間序列建模。如序列非平穩，很多模型如自回歸 (AR)、ARIMA 模型、線性回歸分析等效果將大打折扣。\n"
             "成功/失敗標準：ADF p<0.05 為平穩，KPSS p>0.05 為平穩。"
         )
-        self.print_step_panel(
+        console = Console()
+        # 步驟說明
+        console.print(Panel(
             step_content,
-            "🔬 統計分析 StatAnalyser 步驟：收益率相關性檢驗[自動]",
-            "🔬",
-            "#dbac30"
-        )
+            title="[bold #dbac30]統計分析 StatAnalyser 步驟：收益率相關性檢驗[自動][/bold #dbac30]",
+            border_style="#dbac30"
+        ))
         # 執行檢定並存結果
         def run_stationarity_tests(series):
             result = {}
@@ -134,21 +138,38 @@ class StationarityTest(BaseStatAnalyser):
             '統計量': [pred_adf, pred_kpss, ret_adf, ret_kpss],
             'p值': [pred_adf_p, pred_kpss_p, ret_adf_p, ret_kpss_p]
         })
-        self.print_result_table(df, "平穩性檢驗結果", "🔬")
+        # 直接用 Rich Table 輸出
+        table = Table(title="平穩性檢驗結果", border_style="#dbac30", show_lines=True)
+        for col in df.columns:
+            table.add_column(str(col), style="bold white")
+        for _, row in df.iterrows():
+            row_cells = []
+            for v in row:
+                if isinstance(v, (int, float)) or (isinstance(v, str) and v.replace('.','',1).isdigit()):
+                    row_cells.append(f"[#1e90ff]{v}[/#1e90ff]")
+                else:
+                    row_cells.append(str(v))
+            table.add_row(*row_cells)
+        console.print(table)
         # 判斷
         pred_adf_bool = self.results['predictor'].get('adf_stationary', False)
         pred_kpss_bool = self.results['predictor'].get('kpss_stationary', False)
         ret_adf_bool = self.results['return'].get('adf_stationary', False)
         ret_kpss_bool = self.results['return'].get('kpss_stationary', False)
-        summary = f"因子ADF平穩：{'是' if pred_adf_bool else '否'}，KPSS平穩：{'是' if pred_kpss_bool else '否'}\n收益率ADF平穩：{'是' if ret_adf_bool else '否'}，KPSS平穩：{'是' if ret_kpss_bool else '否'}\n"
-        # 策略建議
+        summary = (
+            f"因子ADF平穩：{'[bold green]是[/bold green]' if pred_adf_bool else '[bold red]否[/bold red]'}，"
+            f"KPSS平穩：{'[bold green]是[/bold green]' if pred_kpss_bool else '[bold red]否[/bold red]'}\n"
+            f"收益率ADF平穩：{'[bold green]是[/bold green]' if ret_adf_bool else '[bold red]否[/bold red]'}，"
+            f"KPSS平穩：{'[bold green]是[/bold green]' if ret_kpss_bool else '[bold red]否[/bold red]'}\n"
+        )
         if pred_adf_bool and pred_kpss_bool:
-            summary += "因子序列平穩，適合用於傳統時間序列建模（如ARMA/ARIMA）\n"
+            summary += "[bold #dbac30]因子序列平穩[/bold #dbac30]，[bold]適合用於傳統時間序列建模（如ARMA/ARIMA）[/bold]\n"
         else:
-            summary += "因子序列非平穩，建議差分或轉換後再建模\n"
+            summary += "[bold red]因子序列非平穩[/bold red]，[bold]建議差分或轉換後再建模[/bold]\n"
         if ret_adf_bool and ret_kpss_bool:
-            summary += "收益率序列平穩，可直接用於收益率建模"
+            summary += "[bold #dbac30]收益率序列平穩[/bold #dbac30]，[bold green]可直接用於收益率建模[/bold green]"
         else:
-            summary += "收益率序列非平穩，建議差分或轉換後再建模"
-        self.print_info_panel(summary, "結論與建議", "🔬")
+            summary += "[bold red]收益率序列非平穩[/bold red]，[bold]建議差分或轉換後再建模[/bold]"
+        # 結論用紅色 Panel
+        console.print(Panel(summary, title="[bold #8f1511]🔬 統計分析 StatAnalyser[/bold #8f1511]", border_style="#dbac30"))
         return self.results

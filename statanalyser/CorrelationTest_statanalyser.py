@@ -60,6 +60,9 @@ import numpy as np
 from .Base_statanalyser import BaseStatAnalyser
 from scipy.stats import pearsonr, spearmanr
 from typing import Dict
+from rich.panel import Panel
+from rich.console import Console
+from rich.table import Table
 
 class CorrelationTest(BaseStatAnalyser):
     """相關性測試模組，評估因子預測能力"""
@@ -94,25 +97,25 @@ class CorrelationTest(BaseStatAnalyser):
 
     def analyze(self) -> Dict:
         # 步驟說明
-        self.print_step_panel(
+        console = Console()
+        console.print(Panel(
             "🟢 選擇用於統計分析的預測因子\n"
             "🟢 收益率相關性檢驗[自動]\n"
-            "🔴 平穩性檢驗[自動]\n"
-            "🔴 輸出ACF 或 PACF 互動圖片\n"
+            "🔴 ADF/KPSS 平穩性檢驗[自動]\n"
+            "🔴 ACF/PACF 自相關性檢驗[自動]\n"
+            "🔴 生成 ACF 或 PACF 互動圖片\n"
             "🔴 統計分佈檢驗[自動]\n"
             "🔴 季節性檢驗[自動]\n\n"
-            "1.因子收益率相關性檢驗 \n檢驗名稱：因子-收益率相關性初篩\n檢驗功能：通過計算因子與未來收益率的相關性，評估因子對資產收益的預測能力，避免後續分析無效因子。\n成功/失敗標準：\n   - |Spearman| < 0.2：因子預測能力微弱，建議更換因子。\n   - |Spearman| ≥ 0.2 且 < 0.4：因子具有輕微預測能力，適合輔助策略。\n   - |Spearman| ≥ 0.4 且 < 0.7：因子具有良好預測能力，可作為主要策略因子。\n   - |Spearman| ≥ 0.7：因子具有優秀預測能力，適合核心交易策略。\n   - 注意：Spearman 相關係數衡量因子與收益率的單調關係，適合非正態數據（如 BTC 收益率的尖峰厚尾特性）。\n           係數絕對值越大，預測能力越強；p 值 < 0.05 表示相關性統計顯著。\n   - Chatterjee 相關系數（ξ）檢測非線性相關性，值域 0-1，不受單調性限制。",
-            "[bold #dbac30]統計分析 StatAnalyser 步驟：收益率相關性檢驗[自動] [/bold #dbac30]",
-            "🔬",
-            "#8f1511"
-        )
+            "1.因子收益率相關性檢驗\n檢驗功能：通過計算因子與未來收益率的相關性，評估因子對資產收益的預測能力，避免後續分析無效因子。\n成功/失敗標準：\n   - |Spearman| < 0.2：因子預測能力微弱，建議更換因子。\n   - |Spearman| ≥ 0.2 且 < 0.4：因子具有輕微預測能力，適合輔助策略。\n   - |Spearman| ≥ 0.4 且 < 0.7：因子具有良好預測能力，可作為主要策略因子。\n   - |Spearman| ≥ 0.7：因子具有優秀預測能力，適合核心交易策略。\n   - 注意：Spearman 相關係數衡量因子與收益率的單調關係，適合非正態數據（如 BTC 收益率的尖峰厚尾特性）。\n           係數絕對值越大，預測能力越強；p 值 < 0.05 表示相關性統計顯著。\n   - Chatterjee 相關系數（ξ）檢測非線性相關性，值域 0-1，不受單調性限制。\n       - |ξ| < 0.2：非線性相關性極弱\n       - |ξ| ≥ 0.2 且 < 0.4：非線性相關性較弱\n       - |ξ| ≥ 0.4 且 < 0.7：非線性相關性中等\n       - |ξ| ≥ 0.7：非線性相關性強",
+            title="[bold #dbac30]🔬 統計分析 StatAnalyser 步驟：收益率相關性檢驗[自動][/bold #dbac30]",
+            border_style="#dbac30"
+        ))
         # 數據完整性
-        self.print_info_panel(
-            f"原始數據行數：{len(self.data)}\n因子列（{self.predictor_col}）NaN 數：{self.data[self.predictor_col].isna().sum()}\n收益率列（{self.return_col}）NaN 數：{self.data[self.return_col].isna().sum()}",
-            "[bold #8f1511]統計分析 StatAnalyser[/bold #8f1511]",
-            "🔬",
-            "#dbac30"
-        )
+        console.print(Panel(
+            f"數據完整性檢查\n原始數據行數：{len(self.data)}\n因子列（{self.predictor_col}）NaN 數：{self.data[self.predictor_col].isna().sum()}\n收益率列（{self.return_col}）NaN 數：{self.data[self.return_col].isna().sum()}",
+            title="[bold #8f1511]🔬 統計分析 StatAnalyser[/bold #8f1511]",
+            border_style="#dbac30"
+        ))
         correlation_results = {}
         skipped_lags = []
         for lag in self.lags:
@@ -122,7 +125,6 @@ class CorrelationTest(BaseStatAnalyser):
                 'return': return_series
             }).dropna()
             if len(temp_df) < 30:
-                self.print_warning_panel(f"滯後期 {lag} 日的數據不足（{len(temp_df)} 筆，需至少 30 筆），跳過此滯後期。","資料不足","⚠️")
                 skipped_lags.append(lag)
                 continue
             try:
@@ -137,14 +139,30 @@ class CorrelationTest(BaseStatAnalyser):
                     'Chatterjee': chatterjee_corr
                 }
             except ValueError as e:
-                self.print_warning_panel(f"滯後期 {lag} 相關性計算失敗（{e}），跳過此滯後期。","計算錯誤","⚠️")
                 skipped_lags.append(lag)
                 continue
-        if skipped_lags:
-            self.print_warning_panel(f"已跳過以下滯後期（數據不足或無效）：{skipped_lags}","滯後期警告","⚠️")
+        # 警告 Panel
+        for lag in skipped_lags:
+            if lag in correlation_results:
+                continue
+            console.print(Panel(f"滯後期 {lag} 日的數據不足（{len(self.data) if lag == 0 else len(self.data) - lag} 筆，需至少 30 筆），跳過此滯後期。", title="[bold yellow]資料不足[/bold yellow]", border_style="yellow"))
         # 結果表格
         corr_df = pd.DataFrame(correlation_results).T.round(4)
-        self.print_result_table(corr_df, "相關性分析結果","🔬")
+        # 若有 index，將其作為第一欄顯示，且 index 欄用白色
+        show_index = corr_df.index.name or corr_df.index.names[0] or "lag"
+        table = Table(title="相關性分析結果", border_style="#dbac30", show_lines=True)
+        table.add_column(str(show_index), style="bold white")
+        for col in corr_df.columns:
+            table.add_column(str(col), style="bold white")
+        for idx, row in corr_df.iterrows():
+            row_cells = [str(idx)]
+            for v in row:
+                if isinstance(v, (int, float)) or (isinstance(v, str) and v.replace('.','',1).isdigit()):
+                    row_cells.append(f"[#1e90ff]{v}[/#1e90ff]")
+                else:
+                    row_cells.append(str(v))
+            table.add_row(*row_cells)
+        console.print(table)
         # 最佳 lag 與 Chatterjee
         best_lag = None
         best_spearman = 0
@@ -164,14 +182,27 @@ class CorrelationTest(BaseStatAnalyser):
             summary += f"無法計算任何滯後期的相關性，數據可能不足或無效。\n已跳過滯後期：{skipped_lags if skipped_lags else '無'}\n建議：檢查數據完整性（因子和收益率序列），或更換因子。"
         else:
             spearman_p = correlation_results[best_lag]['Spearman_p']
+            # Spearman 判斷
             if abs(best_spearman) < 0.2:
                 strength = "微弱"
-                summary += f"因子預測能力{strength}（最佳 Spearman = {best_spearman:.4f} @ lag={best_lag}, p 值={spearman_p:.4f}）"
+                summary += f"因子預測能力{strength}（最佳 Spearman = {best_spearman:.4f} @ lag={best_lag}, p 值={spearman_p:.4f}）\n"
             else:
                 strength = "輕微" if abs(best_spearman) < 0.4 else "良好" if abs(best_spearman) < 0.7 else "優秀"
                 significance = "顯著" if spearman_p < 0.05 else "不顯著"
-                summary += f"因子具有{strength}預測能力（最佳 Spearman = {best_spearman:.4f} @ lag={best_lag}, p 值={spearman_p:.4f}，統計{significance}）"
-        self.print_info_panel(summary, "🔬 統計分析 StatAnalyser", "", "#dbac30")
+                summary += f"因子具有{strength}預測能力（最佳 Spearman = {best_spearman:.4f} @ lag={best_lag}, p 值={spearman_p:.4f}，統計{significance}）\n"
+            # Chatterjee 判斷
+            if best_chatterjee is not None:
+                if abs(best_chatterjee) < 0.2:
+                    c_level = "極弱"
+                elif abs(best_chatterjee) < 0.4:
+                    c_level = "較弱"
+                elif abs(best_chatterjee) < 0.7:
+                    c_level = "中等"
+                else:
+                    c_level = "強"
+                summary += f"Chatterjee 非線性相關性{c_level}（最佳 ξ = {best_chatterjee:.4f} @ lag={best_chatterjee_lag}）"
+        console = Console()
+        console.print(Panel(summary, title="[bold #8f1511]🔬 統計分析 StatAnalyser[/bold #8f1511]", border_style="#dbac30"))
         self.results = {
             'correlation_results': correlation_results,
             'skipped_lags': skipped_lags,

@@ -387,15 +387,12 @@ def main():
                 reporter = ReportGenerator()
                 reporter.save_report(results)
                 reporter.save_data(updated_data, format="csv")
-                print("統計分析完成")
                 logger.info("統計分析完成")
             # 回測
             run_backtest = 'y'
             if run_backtest == 'y':
-                print("開始回測...")
                 backtester = BaseBacktester(data, frequency, logger)
                 backtester.run()
-                print("回測完成")
                 logger.info("回測完成")
             # 交易分析
             analyze_backtest = 'y'
