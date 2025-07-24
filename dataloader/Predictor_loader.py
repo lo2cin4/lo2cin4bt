@@ -66,6 +66,9 @@ from .Validator_loader import DataValidator
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+import glob
+import os
+import re
 console = Console()
 
 
@@ -78,7 +81,7 @@ class PredictorLoader:
         """載入預測因子數據，與價格數據對齊並合併"""
         try:
             console.print(Panel(
-                "🟢 選擇價格數據來源\n🔴 輸入預測因子 🔵\n🔴 選擇差分預測因子 🔵\n🔴 導出合併後數據 🔵\n\n🔵可跳過\n\n"
+                "🟢 選擇價格數據來源\n🟢 輸入預測因子 🔵\n🔴 選擇差分預測因子 🔵\n🔴 導出合併後數據 🔵\n\n🔵可跳過\n\n"
                 "你可以提供一份你認為能預測價格的「預測因子」數據檔案（如 Excel/CSV/JSON），\n"
                 "例如：BTC ETF 資金流入數據、Google Trends、其他資產價格等。\n\n"
                 "系統會自動對齊時間，並用這些因子做後續的統計分析與回測。\n"
@@ -88,10 +91,34 @@ class PredictorLoader:
                 title="[bold #dbac30]📊 數據載入 Dataloader 步驟：輸入預測因子[/bold #dbac30]",
                 border_style="#dbac30"
             ))
-            console.print("[bold #dbac30]請輸入預測因子 Excel/CSV/json 文件名稱\n（留空代表只用價格數據進行回測，並跳過統計分析）：[/bold #dbac30]")
-            file_path = input().strip()
-            if file_path == "":
-                return "__SKIP_STATANALYSER__"
+            import glob
+            import os
+            import re
+            # 自動偵測 import 目錄下的 Excel/CSV/JSON 檔案
+            import_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'records', 'dataloader', 'import')
+            file_patterns = ["*.xlsx", "*.xls", "*.csv", "*.json"]
+            found_files = []
+            for pat in file_patterns:
+                found_files.extend(glob.glob(os.path.join(import_dir, pat)))
+            found_files = sorted(found_files)
+            file_choice = None
+            if found_files:
+                console.print("[bold #dbac30]偵測到以下可用的預測因子檔案：[/bold #dbac30]")
+                for idx, f in enumerate(found_files, 1):
+                    console.print(f"[bold white][{idx}][/bold white] {os.path.basename(f)}")
+                console.print("[bold #dbac30]請輸入檔案編號，或直接輸入完整路徑（留空代表只用價格數據進行回測，並跳過統計分析）：[/bold #dbac30]")
+                user_input = input().strip()
+                if user_input == "":
+                    return "__SKIP_STATANALYSER__"
+                if re.match(r"^\d+$", user_input) and 1 <= int(user_input) <= len(found_files):
+                    file_path = found_files[int(user_input)-1]
+                else:
+                    file_path = user_input
+            else:
+                console.print("[bold #dbac30]未偵測到任何 Excel/CSV/JSON 檔案，請手動輸入檔案路徑（留空代表只用價格數據進行回測，並跳過統計分析）：[/bold #dbac30]")
+                file_path = input().strip()
+                if file_path == "":
+                    return "__SKIP_STATANALYSER__"
             console.print("[bold #dbac30]請輸入時間格式（例如 %Y-%m-%d，或留空自動推斷）：[/bold #dbac30]")
             time_format = input().strip() or None
 
