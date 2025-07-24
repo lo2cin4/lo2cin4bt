@@ -223,7 +223,12 @@ def main():
 
     console.print(
         Panel(
-            "[bold #dbac30]🚀 lo2cin4bt[/bold #dbac30]\n[white]The best backtest engine for non-coders and quant beginners (probably).[/white]",
+            "[bold #dbac30]🚀 lo2cin4bt[/bold #dbac30]\n[white]The best backtest engine for non-coders and quant beginners (probably).[/white]\n\n"
+            "🌐 Github: https://github.com/lo2cin4/lo2cin4bt\n"
+            "🌍 Website: https://lo2cin4.com\n"
+            "💎 Quant Lifetime Membership: https://lo2cin4.com/membership\n"
+            "💬 Discord: https://discord.gg/6HgJC2dUvg\n"
+            "✈️ Telegram: https://t.me/lo2cin4group",
             title="[bold #8f1511]Welcome![/bold #8f1511]",
             border_style="#dbac30",
             padding=(1, 4),
