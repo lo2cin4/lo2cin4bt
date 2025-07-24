@@ -20,13 +20,14 @@
 
 
 ### 目前已完成
-- 三大核心：統計分析、回測、可視化平台
+- 三大量化核心：統計分析、回測、可視化平台
 - 支援多種數據來源（本地、Yahoo、Binance）
 - 多策略多參數組合批量回測
 - 詳細績效指標與互動式 Dash 可視化
 - 完善的錯誤提示與日誌
 
 ### 未來開發目標
+- Print messages 代碼整理
 - 更多技術指標，包括 RSI, percentile
 - 參數平原 (Parameter plateau)
 - 穩健性測試 (Robustness Check)
@@ -232,3 +233,5 @@ lo2cin4bt/
 ## 🙏 鳴謝
 
 本專案部分可視化設計與互動靈感來自 [plotguy](https://pypi.org/project/plotguy/) 開源庫，特此致謝！ 
+
+---
