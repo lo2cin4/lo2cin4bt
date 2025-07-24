@@ -128,13 +128,6 @@ def setup_logging(log_queue=None):
         root_logger.handlers = []
         root_logger.addHandler(QueueHandler(log_queue))
         
-        # 添加控制台輸出
-        # console_handler = logging.StreamHandler()
-        # console_handler.setLevel(logging.INFO)
-        # console_formatter = logging.Formatter("[%(asctime)s] [%(levelname)s] [%(name)s]: %(message)s")
-        # console_handler.setFormatter(console_formatter)
-        # root_logger.addHandler(console_handler)
-        
         # 記錄程式啟動
         root_logger.info("=== 程式啟動 ===")
         # print("[DEBUG] 日誌系統已初始化")
@@ -253,6 +246,18 @@ def main():
         if choice in ["1", "2", "3", "4"]:
             break
         console.print(Panel("❌ 無效選擇，請重新輸入 1~4。", title="[bold #8f1511]🏁 主選單[/bold #8f1511]", border_style="#8f1511"))
+        # 重新印出主選單
+        console.print(
+            Panel(
+                "[bold white]1. 全面回測 (載入數據→統計分析→回測交易→交易分析→可視化平台)\n"
+                "2. 回測交易 (載入數據→回測交易→交易分析→可視化平台)\n"
+                "3. 交易分析 (metricstracker + 可視化平台)\n"
+                "4. 可視化平台 (僅讀取 metricstracker 數據並顯示)[/bold white]",
+                title="[bold #8f1511]🏁 主選單[/bold #8f1511]",
+                border_style="#dbac30"
+            )
+        )
+        console.print("[bold #dbac30]請選擇要執行的功能（1, 2, 3, 4，預設1）：[/bold #dbac30]")
 
     try:
         if choice == "1":
@@ -316,12 +321,14 @@ def main():
             # 只有在不是 __SKIP_STATANALYSER__ 時才呼叫 select_predictor_factor
             logger.info(f"數據載入成功，形狀：{data.shape}，頻率：{frequency}")
             console.print(Panel(
-                "🟢 選擇價格數據來源\n🟢 輸入預測因子 🔵\n🟢 導出合併後數據 🔵\n🟢 選擇差分預測因子 🔵\n\n🔵可跳過\n\n"
-                "[差分說明]\n"
-                "差分（Differencing）是時間序列分析常用的預處理方法，\n"
+                "🟢 選擇價格數據來源\n"
+                "🟢 輸入預測因子 🔵\n"
+                "🟢 導出合併後數據 🔵\n"
+                "🟢 選擇差分預測因子 🔵\n"
+                "\n🔵可跳過\n\n"
+                "差分（Differencing）是時間序列分析常用的預處理方法。\n"
                 "可以消除數據中的趨勢與季節性，讓資料更穩定，有助於提升統計檢定與回測策略的準確性。\n"
-                "例如：原始因子有明顯上升趨勢時，差分後可專注於變化幅度，避免誤判因子與報酬的關聯。\n\n"
-                "選擇你想要進行差分處理的預測因子，系統會自動產生差分欄位供後續分析選用。",
+                "在量化回測中，我們往往不會選擇價格(原始因子)，而是收益率(差分值)作為預測因子，因為收益率更能反映資產的實際表現。1",
                 title="[bold #dbac30]📊 數據載入 Dataloader 步驟：選擇差分預測因子[/bold #dbac30]",
                 border_style="#dbac30"
             ))
@@ -332,7 +339,7 @@ def main():
                 console.print(f"[bold #dbac30]請輸入要差分的預測因子（可選: {available_factors}，預設 {default}）：[/bold #dbac30]")
                 predictor_col = input().strip() or default
                 if predictor_col not in available_factors:
-                    console.print(Panel(f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}）", title="[bold #dbac30]📊 數據載入 Dataloader 步驟：選擇差分預測因子[/bold #dbac30]", border_style="#8f1511"))
+                    console.print(Panel(f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}）", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
                     continue
                 break
             predictor_loader = PredictorLoader(data)
@@ -346,10 +353,20 @@ def main():
                 stats_data = standardize_data_for_stats(data)
                 updated_data = stats_data.copy()
                 updated_data[predictor_col] = used_series
-                freq = input("\n請輸入數據頻率以計算自相關性（D=日，H=小時，T=分鐘，預設D）：").strip().upper() or 'D'
-                if freq not in ['D', 'H', 'T']:
-                    print("輸入錯誤，自動設為D（日）")
-                    freq = 'D'
+                def infer_data_freq(df):
+                    import pandas as pd
+                    if not isinstance(df.index, pd.DatetimeIndex):
+                        if 'Time' in df.columns:
+                            df['Time'] = pd.to_datetime(df['Time'])
+                            df = df.set_index('Time')
+                        else:
+                            raise ValueError("資料必須有 DatetimeIndex 或 'Time' 欄位")
+                    freq = pd.infer_freq(df.index)
+                    if freq is None:
+                        freq = 'D'
+                        print("⚠️ 無法自動判斷頻率，已預設為日線（D）")
+                    return freq[0].upper()  # 只取第一個字母 D/H/T
+                freq = infer_data_freq(updated_data)
                 analyzers = [
                     CorrelationTest(updated_data, predictor_col, "close_return"),
                     StationarityTest(updated_data, predictor_col, "close_return"),

@@ -83,7 +83,8 @@ class DataLoader:
         console.print(Panel(
             "🟢 選擇價格數據來源\n🔴 輸入預測因子 🔵\n🔴 導出合併後數據 🔵\n🔴 選擇差分預測因子 🔵\n\n🔵可跳過\n\n"
             "請選擇你要載入的價格數據來源，可選擇本地 Excel/CSV、Yahoo Finance 或 Binance API。\n"
-            "這一步會決定後續所有分析與回測的基礎數據。",
+            "這一步會決定後續所有分析與回測的基礎數據。\n"
+            "[bold yellow]本地檔案讀取格式：Time | Open | High | Low | Close | Volume(可選)（首字母大寫）[/bold yellow]",
             title="[bold #dbac30]📊 數據載入 Dataloader 步驟：選擇價格數據來源[/bold #dbac30]",
             border_style="#dbac30"
         ))
@@ -99,7 +100,11 @@ class DataLoader:
             if choice in ['1', '2', '3']:
                 self.source = choice
                 break
-            console.print("[bold #8f1511]錯誤：請輸入 1, 2 或 3。[/bold #8f1511]")
+            console.print(Panel(
+                "錯誤：請輸入 1, 2 或 3。",
+                title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+                border_style="#8f1511"
+            ))
         # 步驟2：載入價格數據
         while True:
             if self.source == '1':
@@ -159,5 +164,11 @@ class DataLoader:
         if export_choice == 'y':
             exporter = DataExporter(self.data)
             exporter.export()
+        else:
+            console.print(Panel(
+                "未導出合併後數據，數據將直接進入後續分析/回測流程。",
+                title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+                border_style="#dbac30"
+            ))
 
         return self.data

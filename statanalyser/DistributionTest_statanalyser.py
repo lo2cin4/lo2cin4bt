@@ -66,75 +66,34 @@ class DistributionTest(BaseStatAnalyser):
     """分佈檢驗模組，評估數據是否符合正態分佈"""
 
     def analyze(self) -> Dict:
-        print(f"\n=== 檢驗：{self.predictor_col} 分布檢驗 ===")
-        # print("1. 檢驗名稱：分佈檢驗")
-        # print("2. 檢驗功能：評估數據是否符合正態分佈")
-
-        series = self.data[self.predictor_col].dropna()
-        if len(series) < 50:
-            # print(f"3. 檢驗結果：數據不足（{len(series)} 點，需至少 50 點）")
-            return {'success': False, 'is_normal': False}
-
-        # 標準化數據
-        series_std = (series - series.mean()) / series.std()
-
-        # KS 和 AD 檢驗
-        ks_stat, ks_p = kstest(series_std, 'norm')
-        ad_result = anderson(series_std, dist='norm')
-        ad_stat = ad_result.statistic
-        ad_critical = ad_result.critical_values[2]  # 5% 臨界值
-
-        # 偏度和峰度
-        skewness = series.skew()
-        kurt_excess = series.kurtosis()
-        kurt_actual = kurt_excess + 3
-        skew_threshold = 1.5 if len(series) < 100 else 1.0
-        kurt_threshold_upper = 3.7 if len(series) < 100 else 3.5
-        kurt_threshold_lower = 2.3 if len(series) < 100 else 2.5
-
-        # print("3. 檢驗結果數據：")
-        # print(f"   - KS 統計量: {ks_stat:.4f} (p={ks_p:.4f})")
-        # print(f"   - AD 統計量: {ad_stat:.2f} (5% 臨界值={ad_critical:.2f})")
-        is_normal = ks_p > 0.05 and ad_stat < ad_critical
-        # print(f"4. 是否符合正態分佈：{'是' if is_normal else '否'}")
-        # print(f"   - 偏度：{skewness:.2f}（理想值=0，閾值=±{skew_threshold}）")
-        # print(f"   - 峰度：{kurt_excess:.2f}（實際峰度={kurt_actual:.2f}，閾值=[{kurt_threshold_lower}, {kurt_threshold_upper}）")
-
-        # print("5. 建議：")
+        self.print_step_panel(f"{self.predictor_col} 分布檢驗\n1. 檢驗名稱：分布檢驗\n2. 檢驗功能：評估數據是否符合常態分布，判斷是否適合用於標準化、Z-Score等分析。\n3. 成功/失敗標準：KS檢驗p值>0.05且AD統計量<臨界值，且偏度、峰度在合理範圍內視為常態。","步驟說明","🔬")
+        # 結果數據
+        ks_stat = self.results.get('ks_stat', 'N/A')
+        ks_p = self.results.get('ks_p', 'N/A')
+        ad_stat = self.results.get('ad_stat', 'N/A')
+        ad_critical = self.results.get('ad_critical', 'N/A')
+        skewness = self.results.get('skewness', 'N/A')
+        kurtosis = self.results.get('kurtosis', 'N/A')
+        df = pd.DataFrame({
+            '指標': ['KS統計量', 'KS p值', 'AD統計量', 'AD 5%臨界值', '偏度', '峰度'],
+            '數值': [ks_stat, ks_p, ad_stat, ad_critical, skewness, kurtosis]
+        })
+        self.print_result_table(df, "分布檢驗結果", "🔬")
+        # 判斷
+        is_normal = self.results.get('is_normal', False)
+        summary = f"是否近似常態分布：{'是' if is_normal else '否'}\n"
         suggestions = []
         if is_normal:
-            suggestions.append("   - 數據符合正態分佈，適合 Z-Score 分析")
+            suggestions.append("數據符合正態分佈，適合 Z-Score 分析")
         else:
-            if abs(skewness) > skew_threshold:
-                suggestions.append(f"   - 高偏度（{skewness:.2f}），建議對數轉換或分位數分析")
-            if kurt_actual > kurt_threshold_upper:
-                suggestions.append(f"   - 尖峰厚尾（峰度={kurt_actual:.2f}），建議分位數分析")
-            elif kurt_actual < kurt_threshold_lower:
-                suggestions.append(f"   - 平峰分佈（峰度={kurt_actual:.2f}），檢查數據異常")
+            if abs(skewness) != 'N/A' and abs(skewness) > 1:
+                suggestions.append(f"高偏度（{skewness:.2f}），建議對數轉換或分位數分析")
+            if kurtosis != 'N/A' and kurtosis > 3.5:
+                suggestions.append(f"尖峰厚尾（峰度={kurtosis:.2f}），建議分位數分析")
+            elif kurtosis != 'N/A' and kurtosis < 2.5:
+                suggestions.append(f"平峰分佈（峰度={kurtosis:.2f}），檢查數據異常")
             if not suggestions:
-                suggestions.append("   - 非正態分佈，建議分位數分析")
-        # for suggestion in suggestions:
-        #     print(suggestion)
-
-        self.results = {
-            'success': True,
-            'is_normal': is_normal,
-            'ks_stat': ks_stat,
-            'ks_p': ks_p,
-            'ad_stat': ad_stat,
-            'ad_critical': ad_critical,
-            'skewness': skewness,
-            'kurtosis': kurt_actual
-        }
-
-        print("1. 檢驗名稱：分布檢驗")
-        print("2. 檢驗功能：評估數據是否符合常態分布，判斷是否適合用於標準化、Z-Score等分析。")
-        print("3. 成功/失敗標準：KS檢驗p值>0.05且AD統計量<臨界值，且偏度、峰度在合理範圍內視為常態。")
-        print(f"4. 檢驗結果數據：KS={ks_stat:.4f} (p={ks_p:.4g})，AD={ad_stat:.2f} (5%臨界值={ad_critical:.2f})，偏度={skewness:.2f}，峰度={kurt_actual:.2f}")
-        print(f"5. 檢驗結果判斷：{'近似常態分布' if is_normal else '非常態分布'}")
-        print("6. 量化策略開發建議：")
-        for suggestion in suggestions:
-            print(suggestion)
-        print("=============================")
-
+                suggestions.append("非正態分佈，建議分位數分析")
+        summary += "\n".join(suggestions)
+        self.print_info_panel(summary, "結論與建議", "🔬")
         return self.results

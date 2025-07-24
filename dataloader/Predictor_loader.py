@@ -106,14 +106,23 @@ class PredictorLoader:
                 console.print("[bold #dbac30]偵測到以下可用的預測因子檔案：[/bold #dbac30]")
                 for idx, f in enumerate(found_files, 1):
                     console.print(f"[bold white][{idx}][/bold white] {os.path.basename(f)}")
-                console.print("[bold #dbac30]請輸入檔案編號，或直接輸入完整路徑（留空代表只用價格數據進行回測，並跳過統計分析）：[/bold #dbac30]")
-                user_input = input().strip()
-                if user_input == "":
-                    return "__SKIP_STATANALYSER__"
-                if re.match(r"^\d+$", user_input) and 1 <= int(user_input) <= len(found_files):
-                    file_path = found_files[int(user_input)-1]
-                else:
-                    file_path = user_input
+                while True:
+                    console.print("[bold #dbac30]請輸入檔案編號，或直接輸入完整路徑（留空代表預設 1，僅用價格數據則請輸入 0）：[/bold #dbac30]")
+                    user_input = input().strip()
+                    if user_input == "" or user_input == "1":
+                        file_path = found_files[0]
+                        break
+                    elif user_input == "0":
+                        return "__SKIP_STATANALYSER__"
+                    elif user_input.isdigit() and 1 <= int(user_input) <= len(found_files):
+                        file_path = found_files[int(user_input)-1]
+                        break
+                    else:
+                        console.print(Panel(
+                            f"輸入錯誤，請重新輸入有效的檔案編號（1~{len(found_files)}），或輸入0僅用價格數據。",
+                            title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+                            border_style="#8f1511"
+                        ))
             else:
                 console.print("[bold #dbac30]未偵測到任何 Excel/CSV/JSON 檔案，請手動輸入檔案路徑（留空代表只用價格數據進行回測，並跳過統計分析）：[/bold #dbac30]")
                 file_path = input().strip()

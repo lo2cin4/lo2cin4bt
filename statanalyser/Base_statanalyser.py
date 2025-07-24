@@ -63,6 +63,9 @@ from abc import ABC, abstractmethod
 from typing import Tuple,Dict
 from rich.console import Console
 from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
+from rich.progress import Progress
 console = Console()
 
 class BaseStatAnalyser(ABC):
@@ -80,18 +83,28 @@ class BaseStatAnalyser(ABC):
             default = default_factor
         else:
             default = available_factors[0]
-        console.print(Panel(f"可用預測因子欄位：{available_factors}", title="[bold #8f1511]📊🔬 統計分析 StatAnalyser[/bold #8f1511]", border_style="#dbac30"))
-        if for_diff:
-            msg = f"請選擇要用來進行差分處理的預測因子（預設 {default}）"
-        else:
-            msg = f"請選擇要用於統計分析的預測因子（可選剛剛產生的差分欄位，預設 {default}）"
+        # 詳細新手說明
+        detail = (
+            "🟢 選擇用於統計分析的預測因子\n"
+            "🔴 收益率相關性檢驗[自動]\n"
+            "🔴 平穩性檢驗[自動]\n"
+            "🔴 輸出ACF 或 PACF 互動圖片\n"
+            "🔴 統計分佈檢驗[自動]\n"
+            "🔴 季節性檢驗[自動]\n\n"            
+            "統計分析將協助你尋找預測因子與收益率的關係，有助於建立策略。\n"
+            "系統會自動對齊時間並進行後續統計檢驗，協助你判斷該因子是否具備預測能力。\n"
+            "然而統計分析的建議僅作參考，開發量化策略時仍然需具備交易邏輯，才能避免數據發掘而導致的過度擬合。"
+        )
+        msg = f"[bold #dbac30]請選擇要用於統計分析的預測因子（可選: {available_factors}, 預設 {default}）：[/bold #dbac30]"
+        panel_content = detail
         while True:
-            console.print(f"[bold #dbac30]{msg}[/bold #dbac30]")
-            selected_factor = input(f"請輸入欄位名稱（預設 {default}）：").strip() or default
+            console.print(Panel(panel_content, title="[bold #dbac30]🔬 統計分析 StatAnalyser 步驟：選擇預測因子[/bold #dbac30]", border_style="#dbac30"))
+            console.print(msg)
+            selected_factor = input().strip() or default
             if selected_factor not in available_factors:
-                console.print(Panel(f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}）", title="[bold #8f1511]📊🔬 統計分析 StatAnalyser[/bold #8f1511]", border_style="#8f1511"))
+                console.print(Panel(f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}）", title="[bold #8f1511]🔬 統計分析 StatAnalyser[/bold #8f1511]", border_style="#8f1511"))
                 continue
-            console.print(Panel(f"已選擇預測因子: {selected_factor}", title="[bold #8f1511]📊🔬 統計分析 StatAnalyser[/bold #8f1511]", border_style="#dbac30"))
+            console.print(Panel(f"已選擇預測因子: {selected_factor}", title="[bold #8f1511]🔬 統計分析 StatAnalyser[/bold #8f1511]", border_style="#dbac30"))
             return selected_factor
 
     @classmethod
@@ -184,3 +197,47 @@ class BaseStatAnalyser(ABC):
     def get_results(self) -> Dict:
         """獲取分析結果"""
         return self.results
+
+    @staticmethod
+    def print_freq_input_panel(default_freq="D"):
+        msg = f"[bold #dbac30]請輸入數據頻率以計算自相關性（D=日，H=小時，T=分鐘，預設 {default_freq}）：[/bold #dbac30]"
+        console.print(msg)
+        return input().strip() or default_freq
+
+    @staticmethod
+    def print_step_panel(content, title="統計分析 StatAnalyser", emoji="🔬", style="#dbac30"):
+        console.print(Panel(content, title=f"[bold #8f1511]{emoji} {title}[/bold #8f1511]", border_style=style))
+
+    @staticmethod
+    def print_result_table(df, title="統計分析 StatAnalyser", emoji="🔬"):
+        if not isinstance(df, pd.DataFrame):
+            console.print(Panel("[red]無法顯示表格，資料格式錯誤。[/red]", title=f"[bold #8f1511]{emoji} {title}[/bold #8f1511]", border_style="#8f1511"))
+            return
+        table = Table(title=f"{emoji} {title}", border_style="#dbac30", show_lines=True)
+        for col in df.columns:
+            table.add_column(str(col), style="bold white")
+        for _, row in df.iterrows():
+            table.add_row(*[f"[#1e90ff]{v}[/#1e90ff]" if isinstance(v, (int, float, float)) or (isinstance(v, str) and v.replace('.','',1).isdigit()) else str(v) for v in row])
+        console.print(table)
+
+    @staticmethod
+    def print_warning_panel(content, title="統計分析 StatAnalyser", emoji="🔬"):
+        console.print(Panel(f"[yellow]{content}[/yellow]", title=f"[bold #8f1511]{emoji} {title}[/bold #8f1511]", border_style="#8f1511"))
+
+    @staticmethod
+    def print_success_panel(content, title="統計分析 StatAnalyser", emoji="🔬"):
+        console.print(Panel(f"[green]{content}[/green]", title=f"[bold #8f1511]{emoji} {title}[/bold #8f1511]", border_style="#dbac30"))
+
+    @staticmethod
+    def print_info_panel(content, title="統計分析 StatAnalyser", emoji="🔬", style="#dbac30"):
+        console.print(Panel(content, title=f"[bold #dbac30]{emoji} {title}[/bold #dbac30]", border_style=style))
+
+    @staticmethod
+    def print_progress_panel(step, total, desc="進度", emoji="➡️"):
+        percent = int((step / total) * 100)
+        bar = f"[{'=' * (percent // 10)}{' ' * (10 - percent // 10)}] {percent}%"
+        console.print(Panel(f"{bar}\n{desc}：{step}/{total}", title=f"[bold #8f1511]🔬 統計分析 StatAnalyser[/bold #8f1511]", border_style="#dbac30"))
+
+    @staticmethod
+    def print_conclusion_panel(content):
+        console.print(Panel(f"結論與建議：\n{content}", title="[bold #8f1511]🔬 統計分析 StatAnalyser[/bold #8f1511]", border_style="#dbac30"))

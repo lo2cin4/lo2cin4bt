@@ -76,106 +76,79 @@ class StationarityTest(BaseStatAnalyser):
         super().__init__(data, predictor_col, return_col)
 
     def analyze(self) -> Dict:
-        """執行ADF和KPSS平穩性檢驗"""
-        print(f"\n=== 檢驗：{self.predictor_col} 平穩性檢驗（ADF/KPSS） ===")
-        series = self.data[self.predictor_col]
-        series_clean = series.dropna()
-
-        if len(series_clean) < 30:
-            raise ValueError(f"數據點數不足（{len(series_clean)}）於平穩性檢驗")
-
-        if series_clean.var() == 0:
-            raise ValueError("序列為常數（無方差）")
-
-        self.results = {"predictor": {}, "return": {}}
-
-        # ADF Test for predictor
-        try:
-            adf_result = adfuller(series_clean, autolag="AIC")
-            self.results["predictor"]["adf_stat"] = adf_result[0]
-            self.results["predictor"]["adf_p"] = adf_result[1]
-            self.results["predictor"]["adf_stationary"] = adf_result[1] < 0.05
-            # print(f"\n因子 ({self.predictor_col}) ADF 檢驗：")
-            # print(f"  統計量：{adf_result[0]:.4f}")
-            # print(f"  p 值：{adf_result[1]:.4f}")
-            # print(f"  是否平穩：{'是' if adf_result[1] < 0.05 else '否'} (p < 0.05 表示平穩)")
-        except Exception as e:
-            self.results["predictor"]["adf_error"] = str(e)
-            # print(f"因子 ADF 檢驗錯誤：{e}")
-
-        # KPSS Test for predictor
-        try:
-            with warnings.catch_warnings():
-                warnings.filterwarnings("ignore")
-                kpss_result = kpss(series_clean, regression="c", nlags="auto")
-                self.results["predictor"]["kpss_stat"] = kpss_result[0]
-                self.results["predictor"]["kpss_p"] = kpss_result[1]
-                self.results["predictor"]["kpss_stationary"] = kpss_result[1] > 0.05
-                # print(f"\n因子 ({self.predictor_col}) KPSS 檢驗：")
-                # print(f"  統計量：{kpss_result[0]:.4f}")
-                # print(f"  p 值：{kpss_result[1]:.4f}")
-                # print(f"  是否平穩：{'是' if kpss_result[1] > 0.05 else '否'} (p > 0.05 表示平穩)")
-        except Exception as e:
-            self.results["predictor"]["kpss_error"] = str(e)
-            # print(f"因子 KPSS 檢驗錯誤：{e}")
-
-        # 對收益率進行檢驗
-        series_return = self.data[self.return_col]
-        series_return_clean = series_return.dropna()
-
-        if len(series_return_clean) >= 30 and series_return_clean.var() > 0:
+        step_content = (
+            "🟢 選擇用於統計分析的預測因子\n"
+            "🟢 收益率相關性檢驗[自動]\n"
+            "🟢 平穩性檢驗[自動]\n"
+            "🔴 輸出ACF 或 PACF 互動圖片\n"
+            "🔴 統計分佈檢驗[自動]\n"
+            "🔴 季節性檢驗[自動]\n\n"
+            f"2. '{self.predictor_col}' 平穩性檢驗（ADF/KPSS）\n"
+            "檢驗名稱：平穩性檢驗（ADF/KPSS）\n"
+            "檢驗功能：判斷序列是否為平穩過程，適合用於傳統時間序列建模。\n"
+            "成功/失敗標準：ADF p<0.05 為平穩，KPSS p>0.05 為平穩。"
+        )
+        self.print_step_panel(
+            step_content,
+            "🔬 統計分析 StatAnalyser 步驟：收益率相關性檢驗[自動]",
+            "🔬",
+            "#dbac30"
+        )
+        # 執行檢定並存結果
+        def run_stationarity_tests(series):
+            result = {}
             try:
-                adf_result = adfuller(series_return_clean, autolag="AIC")
-                self.results["return"]["adf_stat"] = adf_result[0]
-                self.results["return"]["adf_p"] = adf_result[1]
-                self.results["return"]["adf_stationary"] = adf_result[1] < 0.05
-                # print(f"\n收益率 ({self.return_col}) ADF 檢驗：")
-                # print(f"  統計量：{adf_result[0]:.4f}")
-                # print(f"  p 值：{adf_result[1]:.4f}")
-                # print(f"  是否平穩：{'是' if adf_result[1] < 0.05 else '否'} (p < 0.05 表示平穩)")
-            except Exception as e:
-                self.results["return"]["adf_error"] = str(e)
-                # print(f"收益率 ADF 檢驗錯誤：{e}")
-
+                adf_stat, adf_p, _, _, _, _ = adfuller(series.dropna(), autolag='AIC')
+                result['adf_stat'] = adf_stat
+                result['adf_p'] = adf_p
+                result['adf_stationary'] = adf_p < 0.05
+            except Exception:
+                result['adf_stat'] = 'N/A'
+                result['adf_p'] = 'N/A'
+                result['adf_stationary'] = False
             try:
                 with warnings.catch_warnings():
-                    warnings.filterwarnings("ignore")
-                    kpss_result = kpss(series_return_clean, regression="c", nlags="auto")
-                    self.results["return"]["kpss_stat"] = kpss_result[0]
-                    self.results["return"]["kpss_p"] = kpss_result[1]
-                    self.results["return"]["kpss_stationary"] = kpss_result[1] > 0.05
-                    # print(f"\n收益率 ({self.return_col}) KPSS 檢驗：")
-                    # print(f"  統計量：{kpss_result[0]:.4f}")
-                    # print(f"  p 值：{kpss_result[1]:.4f}")
-                    # print(f"  是否平穩：{'是' if kpss_result[1] > 0.05 else '否'} (p > 0.05 表示平穩)")
-            except Exception as e:
-                self.results["return"]["kpss_error"] = str(e)
-                # print(f"收益率 KPSS 檢驗錯誤：{e}")
-
-        print("1. 檢驗名稱：平穩性檢驗（ADF/KPSS）")
-        print("2. 檢驗功能：判斷序列是否為平穩過程，適合用於傳統時間序列建模。")
-        print("3. 成功/失敗標準：ADF p<0.05 為平穩，KPSS p>0.05 為平穩。")
-        print("4. 檢驗結果數據：")
-        print(f"   - 因子ADF統計量={self.results['predictor'].get('adf_stat', 'N/A'):.4f}，p={self.results['predictor'].get('adf_p', 'N/A')}")
-        print(f"   - 因子KPSS統計量={self.results['predictor'].get('kpss_stat', 'N/A'):.4f}，p={self.results['predictor'].get('kpss_p', 'N/A')}")
-        print(f"   - 收益率ADF統計量={self.results['return'].get('adf_stat', 'N/A'):.4f}，p={self.results['return'].get('adf_p', 'N/A')}")
-        print(f"   - 收益率KPSS統計量={self.results['return'].get('kpss_stat', 'N/A'):.4f}，p={self.results['return'].get('kpss_p', 'N/A')}")
-        print("5. 檢驗結果判斷：")
-        pred_adf = self.results['predictor'].get('adf_stationary', False)
-        pred_kpss = self.results['predictor'].get('kpss_stationary', False)
-        ret_adf = self.results['return'].get('adf_stationary', False)
-        ret_kpss = self.results['return'].get('kpss_stationary', False)
-        print(f"   - 因子ADF平穩：{'是' if pred_adf else '否'}，KPSS平穩：{'是' if pred_kpss else '否'}")
-        print(f"   - 收益率ADF平穩：{'是' if ret_adf else '否'}，KPSS平穩：{'是' if ret_kpss else '否'}")
-        print("6. 量化策略開發建議：")
-        if pred_adf and pred_kpss:
-            print("   - 因子序列平穩，適合用於傳統時間序列建模（如ARMA/ARIMA）")
+                    warnings.simplefilter("ignore")
+                    kpss_stat, kpss_p, _, _ = kpss(series.dropna(), nlags='auto')
+                result['kpss_stat'] = kpss_stat
+                result['kpss_p'] = kpss_p
+                result['kpss_stationary'] = kpss_p > 0.05
+            except Exception:
+                result['kpss_stat'] = 'N/A'
+                result['kpss_p'] = 'N/A'
+                result['kpss_stationary'] = False
+            return result
+        self.results['predictor'] = run_stationarity_tests(self.data[self.predictor_col])
+        self.results['return'] = run_stationarity_tests(self.data[self.return_col])
+        # 結果數據
+        pred_adf = self.results['predictor'].get('adf_stat', 'N/A')
+        pred_adf_p = self.results['predictor'].get('adf_p', 'N/A')
+        pred_kpss = self.results['predictor'].get('kpss_stat', 'N/A')
+        pred_kpss_p = self.results['predictor'].get('kpss_p', 'N/A')
+        ret_adf = self.results['return'].get('adf_stat', 'N/A')
+        ret_adf_p = self.results['return'].get('adf_p', 'N/A')
+        ret_kpss = self.results['return'].get('kpss_stat', 'N/A')
+        ret_kpss_p = self.results['return'].get('kpss_p', 'N/A')
+        df = pd.DataFrame({
+            '指標': ['因子ADF', '因子KPSS', '收益率ADF', '收益率KPSS'],
+            '統計量': [pred_adf, pred_kpss, ret_adf, ret_kpss],
+            'p值': [pred_adf_p, pred_kpss_p, ret_adf_p, ret_kpss_p]
+        })
+        self.print_result_table(df, "平穩性檢驗結果", "🔬")
+        # 判斷
+        pred_adf_bool = self.results['predictor'].get('adf_stationary', False)
+        pred_kpss_bool = self.results['predictor'].get('kpss_stationary', False)
+        ret_adf_bool = self.results['return'].get('adf_stationary', False)
+        ret_kpss_bool = self.results['return'].get('kpss_stationary', False)
+        summary = f"因子ADF平穩：{'是' if pred_adf_bool else '否'}，KPSS平穩：{'是' if pred_kpss_bool else '否'}\n收益率ADF平穩：{'是' if ret_adf_bool else '否'}，KPSS平穩：{'是' if ret_kpss_bool else '否'}\n"
+        # 策略建議
+        if pred_adf_bool and pred_kpss_bool:
+            summary += "因子序列平穩，適合用於傳統時間序列建模（如ARMA/ARIMA）\n"
         else:
-            print("   - 因子序列非平穩，建議差分或轉換後再建模")
-        if ret_adf and ret_kpss:
-            print("   - 收益率序列平穩，可直接用於收益率建模")
+            summary += "因子序列非平穩，建議差分或轉換後再建模\n"
+        if ret_adf_bool and ret_kpss_bool:
+            summary += "收益率序列平穩，可直接用於收益率建模"
         else:
-            print("   - 收益率序列非平穩，建議差分或轉換後再建模")
-        print("=============================")
-
+            summary += "收益率序列非平穩，建議差分或轉換後再建模"
+        self.print_info_panel(summary, "結論與建議", "🔬")
         return self.results
