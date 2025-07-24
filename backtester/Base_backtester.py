@@ -82,14 +82,14 @@ class BaseBacktester:
         self.backtest_engine = None
         self.exporter = None
     
-    def run(self):
-        """執行完整回測流程"""
+    def run(self, predictor_col: str = None):
+        """執行完整回測流程，可由 main.py 傳入 predictor_col"""
         try:
             # 僅允許 main.py 傳入 data/frequency，不再自動載入
             if self.data is None or self.frequency is None:
                 raise ValueError("BaseBacktester 必須由 main.py 傳入 data 和 frequency，不能自動載入！")
             # 2. 顯示可用預測因子並讓用戶選擇
-            selected_predictor = self._select_predictor()
+            selected_predictor = self._select_predictor(predictor_col)
             # 3. 用戶交互收集配置
             config = self.user_interface.get_user_config([selected_predictor])
             # 4. 執行回測
@@ -109,16 +109,26 @@ class BaseBacktester:
             return []
         return [col for col in self.data.columns if col not in ["Time", "High", "Low"]]
     
-    def _select_predictor(self) -> str:
-        """讓用戶選擇預測因子（允許所有非 Time/High/Low 欄位）"""
+    def _select_predictor(self, predictor_col: str = None) -> str:
+        """讓用戶選擇預測因子（允許所有非 Time/High/Low 欄位），若有傳入 predictor_col 則直接用"""
         if self.data is None:
             raise ValueError("數據未載入")
         all_predictors = [col for col in self.data.columns if col not in ["Time", "High", "Low"]]
+        if predictor_col is not None and predictor_col in all_predictors:
+            print(f"已選擇欄位: {predictor_col}")
+            return predictor_col
         print(f"\n可用欄位：{all_predictors}")
-        # 僅有價格數據時，預設選擇 'Close' 欄位
-        price_cols = ["Open", "Close", "Volume", "open_return", "close_return", "open_logreturn", "close_logreturn"]
-        if set(all_predictors).issubset(set(price_cols)) and "Close" in all_predictors:
-            default = "Close"
+        columns = list(self.data.columns)
+        if 'close_logreturn' in columns:
+            idx = columns.index('close_logreturn')
+            if idx + 1 < len(columns):
+                default = columns[idx + 1]
+            elif 'Close' in columns:
+                default = 'Close'
+            else:
+                default = all_predictors[0] if all_predictors else None
+        elif 'Close' in columns:
+            default = 'Close'
         else:
             default = all_predictors[0] if all_predictors else None
         while True:

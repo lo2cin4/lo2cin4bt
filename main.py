@@ -234,8 +234,8 @@ def main():
         Panel(
             "[bold white]1. 全面回測 (載入數據→統計分析→回測交易→交易分析→可視化平台)\n"
             "2. 回測交易 (載入數據→回測交易→交易分析→可視化平台)\n"
-            "3. 交易分析 (metricstracker + 可視化平台)\n"
-            "4. 可視化平台 (僅讀取 metricstracker 數據並顯示)[/bold white]",
+            "3. 交易分析 (交易分析→可視化平台)\n"
+            "4. 可視化平台 [/bold white]",
             title="[bold #8f1511]🏁 主選單[/bold #8f1511]",
             border_style="#dbac30"
         )
@@ -392,7 +392,7 @@ def main():
             run_backtest = 'y'
             if run_backtest == 'y':
                 backtester = BaseBacktester(data, frequency, logger)
-                backtester.run()
+                backtester.run(predictor_col)
                 logger.info("回測完成")
             # 交易分析
             analyze_backtest = 'y'
@@ -447,10 +447,41 @@ def main():
                 logger.error("數據載入失敗")
                 return
             if isinstance(data, str) and data == "__SKIP_STATANALYSER__":
-                backtester = BaseBacktester(importer.data, frequency, logger)
+                if choice == "1":
+                    print("未輸入預測因子檔案，將跳過統計分析，僅使用價格數據。")
+                data = importer.data  # 這裡用 DataFrame
+                frequency = importer.frequency  # 這裡也要設正確
+                # 差分前互動：讓用戶輸入要差分的預測因子
+                available_factors = [col for col in data.columns if col not in ['Time', 'Open', 'High', 'Low', 'Close', 'Volume', 'open_return', 'close_return', 'open_logreturn', 'close_logreturn']]
+                default = available_factors[0]
+                console.print(Panel(
+                    "🟢 選擇價格數據來源\n"
+                    "🟢 輸入預測因子 🔵\n"
+                    "🟢 導出合併後數據 🔵\n"
+                    "🟢 選擇差分預測因子 🔵\n"
+                    "\n🔵可跳過\n\n"
+                    "差分（Differencing）是時間序列分析常用的預處理方法。\n"
+                    "可以消除數據中的趨勢與季節性，讓資料更穩定，有助於提升統計檢定與回測策略的準確性。\n"
+                    "在量化回測中，我們往往不會選擇價格(原始因子)，而是收益率(差分值)作為預測因子，因為收益率更能反映資產的實際表現。",
+                    title="[bold #dbac30]📊 數據載入 Dataloader 步驟：選擇差分預測因子[/bold #dbac30]",
+                    border_style="#dbac30"
+                ))
+                while True:
+                    console.print(f"[bold #dbac30]請輸入要差分的預測因子（可選: {available_factors}，預設 {default}）：[/bold #dbac30]")
+                    predictor_col = input().strip() or default
+                    if predictor_col not in available_factors:
+                        console.print(Panel(f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}）", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
+                        continue
+                    break
+                predictor_loader = PredictorLoader(data)
+                data, diff_cols, used_series = predictor_loader.process_difference(data, predictor_col)
+                logger.info(f"差分處理完成，差分欄位：{diff_cols}")
+                # 回測
+                backtester = BaseBacktester(data, frequency, logger)
                 backtester.run()
-                print("回測完成")
                 logger.info("回測完成")
+                console.print(Panel("[bold green]回測完成！[/bold green]", title="[bold #dbac30]🧑‍💻 回測 Backtester[/bold #dbac30]", border_style="#dbac30"))
+                # 交易分析
                 # 統一進入多選 parquet 分析互動
                 from metricstracker.DataImporter_metricstracker import list_parquet_files, show_parquet_files, select_files
                 import pandas as pd
@@ -492,17 +523,38 @@ def main():
                     except Exception as e:
                         print(f"❌ 可視化平台啟動失敗: {e}")
                 return
-            logger.info(f"數據載入成功，形狀：{data.shape}，頻率：{frequency}")
-            predictor_col = select_predictor_factor(data)
+            # 非 __SKIP_STATANALYSER__，也要做差分處理
+            available_factors = [col for col in data.columns if col not in ['Time', 'Open', 'High', 'Low', 'Close', 'Volume', 'open_return', 'close_return', 'open_logreturn', 'close_logreturn']]
+            default = available_factors[0]
+            console.print(Panel(
+                "🟢 選擇價格數據來源\n"
+                "🟢 輸入預測因子 🔵\n"
+                "🟢 導出合併後數據 🔵\n"
+                "🟢 選擇差分預測因子 🔵\n"
+                "\n🔵可跳過\n\n"
+                "差分（Differencing）是時間序列分析常用的預處理方法。\n"
+                "可以消除數據中的趨勢與季節性，讓資料更穩定，有助於提升統計檢定與回測策略的準確性。\n"
+                "在量化回測中，我們往往不會選擇價格(原始因子)，而是收益率(差分值)作為預測因子，因為收益率更能反映資產的實際表現。",
+                title="[bold #dbac30]📊 數據載入 Dataloader 步驟：選擇差分預測因子[/bold #dbac30]",
+                border_style="#dbac30"
+            ))
+            while True:
+                console.print(f"[bold #dbac30]請輸入要差分的預測因子（可選: {available_factors}，預設 {default}）：[/bold #dbac30]")
+                predictor_col = input().strip() or default
+                if predictor_col not in available_factors:
+                    console.print(Panel(f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}）", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
+                    continue
+                break
             predictor_loader = PredictorLoader(data)
             data, diff_cols, used_series = predictor_loader.process_difference(data, predictor_col)
             logger.info(f"差分處理完成，差分欄位：{diff_cols}")
             # 回測
-            print("開始回測...")
+            logger.info("開始回測...")
+            console.print(Panel("[bold white]開始回測...[/bold white]", title="[bold #dbac30]🧑‍💻 回測 Backtester[/bold #dbac30]", border_style="#dbac30"))
             backtester = BaseBacktester(data, frequency, logger)
             backtester.run()
-            print("回測完成")
             logger.info("回測完成")
+            console.print(Panel("[bold green]回測完成！[/bold green]", title="[bold #dbac30]🧑‍💻 回測 Backtester[/bold #dbac30]", border_style="#dbac30"))
             # 交易分析
             # 統一進入多選 parquet 分析互動
             from metricstracker.DataImporter_metricstracker import list_parquet_files, show_parquet_files, select_files
@@ -544,6 +596,7 @@ def main():
                     plotter.run(host='127.0.0.1', port=8050, debug=False)
                 except Exception as e:
                     print(f"❌ 可視化平台啟動失敗: {e}")
+            return
         elif choice == "3":
             # 交易分析（metricstracker + 可視化平台）
             logger.info("[主選單] 交易分析（metricstracker→可視化平台）")
