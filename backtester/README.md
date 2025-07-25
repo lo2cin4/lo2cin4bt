@@ -25,9 +25,8 @@
 ```plaintext
 backtester/
 ├── __init__.py
-├── Base_backtester.py              # 回測主流程協調器
+├── Base_backtester.py              # 回測主流程協調器、用戶互動與參數收集
 ├── DataImporter_backtester.py      # 數據載入與標準化
-├── UserInterface_backtester.py     # 用戶互動與參數收集
 ├── BacktestEngine_backtester.py    # 回測引擎（策略組合、信號產生）
 ├── Indicators_backtester.py        # 技術指標管理與信號產生
 ├── TradeSimulator_backtester.py    # 交易模擬與持倉管理
@@ -36,9 +35,8 @@ backtester/
 ├── README.md                       # 本文件
 ```
 
-- **Base_backtester.py**：主流程協調器，負責調用各子模組
+- **Base_backtester.py**：主流程協調器，負責調用各子模組、用戶互動、參數收集、配置生成
 - **DataImporter_backtester.py**：數據載入、標準化、欄位驗證
-- **UserInterface_backtester.py**：用戶互動、參數收集、配置生成
 - **BacktestEngine_backtester.py**：批次回測、策略組合、信號產生
 - **Indicators_backtester.py**：技術指標計算與信號管理
 - **TradeSimulator_backtester.py**：交易模擬、持倉管理、收益計算
@@ -61,37 +59,31 @@ backtester/
 - **輸入**：檔案路徑、DataFrame
 - **輸出**：標準化 DataFrame、頻率
 
-### 3. UserInterface_backtester.py
-- **功能**：用戶互動、參數收集、配置生成
-- **主要處理**：策略選擇、參數組合、驗證
-- **輸入**：可用因子、策略清單
-- **輸出**：回測配置 dict
-
-### 4. BacktestEngine_backtester.py
+### 3.BacktestEngine_backtester.py
 - **功能**：批次回測、策略組合、信號產生
 - **主要處理**：多組參數、並行回測、信號生成
 - **輸入**：DataFrame、配置
 - **輸出**：回測結果 list
 
-### 5. Indicators_backtester.py
+### 4. Indicators_backtester.py
 - **功能**：技術指標計算、信號產生
 - **主要處理**：多種指標、參數組合、信號標準化
 - **輸入**：DataFrame、指標參數
 - **輸出**：信號 DataFrame
 
-### 6. TradeSimulator_backtester.py
+### 5. TradeSimulator_backtester.py
 - **功能**：交易模擬、持倉管理、收益計算
 - **主要處理**：根據信號模擬開平倉、計算持倉、收益、風險
 - **輸入**：信號 DataFrame
 - **輸出**：交易記錄 DataFrame
 
-### 7. TradeRecorder_backtester.py
+### 6. TradeRecorder_backtester.py
 - **功能**：交易記錄、驗證、欄位標準化
 - **主要處理**：記錄每筆交易、驗證完整性、欄位標準化
 - **輸入**：交易模擬結果
 - **輸出**：標準化交易記錄
 
-### 8. TradeRecordExporter_backtester.py
+### 7. TradeRecordExporter_backtester.py
 - **功能**：結果導出、Parquet/CSV、元數據寫入
 - **主要處理**：合併多組回測結果、寫入 metadata、批次導出
 - **輸入**：交易記錄、回測摘要
@@ -105,11 +97,10 @@ backtester/
 flowchart TD
     A[main.py] -->|調用| B(BaseBacktester)
     B -->|載入數據| C[DataImporter]
-    B -->|用戶互動| D[UserInterface]
-    B -->|執行回測| E[BacktestEngine]
-    E -->|產生信號| F[Indicators]
-    E -->|模擬交易| G[TradeSimulator]
-    B -->|導出結果| H[TradeRecordExporter]
+    B -->|執行回測| D[BacktestEngine]
+    E -->|產生信號| E[Indicators]
+    E -->|模擬交易| F[TradeSimulator]
+    B -->|導出結果| G[TradeRecordExporter]
 ```
 
 - 主流程協調 → 數據載入 → 用戶互動 → 回測執行 → 信號產生 → 交易模擬 → 結果記錄 → 導出
@@ -119,9 +110,8 @@ flowchart TD
 
 ## 主要類別與方法（Key Classes & Methods）
 
-- `BaseBacktester`：主流程協調器，run()、_export_results()
+- `BaseBacktester`：主流程協調器，run()、_export_results()、
 - `DataImporter`：數據載入與標準化
-- `UserInterface`：用戶互動、參數收集
 - `BacktestEngine`：批次回測、信號產生
 - `Indicators`：技術指標管理
 - `TradeSimulator`：交易模擬、持倉管理
@@ -154,22 +144,6 @@ flowchart TD
 - 兩個字以上的欄位用 _ 連接（如 Position_size, Trade_action, Equity_value）。
 - meta 欄位首字母大寫。
 - 請全流程、所有模組、所有導出/驗證/分析皆遵循此規範。
-
----
-
-## 疑難排解（持續更新）
-
-1. IndicatorParams 參數型態問題 22/07/2025
-問題詳情：所有 add_param 參數都會被包成 dict（{'value': x, 'type': y}），若直接用 param.n 或 param['n'] 取值，會拿到 dict，導致 NDayCycle exit_signal 產生失敗，無法平倉。
-解決方法：所有參數必須用 param.get_param('n') 取值，保證型態正確。已修正所有 NDayCycle、MA、BOLL 相關流程，README 也已提醒。
-
-2. NDayCycle 平倉方向邏輯錯誤 22/07/2025
-問題詳情：原本 NDayCycle exit_signal 產生時，strat_idx=1 只找 entry_signal==1，strat_idx=2 只找 entry_signal==-1，導致多單/空單平倉對應錯誤，永遠無法平倉。
-解決方法：已修正為 strat_idx=1（空單平倉）找 entry_signal==-1，N天後 exit_signal=1；strat_idx=2（多單平倉）找 entry_signal==1，N天後 exit_signal=-1。
-
-3. UserInterface 參數型態傳遞問題 22/07/2025
-問題詳情：UserInterface 或參數收集流程有時會將 n 包成 dict 傳遞，導致下游型態錯誤。
-解決方法：NDayCycle get_params 內強制 n=int(n)，保證後續流程型態正確。 
 
 ---
 
@@ -280,6 +254,6 @@ results = backtester.run()  # 互動式選擇因子、參數、執行回測、�
 問題詳情：原本 NDayCycle exit_signal 產生時，strat_idx=1 只找 entry_signal==1，strat_idx=2 只找 entry_signal==-1，導致多單/空單平倉對應錯誤，永遠無法平倉。
 解決方法：已修正為 strat_idx=1（空單平倉）找 entry_signal==-1，N天後 exit_signal=1；strat_idx=2（多單平倉）找 entry_signal==1，N天後 exit_signal=-1。
 
-3. UserInterface 參數型態傳遞問題 22/07/2025
-問題詳情：UserInterface 或參數收集流程有時會將 n 包成 dict 傳遞，導致下游型態錯誤。
+3. Base 參數型態傳遞問題 22/07/2025
+問題詳情：Base 或參數收集流程有時會將 n 包成 dict 傳遞，導致下游型態錯誤。
 解決方法：NDayCycle get_params 內強制 n=int(n)，保證後續流程型態正確。 

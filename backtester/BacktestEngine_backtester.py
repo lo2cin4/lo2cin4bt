@@ -167,7 +167,6 @@ class BacktestEngine:
     
     def run_backtests(self, config: Dict) -> List[Dict]:
         """執行所有回測"""
-        # print("[DEBUG] 開始執行回測...")
         all_combinations = self.generate_parameter_combinations(config)
         condition_pairs = config['condition_pairs']
         predictors = config['predictors']

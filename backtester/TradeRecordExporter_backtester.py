@@ -481,8 +481,9 @@ class TradeRecordExporter_backtester:
                             result["records"]["Backtest_id"] = result["Backtest_id"]
                         all_records.append(result["records"])
                 
+                # 過濾掉空的 DataFrame 或全 NA 的 DataFrame，避免 FutureWarning
+                all_records = [df for df in all_records if not df.empty and not df.isna().all().all()]
                 if all_records:
-                    all_records = [df for df in all_records if not df.empty]
                     combined_records = pd.concat(all_records, ignore_index=True)
                 else:
                     combined_records = pd.DataFrame()

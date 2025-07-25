@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./images/lo2cin4logo.png" alt="Lo2cin4BT Logo" width="180"/>
+  <img src="images/lo2cin4logo.png" alt="Lo2cin4BT Logo" width="180"/>
 </p>
 
 # 🚀 Lo2cin4BT
@@ -13,6 +13,7 @@
 我幾乎沒有 Python 經驗，所有程式碼 100% 由 Grok 與 Cursor AI 撰寫，我只負責構思架構、提出想法並與 AI 互動，雛型僅花了一個月完成。  
 我的目標，是讓每一位量化新手都能輕鬆進行回測，並將結果可視化。
 歡迎提出任何意見！
+在使用之前，請幫我在 Github 的專案給一個星哦！
 
 ---
 
@@ -129,7 +130,7 @@
 以下為一個典型的命令行互動流程範例：
 
 <p align="center">
-  <img src="images/template_1.jpg" alt="Template_1" width="900"/>
+  <img src="images/template_1.png" alt="Template_1" width="180"/>
 </p>
 
 ## 🗂️ 專案結構

@@ -87,6 +87,7 @@ class StationarityTest(BaseStatAnalyser):
             "🔴 生成 ACF 或 PACF 互動圖片\n"
             "🔴 統計分佈檢驗[自動]\n"
             "🔴 季節性檢驗[自動]\n\n"
+            "[bold #dbac30]說明[/bold #dbac30]\n"
             f"2. '{self.predictor_col}' 平穩性檢驗（ADF/KPSS）\n"
             "檢驗功能：判斷序列是否為平穩過程，適合用於傳統時間序列建模。如序列非平穩，很多模型如自回歸 (AR)、ARIMA 模型、線性回歸分析等效果將大打折扣。\n"
             "成功/失敗標準：ADF p<0.05 為平穩，KPSS p>0.05 為平穩。"

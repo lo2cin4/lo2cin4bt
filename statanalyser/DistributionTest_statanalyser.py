@@ -79,6 +79,7 @@ class DistributionTest(BaseStatAnalyser):
             "🟢 輸出 ACF 或 PACF 互動圖片\n"
             "🟢 統計分佈檢驗[自動]\n"
             "🔴 季節性檢驗[自動]\n\n"
+            "[bold #dbac30]說明[/bold #dbac30]\n"
             f"4. '{self.predictor_col}' 分布檢驗\n"
             "檢驗功能：評估數據是否符合常態分布，判斷是否適合用於標準化、Z-Score 等分析。\n"
             "成功/失敗標準：同時滿足以下條件視為常態分布：\n"

@@ -82,7 +82,8 @@ class PredictorLoader:
         try:
             console.print(Panel(
                 "🟢 選擇價格數據來源\n🟢 輸入預測因子 🔵\n🔴 選擇差分預測因子 🔵\n🔴 導出合併後數據 🔵\n\n🔵可跳過\n\n"
-                "你可以提供存放一份你認為能預測價格的「預測因子」數據檔案（Excel/CSV/JSON）至lo2cin4bt\\records\\dataloader\\import。\n"
+                "[bold #dbac30]說明[/bold #dbac30]\n"
+                "你可以提供一份你認為能預測價格的「預測因子」數據檔案（如 Excel/CSV/JSON），\n"
                 "例如：BTC ETF 資金流入數據、Google Trends、其他資產價格等。\n\n"
                 "系統會自動對齊時間，並用這些因子做後續的統計分析與回測。\n"
                 "你也可以輸入另一份價格數據，並選擇用哪個欄位作為預測因子（例如用 AAPL 股價預測 NVDA 股價）。\n\n"

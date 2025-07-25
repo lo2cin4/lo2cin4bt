@@ -82,6 +82,7 @@ class DataLoader:
         # 步驟1：選擇價格數據來源
         console.print(Panel(
             "🟢 選擇價格數據來源\n🔴 輸入預測因子 🔵\n🔴 導出合併後數據 🔵\n🔴 選擇差分預測因子 🔵\n\n🔵可跳過\n\n"
+            "[bold #dbac30]說明[/bold #dbac30]\n"
             "請選擇你要載入的價格數據來源，可選擇本地 Excel/CSV、Yahoo Finance 或 Binance API。\n"
             "這一步會決定後續所有分析與回測的基礎數據。\n"
             "[bold yellow]本地檔案讀取格式：Time | Open | High | Low | Close | Volume(可選)（首字母大寫）[/bold yellow]",
@@ -153,6 +154,7 @@ class DataLoader:
         # 步驟3：導出合併後數據
         console.print(Panel(
             "🟢 選擇價格數據來源\n🟢 輸入預測因子 🔵\n🟢 導出合併後數據 🔵\n🔴 選擇差分預測因子 🔵\n\n🔵可跳過\n\n"
+            "[bold #dbac30]說明[/bold #dbac30]\n"
             "你可以將合併後的數據導出為 xlsx/csv/json 檔案，方便後續分析或保存。\n"
             "這一步可跳過，若不導出，數據仍會自動進入後續回測與分析流程。",
             title="[bold #dbac30]📊 數據載入 Dataloader 步驟：導出合併後數據[/bold #dbac30]",

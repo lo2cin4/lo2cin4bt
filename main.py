@@ -303,18 +303,21 @@ def main():
                     for orig_parquet_path in selected_files:
                         print(f"\n已選擇檔案: {orig_parquet_path}")
                         df = pd.read_parquet(orig_parquet_path)
-                        time_unit = input("請輸入年化時間單位（如日線股票252，日線幣365，預設為252）：").strip()
+                        console.print(f"[bold #dbac30]請輸入年化時間單位（如日線股票252，日線幣365，預設為252）：[/bold #dbac30]")
+                        time_unit = input().strip()
                         if time_unit == "":
                             time_unit = 252
                         else:
                             time_unit = int(time_unit)
-                        risk_free_rate = input("請輸入無風險利率（%）（輸入n代表n% ，預設為2）：").strip()
+                        console.print(f"[bold #dbac30]請輸入無風險利率（%）（輸入n代表n% ，預設為2）：[/bold #dbac30]")
+                        risk_free_rate = input().strip()
                         if risk_free_rate == "":
                             risk_free_rate = 2.0 / 100
                         else:
                             risk_free_rate = float(risk_free_rate) / 100
                         MetricsExporter.export(df, orig_parquet_path, time_unit, risk_free_rate)
-                run_plotter = input("是否啟動可視化平台？(y/n，預設y)：").strip().lower() or 'y'
+                console.print(f"[bold #dbac30]是否啟動可視化平台？(y/n，預設y)：[/bold #dbac30]")
+                run_plotter = input().strip().lower() or 'y'
                 if run_plotter == 'y':
                     try:
                         from plotter.Base_plotter import BasePlotter
@@ -331,6 +334,7 @@ def main():
                 "🟢 導出合併後數據 🔵\n"
                 "🟢 選擇差分預測因子 🔵\n"
                 "\n🔵可跳過\n\n"
+                "[bold #dbac30]說明[/bold #dbac30]\n"
                 "差分（Differencing）是時間序列分析常用的預處理方法。\n"
                 "可以消除數據中的趨勢與季節性，讓資料更穩定，有助於提升統計檢定與回測策略的準確性。\n"
                 "在量化回測中，我們往往不會選擇價格(原始因子)，而是收益率(差分值)作為預測因子，因為收益率更能反映資產的實際表現。1",
@@ -423,18 +427,21 @@ def main():
                 for orig_parquet_path in selected_files:
                     print(f"\n已選擇檔案: {orig_parquet_path}")
                     df = pd.read_parquet(orig_parquet_path)
-                    time_unit = input("請輸入年化時間單位（如日線股票252，日線幣365，預設為252）：").strip()
+                    console.print(f"[bold #dbac30]請輸入年化時間單位（如日線股票252，日線幣365，預設為252）：[/bold #dbac30]")
+                    time_unit = input().strip()
                     if time_unit == "":
                         time_unit = 252
                     else:
                         time_unit = int(time_unit)
-                    risk_free_rate = input("請輸入無風險利率（%）（輸入n代表n% ，預設為2）：").strip()
+                    console.print(f"[bold #dbac30]請輸入無風險利率（%）（輸入n代表n% ，預設為2）：[/bold #dbac30]")
+                    risk_free_rate = input().strip()
                     if risk_free_rate == "":
                         risk_free_rate = 2.0 / 100
                     else:
                         risk_free_rate = float(risk_free_rate) / 100
                     MetricsExporter.export(df, orig_parquet_path, time_unit, risk_free_rate)
-                run_plotter = input("是否啟動可視化平台？(y/n，預設y)：").strip().lower() or 'y'
+                console.print(f"[bold #dbac30]是否啟動可視化平台？(y/n，預設y)：[/bold #dbac30]")
+                run_plotter = input().strip().lower() or 'y'
                 if run_plotter == 'y':
                     try:
                         from plotter.Base_plotter import BasePlotter
@@ -465,6 +472,7 @@ def main():
                     "🟢 導出合併後數據 🔵\n"
                     "🟢 選擇差分預測因子 🔵\n"
                     "\n🔵可跳過\n\n"
+                    "[bold #dbac30]說明[/bold #dbac30]\n"
                     "差分（Differencing）是時間序列分析常用的預處理方法。\n"
                     "可以消除數據中的趨勢與季節性，讓資料更穩定，有助於提升統計檢定與回測策略的準確性。\n"
                     "在量化回測中，我們往往不會選擇價格(原始因子)，而是收益率(差分值)作為預測因子，因為收益率更能反映資產的實際表現。",
@@ -508,18 +516,21 @@ def main():
                 for orig_parquet_path in selected_files:
                     print(f"\n已選擇檔案: {orig_parquet_path}")
                     df = pd.read_parquet(orig_parquet_path)
-                    time_unit = input("請輸入年化時間單位（如日線股票252，日線幣365，預設為252）：").strip()
+                    console.print(f"[bold #dbac30]請輸入年化時間單位（如日線股票252，日線幣365，預設為252）：[/bold #dbac30]")
+                    time_unit = input().strip()
                     if time_unit == "":
                         time_unit = 252
                     else:
                         time_unit = int(time_unit)
-                    risk_free_rate = input("請輸入無風險利率（%）（輸入n代表n% ，預設為2）：").strip()
+                    console.print(f"[bold #dbac30]請輸入無風險利率（%）（輸入n代表n% ，預設為2）：[/bold #dbac30]")
+                    risk_free_rate = input().strip()
                     if risk_free_rate == "":
                         risk_free_rate = 2.0 / 100
                     else:
                         risk_free_rate = float(risk_free_rate) / 100
                     MetricsExporter.export(df, orig_parquet_path, time_unit, risk_free_rate)
-                run_plotter = input("是否啟動可視化平台？(y/n，預設y)：").strip().lower() or 'y'
+                console.print(f"[bold #dbac30]是否啟動可視化平台？(y/n，預設y)：[/bold #dbac30]")
+                run_plotter = input().strip().lower() or 'y'
                 if run_plotter == 'y':
                     try:
                         from plotter.Base_plotter import BasePlotter
@@ -537,6 +548,7 @@ def main():
                 "🟢 導出合併後數據 🔵\n"
                 "🟢 選擇差分預測因子 🔵\n"
                 "\n🔵可跳過\n\n"
+                "[bold #dbac30]說明[/bold #dbac30]\n"
                 "差分（Differencing）是時間序列分析常用的預處理方法。\n"
                 "可以消除數據中的趨勢與季節性，讓資料更穩定，有助於提升統計檢定與回測策略的準確性。\n"
                 "在量化回測中，我們往往不會選擇價格(原始因子)，而是收益率(差分值)作為預測因子，因為收益率更能反映資產的實際表現。",
@@ -555,7 +567,6 @@ def main():
             logger.info(f"差分處理完成，差分欄位：{diff_cols}")
             # 回測
             logger.info("開始回測...")
-            console.print(Panel("[bold white]開始回測...[/bold white]", title="[bold #dbac30]🧑‍💻 回測 Backtester[/bold #dbac30]", border_style="#dbac30"))
             backtester = BaseBacktester(data, frequency, logger)
             backtester.run()
             logger.info("回測完成")
@@ -582,18 +593,21 @@ def main():
             for orig_parquet_path in selected_files:
                 print(f"\n已選擇檔案: {orig_parquet_path}")
                 df = pd.read_parquet(orig_parquet_path)
-                time_unit = input("請輸入年化時間單位（如日線股票252，日線幣365，預設為252）：").strip()
+                console.print(f"[bold #dbac30]請輸入年化時間單位（如日線股票252，日線幣365，預設為252）：[/bold #dbac30]")
+                time_unit = input().strip()
                 if time_unit == "":
                     time_unit = 252
                 else:
                     time_unit = int(time_unit)
-                risk_free_rate = input("請輸入無風險利率（%）（輸入n代表n% ，預設為2）：").strip()
+                console.print(f"[bold #dbac30]請輸入無風險利率（%）（輸入n代表n% ，預設為2）：[/bold #dbac30]")
+                risk_free_rate = input().strip()
                 if risk_free_rate == "":
                     risk_free_rate = 2.0 / 100
                 else:
                     risk_free_rate = float(risk_free_rate) / 100
                 MetricsExporter.export(df, orig_parquet_path, time_unit, risk_free_rate)
-            run_plotter = input("是否啟動可視化平台？(y/n，預設y)：").strip().lower() or 'y'
+            console.print(f"[bold #dbac30]是否啟動可視化平台？(y/n，預設y)：[/bold #dbac30]")
+            run_plotter = input().strip().lower() or 'y'
             if run_plotter == 'y':
                 try:
                     from plotter.Base_plotter import BasePlotter
@@ -626,18 +640,21 @@ def main():
             for orig_parquet_path in selected_files:
                 print(f"\n已選擇檔案: {orig_parquet_path}")
                 df = pd.read_parquet(orig_parquet_path)
-                time_unit = input("請輸入年化時間單位（如日線股票252，日線幣365，預設為252）：").strip()
+                console.print(f"[bold #dbac30]請輸入年化時間單位（如日線股票252，日線幣365，預設為252）：[/bold #dbac30]")
+                time_unit = input().strip()
                 if time_unit == "":
                     time_unit = 252
                 else:
                     time_unit = int(time_unit)
-                risk_free_rate = input("請輸入無風險利率（%）（輸入n代表n% ，預設為2）：").strip()
+                console.print(f"[bold #dbac30]請輸入無風險利率（%）（輸入n代表n% ，預設為2）：[/bold #dbac30]")
+                risk_free_rate = input().strip()
                 if risk_free_rate == "":
                     risk_free_rate = 2.0 / 100
                 else:
                     risk_free_rate = float(risk_free_rate) / 100
                 MetricsExporter.export(df, orig_parquet_path, time_unit, risk_free_rate)
-            run_plotter = input("是否啟動可視化平台？(y/n，預設y)：").strip().lower() or 'y'
+            console.print(f"[bold #dbac30]是否啟動可視化平台？(y/n，預設y)：[/bold #dbac30]")
+            run_plotter = input().strip().lower() or 'y'
             if run_plotter == 'y':
                 try:
                     from plotter.Base_plotter import BasePlotter
