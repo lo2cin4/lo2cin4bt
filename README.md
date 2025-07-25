@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="lo2cin4logo.png" alt="Lo2cin4BT Logo" width="180"/>
+  <img src="./images/lo2cin4logo.png" alt="Lo2cin4BT Logo" width="180"/>
 </p>
 
 # 🚀 Lo2cin4BT
@@ -128,35 +128,9 @@
 
 以下為一個典型的命令行互動流程範例：
 
-```
-$ python main.py
-=== lo2cin4BT 主選單 ===
-1. 全面回測 (載入數據→統計分析→回測交易→交易分析→可視化平台)
-2. 統計分析 (載入數據→統計分析)
-3. 回測交易 (載入數據→回測交易→交易分析→可視化平台)
-4. 交易分析 (直接分析現有回測結果→可視化平台)
-5. 可視化平台 (讀取 metricstracker 數據並顯示)
-請選擇要執行的功能（1, 2, 3, 4, 5，預設1）：1
-
-請選擇數據來源：
-1. Excel/CSV 檔案
-2. Yahoo Finance
-3. Binance API
-...
-請輸入預測因子 Excel/CSV/json 文件名稱（直接 Enter 跳過）：
-...
-請選擇技術指標（如 MA1,BOLL2，或輸入 'default' 用預設策略）：MA5
-...
-請輸入策略1的MA5的短MA長度範圍 (格式: start:end:step，預設 5:10:5): 5:10:5
-...
-=== 可用Parquet檔案 ===
-[1] 20250723_97dpnzl6.parquet
-請輸入要分析的檔案編號（可用逗號分隔多選，或輸入al/all全選）：1
-...
-=== 交易績效分析完成 ===
-```
-
----
+<p align="center">
+  <img src="images/template_1.png" alt="Template_1" width="180"/>
+</p>
 
 ## 🗂️ 專案結構
 
