@@ -180,6 +180,8 @@ lo2cin4bt/
 
 ## 📂 數據存放與輸出說明
 
+- **預測因子檔案存放**：
+  - 需存放於 `records/dataloader/import` 資料夾，格式為 `csv/xlsx/json` 檔案。
 - **回測結果（交易紀錄）**：
   - 會自動存放於 `records/backtester/` 資料夾，格式為 `.parquet` 檔案。
   - 每次回測會產生一個唯一檔名（如 `20250723_97dpnzl6.parquet`）。
