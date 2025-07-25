@@ -294,6 +294,47 @@ else:
 
 ---
 
+## 可視化平台（plotter）需求與設計規範
+
+### 1. parquet 讀取
+- 讀取 parquet 的 metadata 及主表格。
+
+### 2. 資金曲線繪製
+- 用主表格中的 Equity_value 繪出策略的資金曲線。
+
+### 3. BAH 曲線
+- 檢查主表格有多少款 instrument，同一款 instrument 用同一條 BAH_equity 畫出 BAH 的 Equity_value 曲線。
+
+### 4. 點選圖表顯示參數
+- 在圖表上點擊曲線時，顯示該策略的 Entry_params 和 Exit_params（metadata 內有）。
+
+### 5. 控制面板 UI
+- 控制面板如目前的 UI 設計（toggle group + collapsible checklist + 全選按鈕），支援動態擴充。
+
+### 6. 勾選顯示/隱藏曲線
+- 控制面板勾選/不選時，顯示/隱藏對應資金曲線。條件為 and（全部滿足才顯示）。
+
+### 7. 選中曲線顯示詳情
+- 選中曲線時，下方顯示該策略詳情（metadata 內 metrics），用兩欄顯示，另一欄為對應 instrument 的 BAH metrics。
+
+---
+
+### 【維護提醒】
+- 任何 UI/功能調整，請同步檢查本規範與 README，確保未來擴充一致。
+- 若遇到資金曲線消失、callback 無效，請優先檢查 callback Output id 與 layout id 是否一致。
+
+---
+
+### Dash 資金曲線顯示的根本解法
+
+- Dash 中每個 Output（如 Output('equity_chart', 'figure')）只能被一個 callback 控制，否則所有 callback 都會失效。
+- 若同一個 Output 出現在多個 callback，Dash 會直接忽略這些 callback，UI 互動完全沒反應。
+- 正確做法：只保留一個主 callback，Output 到 equity_chart，並在 callback 內根據 checklist 狀態過濾並畫出資金曲線。
+- 其他 UI 控制（如 toggle、全選）callback 只 Output 到自己的 checklist，不會影響 equity_chart。
+- 若遇到資金曲線永遠空白、UI 互動沒反應，請優先檢查是否有 Output 重複註冊。
+
+---
+
 ## 故障排除（Troubleshooting）
 
 ### 常見問題

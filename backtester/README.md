@@ -163,34 +163,8 @@ flowchart TD
 
 ---
 
-## 可視化平台（plotter）需求與設計規範
-
-### 1. parquet 讀取
-- 讀取 parquet 的 metadata 及主表格。
-
-### 2. 資金曲線繪製
-- 用主表格中的 Equity_value 繪出策略的資金曲線。
-
-### 3. BAH 曲線
-- 檢查主表格有多少款 instrument，同一款 instrument 用同一條 BAH_equity 畫出 BAH 的 Equity_value 曲線。
-
-### 4. 點選圖表顯示參數
-- 在圖表上點擊曲線時，顯示該策略的 Entry_params 和 Exit_params（metadata 內有）。
-
-### 5. 控制面板 UI
-- 控制面板如目前的 UI 設計（toggle group + collapsible checklist + 全選按鈕），支援動態擴充。
-
-### 6. 勾選顯示/隱藏曲線
-- 控制面板勾選/不選時，顯示/隱藏對應資金曲線。條件為 and（全部滿足才顯示）。
-
-### 7. 選中曲線顯示詳情
-- 選中曲線時，下方顯示該策略詳情（metadata 內 metrics），用兩欄顯示，另一欄為對應 instrument 的 BAH metrics。
-
----
-
-### 【維護提醒】
-- 任何 UI/功能調整，請同步檢查本規範與 README，確保未來擴充一致。
-- 若遇到資金曲線消失、callback 無效，請優先檢查 callback Output id 與 layout id 是否一致。
+## 可視化平台
+可視化平台請參見 plotter/README.md
 
 ---
 
@@ -213,34 +187,11 @@ results = backtester.run()  # 互動式選擇因子、參數、執行回測、�
 - **元數據管理**：Parquet metadata 寫入 batch_metadata、策略參數、指標摘要
 - **導出格式**：Parquet、CSV，統一輸出至 records/backtester 目錄
 - **依賴套件**：pandas, numpy, pyarrow, tqdm, 其他
+- 新增指標時，請特別注意 Base_backtester.py 內所有參數詢問 Panel（如 MA/BOLL/NDAY 範圍等）顯示時會自動將半形冒號 : 換成全形冒號 ：，避免 Windows 終端機將 :100: 等誤判為 emoji。用戶輸入後會自動轉回半形冒號再做驗證。請維護此規則以確保 CLI 美觀與一致性。
 
 ---
 
 如需擴充新流程、策略、欄位或有特殊需求，請先參考本 README 並同步更新相關註解與文件。 
-
-### Dash 資金曲線顯示的根本解法
-
-- Dash 中每個 Output（如 Output('equity_chart', 'figure')）只能被一個 callback 控制，否則所有 callback 都會失效。
-- 若同一個 Output 出現在多個 callback，Dash 會直接忽略這些 callback，UI 互動完全沒反應。
-- 正確做法：只保留一個主 callback，Output 到 equity_chart，並在 callback 內根據 checklist 狀態過濾並畫出資金曲線。
-- 其他 UI 控制（如 toggle、全選）callback 只 Output 到自己的 checklist，不會影響 equity_chart。
-- 若遇到資金曲線永遠空白、UI 互動沒反應，請優先檢查是否有 Output 重複註冊。
-
---- 
-
-## ⚠️ NDayCycle 平倉信號產生注意事項
-
-- NDayCycle 只能作為平倉信號，不能作為開倉信號。
-- NDayCycle 的 exit_signal 不能在 _generate_signals 內直接產生，必須在 BacktestEngine combine_signals 特殊處理：
-  - _generate_signals 內遇到 NDayCycle 必須直接回傳全 0，不報錯。
-  - combine_signals 後，若 exit_params 只有 NDayCycle，必須呼叫 NDayCycleIndicator.generate_exit_signal_from_entry(entry_signal, n, strat_idx) 產生 exit_signal。
-- 若未依此設計，NDayCycle exit_signal 將無法正確產生，導致只有一筆交易或無法平倉。 
-
-## ⚠️ IndicatorParams 參數型態注意事項
-
-- 所有指標參數都會被包成 dict（{'value': x, 'type': y}），必須用 get_param('參數名') 取值，否則會拿到 dict 型態。
-- NDayCycle 的 n 參數、strat_idx 參數，務必用 param.get_param('n')、param.get_param('strat_idx') 取值，否則會導致型態錯誤。
-- 其他指標（如 MA、BOLL）也建議統一用 get_param 取值，避免未來擴充時出現同樣問題。 
 
 ---
 
