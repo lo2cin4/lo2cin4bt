@@ -73,6 +73,18 @@ from .Indicators_backtester import IndicatorsBacktester
 logger = logging.getLogger("lo2cin4bt")
 console = Console()
 
+DEFAULT_STRATEGY_PAIRS = [
+    ("MA1", "MA4"),
+    ("BOLL1", "BOLL4"),
+    ("MA5", "NDAY2"),
+]
+
+"""
+本模組所有參數詢問Panel（如MA長度、BOLL長度、NDAY範圍等）
+- 顯示時自動將半形冒號 : 換成全形冒號 ：，避免Windows終端機將 :100: 等誤判為emoji。
+- 用戶輸入後自動將全形冒號 ： 轉回半形冒號 : 再做驗證與處理。
+- 這樣可確保CLI美觀且不影響內部邏輯。
+"""
 class BaseBacktester:
     """
     重構後的回測框架核心協調器，只負責調用各模組
@@ -106,10 +118,8 @@ class BaseBacktester:
             # 4. 導出結果
             self._export_results(config)
             console.print(Panel("[bold green]回測完成！[/bold green]", title="[bold #dbac30]👨‍💻 交易回測 Backtester[/bold #dbac30]", border_style="#dbac30"))
-            print("[DEBUG] run return")
             return self.results
         except Exception as e:
-            print(f"[DEBUG] run except: {e}")
             raise
 
     @staticmethod
@@ -419,27 +429,22 @@ class BaseBacktester:
         """
         用戶互動收集配置，包括指標參數和回測環境參數
         """
-        
-        # 1. 選擇回測開倉及平倉指標
         self._display_available_indicators()
-        entry_indicator_type = self._collect_condition_pairs(selected_predictor)
-        exit_indicator_type = self._collect_condition_pairs(selected_predictor)
-        
-        # 2. 輸入指標參數
-        entry_params = self._collect_indicator_params(entry_indicator_type)
-        exit_params = self._collect_indicator_params(exit_indicator_type)
-        
-        # 3. 輸入回測環境參數
+        condition_pairs = self._collect_condition_pairs()
+        # 收集所有用到的指標（entry+exit union）
+        all_indicators = set()
+        for pair in condition_pairs:
+            all_indicators.update(pair['entry'])
+            all_indicators.update(pair['exit'])
+        all_indicators = [ind for ind in all_indicators if ind != '__DEFAULT__']
+        indicator_params = self._collect_indicator_params(condition_pairs)
         trading_params = self._collect_trading_params()
-        
-        # 4. 整合所有參數
         config = {
-            'predictor': selected_predictor,
-            'entry_conditions': entry_params,
-            'exit_conditions': exit_params,
+            'predictors': [selected_predictor],
+            'condition_pairs': condition_pairs,
+            'indicator_params': indicator_params,
             'trading_params': trading_params
         }
-        print("[DEBUG] get_user_config return")
         return config
 
     def _display_available_indicators(self):
@@ -488,181 +493,173 @@ class BaseBacktester:
             "- 請避免多空衝突：若開倉做多，所有開倉條件都應為做多型，否則策略會失敗。\n"
             "- 開倉與平倉條件方向必須對立（如開倉做多，平倉應為做空）。\n"
             "- 支援同時回測多組不同條件的策略，靈活組合。\n"
-            "- 格式：先輸入開倉條件（如 MA1,BOLL1），再輸入平倉條件（如 MA2,BOLL2），即可建立一組策略。\n"
-            "- [bold yellow]如不確定如何選擇，建議先用預設策略體驗流程。[/bold yellow]\n"
+            "- 格式：先輸入開倉條件（如MA1,BOLL1），再輸入平倉條件（如 MA2,BOLL2），即可建立一組策略。\n"
+            "- [bold yellow]如不確定如何選擇，建議先用預設策略體驗流程，在開倉和平倉條件同時輸入default即可。[/bold yellow]\n"
             "- ※ 輸入多個指標時，必須全部同時滿足才會開倉/平倉。"
         )
         content = desc + "\n\n" + "\n\n".join(group_texts)
         BaseBacktester.print_step_panel(2, content)
 
-    def _collect_condition_pairs(self, selected_predictor: str) -> list:
+    def _collect_condition_pairs(self) -> list:
         """
-        互動式收集條件配對，支援多組策略、逗號分隔、default、none
+        收集條件配對，支援 default 批次產生三組預設策略，所有互動美化
         """
         condition_pairs = []
         pair_count = 1
         all_aliases = self.indicators_helper.get_all_indicator_aliases()
-        DEFAULT_STRATEGY_PAIRS = [
-            ('MA1', 'MA4'), ('MA3', 'MA2'), ('MA5', 'MA8'), ('MA7', 'MA6'), ('MA9', 'MA12'), ('MA11', 'MA10'),
-            ('BOLL1', 'BOLL4'), ('MA1', 'NDAY2'), ('MA2', 'NDAY1'), ('MA3', 'NDAY2'), ('MA4', 'NDAY1'),
-            ('MA5', 'NDAY2'), ('MA6', 'NDAY1'), ('MA7', 'NDAY2'), ('MA8', 'NDAY1'), ('MA9', 'NDAY2'),
-            ('MA10', 'NDAY1'), ('MA11', 'NDAY2'), ('MA12', 'NDAY1'), ('BOLL1', 'NDAY2'), ('BOLL2', 'NDAY1'),
-            ('BOLL3', 'NDAY2'), ('BOLL4', 'NDAY1')
-        ]
+        # 步驟Panel（只顯示一次，並合併所有說明）
+        if pair_count == 1:
+            desc = "- 輸入多個指標時，必須全部同時滿足才會開倉/平倉。\n- 輸入 'default,default' 可依預設策略批次產生。\n- 可多組策略，依提示繼續。"
+            step_status = []
+            steps = self.get_steps()
+            step_idx = 2
+            for i, s in enumerate(steps, 1):
+                if i < step_idx:
+                    step_status.append(f"🟢{s}")
+                elif i == step_idx:
+                    step_status.append(f"🟢{s}")
+                else:
+                    step_status.append(f"🔴{s}")
+            step_progress = "\n".join(step_status)
+            panel_content = f"{step_progress}\n\n[bold #dbac30]說明[/bold #dbac30]\n{desc}"
+            console.print(Panel(panel_content, title="[bold #dbac30]👨‍💻 交易回測 Backtester 步驟：選擇回測開倉及平倉指標[/bold #dbac30]", border_style="#dbac30"))
         while True:
-            # 開倉條件
-            console.print(f"[bold #dbac30]請輸入第 {pair_count} 組【開倉】指標 (如 MA1,BOLL2，或輸入 'none' 結束，或 'default' 用預設策略)：[/bold #dbac30]")
-            entry_input = input().strip().lower()
-            if not entry_input:
-                console.print(Panel("輸入不能為空，請重新輸入。", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
-                continue
-            if entry_input == 'none':
-                if len(condition_pairs) == 0:
+            # 開倉條件輸入
+            entry_prompt = f"[bold #dbac30]請輸入第 {pair_count} 組【開倉】指標 (如 MA1,BOLL2，或輸入 'none' 結束，或 'default' 用預設策略)：[/bold #dbac30]"
+            entry_indicators = self._get_indicator_input(entry_prompt, all_aliases)
+            if not entry_indicators:
+                if pair_count == 1:
                     console.print(Panel("至少需要設定一組條件，請重新輸入。", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
                     continue
                 else:
-                    print("[DEBUG] _collect_condition_pairs return (entry_input==none)")
-                    return condition_pairs
-            # 平倉條件
-            console.print(f"[bold #dbac30]請輸入第 {pair_count} 組【平倉】指標 (如 MA2,BOLL4，或輸入 'none' 結束，或 'default' 用預設策略)：[/bold #dbac30]")
-            exit_input = input().strip().lower()
-            if not exit_input:
-                console.print(Panel("輸入不能為空，請重新輸入。", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
-                continue
-            if exit_input == 'none':
-                if len(condition_pairs) == 0:
-                    console.print(Panel("至少需要設定一組條件，請重新輸入。", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
-                    continue
-                else:
-                    print("[DEBUG] _collect_condition_pairs return (exit_input==none)")
-                    return condition_pairs
+                    break
+            # 平倉條件輸入
+            exit_prompt = f"[bold #dbac30]請輸入第 {pair_count} 組【平倉】指標 (如 MA2,BOLL4，或輸入 'none' 結束，或 'default' 用預設策略)：[/bold #dbac30]"
+            exit_indicators = self._get_indicator_input(exit_prompt, all_aliases)
             # default 批次產生
-            if entry_input == 'default' and exit_input == 'default':
+            if entry_indicators == ['__DEFAULT__'] and exit_indicators == ['__DEFAULT__']:
                 for entry, exit in DEFAULT_STRATEGY_PAIRS:
                     condition_pairs.append({'entry': [entry], 'exit': [exit]})
-                console.print(Panel(f"已自動批次產生 {len(DEFAULT_STRATEGY_PAIRS)} 組預設策略條件。", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
-                print("[DEBUG] _collect_condition_pairs return (default)")
-                return condition_pairs
-            # 解析多個指標
-            entry_indicators = [i.strip().upper() for i in entry_input.split(',') if i.strip() and i != 'default'] if entry_input != 'default' else ['__DEFAULT__']
-            exit_indicators = [i.strip().upper() for i in exit_input.split(',') if i.strip() and i != 'default'] if exit_input != 'default' else ['__DEFAULT__']
-            # 檢查有效性
-            invalid_entry = [ind for ind in entry_indicators if ind not in all_aliases and ind != '__DEFAULT__']
-            invalid_exit = [ind for ind in exit_indicators if ind not in all_aliases and ind != '__DEFAULT__']
-            if invalid_entry or invalid_exit:
-                console.print(Panel(f"❌ 無效的指標: {invalid_entry+invalid_exit}", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
-                continue
-            condition_pairs.append({'entry': entry_indicators, 'exit': exit_indicators})
-            console.print(Panel(f"第 {pair_count} 組條件設定完成：開倉={entry_indicators}, 平倉={exit_indicators}", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+                console.print(Panel(f"已自動批次產生 {len(DEFAULT_STRATEGY_PAIRS)} 組預設策略條件。", title="[bold #dbac30]👨‍💻 交易回測 Backtester[/bold #dbac30]", border_style="#dbac30"))
+                break
+            condition_pairs.append({
+                'entry': entry_indicators,
+                'exit': exit_indicators
+            })
+            console.print(Panel(f"第 {pair_count} 組條件設定完成：開倉={entry_indicators}, 平倉={exit_indicators}", title="[bold #dbac30]👨‍💻 交易回測 Backtester[/bold #dbac30]", border_style="#dbac30"))
             pair_count += 1
             # 詢問是否繼續
-            continue_input = None
-            while continue_input not in ['y', 'n']:
-                console.print(f"[bold #dbac30]是否繼續設定第 {pair_count} 組條件？(y/n，預設y)：[/bold #dbac30]")
-                continue_input = input().strip().lower() or 'y'
-                if continue_input not in ['y', 'n']:
-                    console.print(Panel("請輸入 y 或 n，其他輸入無效，請重新輸入。", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+            continue_input = console.input(f"[bold #dbac30]\n是否繼續設定第 {pair_count} 組條件？(y/n，預設y)：[/bold #dbac30]").strip().lower() or 'y'
             if continue_input != 'y':
-                if len(condition_pairs) == 0:
-                    console.print(Panel("至少需要設定一組條件，請重新輸入。", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
-                    continue
-                else:
-                    print("[DEBUG] _collect_condition_pairs return (continue_input!=y)")
-                    return condition_pairs
-        print("[DEBUG] _collect_condition_pairs return (正常結束)")
+                break
         return condition_pairs
 
-    def _collect_indicator_params(self, indicator_types: List[str]) -> List[Dict]:
-        print(f"[DEBUG] _collect_indicator_params called, indicator_types={indicator_types}")
-        all_params = []
-        for indicator_type in indicator_types:
-            try:
-                console.print(Panel(f"[bold #dbac30]請輸入 {indicator_type} 的參數[/bold #dbac30]", title=f"[bold #dbac30]請輸入 {indicator_type} 的參數[/bold #dbac30]", border_style="#dbac30"))
-                
-                if indicator_type == 'MA':
-                    strat_idx = self._get_indicator_input("請輸入 MA 指標的 strat_idx (例如 1, 2, '1', '2')：")
-                    ma_type = self._get_indicator_input("請輸入 MA 指標的 ma_type (例如 SMA, EMA, WMA)：")
-                    mode = self._get_indicator_input("請輸入 MA 指標的 mode (例如 single, double)：")
-                    
-                    if mode == 'double':
-                        short_period = self._get_indicator_input("請輸入 MA 指標的短均線週期 (例如 5, 10)：")
-                        long_period = self._get_indicator_input("請輸入 MA 指標的長均線週期 (例如 20, 50)：")
-                        all_params.append({
-                            'indicator_type': 'MA',
-                            'strat_idx': strat_idx,
-                            'ma_type': ma_type,
-                            'mode': mode,
-                            'shortMA_period': short_period,
-                            'longMA_period': long_period
-                        })
-                    else:
-                        period = self._get_indicator_input("請輸入 MA 指標的週期 (例如 5, 10)：")
-                        all_params.append({
-                            'indicator_type': 'MA',
-                            'strat_idx': strat_idx,
-                            'ma_type': ma_type,
-                            'mode': mode,
-                            'period': period
-                        })
-                elif indicator_type == 'BOLL':
-                    strat_idx = self._get_indicator_input("請輸入 BOLL 指標的 strat_idx (例如 1, 2, '1', '2')：")
-                    ma_length = self._get_indicator_input("請輸入 BOLL 指標的 ma_length (例如 20, 50)：")
-                    std_multiplier = self._get_indicator_input("請輸入 BOLL 指標的 std_multiplier (例如 2.0, 2.5)：")
-                    all_params.append({
-                        'indicator_type': 'BOLL',
-                        'strat_idx': strat_idx,
-                        'ma_length': ma_length,
-                        'std_multiplier': std_multiplier
-                    })
-                elif indicator_type == 'NDayCycle':
-                    strat_idx = self._get_indicator_input("請輸入 NDayCycle 指標的 strat_idx (例如 1, 2, '1', '2')：")
-                    n = self._get_indicator_input("請輸入 NDayCycle 指標的 n (例如 5, 10)：")
-                    all_params.append({
-                        'indicator_type': 'NDayCycle',
-                        'strat_idx': strat_idx,
-                        'n': n
-                    })
-                else:
-                    # 對於其他指標類型，可能需要更複雜的參數收集邏輯
-                    # 例如，讓用戶輸入一個參數名稱和值
-                    param_name = self._get_indicator_input("請輸入指標參數名稱：")
-                    param_value = self._get_indicator_input("請輸入指標參數值：")
-                    all_params.append({
-                        'indicator_type': indicator_type,
-                        'param_name': param_name,
-                        'param_value': param_value
-                    })
-            except Exception as e:
-                print(f"[DEBUG] _collect_indicator_params error: {indicator_type}, {e}")
-                raise
-        print("[DEBUG] _collect_indicator_params return")
-        return all_params
-
-    def _collect_trading_params(self) -> Dict:
-        print("[DEBUG] _collect_trading_params called")
-        console.print(Panel("[bold #dbac30]👨‍💻 請輸入回測環境參數[/bold #dbac30]", title="[bold #dbac30]👨‍💻 請輸入回測環境參數[/bold #dbac30]", border_style="#dbac30"))
-        
-        capital = self._get_trading_param("請輸入初始資金 (例如 100000)：")
-        commission = self._get_trading_param("請輸入手續費 (例如 0.0005)：")
-        slippage = self._get_trading_param("請輸入滑價 (例如 0.001)：")
-        
-        print("[DEBUG] _collect_trading_params return")
-        return {
-            'capital': capital,
-            'commission': commission,
-            'slippage': slippage
-        }
-
-    def _get_indicator_input(self, prompt: str) -> str:
+    def _collect_indicator_params(self, condition_pairs: list) -> dict:
         """
-        從用戶獲取指標參數的輸入
+        針對每個策略、每個entry/exit指標，依型態分組詢問，Rich Panel美化，結構與下游一致
+        """
+        indicator_params = {}
+        # 步驟說明Panel
+        step_idx = 3
+        steps = self.get_steps()
+        step_status = []
+        for i, s in enumerate(steps, 1):
+            if i < step_idx:
+                step_status.append(f"🟢{s}")
+            elif i == step_idx:
+                step_status.append(f"🟢{s}")
+            else:
+                step_status.append(f"🔴{s}")
+        step_progress = "\n".join(step_status)
+        desc = "- 此步驟將針對每個策略、每個指標，依型態分組詢問參數。\n- 請依提示完成所有參數輸入，支援多組策略與多指標。\n- 參數格式錯誤會即時提示，請依說明修正。"
+        panel_content = f"{step_progress}\n\n[bold #dbac30]說明[/bold #dbac30]\n{desc}\n\n共需設定 {len(condition_pairs)} 個策略的參數。\n每個策略可包含多個指標，請依提示完成所有參數輸入。"
+        console.print(Panel(panel_content, title="[bold #dbac30]👨‍💻 交易回測 Backtester 步驟：輸入指標參數[/bold #dbac30]", border_style="#dbac30"))
+        for strategy_idx, pair in enumerate(condition_pairs):
+            console.print(Panel(f"策略 {strategy_idx + 1} 參數設定\n開倉指標：{pair['entry']}\n平倉指標：{pair['exit']}", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+            # 先收集 entry，再收集 exit，順序與用戶輸入一致
+            for alias in pair['entry']:
+                strategy_alias = f"{alias}_strategy_{strategy_idx + 1}"
+                console.print(Panel(f"{alias} 參數設定 (策略 {strategy_idx + 1})", title=f"[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+                params_config = self._get_indicator_params_config(alias, strategy_idx + 1)
+                param_list = self.indicators_helper.get_indicator_params(alias, params_config)
+                indicator_params[strategy_alias] = param_list
+                console.print(Panel(f"{alias} (策略 {strategy_idx + 1}) 參數設定完成，產生 {len(param_list)} 組參數", title=f"[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+            for alias in pair['exit']:
+                if alias in pair['entry']:
+                    continue  # 避免重複
+                strategy_alias = f"{alias}_strategy_{strategy_idx + 1}"
+                console.print(Panel(f"{alias} 參數設定 (策略 {strategy_idx + 1})", title=f"[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+                params_config = self._get_indicator_params_config(alias, strategy_idx + 1)
+                param_list = self.indicators_helper.get_indicator_params(alias, params_config)
+                indicator_params[strategy_alias] = param_list
+                console.print(Panel(f"{alias} (策略 {strategy_idx + 1}) 參數設定完成，產生 {len(param_list)} 組參數", title=f"[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+        return indicator_params
+
+    def _collect_trading_params(self) -> dict:
+        """
+        收集交易參數（成本、滑點、延遲、價格），完全參考原UserInterface，並用Rich Panel美化
+        """
+        trading_params = {}
+        console.print(Panel("[bold #dbac30]請設定回測環境參數[/bold #dbac30]\n\n[bold #dbac30]說明[/bold #dbac30]\n- 交易成本、滑點、延遲等參數將影響回測結果，請根據實際情況填寫。\n- 交易價格可選擇以開盤價或收盤價成交。", title="[bold #dbac30]👨‍💻 交易回測 Backtester 步驟：輸入回測環境參數[/bold #dbac30]", border_style="#dbac30"))
+        # 交易成本
+        while True:
+            try:
+                cost_input = console.input("[bold #dbac30]請輸入交易成本 (小數，如 0.01 表示 1%，預設 0.001)：[/bold #dbac30]").strip()
+                trading_params['transaction_cost'] = float(cost_input) if cost_input else 0.001
+                if trading_params['transaction_cost'] < 0:
+                    raise ValueError("交易成本必須為非負數")
+                break
+            except ValueError as e:
+                console.print(Panel(f"輸入錯誤：{e}，請重新輸入。", title="[bold #8f1511]👨‍💻 用戶互動 - 回測環境參數[/bold #8f1511]", border_style="#8f1511"))
+        # 滑點
+        while True:
+            try:
+                slippage_input = console.input("[bold #dbac30]請輸入滑點 (小數，如 0.005 表示 0.5%，預設 0.0005)：[/bold #dbac30]").strip()
+                trading_params['slippage'] = float(slippage_input) if slippage_input else 0.0005
+                if trading_params['slippage'] < 0:
+                    raise ValueError("滑點必須為非負數")
+                break
+            except ValueError as e:
+                console.print(Panel(f"輸入錯誤：{e}，請重新輸入。", title="[bold #8f1511]👨‍💻 用戶互動 - 回測環境參數[/bold #8f1511]", border_style="#8f1511"))
+        # 交易延遲
+        while True:
+            try:
+                trade_delay_input = console.input("[bold #dbac30]請輸入交易延遲 (信號後第幾個數據點執行交易，整數 ≥ 0，預設 0)：[/bold #dbac30]").strip()
+                trading_params['trade_delay'] = int(trade_delay_input) if trade_delay_input else 0
+                if trading_params['trade_delay'] < 0:
+                    raise ValueError("交易延遲必須為 0 或以上")
+                break
+            except ValueError as e:
+                console.print(Panel(f"輸入錯誤：{e}，請重新輸入。", title="[bold #8f1511]👨‍💻 用戶互動 - 回測環境參數[/bold #8f1511]", border_style="#8f1511"))
+        # 交易價格
+        trade_price_input = console.input("[bold #dbac30]請輸入交易價格 (使用開盤價 'open' 或收盤價 'close'，預設 close)：[/bold #dbac30]").strip().lower() or "close"
+        trading_params['trade_price'] = trade_price_input
+        return trading_params
+
+    def _get_indicator_input(self, prompt: str, valid_indicators: list) -> list:
+        """
+        獲取指標輸入，所有互動美化
         """
         while True:
-            console.print(f"[bold #dbac30]{prompt}[/bold #dbac30]")
-            user_input = input().strip()
-            if user_input:
-                return user_input
-            console.print(Panel("輸入不能為空，請重新輸入。", title="[bold #8f1511]👨‍💻 用戶互動 - 指標參數[/bold #8f1511]", border_style="#8f1511"))
+            user_input = console.input(prompt).strip()
+            if user_input.lower() == 'none':
+                return []
+            if user_input.lower() == 'default':
+                return ['__DEFAULT__']
+            indicators = [i.strip().upper() for i in user_input.split(",") if i.strip()]
+            # 檢查是否為開倉信號且包含 NDayCycle
+            if "開倉" in prompt and any(ind in indicators for ind in ["NDAY1", "NDAY2"]):
+                console.print(Panel("錯誤：NDAY1/NDAY2 只能作為平倉信號，不能作為開倉信號！請重新選擇。", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                continue
+            invalid_indicators = [ind for ind in indicators if ind not in valid_indicators]
+            if invalid_indicators:
+                console.print(Panel(f"❌ 無效的指標: {invalid_indicators}", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                console.print(Panel(f"請重新輸入，有效指標包括: {valid_indicators}", title="[bold #dbac30]👨‍💻 交易回測 Backtester[/bold #dbac30]", border_style="#dbac30"))
+                continue
+            if not indicators:
+                console.print(Panel("請至少輸入一個有效的指標", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                continue
+            return indicators
 
     def _get_trading_param(self, prompt: str) -> float:
         """
@@ -677,6 +674,77 @@ class BaseBacktester:
                 except ValueError:
                     console.print(Panel(f"輸入 '{user_input}' 無效，請輸入數字。", title="[bold #8f1511]👨‍💻 用戶互動 - 回測環境參數[/bold #8f1511]", border_style="#8f1511"))
             console.print(Panel("輸入不能為空，請重新輸入。", title="[bold #8f1511]👨‍💻 用戶互動 - 回測環境參數[/bold #8f1511]", border_style="#8f1511"))
+
+    def _get_indicator_params_config(self, alias: str, strategy_num: int) -> dict:
+        """
+        根據指標型態互動式收集參數，含格式驗證與美化
+        """
+        params_config = {}
+        def check_range_format(input_str, field_name):
+            while True:
+                s = input_str.strip()
+                if ':' in s:
+                    parts = s.split(':')
+                    if len(parts) == 3 and all(p.strip().isdigit() for p in parts):
+                        return s
+                    else:
+                        console.print(Panel(f"❌ {field_name} 請用 'start : end : step' 格式（如 10:20:2），且三段都需為整數！", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                else:
+                    console.print(Panel(f"❌ {field_name} 請用 'start : end : step' 格式（如 10:20:2），且三段都需為整數！", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                input_str = console.input(f"[bold #dbac30]請重新輸入{field_name} (格式: start : end : step，例如 10:50:10)：[/bold #dbac30]")
+        def beautify_range_hint(hint: str) -> str:
+            return hint.replace(":", "：")
+        if alias.startswith('MA'):
+            # 雙均線指標
+            if alias in ['MA5', 'MA6', 'MA7', 'MA8']:
+                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的MA型態 (SMA/EMA/WMA，預設 SMA)")
+                ma_type = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip().upper() or "SMA"
+                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的短MA長度範圍 (格式: start:end:step，預設 5:10:5)")
+                short_range = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "5:10:5"
+                short_range = short_range.replace("：", ":")
+                short_range = check_range_format(short_range, f"策略{strategy_num}的{alias}的短MA長度範圍")
+                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的長MA長度範圍 (格式: start:end:step，預設 20:30:10)")
+                long_range = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "20:30:10"
+                long_range = long_range.replace("：", ":")
+                long_range = check_range_format(long_range, f"策略{strategy_num}的{alias}的長MA長度範圍")
+                params_config = {"ma_type": ma_type, "short_range": short_range, "long_range": long_range}
+            # MA9~MA12 需輸入連續日數 m 與 MA長度 n
+            elif alias in ['MA9', 'MA10', 'MA11', 'MA12']:
+                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的連續日數 m (格式: 單一數字或 start:end:step，預設 2:3:1)")
+                m_range = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "2:3:1"
+                m_range = m_range.replace("：", ":")
+                m_range = check_range_format(m_range, f"策略{strategy_num}的{alias}的連續日數 m")
+                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的MA長度範圍 n (格式: start:end:step，預設 10:20:10)")
+                n_range = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "10:20:10"
+                n_range = n_range.replace("：", ":")
+                n_range = check_range_format(n_range, f"策略{strategy_num}的{alias}的MA長度範圍 n")
+                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的MA型態 (SMA/EMA/WMA，預設 SMA)")
+                ma_type = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip().upper() or "SMA"
+                params_config = {"m_range": m_range, "n_range": n_range, "ma_type": ma_type}
+            else:
+                # 單均線
+                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的MA長度範圍 (格式: start:end:step，例如 10:100:10，預設 10:20:10)")
+                ma_range = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "10:20:10"
+                ma_range = ma_range.replace("：", ":")
+                ma_range = check_range_format(ma_range, f"策略{strategy_num}的{alias}的MA長度範圍")
+                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的MA型態 (SMA/EMA/WMA，預設 SMA)")
+                ma_type = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip().upper() or "SMA"
+                params_config = {"ma_range": ma_range, "ma_type": ma_type}
+        elif alias.startswith('BOLL'):
+            panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的BOLL均線長度範圍 (格式: start:end:step，例如 10:30:10，預設 10:20:10)")
+            ma_range = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "10:20:10"
+            ma_range = ma_range.replace("：", ":")
+            ma_range = check_range_format(ma_range, f"策略{strategy_num}的{alias}的BOLL均線長度範圍")
+            panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的標準差倍數 (可用逗號分隔多個，例如 2,2.5,3，預設2)")
+            sd_input = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "2"
+            params_config = {"ma_range": ma_range, "sd_multi": sd_input}
+        elif alias in ['NDAY1', 'NDAY2']:
+            panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的N值範圍 (格式: start:end:step，例如 3:10:1，預設 2:3:1)")
+            n_range = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "2:3:1"
+            n_range = n_range.replace("：", ":")
+            n_range = check_range_format(n_range, f"策略{strategy_num}的{alias}的N值範圍")
+            params_config = {"n_range": n_range, "signal_type": 1 if alias == 'NDAY1' else -1}
+        return params_config
 
     def get_results(self) -> List[Dict]:
         """獲取回測結果"""

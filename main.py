@@ -130,7 +130,6 @@ def setup_logging(log_queue=None):
         
         # 記錄程式啟動
         root_logger.info("=== 程式啟動 ===")
-        # print("[DEBUG] 日誌系統已初始化")
     else:
         # 子進程只設置 QueueHandler，log_queue 必須由主進程傳入
         root_logger = logging.getLogger("lo2cin4bt")
@@ -182,7 +181,7 @@ def standardize_data_for_stats(data):
             for col in ['close_return', 'close_logreturn', 'open_return', 'open_logreturn']:
                 df[col] = df[col].replace([np.inf, -np.inf], np.nan).fillna(0)
         else:
-            print("[DEBUG] 警告：缺少 close 欄位，無法計算收益率")
+            console.print(Panel("缺少 close 欄位，無法計算收益率", title="[bold #8f1511]⚠️ 數據處理警告[/bold #8f1511]", border_style="#8f1511"))
     
     return df
 
@@ -270,7 +269,7 @@ def main():
             importer = DataImporter()
             data, frequency = importer.load_and_standardize_data()
             if data is None:
-                print("[DEBUG] 數據載入失敗，程式終止")
+                console.print(Panel("[DEBUG] 數據載入失敗，程式終止", title="[bold #8f1511]⚠️ 數據載入警告[/bold #8f1511]", border_style="#8f1511"))
                 logger.error("數據載入失敗")
                 return
             if isinstance(data, str) and data == "__SKIP_STATANALYSER__":
@@ -390,7 +389,7 @@ def main():
                         analyzer.analyze()
                         results[test_name] = analyzer.results if hasattr(analyzer, 'results') else None
                     except Exception as e:
-                        print(f"[DEBUG] Error in {test_name}: {e}")
+                        console.print(Panel(f"[DEBUG] Error in {test_name}: {e}", title="[bold #8f1511]⚠️ 執行錯誤[/bold #8f1511]", border_style="#8f1511"))
                         logger.error(f"統計分析失敗 {test_name}: {e}")
                         results[test_name] = {"error": str(e)}
                 reporter = ReportGenerator()
@@ -664,7 +663,6 @@ def main():
                     print(f"❌ 可視化平台啟動失敗: {e}")
         elif choice == "4":
             # 可視化平台
-            print("[DEBUG] 選擇可視化平台")
             logger.info("[主選單] 可視化平台")
             try:
                 from plotter.Base_plotter import BasePlotter
@@ -681,14 +679,14 @@ def main():
         else:
             pass
     except Exception as e:
-        print(f"[DEBUG] 程式執行過程中發生錯誤：{e}")
+        console.print(Panel(f"[DEBUG] 程式執行過程中發生錯誤：{e}", title="[bold #8f1511]⚠️ 執行錯誤[/bold #8f1511]", border_style="#8f1511"))
         logger.error(f"程式執行錯誤：{e}")
         import traceback
         traceback.print_exc()
     finally:
         if listener:
             listener.stop()
-            print("[DEBUG] 日誌系統已停止")
+            console.print(Panel("[DEBUG] 日誌系統已停止", title="[bold #dbac30]📊 系統通知[/bold #dbac30]", border_style="#dbac30"))
             logger.info("程式結束")
 
 # 移除 _run_trade_analysis 函數
