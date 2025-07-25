@@ -129,7 +129,7 @@
 以下為一個典型的命令行互動流程範例：
 
 <p align="center">
-  <img src="images/template_1.png" alt="Template_1" width="180"/>
+  <img src="images/template_1.jpg" alt="Template_1" width="180"/>
 </p>
 
 ## 🗂️ 專案結構
