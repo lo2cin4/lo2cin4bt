@@ -55,9 +55,10 @@ class BaseMetricTracker:
         
         # 步驟1：選擇要分析的 Parquet 檔案
         self._print_step_panel(1, 
-            "- 請從可用的 Parquet 檔案中選擇要分析的檔案。\n"
-            "- 支援單選、多選（逗號分隔）或全選（輸入 all）。\n"
-            "- 選擇後，系統會逐一分析每個檔案的交易績效。"
+            "Parquet是專門儲存大數據的檔案，如你已使用我們的回測功能，則會自動產生以Parquet形式儲存的交易記錄。\n"
+            "請從可用的 Parquet 檔案中選擇要分析的檔案。\n"
+            "支援單選、多選（逗號分隔）或全選（輸入 all）。\n"
+            "選擇後，系統會逐一分析每個檔案的交易績效。"
         )
         
         files = list_parquet_files(directory)
