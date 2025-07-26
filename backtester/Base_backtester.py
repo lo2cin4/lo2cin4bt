@@ -216,7 +216,7 @@ class BaseBacktester:
         獲取用戶的回測配置，包括指標、參數、交易成本等。
         """
         # Step 1: 選擇要用於回測的預測因子
-        self._print_step_panel(1, "選擇要用於回測的預測因子")
+        self._print_step_panel(1, "選擇要用於交易回測的預測因子，可選擇原因子或差分後的因子。")
         selected_predictor = self._select_predictor()
         
         # Step 2: 選擇回測開倉及平倉指標
