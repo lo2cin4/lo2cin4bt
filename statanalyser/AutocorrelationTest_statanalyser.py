@@ -120,6 +120,56 @@ class AutocorrelationTest(BaseStatAnalyser):
             pacf_vals = pacf_result
             pacf_conf = None
 
+        # 顯著滯後期
+        threshold = 1.96 / np.sqrt(len(series))
+        acf_sig_lags = [i for i in range(1, lags + 1) if abs(acf_vals[i]) > threshold]
+        pacf_sig_lags = [i for i in range(1, lags + 1) if abs(pacf_vals[i]) > threshold]
+
+        # 統計結果表格
+        from rich.table import Table
+        
+        # 主要統計指標表格
+        stats_table = Table(title="自相關性統計指標", border_style="#dbac30", show_lines=True)
+        stats_table.add_column("指標", style="bold white")
+        stats_table.add_column("數值", style="bold white")
+        stats_table.add_column("說明", style="bold white")
+        
+        # 計算主要統計指標
+        acf_max = max(abs(acf_vals[1:])) if len(acf_vals) > 1 else 0
+        pacf_max = max(abs(pacf_vals[1:])) if len(pacf_vals) > 1 else 0
+        acf_max_lag = np.argmax(abs(acf_vals[1:])) + 1 if len(acf_vals) > 1 else 0
+        pacf_max_lag = np.argmax(abs(pacf_vals[1:])) + 1 if len(pacf_vals) > 1 else 0
+        
+        stats_table.add_row("數據點數", f"[bold #1e90ff]{len(series)}[/bold #1e90ff]", "有效數據點數量")
+        stats_table.add_row("檢測滯後期", f"[bold #1e90ff]{lags}[/bold #1e90ff]", f"最大檢測滯後期（頻率={self.freq}）")
+        stats_table.add_row("顯著性閾值", f"[bold #1e90ff]{threshold:.4f}[/bold #1e90ff]", "95% 置信區間閾值")
+        stats_table.add_row("ACF 最大值", f"[bold #1e90ff]{acf_max:.4f}[/bold #1e90ff]", f"滯後期 {acf_max_lag}")
+        stats_table.add_row("PACF 最大值", f"[bold #1e90ff]{pacf_max:.4f}[/bold #1e90ff]", f"滯後期 {pacf_max_lag}")
+        stats_table.add_row("ACF 顯著期數", f"[bold #1e90ff]{len(acf_sig_lags)}[/bold #1e90ff]", f"超過閾值的滯後期數")
+        stats_table.add_row("PACF 顯著期數", f"[bold #1e90ff]{len(pacf_sig_lags)}[/bold #1e90ff]", f"超過閾值的滯後期數")
+        
+        console.print(stats_table)
+        
+        # 顯著滯後期詳細表格
+        sig_table = Table(title="ACF/PACF 顯著滯後期詳細結果", border_style="#dbac30", show_lines=True)
+        sig_table.add_column("類型", style="bold white")
+        sig_table.add_column("顯著滯後期", style="bold white")
+        sig_table.add_column("對應係數值", style="bold white")
+        
+        if acf_sig_lags:
+            acf_values = [f"{acf_vals[lag]:.4f}" for lag in acf_sig_lags]
+            sig_table.add_row("ACF", f"[bold #1e90ff]{acf_sig_lags}[/bold #1e90ff]", f"[bold #1e90ff]{acf_values}[/bold #1e90ff]")
+        else:
+            sig_table.add_row("ACF", "[bold #1e90ff]無[/bold #1e90ff]", "[bold #1e90ff]無[/bold #1e90ff]")
+            
+        if pacf_sig_lags:
+            pacf_values = [f"{pacf_vals[lag]:.4f}" for lag in pacf_sig_lags]
+            sig_table.add_row("PACF", f"[bold #1e90ff]{pacf_sig_lags}[/bold #1e90ff]", f"[bold #1e90ff]{pacf_values}[/bold #1e90ff]")
+        else:
+            sig_table.add_row("PACF", "[bold #1e90ff]無[/bold #1e90ff]", "[bold #1e90ff]無[/bold #1e90ff]")
+            
+        console.print(sig_table)
+
         # 詢問是否生成ACF和PACF圖片（美化步驟說明）
         panel_content = (
             "🟢 選擇用於統計分析的預測因子\n"
@@ -167,21 +217,6 @@ class AutocorrelationTest(BaseStatAnalyser):
             fig.show(renderer="browser")
         else:
             print("跳過 ACF 和 PACF 圖片生成")
-
-        # 顯著滯後期
-        threshold = 1.96 / np.sqrt(len(series))
-        acf_sig_lags = [i for i in range(1, lags + 1) if abs(acf_vals[i]) > threshold]
-        pacf_sig_lags = [i for i in range(1, lags + 1) if abs(pacf_vals[i]) > threshold]
-
-        # 顯著滯後期結果美化
-        from rich.table import Table
-        # 顯著滯後期表格
-        table = Table(title="ACF/PACF 顯著滯後期結果", border_style="#dbac30", show_lines=True)
-        table.add_column("類型", style="bold white")
-        table.add_column("顯著滯後期", style="bold white")
-        table.add_row("ACF", f"[bold #1e90ff]{acf_sig_lags if acf_sig_lags else '無'}[/bold #1e90ff]")
-        table.add_row("PACF", f"[bold #1e90ff]{pacf_sig_lags if pacf_sig_lags else '無'}[/bold #1e90ff]")
-        console.print(table)
         # 建議 Panel
         if acf_sig_lags or pacf_sig_lags:
             suggestion = (

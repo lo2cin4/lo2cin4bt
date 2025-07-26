@@ -110,11 +110,15 @@ class DataImporter:
         """
         try:
             loader = DataLoader()
-            self.data = loader.load_data()
-            if isinstance(self.data, str) and self.data == "__SKIP_STATANALYSER__":
+            result = loader.load_data()
+            if isinstance(result, str) and result == "__SKIP_STATANALYSER__":
                 self.data = loader.data
                 self.frequency = loader.frequency
                 return "__SKIP_STATANALYSER__", self.frequency
+            else:
+                self.data = result
+                self.frequency = loader.frequency
+            
             if self.data is None or (isinstance(self.data, pd.DataFrame) and self.data.empty):
                 raise ValueError("數據載入失敗或數據為空")
 

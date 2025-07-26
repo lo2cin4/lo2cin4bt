@@ -77,13 +77,6 @@ class DataExporter:
     def export(self):
         """交互式導出數據為 JSON, CSV 或 XLSX，統一導出到 records 目錄"""
         try:
-            console.print(Panel(
-                "🟢 選擇價格數據來源\n🟢 輸入預測因子 🔵\n🟢 導出合併後數據 🔵\n🔴 選擇差分預測因子 🔵\n\n🔵可跳過\n\n"
-                "你可以將合併後的數據導出為 xlsx/csv/json 檔案，方便後續分析或保存。\n"
-                "這一步可跳過，若不導出，數據仍會自動進入後續回測與分析流程。",
-                title="[bold #dbac30]📊 數據載入 Dataloader 步驟：導出合併後數據[/bold #dbac30]",
-                border_style="#dbac30"
-            ))
             console.print("[bold #dbac30]請選擇導出格式：[/bold #dbac30]")
             console.print("[bold white]1. CSV\n2. XLSX (Excel)\n3. JSON[/bold white]")
             while True:
