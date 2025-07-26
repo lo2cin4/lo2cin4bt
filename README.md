@@ -2,7 +2,7 @@
   <img src="images/lo2cin4logo.png" alt="Lo2cin4BT Logo" width="180"/>
 </p>
 
-# 🚀 Lo2cin4BT
+# 🚀 Lo2cin4bt
 
 **The best backtest engine for non-coders and quant beginners (probably).**
 
@@ -49,11 +49,11 @@
 - 回測時新增 ALL 功能，使用所有現有指標進行回測
 - 更多數據接口
 - 接駁 AI
-> 歡迎任何 issue、建議或貢獻，一起讓 lo2cin4BT 變得更好！
+> 歡迎任何 issue、建議或貢獻，一起讓 lo2cin4bt 變得更好！
 
 ---
 
-## ❓ 為什麼選擇 lo2cin4BT？
+## ❓ 為什麼選擇 lo2cin4bt？
 
 1. **全程無需寫程式**，只要在終端機選擇操作，加上大量提示，超適合新手
 2. **三大核心**：統計分析、回測、可視化平台一次滿足
