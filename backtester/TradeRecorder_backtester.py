@@ -153,8 +153,14 @@ class TradeRecorder_backtester:
                 extra={"Backtest_id": self.Backtest_id},
             )
 
+            # 確保回傳的是 DataFrame 型態
+            if not isinstance(df, pd.DataFrame):
+                self.logger.warning(f"trade_records 不是 DataFrame 型態，轉換為空 DataFrame，Backtest_id: {self.Backtest_id}", extra={"Backtest_id": self.Backtest_id})
+                return pd.DataFrame()
+            
             return df
 
         except Exception as e:
             self.logger.error(f"交易記錄驗證失敗: {e}", extra={"Backtest_id": self.Backtest_id})
-            raise
+            # 確保異常時也回傳 DataFrame 型態
+            return pd.DataFrame()

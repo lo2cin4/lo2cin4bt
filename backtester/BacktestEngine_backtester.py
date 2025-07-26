@@ -72,7 +72,6 @@ import numpy as np
 import logging
 import uuid
 from concurrent.futures import ProcessPoolExecutor
-from tqdm import tqdm
 from typing import List, Dict, Tuple, Any, Optional
 from .Indicators_backtester import IndicatorsBacktester
 from .TradeSimulator_backtester import TradeSimulator_backtester
@@ -118,7 +117,7 @@ class BacktestEngine:
                 if strategy_alias in indicator_params:
                     strategy_entry_params.append(indicator_params[strategy_alias])
                 else:
-                    print(f"[DEBUG] 警告：找不到策略 {i+1} 的 {entry_indicator} 參數")
+                    # 移除 debug 訊息，因為這可能是正常的（某些指標可能沒有參數）
                     strategy_entry_params.append([])
             
             # 處理平倉指標參數
@@ -127,7 +126,7 @@ class BacktestEngine:
                 if strategy_alias in indicator_params:
                     strategy_exit_params.append(indicator_params[strategy_alias])
                 else:
-                    print(f"[DEBUG] 警告：找不到策略 {i+1} 的 {exit_indicator} 參數")
+                    # 移除 debug 訊息，因為這可能是正常的（某些指標可能沒有參數）
                     strategy_exit_params.append([])
             
             entry_combinations = self._generate_indicator_combinations(pair['entry'], strategy_entry_params)
@@ -150,7 +149,7 @@ class BacktestEngine:
     def _generate_indicator_combinations(self, indicators: List[str], param_lists: List[List]) -> List[Tuple]:
         """為指標列表生成參數組合"""
         if not indicators:
-            print("[DEBUG] 無指標，返回空組合")
+            # print("[DEBUG] 無指標，返回空組合")
             return [()]
         
                     # print(f"[DEBUG] 為指標 {indicators} 生成組合")
@@ -174,12 +173,23 @@ class BacktestEngine:
         
         total_backtests = len(all_combinations) * len(predictors)
         
-        print(f"\n將執行 {len(all_combinations)} 種參數組合 x {len(predictors)} 個預測因子 = {total_backtests} 次回測")
-        print(f"交易參數：{trading_params}")
+        from rich.console import Console
+        from rich.panel import Panel
+        console = Console()
         
-        confirm = input("是否繼續？(y/n，預設 y): ").strip().lower() or "y"
+        console.print(Panel(f"將執行 {len(all_combinations)} 種參數組合 x {len(predictors)} 個預測因子 = {total_backtests} 次回測\n交易參數：{trading_params}", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+        
+        while True:
+            confirm = console.input("[bold #dbac30]是否繼續？(y/n，預設 y): [/bold #dbac30]").strip().lower()
+            if confirm == '':
+                confirm = 'y'
+            if confirm in ['y', 'n']:
+                break
+            else:
+                console.print(Panel(f"❌ 請輸入 y 或 n！當前輸入：{confirm}", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+        
         if confirm != "y":
-            print("回測取消")
+            console.print(Panel("回測取消", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
             return []
         
         # 生成任務
@@ -194,34 +204,111 @@ class BacktestEngine:
                 task = (*params_without_strategy, predictor, Backtest_id, strategy_id)
                 tasks.append(task)
         
-        print(f"生成 {len(tasks)} 個回測任務")
+        # 移除多餘的回測任務生成狀態顯示
         self.logger.info(f"生成 {len(tasks)} 個回測任務")
         
         # 執行回測
         self.results = []
-        with ProcessPoolExecutor() as executor:
-            progress = tqdm(total=len(tasks), desc="回測進度", unit="回測")
-            futures = [executor.submit(self._run_single_backtest, task, condition_pairs, trading_params) for task in tasks]
-            
-            for i, future in enumerate(futures):
-                result = future.result()
-                self.results.append(result)
-                if "error" in result:
-                    print(f"回測 {result['Backtest_id']} 失敗：{result['error']}")
-                else:
-                    records = result.get("records", pd.DataFrame())
-                    trade_count = len(records[records["Trade_action"] != 0]) if not records.empty else 0
-                    strategy_id = result.get("strategy_id", "unknown")
-                    if not records.empty and "Equity_value" in records.columns:
-                        final_equity = records["Equity_value"].iloc[-1]
-                        print(f"回測 {result['Backtest_id']} (策略{strategy_id}) 完成，交易數：{trade_count}，最終權益：{final_equity:.2f}%")
-                    else:
-                        print(f"回測 {result['Backtest_id']} (策略{strategy_id}) 完成，交易數：{trade_count}")
-                progress.update(1)
-                progress.set_postfix({"已處理": f"{i + 1}/{len(tasks)}"})
-            progress.close()
         
-        print(f"所有回測完成，成功：{len([r for r in self.results if 'error' not in r])}/{len(self.results)}")
+        from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn, TimeElapsedColumn, TimeRemainingColumn
+        from rich.panel import Panel
+        import time
+        
+        # 記錄開始時間
+        start_time = time.time()
+        
+        # 創建進度條
+        progress = Progress(
+            SpinnerColumn(),
+            TextColumn("[bold blue]{task.description}"),
+            BarColumn(bar_width=60, complete_style="green", finished_style="bright_green"),
+            TaskProgressColumn(),
+            TextColumn("({task.completed}/{task.total})"),
+            TimeElapsedColumn(),
+            TextColumn("•"),
+            TimeRemainingColumn(),
+            console=console
+        )
+        
+        # 初始化統計數據
+        success_count = 0
+        error_count = 0
+        zero_trade_count = 0
+        errors = []
+        warnings = []  # 收集警告訊息
+        
+        # 暫時禁用 logger 輸出，避免打斷進度條
+        original_level = self.logger.level if self.logger else None
+        if self.logger:
+            self.logger.setLevel(logging.ERROR)  # 只顯示錯誤，不顯示警告
+        
+        # 直接顯示進度條，不使用 Panel
+        with progress:
+            task = progress.add_task(f"執行 {len(tasks)} 個回測任務", total=len(tasks))
+            
+            with ProcessPoolExecutor() as executor:
+                futures = [executor.submit(self._run_single_backtest, task_item, condition_pairs, trading_params) for task_item in tasks]
+                
+                for i, future in enumerate(futures):
+                    result = future.result()
+                    self.results.append(result)
+                    
+                    # 更新統計
+                    if "error" in result:
+                        error_count += 1
+                        errors.append(f"回測 {result.get('Backtest_id', 'unknown')}: {result['error']}")
+                    else:
+                        success_count += 1
+                        records = result.get("records", pd.DataFrame())
+                        trade_count = len(records[records["Trade_action"] != 0]) if not records.empty else 0
+                        
+                        if trade_count == 0:
+                            zero_trade_count += 1
+                        
+                        # 收集警告訊息
+                        warning_msg = result.get("warning_msg")
+                        if warning_msg:
+                            warnings.append(warning_msg)
+                    
+                    # 更新進度
+                    progress.update(task, advance=1)
+        
+        # 顯示最終統計摘要
+        final_success = len([r for r in self.results if 'error' not in r])
+        final_error = len([r for r in self.results if 'error' in r])
+        total_time = time.time() - start_time
+        
+        summary_text = f"""
+✅ 回測完成！
+
+📊 最終統計：
+• 總任務數：{len(tasks)}
+• 成功：{final_success} ({final_success/len(tasks)*100:.1f}%)
+• 失敗：{final_error} ({final_error/len(tasks)*100:.1f}%)
+• 無交易：{zero_trade_count} ({zero_trade_count/len(tasks)*100:.1f}%)
+• 總耗時：{total_time:.1f}秒
+"""
+        
+        console.print(Panel(summary_text, title="[bold #dbac30]🎯 回測完成摘要[/bold #dbac30]", border_style="#dbac30"))
+        
+        # 恢復 logger 原始級別
+        if self.logger and original_level is not None:
+            self.logger.setLevel(original_level)
+        
+        # 顯示警告和錯誤面板
+        if warnings:
+            warning_text = "\n".join(warnings[:10])  # 只顯示前10個警告
+            if len(warnings) > 10:
+                warning_text += f"\n... 還有 {len(warnings) - 10} 個無交易回測"
+            console.print(Panel(warning_text, title="[bold #8f1511]⚠️ 無交易回測警告[/bold #8f1511]", border_style="#8f1511"))
+        
+        # 只在有錯誤時顯示錯誤面板
+        if errors:
+            error_text = "\n".join(errors[:10])  # 只顯示前10個錯誤
+            if len(errors) > 10:
+                error_text += f"\n... 還有 {len(errors) - 10} 個錯誤"
+            console.print(Panel(error_text, title="[bold #8f1511]❌ 執行錯誤[/bold #8f1511]", border_style="#8f1511"))
+        
         return self.results
     
     def _run_single_backtest(self, task: Tuple, condition_pairs: List[Dict], trading_params: Dict) -> Dict:
@@ -242,13 +329,13 @@ class BacktestEngine:
             else:
                 # 如果strategy_id不是預期格式，嘗試從參數中推斷
                 strategy_idx = 0  # 默認使用第一個策略
-                print(f"[DEBUG] 警告：無法解析strategy_id '{strategy_id}'，使用默認策略0")
+                # print(f"[DEBUG] 警告：無法解析strategy_id '{strategy_id}'，使用默認策略0")
         except (IndexError, ValueError) as e:
-            print(f"[DEBUG] 錯誤解析strategy_id '{strategy_id}': {e}")
+            # print(f"[DEBUG] 錯誤解析strategy_id '{strategy_id}': {e}")
             strategy_idx = 0
         
         if strategy_idx >= len(condition_pairs):
-            print(f"[DEBUG] 錯誤：策略索引 {strategy_idx} 超出範圍，最大為 {len(condition_pairs)-1}")
+            # print(f"[DEBUG] 錯誤：策略索引 {strategy_idx} 超出範圍，最大為 {len(condition_pairs)-1}")
             strategy_idx = 0
         
         condition_pair = condition_pairs[strategy_idx]
@@ -286,7 +373,8 @@ class BacktestEngine:
                         exit_signal = NDayCycleIndicator.generate_exit_signal_from_entry(entry_signal, n, strat_idx)
                         # print(f"[DEBUG] [NDayCycle combine_signals] exit_signal value_counts: {exit_signal.value_counts().to_dict()}")
             except Exception as e:
-                print(f"[DEBUG] NDayCycle exit_signal 處理失敗: {e}")
+                # print(f"[DEBUG] NDayCycle exit_signal 處理失敗: {e}")
+                pass
             # === NDayCycle exit_signal 處理區塊結束 ===
             # print(f"[DEBUG] {Backtest_id} combine_signals 後 entry_signal 型別: {type(entry_signal)}, 內容: {entry_signal}")
             # print(f"[DEBUG] {Backtest_id} combine_signals 後 exit_signal 型別: {type(exit_signal)}, 內容: {exit_signal}")
@@ -303,7 +391,8 @@ class BacktestEngine:
             # print(f"[DEBUG] 非零entry信號數量：{non_zero_entry}，非零exit信號數量：{non_zero_exit}")
             
             if non_zero_entry == 0 and non_zero_exit == 0:
-                print(f"[DEBUG] 警告：回測 {Backtest_id} 沒有生成任何交易信號")
+                # print(f"[DEBUG] 警告：回測 {Backtest_id} 沒有生成任何交易信號")
+                pass
             
             # 執行交易模擬（此處必須同時傳 entry_signal, exit_signal）
             simulator = TradeSimulator_backtester(
@@ -320,7 +409,7 @@ class BacktestEngine:
                 indicators=None
             )
             
-            trade_records = simulator.simulate_trades()
+            trade_records, warning_msg = simulator.simulate_trades()
             
             # 記錄交易
             recorder = TradeRecorder_backtester(trade_records, Backtest_id)
@@ -334,14 +423,17 @@ class BacktestEngine:
                     "exit": [param.to_dict() for param in exit_params],
                     "predictor": predictor
                 },
-                "records": validated_records
+                "records": validated_records,
+                "warning_msg": warning_msg  # 將警告訊息包含在返回值中
             }
             
         except Exception as e:
+            import traceback
             error_msg = f"回測失敗: {str(e)}"
             print(f"[DEBUG] {Backtest_id} {error_msg}")
-            print(f"[DEBUG] {Backtest_id} 發生例外時 entry_signal 型別: {type(entry_signal) if 'entry_signal' in locals() else '未定義'}, 內容: {entry_signal if 'entry_signal' in locals() else '未定義'}")
-            print(f"[DEBUG] {Backtest_id} 發生例外時 exit_signal 型別: {type(exit_signal) if 'exit_signal' in locals() else '未定義'}, 內容: {exit_signal if 'exit_signal' in locals() else '未定義'}")
+            print(f"[DEBUG] Task content: {task}")
+            print(f"[DEBUG] Traceback:")
+            traceback.print_exc()
             self.logger.error(error_msg, extra={"Backtest_id": Backtest_id})
             return {"Backtest_id": Backtest_id, "error": str(e)}
     

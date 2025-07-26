@@ -333,7 +333,10 @@ class TradeSimulator_backtester:
         trade_count = len(df[df["Trade_action"] != 0])
         # print(f"\n交易模擬完成 (回測 ID {self.Backtest_id}): 交易數={trade_count}, 最終權益={equity*100:.2f}%")
         self.logger.info(f"交易模擬完成，交易數: {trade_count}, 最終權益: {equity*100:.2f}%", extra={"Backtest_id": self.Backtest_id})
+        
+        # 不輸出警告，而是返回警告訊息
+        warning_msg = None
         if trade_count == 0:
-            self.logger.warning(f"無交易生成！請檢查信號分佈、交易延遲 ({self.trade_delay}) 或持倉邏輯", extra={"Backtest_id": self.Backtest_id})
-            print(f"警告：回測 ID {self.Backtest_id} 無交易生成！請檢查信號分佈或參數設置。")
-        return df
+            warning_msg = f"回測 ID {self.Backtest_id} 無交易生成！請檢查信號分佈或參數設置。"
+        
+        return df, warning_msg

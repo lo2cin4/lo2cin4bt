@@ -81,7 +81,26 @@ class MetricsExporter:
                 else:
                     merged.append(old_map[bid])
             batch_metadata = merged
-        df = pd.concat(all_df, ignore_index=True)
+        # 過濾空的 DataFrame 以避免 FutureWarning
+        filtered_df = []
+        for df_item in all_df:
+            if not df_item.empty and len(df_item.columns) > 0:
+                # 清理 DataFrame：移除全為 NA 的列
+                cleaned_df = df_item.dropna(axis=1, how='all')
+                if not cleaned_df.empty:
+                    filtered_df.append(cleaned_df)
+        
+        if filtered_df:
+            # 使用更安全的 concat 方式
+            try:
+                df = pd.concat(filtered_df, ignore_index=True, sort=False)
+            except Exception as e:
+                # 如果 concat 失敗，嘗試逐個合併
+                df = filtered_df[0]
+                for df_item in filtered_df[1:]:
+                    df = pd.concat([df, df_item], ignore_index=True, sort=False)
+        else:
+            df = pd.DataFrame()
         new_meta = dict(orig_meta)
         new_meta = {k if isinstance(k, bytes) else str(k).encode(): v for k, v in new_meta.items()}
         new_meta[b'batch_metadata'] = json.dumps(batch_metadata, ensure_ascii=False).encode()

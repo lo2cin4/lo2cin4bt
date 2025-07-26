@@ -161,10 +161,6 @@ flowchart TD
 - NDayCycle 的 n 參數、strat_idx 參數，務必用 param.get_param('n')、param.get_param('strat_idx') 取值，否則會導致型態錯誤。
 - 其他指標（如 MA、BOLL）也建議統一用 get_param 取值，避免未來擴充時出現同樣問題。 
 
----
-
-## 可視化平台
-可視化平台請參見 plotter/README.md
 
 ---
 
