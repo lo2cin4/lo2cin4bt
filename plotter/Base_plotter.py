@@ -69,6 +69,9 @@ import logging
 from typing import Dict, Any, Optional, List
 import pandas as pd
 from abc import ABC, abstractmethod
+from rich.console import Console
+from rich.panel import Panel
+from rich.text import Text
 
 class BasePlotter(ABC):
     """
@@ -180,10 +183,23 @@ class BasePlotter(ABC):
             self.setup_callbacks()
             
             self.logger.info(f"啟動可視化平台於 http://{host}:{port}")
-            print(f"\n=== 可視化平台已啟動 ===")
-            print(f"請在瀏覽器中開啟: http://{host}:{port}")
-            print(f"按 Ctrl+C 停止服務")
-            print("=" * 40)
+            console = Console()
+            
+            # 第二步：生成可視化介面[自動] - 步驟說明
+            step_content = (
+                "🟢 選擇要載入的檔案\n"
+                "🟢 生成可視化介面[自動]\n"
+                "\n"
+                "[bold #dbac30]說明[/bold #dbac30]\n"
+                "可視化平台已成功啟動！請按照以下方式開啟界面：\n\n"
+                "[bold #dbac30]方式一：[/bold #dbac30] 直接點擊下方連結\n"
+                f"[bold #dbac30]方式二：[/bold #dbac30] 在瀏覽器中輸入：[underline]http://{host}:{port}[/underline]\n\n"
+                "[bold #dbac30]操作提示：[/bold #dbac30]\n"
+                "• 界面開啟後可進行參數篩選、圖表互動\n"
+                "• 支援多策略比較、績效分析\n"
+                "• 按 Ctrl+C 可停止服務"
+            )
+            console.print(Panel(step_content, title=Text("👁️ 可視化 Plotter 步驟：生成可視化介面", style="bold #dbac30"), border_style="#dbac30"))
             
             # 啟動 Dash 應用
             self.app.run(host=host, port=port, debug=debug)

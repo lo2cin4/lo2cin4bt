@@ -318,12 +318,12 @@ class DashboardGenerator:
                     id='equity_chart',
                     style={'height': '1000px'}
                 )
-            ], className="mb-4")
+            ])
             # 選中策略詳情（改為績效指標）
             selected_details = html.Div([
                 html.H5("績效指標", className="mb-3"),
                 html.Div(id='selected_details')
-            ], className="mb-4")
+            ])
             main_content = html.Div([
                 chart_area,
                 selected_details

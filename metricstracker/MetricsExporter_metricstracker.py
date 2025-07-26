@@ -19,7 +19,11 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import os
 import json
+from rich.console import Console
+from rich.panel import Panel
 from .MetricsCalculator_metricstracker import MetricsCalculatorMetricTracker
+
+console = Console()
 
 class MetricsExporter:
     @staticmethod
@@ -111,8 +115,19 @@ class MetricsExporter:
         os.makedirs(out_dir, exist_ok=True)
         out_path = os.path.join(out_dir, f'{orig_name}_metrics.parquet')
         pq.write_table(table, out_path)
-        print(f'[Exporter] batch_metadata 已計算並輸出：{out_path}')
+        
+        console.print(Panel(
+            f"batch_metadata 已計算並輸出：\n{out_path}",
+            title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
+            border_style="#dbac30"
+        ))
+        
         # 立即讀回檢查
         table2 = pq.read_table(out_path)
         meta2 = table2.schema.metadata
-        print('=== 交易績效分析完成 ===') 
+        
+        console.print(Panel(
+            "✅ 交易績效分析完成！",
+            title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
+            border_style="#dbac30"
+        )) 

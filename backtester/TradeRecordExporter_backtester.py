@@ -75,6 +75,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 from rich.console import Group
+from rich.text import Text
 
 # 移除重複的logging設置，使用main.py中設置的logger
 
@@ -378,8 +379,10 @@ class TradeRecordExporter_backtester:
             backtest_id: 指定要導出的回測ID，如果為None則導出所有結果
         """
         try:
+            import uuid
             date_str = datetime.now().strftime("%Y%m%d")
-            filename = f"{date_str}_{self.Backtest_id}.parquet"
+            random_id = uuid.uuid4().hex[:8]
+            filename = f"{date_str}_{random_id}_{self.Backtest_id}.parquet"
             filepath = os.path.join(self.output_dir, filename)
 
             metadata = {}
@@ -736,60 +739,46 @@ class TradeRecordExporter_backtester:
     def _show_operation_menu(self):
         """顯示操作選單"""
         # 提供操作選項
-        menu_text = """1. 按策略篩選
-2. 查看成功結果
-3. 查看失敗結果
-4. 導出所有回測結果為 CSV
-5. 導出特定回測結果為 CSV (輸入 Backtest_id)
-6. 結束交易回測，進入下一階段"""
+        menu_text = """1. 查看成功結果
+2. 查看失敗結果
+3. 導出所有回測結果為 CSV
+4. 導出特定回測結果為 CSV (輸入 Backtest_id)
+5. 結束交易回測，進入下一階段"""
         
-        console.print(Panel(menu_text, title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+        console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#dbac30"))
 
         while True:
             console.print("[bold #dbac30]請選擇操作: [/bold #dbac30]", end="")
             choice = input()
             if choice == "1":
-                self.display_results_by_strategy()
-                # 重新顯示選單
-                menu_text = """1. 按策略篩選
-2. 查看成功結果
-3. 查看失敗結果
-4. 導出所有回測結果為 CSV
-5. 導出特定回測結果為 CSV (輸入 Backtest_id)
-6. 結束交易回測，進入下一階段"""
-                console.print(Panel(menu_text, title="[bold #dbac30]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
-            elif choice == "2":
                 self.display_successful_results()
                 # 重新顯示選單
-                menu_text = """1. 按策略篩選
-2. 查看成功結果
-3. 查看失敗結果
-4. 導出所有回測結果為 CSV
-5. 導出特定回測結果為 CSV (輸入 Backtest_id)
-6. 結束交易回測，進入下一階段"""
-                console.print(Panel(menu_text, title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
-            elif choice == "3":
+                menu_text = """1. 查看成功結果
+2. 查看失敗結果
+3. 導出所有回測結果為 CSV
+4. 導出特定回測結果為 CSV (輸入 Backtest_id)
+5. 結束交易回測，進入下一階段"""
+                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#dbac30"))
+            elif choice == "2":
                 self.display_failed_results()
                 # 重新顯示選單
-                menu_text = """1. 按策略篩選
-2. 查看成功結果
-3. 查看失敗結果
-4. 導出所有回測結果為 CSV
-5. 導出特定回測結果為 CSV (輸入 Backtest_id)
-6. 結束交易回測，進入下一階段"""
-                console.print(Panel(menu_text, title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
-            elif choice == "4":
+                menu_text = """1. 查看成功結果
+2. 查看失敗結果
+3. 導出所有回測結果為 CSV
+4. 導出特定回測結果為 CSV (輸入 Backtest_id)
+5. 結束交易回測，進入下一階段"""
+                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#dbac30"))
+            elif choice == "3":
                 self.export_to_csv()
                 console.print("✅ CSV 導出完成！", style="green")
                 # 重新顯示選單
-                menu_text = """1. 按策略篩選
-2. 查看成功結果
-3. 查看失敗結果
-4. 導出所有回測結果為 CSV
-5. 導出特定回測結果為 CSV (輸入 Backtest_id)
-6. 結束交易回測，進入下一階段"""
-                console.print(Panel(menu_text, title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
-            elif choice == "5":
+                menu_text = """1. 查看成功結果
+2. 查看失敗結果
+3. 導出所有回測結果為 CSV
+4. 導出特定回測結果為 CSV (輸入 Backtest_id)
+5. 結束交易回測，進入下一階段"""
+                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#dbac30"))
+            elif choice == "4":
                 while True:
                     console.print("[bold #dbac30]請輸入Backtest ID（可用逗號分隔多個），或按Enter返回選單: [/bold #dbac30]", end="")
                     backtest_id_input = input()
@@ -802,21 +791,20 @@ class TradeRecordExporter_backtester:
                     if not backtest_ids:
                         continue
                     if not_found:
-                        console.print(Panel(f"找不到Backtest_id為 {', '.join(not_found)} 的回測結果", title="[bold #8f1511]👨‍💻交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                        console.print(Panel(f"找不到Backtest_id為 {', '.join(not_found)} 的回測結果", title=Text("👨‍💻交易回測 Backtester", style="bold #8f1511"), border_style="#8f1511"))
                         continue
                     for bid in backtest_ids:
                         self.export_to_csv(backtest_id=bid)
                     console.print(f"✅ 已導出 {len(backtest_ids)} 個特定回測 CSV！", style="green")
                     break
                 # 重新顯示選單
-                menu_text = """1. 按策略篩選
-2. 查看成功結果
-3. 查看失敗結果
-4. 導出所有回測結果為 CSV
-5. 導出特定回測結果為 CSV (輸入 Backtest_id)
-6. 結束交易回測，進入下一階段"""
-                console.print(Panel(menu_text, title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
-            elif choice == "6":
+                menu_text = """1. 查看成功結果
+2. 查看失敗結果
+3. 導出所有回測結果為 CSV
+4. 導出特定回測結果為 CSV (輸入 Backtest_id)
+5. 結束交易回測，進入下一階段"""
+                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#dbac30"))
+            elif choice == "5":
                 console.print("結束交易回測，進入下一階段...", style="yellow")
                 break
             else:
@@ -852,8 +840,8 @@ class TradeRecordExporter_backtester:
         
         # 選擇策略查看詳情
         while True:
-            console.print(Panel("⌨️ 請選擇策略編號查看詳情", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
-            choice = input("➡️ 策略編號 (或按 Enter 返回選單): ")
+            console.print(Panel("⌨請選擇策略編號查看詳情", title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#dbac30"))
+            choice = input(" 策略編號 (或按 Enter 返回選單): ")
             if not choice:
                 break
             

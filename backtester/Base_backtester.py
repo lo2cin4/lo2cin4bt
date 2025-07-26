@@ -289,7 +289,7 @@ class BaseBacktester:
                 group_texts.append(f"{group_title}\n" + "\n".join(lines))
         # 步驟說明
         desc = (
-            "\n[bold #dbac30]說明[/bold #dbac30]\n"
+            "\n\n[bold #dbac30]說明[/bold #dbac30]\n"
             "- 此步驟用於設定回測策略的開倉與平倉條件，可同時回測多組策略。\n"
             "- 每組策略需依序輸入開倉條件、再輸入平倉條件，系統會自動組合成一個策略。\n"
             "- 可同時輸入多個開倉/平倉條件，只有全部條件同時滿足才會觸發開倉/平倉。\n"

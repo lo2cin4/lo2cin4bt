@@ -74,6 +74,23 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 import pyarrow.parquet as pq
+from rich.console import Console
+from rich.panel import Panel
+from rich.text import Text
+from rich.console import Group
+import os
+import glob
+import pandas as pd
+import plotly.graph_objects as go
+import plotly.express as px
+from dash import Dash, html, dcc, Input, Output, callback_context
+import dash_bootstrap_components as dbc
+from dash.dependencies import Input, Output, State
+import json
+import numpy as np
+from datetime import datetime, timedelta
+import warnings
+warnings.filterwarnings('ignore')
 
 class DataImporterPlotter:
     """
@@ -294,21 +311,46 @@ class DataImporterPlotter:
                 raise FileNotFoundError("未找到任何 parquet 檔案")
 
             # 互動式選單
-            print("[Plotter] 可選擇的 parquet 檔案：")
+            console = Console()
+            # 步驟說明框
+            step_content = (
+                "🟢 選擇要載入的檔案\n"
+                "🔴 生成可視化介面[自動]\n"
+                "\n"
+                "[bold #dbac30]說明[/bold #dbac30]\n"
+                "此步驟用於選擇要載入的 parquet 檔案，支援多檔案同時載入。\n"
+                "檔案包含回測結果的績效指標和權益曲線數據。\n\n"
+                "[bold #dbac30]檔案選擇格式：[/bold #dbac30]\n"
+                "• 單一檔案：輸入數字（如 1）\n"
+                "• 多檔案：用逗號分隔（如 1,2,3）\n"
+                "• 全部檔案：直接按 Enter\n\n"
+                "[bold #dbac30]可選擇的 parquet 檔案：[/bold #dbac30]"
+            )
+            
+            # 準備檔案列表
+            file_list = ""
             for i, f in enumerate(parquet_files, 1):
-                print(f"  {i}. {os.path.basename(f)}")
-            file_input = input("請輸入要載入的檔案編號（可用逗號分隔多選，或輸入all全選，預設all）：").strip() or 'all'
-            if file_input.lower() in ['all', 'al', 'a']:
+                file_list += f"  [bold #dbac30]{i}.[/bold #dbac30] {os.path.basename(f)}\n"
+            
+            # 組合完整內容並用 Group 顯示
+            complete_content = step_content + "\n" + file_list
+            console.print(Panel(complete_content, title=Text("👁️ 可視化 Plotter 步驟：數據選擇", style="bold #dbac30"), border_style="#dbac30"))
+            
+            # 用戶輸入提示（金色+BOLD格式）
+            console.print("[bold #dbac30]輸入可視化檔案號碼：[/bold #dbac30]")
+            file_input = input().strip() or 'all'
+            if not file_input:  # 如果輸入為空，載入全部檔案
                 selected_files = parquet_files
             else:
                 try:
-                    idxs = [int(x.strip())-1 for x in file_input.split(',') if x.strip().isdigit()]
-                    selected_files = [parquet_files[i] for i in idxs if 0 <= i < len(parquet_files)]
+                    # 解析用戶輸入的檔案編號
+                    file_indices = [int(x.strip()) for x in file_input.split(',')]
+                    selected_files = [parquet_files[i-1] for i in file_indices if 1 <= i <= len(parquet_files)]
                     if not selected_files:
-                        print("[Plotter][WARNING] 輸入無效，預設載入全部檔案。")
+                        console.print(Panel("❌ 沒有選擇有效的檔案，預設載入全部檔案。", title=Text("⚠️ 警告", style="bold #8f1511"), border_style="#8f1511"))
                         selected_files = parquet_files
-                except Exception:
-                    print("[Plotter][WARNING] 輸入無效，預設載入全部檔案。")
+                except (ValueError, IndexError):
+                    console.print(Panel("🔔 已自動載入全部檔案。", title=Text("👁️ 可視化 Plotter", style="bold #8f1511"), border_style="#dbac30"))
                     selected_files = parquet_files
 
             # 載入所有選定檔案

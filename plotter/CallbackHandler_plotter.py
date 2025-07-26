@@ -264,7 +264,8 @@ class CallbackHandler:
                 font=dict(color="#f5f5f5", size=15),
                 legend=dict(font=dict(color="#ecbc4f", size=13)),
                 xaxis=dict(color="#f5f5f5", gridcolor="#444"),
-                yaxis=dict(color="#f5f5f5", gridcolor="#444")
+                yaxis=dict(color="#f5f5f5", gridcolor="#444"),
+                margin=dict(l=50, r=50, t=50, b=50)
             )
             return fig 
         # === 選中策略詳情展示 callback ===
@@ -372,14 +373,14 @@ class CallbackHandler:
             ]
             return html.Div([
                 html.H5('Details'),
-                html.Table(details_table, className='table table-sm table-bordered'),
+                html.Table(details_table, className='table table-sm table-bordered details-table'),
                 html.H5('Performance'),
                 html.Div([
                     html.Div([
-                        html.Table(perf_table, className='table table-sm table-bordered')
+                        html.Table(perf_table, className='table table-sm table-bordered performance-table')
                     ], style={'width': '48%', 'display': 'inline-block', 'verticalAlign': 'top'}),
                     html.Div([
-                        html.Table(bah_table, className='table table-sm table-bordered')
+                        html.Table(bah_table, className='table table-sm table-bordered performance-table')
                     ], style={'width': '48%', 'display': 'inline-block', 'verticalAlign': 'top', 'marginLeft': '4%'}),
                 ])
             ]) 

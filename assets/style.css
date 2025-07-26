@@ -7,6 +7,7 @@ h5, .section-title {
     color: #fff !important;
     margin-top: 1.2rem;
     margin-bottom: 0.8rem;
+    background: transparent !important;
 }
 
 /* 2. 入場/出場指標類型 label 及選項 */
@@ -25,12 +26,25 @@ body { background: #181818 !important; color: #f5f5f5 !important; }
 .navbar, .navbar-dark { background: #181818 !important; }
 .navbar-brand, .main-title { font-size: 2.2rem; font-weight: bold; color: #ecbc4f !important; letter-spacing: 1px; }
 .table, .table-sm, .table-bordered { background: #232323 !important; color: #f5f5f5 !important; }
-.table th { background: #8f1511 !important; color: #ecbc4f !important; }
+.table th { background: #dbac30 !important; color: #8f1511 !important; }
 .table td { background: #232323 !important; color: #f5f5f5 !important; }
 .btn, .btn-secondary, .btn-outline-secondary { background: #8f1511 !important; color: #f5f5f5 !important; border: none; }
 .btn:hover, .btn:focus { background: #ecbc4f !important; color: #181818 !important; border: 1.5px solid #8f1511 !important; }
 .card, .border, .rounded { background: #232323 !important; color: #f5f5f5 !important; border: 1.5px solid #8f1511 !important; }
+/* 控制面板卡片樣式 - 金色邊框 */
+.card, .border, .rounded { 
+    background: #232323 !important; 
+    color: #f5f5f5 !important; 
+    border: 1.5px solid #dbac30 !important; 
+}
 .mb-3, .mb-4, .p-3 { background: #232323 !important; }
+.mb-3:not(h5), .mb-4:not(h5), .p-3:not(h5) { background: #232323 !important; }
+
+/* 確保 h5 標題不受 mb-3, mb-4, p-3 類影響 */
+h5.mb-3, h5.mb-4, h5.p-3 {
+    background: transparent !important;
+    background-color: transparent !important;
+}
 .form-check-input:checked { background-color: #8f1511 !important; border-color: #ecbc4f !important; }
 .form-check-input:focus { box-shadow: 0 0 0 0.2rem #ecbc4f55 !important; }
 .dash-table-container .dash-spreadsheet-container { background: #232323 !important; }
@@ -47,7 +61,55 @@ body { background: #181818 !important; color: #f5f5f5 !important; }
     padding: 0.5rem 1.2rem;
 }
 
-/* 若有 table 內部欄位仍需主題色，維持原設定 */ 
+/* 圖表區域使用透明背景，直接顯示黑色背景 */
+.dash-graph, .js-plotly-plot, .plotly {
+    background: #181818 !important;
+}
+
+/* 確保圖表容器也是透明背景 */
+.dash-graph .js-plotly-plot .plotly {
+    background: #181818 !important;
+}
+
+/* Details 與 Performance 區塊內的表格樣式 */
+.details .table th, .performance .table th,
+.details-block .table th, .performance-block .table th,
+.details-table .table th, .performance-table .table th {
+    background: #dbac30 !important;
+    color: #8f1511 !important;
+    font-weight: bold;
+}
+
+.details .table-sm th, .performance .table-sm th,
+.details-block .table-sm th, .performance-block .table-sm th,
+.details-table .table-sm th, .performance-table .table-sm th {
+    background: #dbac30 !important;
+    color: #8f1511 !important;
+    font-weight: bold;
+}
+
+.details .table-bordered th, .performance .table-bordered th,
+.details-block .table-bordered th, .performance-block .table-bordered th,
+.details-table .table-bordered th, .performance-table .table-bordered th {
+    background: #dbac30 !important;
+    color: #8f1511 !important;
+    font-weight: bold;
+}
+
+.details .table td, .performance .table td,
+.details-block .table td, .performance-block .table td,
+.details-table .table td, .performance-table .table td {
+    background: #e0e0e0 !important;
+    color: #181818 !important;
+}
+
+.details .table, .performance .table,
+.details-block .table, .performance-block .table,
+.details-table .table, .performance-table .table {
+    background: #e0e0e0 !important;
+    color: #181818 !important;
+    border: 1px solid #dbac30 !important;
+}
 
 /* Dash dropdown (react-select) 主題色修正 */
 .Select-control, .Select-menu-outer, .Select-option, .Select-placeholder, .Select-value {

@@ -28,7 +28,7 @@ pd.set_option('display.width', None)
 pd.set_option('display.max_colwidth', None)
 
 # 指定要讀取的 parquet 資料夾
-parquet_dir = r'D:\Program files All Drive\Python code\lo2cin4bt\records\metricstracker'  # 可依實際路徑調整
+parquet_dir = r'D:\Program files All Drive\Python code\Github_Strategy\lo2cin4bt\records\metricstracker'  # 可依實際路徑調整
 
 # 列出所有 parquet 檔案
 parquet_files = sorted(glob.glob(os.path.join(parquet_dir, '*.parquet')))

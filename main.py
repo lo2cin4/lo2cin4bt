@@ -81,9 +81,7 @@ from statanalyser.DistributionTest_statanalyser import DistributionTest
 from statanalyser.SeasonalAnalysis_statanalyser import SeasonalAnalysis
 from statanalyser.ReportGenerator_statanalyser import ReportGenerator
 from dataloader.Predictor_loader import PredictorLoader
-from metricstracker.MetricsCalculator_metricstracker import MetricsCalculatorMetricTracker
 from metricstracker.Base_metricstracker import BaseMetricTracker
-from metricstracker.MetricsExporter_metricstracker import MetricsExporter
 
 # 從基類匯入 select_predictor_factor 方法
 select_predictor_factor = BaseStatAnalyser.select_predictor_factor
@@ -181,7 +179,7 @@ def standardize_data_for_stats(data):
             for col in ['close_return', 'close_logreturn', 'open_return', 'open_logreturn']:
                 df[col] = df[col].replace([np.inf, -np.inf], np.nan).fillna(0)
         else:
-            console.print(Panel("缺少 close 欄位，無法計算收益率", title="[bold #8f1511]⚠️ 數據處理警告[/bold #8f1511]", border_style="#8f1511"))
+            console.print(Panel("缺少 close 欄位，無法計算收益率", title=Text("⚠️ 數據處理警告", style="bold #8f1511"), border_style="#8f1511"))
     
     return df
 
@@ -204,6 +202,7 @@ def select_parquet_file(parquet_dir):
 
 from rich.console import Console
 from rich.panel import Panel
+from rich.text import Text
 console = Console()
 
 def main():
@@ -228,7 +227,7 @@ def main():
             "💎 Quant Lifetime Membership: https://lo2cin4.com/membership\n"
             "💬 Discord: https://discord.gg/6HgJC2dUvg\n"
             "✈️ Telegram: https://t.me/lo2cin4group",
-            title="[bold #8f1511]Welcome![/bold #8f1511]",
+            title=Text("Welcome!", style="bold #8f1511"),
             border_style="#dbac30",
             padding=(1, 4),
         )
@@ -240,7 +239,7 @@ def main():
             "2. 回測交易 (載入數據→回測交易→交易分析→可視化平台)\n"
             "3. 交易分析 (交易分析→可視化平台)\n"
             "4. 可視化平台 [/bold white]",
-            title="[bold #8f1511]🏁 主選單[/bold #8f1511]",
+            title=Text("🏁 主選單", style="bold #dbac30"),
             border_style="#dbac30"
         )
     )
@@ -249,7 +248,7 @@ def main():
         choice = input().strip() or "1"
         if choice in ["1", "2", "3", "4"]:
             break
-        console.print(Panel("❌ 無效選擇，請重新輸入 1~4。", title="[bold #8f1511]🏁 主選單[/bold #8f1511]", border_style="#8f1511"))
+        console.print(Panel("❌ 無效選擇，請重新輸入 1~4。", title=Text("🏁 主選單", style="bold #8f1511"), border_style="#8f1511"))
         # 重新印出主選單
         console.print(
             Panel(
@@ -257,7 +256,7 @@ def main():
                 "2. 回測交易 (載入數據→回測交易→交易分析→可視化平台)\n"
                 "3. 交易分析 (metricstracker + 可視化平台)\n"
                 "4. 可視化平台 (僅讀取 metricstracker 數據並顯示)[/bold white]",
-                title="[bold #8f1511]🏁 主選單[/bold #8f1511]",
+                title=Text("🏁 主選單", style="bold #8f1511"),
                 border_style="#dbac30"
             )
         )
@@ -269,7 +268,7 @@ def main():
             importer = DataImporter()
             data, frequency = importer.load_and_standardize_data()
             if data is None:
-                console.print(Panel("[DEBUG] 數據載入失敗，程式終止", title="[bold #8f1511]⚠️ 數據載入警告[/bold #8f1511]", border_style="#8f1511"))
+                console.print(Panel("[DEBUG] 數據載入失敗，程式終止", title=Text("⚠️ 數據載入警告", style="bold #8f1511"), border_style="#8f1511"))
                 logger.error("數據載入失敗")
                 return
             if isinstance(data, str) and data == "__SKIP_STATANALYSER__":
@@ -281,49 +280,9 @@ def main():
                 backtester.run()
                 analyze_backtest = 'y'
                 if analyze_backtest == 'y':
-                    # 統一進入多選 parquet 分析互動
-                    from metricstracker.DataImporter_metricstracker import list_parquet_files, show_parquet_files, select_files
-                    import pandas as pd
-                    directory = os.path.join(os.path.dirname(__file__), 'records', 'backtester')
-                    directory = os.path.abspath(directory)
-                    files = list_parquet_files(directory)
-                    if not files:
-                        print(f"❌ 找不到任何parquet檔案於 {directory}")
-                        return
-                    show_parquet_files(files)
-                    user_input = input("請輸入要分析的檔案編號（可用逗號分隔多選，或輸入al/all全選）：").strip() or '1'
-                    selected_files = select_files(files, user_input)
-                    if not selected_files:
-                        print("未選擇任何檔案，返回主選單。")
-                        return
-                    print("\n=== 已選擇檔案 ===")
-                    for f in selected_files:
-                        print(f)
-                    for orig_parquet_path in selected_files:
-                        print(f"\n已選擇檔案: {orig_parquet_path}")
-                        df = pd.read_parquet(orig_parquet_path)
-                        console.print(f"[bold #dbac30]請輸入年化時間單位（如日線股票252，日線幣365，預設為252）：[/bold #dbac30]")
-                        time_unit = input().strip()
-                        if time_unit == "":
-                            time_unit = 252
-                        else:
-                            time_unit = int(time_unit)
-                        console.print(f"[bold #dbac30]請輸入無風險利率（%）（輸入n代表n% ，預設為2）：[/bold #dbac30]")
-                        risk_free_rate = input().strip()
-                        if risk_free_rate == "":
-                            risk_free_rate = 2.0 / 100
-                        else:
-                            risk_free_rate = float(risk_free_rate) / 100
-                        MetricsExporter.export(df, orig_parquet_path, time_unit, risk_free_rate)
-                console.print(f"[bold #dbac30]是否啟動可視化平台？(y/n，預設y)：[/bold #dbac30]")
-                run_plotter = input().strip().lower() or 'y'
-                if run_plotter == 'y':
-                    try:
-                        from plotter.Base_plotter import BasePlotter
-                        plotter = BasePlotter(logger=logger)
-                        plotter.run(host='127.0.0.1', port=8050, debug=False)
-                    except Exception as e:
-                        print(f"❌ 可視化平台啟動失敗: {e}")
+                    # 調用 metricstracker 分析
+                    metric_tracker = BaseMetricTracker()
+                    metric_tracker.run_analysis()
                 return
             # 只有在不是 __SKIP_STATANALYSER__ 時才呼叫 select_predictor_factor
             logger.info(f"數據載入成功，形狀：{data.shape}，頻率：{frequency}")
@@ -333,7 +292,7 @@ def main():
                 "🟢 導出合併後數據 🔵\n"
                 "🟢 選擇差分預測因子 🔵\n"
                 "\n🔵可跳過\n\n"
-                "[bold #dbac30]說明[/bold #dbac30]\n"
+                "\n[bold #dbac30]說明[/bold #dbac30]\n"
                 "差分（Differencing）是時間序列分析常用的預處理方法。\n"
                 "可以消除數據中的趨勢與季節性，讓資料更穩定，有助於提升統計檢定與回測策略的準確性。\n"
                 "在量化回測中，我們往往不會選擇價格(原始因子)，而是收益率(差分值)作為預測因子，因為收益率更能反映資產的實際表現。1",
@@ -347,7 +306,7 @@ def main():
                 console.print(f"[bold #dbac30]請輸入要差分的預測因子（可選: {available_factors}，預設 {default}）：[/bold #dbac30]")
                 predictor_col = input().strip() or default
                 if predictor_col not in available_factors:
-                    console.print(Panel(f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}）", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
+                    console.print(Panel(f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}）", title=Text("📊 數據載入 Dataloader", style="bold #8f1511"), border_style="#8f1511"))
                     continue
                 break
             predictor_loader = PredictorLoader(data)
@@ -389,7 +348,7 @@ def main():
                         analyzer.analyze()
                         results[test_name] = analyzer.results if hasattr(analyzer, 'results') else None
                     except Exception as e:
-                        console.print(Panel(f"[DEBUG] Error in {test_name}: {e}", title="[bold #8f1511]⚠️ 執行錯誤[/bold #8f1511]", border_style="#8f1511"))
+                        console.print(Panel(f"[DEBUG] Error in {test_name}: {e}", title=Text("⚠️ 執行錯誤", style="bold #8f1511"), border_style="#8f1511"))
                         logger.error(f"統計分析失敗 {test_name}: {e}")
                         results[test_name] = {"error": str(e)}
                 reporter = ReportGenerator()
@@ -405,40 +364,9 @@ def main():
             # 交易分析
             analyze_backtest = 'y'
             if analyze_backtest == 'y':
-                # 統一進入多選 parquet 分析互動
-                from metricstracker.DataImporter_metricstracker import list_parquet_files, show_parquet_files, select_files
-                import pandas as pd
-                directory = os.path.join(os.path.dirname(__file__), 'records', 'backtester')
-                directory = os.path.abspath(directory)
-                files = list_parquet_files(directory)
-                if not files:
-                    print(f"❌ 找不到任何parquet檔案於 {directory}")
-                    return
-                show_parquet_files(files)
-                user_input = input("請輸入要分析的檔案編號（可用逗號分隔多選，或輸入al/all全選）：").strip() or '1'
-                selected_files = select_files(files, user_input)
-                if not selected_files:
-                    print("未選擇任何檔案，返回主選單。")
-                    return
-                print("\n=== 已選擇檔案 ===")
-                for f in selected_files:
-                    print(f)
-                for orig_parquet_path in selected_files:
-                    print(f"\n已選擇檔案: {orig_parquet_path}")
-                    df = pd.read_parquet(orig_parquet_path)
-                    console.print(f"[bold #dbac30]請輸入年化時間單位（如日線股票252，日線幣365，預設為252）：[/bold #dbac30]")
-                    time_unit = input().strip()
-                    if time_unit == "":
-                        time_unit = 252
-                    else:
-                        time_unit = int(time_unit)
-                    console.print(f"[bold #dbac30]請輸入無風險利率（%）（輸入n代表n% ，預設為2）：[/bold #dbac30]")
-                    risk_free_rate = input().strip()
-                    if risk_free_rate == "":
-                        risk_free_rate = 2.0 / 100
-                    else:
-                        risk_free_rate = float(risk_free_rate) / 100
-                    MetricsExporter.export(df, orig_parquet_path, time_unit, risk_free_rate)
+                # 調用 metricstracker 分析
+                metric_tracker = BaseMetricTracker()
+                metric_tracker.run_analysis()
                 console.print(f"[bold #dbac30]是否啟動可視化平台？(y/n，預設y)：[/bold #dbac30]")
                 run_plotter = input().strip().lower() or 'y'
                 if run_plotter == 'y':
@@ -482,7 +410,7 @@ def main():
                     console.print(f"[bold #dbac30]請輸入要差分的預測因子（可選: {available_factors}，預設 {default}）：[/bold #dbac30]")
                     predictor_col = input().strip() or default
                     if predictor_col not in available_factors:
-                        console.print(Panel(f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}）", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
+                        console.print(Panel(f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}）", title=Text("📊 數據載入 Dataloader", style="bold #8f1511"), border_style="#8f1511"))
                         continue
                     break
                 predictor_loader = PredictorLoader(data)
@@ -494,40 +422,8 @@ def main():
                 logger.info("回測完成")
                 console.print(Panel("[bold green]回測完成！[/bold green]", title="[bold #dbac30]🧑‍💻 回測 Backtester[/bold #dbac30]", border_style="#dbac30"))
                 # 交易分析
-                # 統一進入多選 parquet 分析互動
-                from metricstracker.DataImporter_metricstracker import list_parquet_files, show_parquet_files, select_files
-                import pandas as pd
-                directory = os.path.join(os.path.dirname(__file__), 'records', 'backtester')
-                directory = os.path.abspath(directory)
-                files = list_parquet_files(directory)
-                if not files:
-                    print(f"❌ 找不到任何parquet檔案於 {directory}")
-                    return
-                show_parquet_files(files)
-                user_input = input("請輸入要分析的檔案編號（可用逗號分隔多選，或輸入al/all全選）：").strip() or '1'
-                selected_files = select_files(files, user_input)
-                if not selected_files:
-                    print("未選擇任何檔案，返回主選單。")
-                    return
-                print("\n=== 已選擇檔案 ===")
-                for f in selected_files:
-                    print(f)
-                for orig_parquet_path in selected_files:
-                    print(f"\n已選擇檔案: {orig_parquet_path}")
-                    df = pd.read_parquet(orig_parquet_path)
-                    console.print(f"[bold #dbac30]請輸入年化時間單位（如日線股票252，日線幣365，預設為252）：[/bold #dbac30]")
-                    time_unit = input().strip()
-                    if time_unit == "":
-                        time_unit = 252
-                    else:
-                        time_unit = int(time_unit)
-                    console.print(f"[bold #dbac30]請輸入無風險利率（%）（輸入n代表n% ，預設為2）：[/bold #dbac30]")
-                    risk_free_rate = input().strip()
-                    if risk_free_rate == "":
-                        risk_free_rate = 2.0 / 100
-                    else:
-                        risk_free_rate = float(risk_free_rate) / 100
-                    MetricsExporter.export(df, orig_parquet_path, time_unit, risk_free_rate)
+                metric_tracker = BaseMetricTracker()
+                metric_tracker.run_analysis()
                 console.print(f"[bold #dbac30]是否啟動可視化平台？(y/n，預設y)：[/bold #dbac30]")
                 run_plotter = input().strip().lower() or 'y'
                 if run_plotter == 'y':
@@ -547,7 +443,7 @@ def main():
                 "🟢 導出合併後數據 🔵\n"
                 "🟢 選擇差分預測因子 🔵\n"
                 "\n🔵可跳過\n\n"
-                "[bold #dbac30]說明[/bold #dbac30]\n"
+                "\n[bold #dbac30]說明[/bold #dbac30]\n"
                 "差分（Differencing）是時間序列分析常用的預處理方法。\n"
                 "可以消除數據中的趨勢與季節性，讓資料更穩定，有助於提升統計檢定與回測策略的準確性。\n"
                 "在量化回測中，我們往往不會選擇價格(原始因子)，而是收益率(差分值)作為預測因子，因為收益率更能反映資產的實際表現。",
@@ -558,7 +454,7 @@ def main():
                 console.print(f"[bold #dbac30]請輸入要差分的預測因子（可選: {available_factors}，預設 {default}）：[/bold #dbac30]")
                 predictor_col = input().strip() or default
                 if predictor_col not in available_factors:
-                    console.print(Panel(f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}）", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
+                    console.print(Panel(f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}）", title=Text("📊 數據載入 Dataloader", style="bold #8f1511"), border_style="#8f1511"))
                     continue
                 break
             predictor_loader = PredictorLoader(data)
@@ -571,40 +467,8 @@ def main():
             logger.info("回測完成")
             console.print(Panel("[bold green]回測完成！[/bold green]", title="[bold #dbac30]🧑‍💻 回測 Backtester[/bold #dbac30]", border_style="#dbac30"))
             # 交易分析
-            # 統一進入多選 parquet 分析互動
-            from metricstracker.DataImporter_metricstracker import list_parquet_files, show_parquet_files, select_files
-            import pandas as pd
-            directory = os.path.join(os.path.dirname(__file__), 'records', 'backtester')
-            directory = os.path.abspath(directory)
-            files = list_parquet_files(directory)
-            if not files:
-                print(f"❌ 找不到任何parquet檔案於 {directory}")
-                return
-            show_parquet_files(files)
-            user_input = input("請輸入要分析的檔案編號（可用逗號分隔多選，或輸入al/all全選）：").strip() or '1'
-            selected_files = select_files(files, user_input)
-            if not selected_files:
-                print("未選擇任何檔案，返回主選單。")
-                return
-            print("\n=== 已選擇檔案 ===")
-            for f in selected_files:
-                print(f)
-            for orig_parquet_path in selected_files:
-                print(f"\n已選擇檔案: {orig_parquet_path}")
-                df = pd.read_parquet(orig_parquet_path)
-                console.print(f"[bold #dbac30]請輸入年化時間單位（如日線股票252，日線幣365，預設為252）：[/bold #dbac30]")
-                time_unit = input().strip()
-                if time_unit == "":
-                    time_unit = 252
-                else:
-                    time_unit = int(time_unit)
-                console.print(f"[bold #dbac30]請輸入無風險利率（%）（輸入n代表n% ，預設為2）：[/bold #dbac30]")
-                risk_free_rate = input().strip()
-                if risk_free_rate == "":
-                    risk_free_rate = 2.0 / 100
-                else:
-                    risk_free_rate = float(risk_free_rate) / 100
-                MetricsExporter.export(df, orig_parquet_path, time_unit, risk_free_rate)
+            metric_tracker = BaseMetricTracker()
+            metric_tracker.run_analysis()
             console.print(f"[bold #dbac30]是否啟動可視化平台？(y/n，預設y)：[/bold #dbac30]")
             run_plotter = input().strip().lower() or 'y'
             if run_plotter == 'y':
@@ -614,44 +478,11 @@ def main():
                     plotter.run(host='127.0.0.1', port=8050, debug=False)
                 except Exception as e:
                     print(f"❌ 可視化平台啟動失敗: {e}")
-            return
         elif choice == "3":
             # 交易分析（metricstracker + 可視化平台）
             logger.info("[主選單] 交易分析（metricstracker→可視化平台）")
-            # 統一進入多選 parquet 分析互動
-            from metricstracker.DataImporter_metricstracker import list_parquet_files, show_parquet_files, select_files
-            import pandas as pd
-            directory = os.path.join(os.path.dirname(__file__), 'records', 'backtester')
-            directory = os.path.abspath(directory)
-            files = list_parquet_files(directory)
-            if not files:
-                print(f"❌ 找不到任何parquet檔案於 {directory}")
-                return
-            show_parquet_files(files)
-            user_input = input("請輸入要分析的檔案編號（可用逗號分隔多選，或輸入al/all全選）：").strip() or '1'
-            selected_files = select_files(files, user_input)
-            if not selected_files:
-                print("未選擇任何檔案，返回主選單。")
-                return
-            print("\n=== 已選擇檔案 ===")
-            for f in selected_files:
-                print(f)
-            for orig_parquet_path in selected_files:
-                print(f"\n已選擇檔案: {orig_parquet_path}")
-                df = pd.read_parquet(orig_parquet_path)
-                console.print(f"[bold #dbac30]請輸入年化時間單位（如日線股票252，日線幣365，預設為252）：[/bold #dbac30]")
-                time_unit = input().strip()
-                if time_unit == "":
-                    time_unit = 252
-                else:
-                    time_unit = int(time_unit)
-                console.print(f"[bold #dbac30]請輸入無風險利率（%）（輸入n代表n% ，預設為2）：[/bold #dbac30]")
-                risk_free_rate = input().strip()
-                if risk_free_rate == "":
-                    risk_free_rate = 2.0 / 100
-                else:
-                    risk_free_rate = float(risk_free_rate) / 100
-                MetricsExporter.export(df, orig_parquet_path, time_unit, risk_free_rate)
+            metric_tracker = BaseMetricTracker()
+            metric_tracker.run_analysis()
             console.print(f"[bold #dbac30]是否啟動可視化平台？(y/n，預設y)：[/bold #dbac30]")
             run_plotter = input().strip().lower() or 'y'
             if run_plotter == 'y':
@@ -679,7 +510,7 @@ def main():
         else:
             pass
     except Exception as e:
-        console.print(Panel(f"[DEBUG] 程式執行過程中發生錯誤：{e}", title="[bold #8f1511]⚠️ 執行錯誤[/bold #8f1511]", border_style="#8f1511"))
+        console.print(Panel(f"[DEBUG] 程式執行過程中發生錯誤：{e}", title=Text("⚠️ 執行錯誤", style="bold #8f1511"), border_style="#8f1511"))
         logger.error(f"程式執行錯誤：{e}")
         import traceback
         traceback.print_exc()
