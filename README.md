@@ -127,17 +127,6 @@
 
 ---
 
-## ✨ 主要功能特色
-
-- 支援多種數據來源（本地、Yahoo、Binance）
-- 自動計算常用技術指標與收益率
-- 多策略、多參數組合批量回測
-- 詳細績效指標（Sharpe, Max Drawdown, Win Rate, 等）
-- 互動式 Dash 可視化平台
-- 完善的錯誤提示與日誌
-
----
-
 ## 🧑‍💻 互動流程範例（Demo）
 
 以下為一個典型的命令行互動流程範例：
@@ -212,7 +201,7 @@ lo2cin4bt/
 
 ---
 
-## 📬 聯絡方式或其他商務合作
+## 📬 聯絡方式或商務合作
 
 - Email: lo2cin4@gmail.com
 - Telegram: [@lo2cin4_jesse](https://t.me/lo2cin4_jesse)
