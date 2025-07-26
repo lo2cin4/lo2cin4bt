@@ -12,6 +12,8 @@ tqdm>=4.66.2
 pyarrow>=10.0.0
 black>=24.3.0
 kaleido
+rich>=13.0.0
+psutil>=5.9.0
 
 # plotter 可視化平台依賴
 dash>=2.15.0

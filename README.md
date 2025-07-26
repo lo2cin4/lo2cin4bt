@@ -40,6 +40,7 @@
 
 ### 未來開發目標
 - Print messages 代碼整理
+- 新增技術指標指導文檔
 - 更多技術指標，包括 RSI, percentile
 - 參數平原 (Parameter plateau)
 - 穩健性測試 (Robustness Check)
