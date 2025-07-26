@@ -264,18 +264,21 @@ def main():
 
     try:
         if choice == "1":
-            # 全面回測，直接呼叫 DataImporter 處理所有數據來源互動
-            importer = DataImporter()
-            data, frequency = importer.load_and_standardize_data()
+            # 全面回測，使用 BaseDataLoader 處理所有數據來源互動
+            from dataloader.Base_loader import BaseDataLoader
+            data_loader = BaseDataLoader(logger=logger)
+            data = data_loader.run()
+            
             if data is None:
                 console.print(Panel("[DEBUG] 數據載入失敗，程式終止", title=Text("⚠️ 數據載入警告", style="bold #8f1511"), border_style="#8f1511"))
                 logger.error("數據載入失敗")
                 return
+            
             if isinstance(data, str) and data == "__SKIP_STATANALYSER__":
                 if choice == "1":
                     print("未輸入預測因子檔案，將跳過統計分析，僅使用價格數據。")
-                data = importer.data  # 這裡用 DataFrame
-                frequency = importer.frequency  # 這裡也要設正確
+                data = data_loader.data
+                frequency = data_loader.frequency
                 backtester = BaseBacktester(data, frequency, logger)
                 backtester.run()
                 analyze_backtest = 'y'
@@ -284,98 +287,79 @@ def main():
                     metric_tracker = BaseMetricTracker()
                     metric_tracker.run_analysis()
                 return
-            # 只有在不是 __SKIP_STATANALYSER__ 時才呼叫 select_predictor_factor
-            logger.info(f"數據載入成功，形狀：{data.shape}，頻率：{frequency}")
-            console.print(Panel(
-                "🟢 選擇價格數據來源\n"
-                "🟢 輸入預測因子 🔵\n"
-                "🟢 導出合併後數據 🔵\n"
-                "🟢 選擇差分預測因子 🔵\n"
-                "\n🔵可跳過\n\n"
-                "\n[bold #dbac30]說明[/bold #dbac30]\n"
-                "差分（Differencing）是時間序列分析常用的預處理方法。\n"
-                "可以消除數據中的趨勢與季節性，讓資料更穩定，有助於提升統計檢定與回測策略的準確性。\n"
-                "在量化回測中，我們往往不會選擇價格(原始因子)，而是收益率(差分值)作為預測因子，因為收益率更能反映資產的實際表現。1",
-                title="[bold #dbac30]📊 數據載入 Dataloader 步驟：選擇差分預測因子[/bold #dbac30]",
-                border_style="#dbac30"
-            ))
-            # 差分前互動：讓用戶輸入要差分的預測因子
-            available_factors = [col for col in data.columns if col not in ['Time', 'Open', 'High', 'Low', 'Close', 'Volume', 'open_return', 'close_return', 'open_logreturn', 'close_logreturn']]
-            default = available_factors[0]
-            while True:
-                console.print(f"[bold #dbac30]請輸入要差分的預測因子（可選: {available_factors}，預設 {default}）：[/bold #dbac30]")
-                predictor_col = input().strip() or default
-                if predictor_col not in available_factors:
-                    console.print(Panel(f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}）", title=Text("📊 數據載入 Dataloader", style="bold #8f1511"), border_style="#8f1511"))
-                    continue
-                break
-            predictor_loader = PredictorLoader(data)
-            data, diff_cols, used_series = predictor_loader.process_difference(data, predictor_col)
-            logger.info(f"差分處理完成，差分欄位：{diff_cols}")
+            else:
+                # 確保 frequency 被定義
+                frequency = data_loader.frequency
+            
+            # 處理差分步驟
+            data, diff_cols, used_series = data_loader.process_difference(data)
+            if diff_cols:
+                logger.info(f"差分處理完成，差分欄位：{diff_cols}")
+            
             # 統計分析
-            run_stats = 'y'
-            if run_stats == 'y':
-                selected_col = select_predictor_factor(data, default_factor=diff_cols[0] if diff_cols else None)
-                used_series = data[selected_col]
-                stats_data = standardize_data_for_stats(data)
-                updated_data = stats_data.copy()
-                updated_data[predictor_col] = used_series
-                def infer_data_freq(df):
-                    import pandas as pd
-                    if not isinstance(df.index, pd.DatetimeIndex):
-                        if 'Time' in df.columns:
-                            df['Time'] = pd.to_datetime(df['Time'])
-                            df = df.set_index('Time')
-                        else:
-                            raise ValueError("資料必須有 DatetimeIndex 或 'Time' 欄位")
-                    freq = pd.infer_freq(df.index)
-                    if freq is None:
-                        freq = 'D'
-                        print("⚠️ 無法自動判斷頻率，已預設為日線（D）")
-                    return freq[0].upper()  # 只取第一個字母 D/H/T
-                freq = infer_data_freq(updated_data)
-                analyzers = [
-                    CorrelationTest(updated_data, predictor_col, "close_return"),
-                    StationarityTest(updated_data, predictor_col, "close_return"),
-                    AutocorrelationTest(updated_data, predictor_col, "close_return", freq=freq),
-                    DistributionTest(updated_data, predictor_col, "close_return"),
-                    SeasonalAnalysis(updated_data, predictor_col, "close_return"),
-                ]
-                results = {}
-                for analyzer in analyzers:
-                    test_name = f"{analyzer.__class__.__name__}_{analyzer.predictor_col}"
-                    try:
-                        analyzer.analyze()
-                        results[test_name] = analyzer.results if hasattr(analyzer, 'results') else None
-                    except Exception as e:
-                        console.print(Panel(f"[DEBUG] Error in {test_name}: {e}", title=Text("⚠️ 執行錯誤", style="bold #8f1511"), border_style="#8f1511"))
-                        logger.error(f"統計分析失敗 {test_name}: {e}")
-                        results[test_name] = {"error": str(e)}
-                reporter = ReportGenerator()
-                reporter.save_report(results)
-                reporter.save_data(updated_data, format="csv")
-                logger.info("統計分析完成")
+            selected_col = select_predictor_factor(data, default_factor=diff_cols[0] if diff_cols else None)
+            used_series = data[selected_col]
+            stats_data = standardize_data_for_stats(data)
+            updated_data = stats_data.copy()
+            updated_data[selected_col] = used_series
+            
+            def infer_data_freq(df):
+                import pandas as pd
+                if not isinstance(df.index, pd.DatetimeIndex):
+                    if 'Time' in df.columns:
+                        df['Time'] = pd.to_datetime(df['Time'])
+                        df = df.set_index('Time')
+                    else:
+                        raise ValueError("資料必須有 DatetimeIndex 或 'Time' 欄位")
+                freq = pd.infer_freq(df.index)
+                if freq is None:
+                    freq = 'D'
+                    print("⚠️ 無法自動判斷頻率，已預設為日線（D）")
+                return freq[0].upper()  # 只取第一個字母 D/H/T
+            
+            freq = infer_data_freq(updated_data)
+            analyzers = [
+                CorrelationTest(updated_data, selected_col, "close_return"),
+                StationarityTest(updated_data, selected_col, "close_return"),
+                AutocorrelationTest(updated_data, selected_col, "close_return", freq=freq),
+                DistributionTest(updated_data, selected_col, "close_return"),
+                SeasonalAnalysis(updated_data, selected_col, "close_return"),
+            ]
+            results = {}
+            for analyzer in analyzers:
+                test_name = f"{analyzer.__class__.__name__}_{analyzer.predictor_col}"
+                try:
+                    analyzer.analyze()
+                    results[test_name] = analyzer.results if hasattr(analyzer, 'results') else None
+                except Exception as e:
+                    console.print(Panel(f"[DEBUG] Error in {test_name}: {e}", title=Text("⚠️ 執行錯誤", style="bold #8f1511"), border_style="#8f1511"))
+                    logger.error(f"統計分析失敗 {test_name}: {e}")
+                    results[test_name] = {"error": str(e)}
+            
+            reporter = ReportGenerator()
+            reporter.save_report(results)
+            reporter.save_data(updated_data, format="csv")
+            logger.info("統計分析完成")
+            
             # 回測
-            run_backtest = 'y'
-            if run_backtest == 'y':
-                backtester = BaseBacktester(data, frequency, logger)
-                backtester.run(predictor_col)
-                logger.info("回測完成")
+            backtester = BaseBacktester(data, frequency, logger)
+            backtester.run()
+            logger.info("回測完成")
+            console.print(Panel("[bold green]回測完成！[/bold green]", title="[bold #dbac30]🧑‍💻 回測 Backtester[/bold #dbac30]", border_style="#dbac30"))
+            
             # 交易分析
-            analyze_backtest = 'y'
-            if analyze_backtest == 'y':
-                # 調用 metricstracker 分析
-                metric_tracker = BaseMetricTracker()
-                metric_tracker.run_analysis()
-                console.print(f"[bold #dbac30]是否啟動可視化平台？(y/n，預設y)：[/bold #dbac30]")
-                run_plotter = input().strip().lower() or 'y'
-                if run_plotter == 'y':
-                    try:
-                        from plotter.Base_plotter import BasePlotter
-                        plotter = BasePlotter(logger=logger)
-                        plotter.run(host='127.0.0.1', port=8050, debug=False)
-                    except Exception as e:
-                        print(f"❌ 可視化平台啟動失敗: {e}")
+            metric_tracker = BaseMetricTracker()
+            metric_tracker.run_analysis()
+            console.print(f"[bold #dbac30]是否啟動可視化平台？(y/n，預設y）：[/bold #dbac30]")
+            run_plotter = input().strip().lower() or 'y'
+            if run_plotter == 'y':
+                try:
+                    from plotter.Base_plotter import BasePlotter
+                    plotter = BasePlotter(logger=logger)
+                    plotter.run(host='127.0.0.1', port=8050, debug=False)
+                except Exception as e:
+                    print(f"❌ 可視化平台啟動失敗: {e}")
+            return
         elif choice == "2":
             # 回測交易
             logger.info("[主選單] 回測交易")
