@@ -392,6 +392,40 @@ def main():
                 frequency = importer.frequency  # 這裡也要設正確
                 # 差分前互動：讓用戶輸入要差分的預測因子
                 available_factors = [col for col in data.columns if col not in ['Time', 'Open', 'High', 'Low', 'Close', 'Volume', 'open_return', 'close_return', 'open_logreturn', 'close_logreturn']]
+                
+                # 檢查是否有可用的預測因子
+                if not available_factors:
+                    console.print(Panel(
+                        "🟢 選擇價格數據來源\n"
+                        "🟢 輸入預測因子 🔵\n"
+                        "🟢 導出合併後數據 🔵\n"
+                        "🟢 選擇差分預測因子 🔵\n"
+                        "\n🔵可跳過\n\n"
+                        "[bold #dbac30]說明[/bold #dbac30]\n"
+                        "檢測到僅有價格數據，無預測因子可進行差分處理。\n"
+                        "將直接進行回測，使用價格數據作為基礎。",
+                        title="[bold #dbac30]📊 數據載入 Dataloader 步驟：差分處理[/bold #dbac30]",
+                        border_style="#dbac30"
+                    ))
+                    # 直接進行回測，不進行差分處理
+                    backtester = BaseBacktester(data, frequency, logger)
+                    backtester.run()
+                    logger.info("回測完成")
+                    console.print(Panel("[bold green]回測完成！[/bold green]", title="[bold #dbac30]🧑‍💻 回測 Backtester[/bold #dbac30]", border_style="#dbac30"))
+                    # 交易分析
+                    metric_tracker = BaseMetricTracker()
+                    metric_tracker.run_analysis()
+                    console.print(f"[bold #dbac30]是否啟動可視化平台？(y/n，預設y)：[/bold #dbac30]")
+                    run_plotter = input().strip().lower() or 'y'
+                    if run_plotter == 'y':
+                        try:
+                            from plotter.Base_plotter import BasePlotter
+                            plotter = BasePlotter(logger=logger)
+                            plotter.run(host='127.0.0.1', port=8050, debug=False)
+                        except Exception as e:
+                            print(f"❌ 可視化平台啟動失敗: {e}")
+                    return
+                
                 default = available_factors[0]
                 console.print(Panel(
                     "🟢 選擇價格數據來源\n"
@@ -402,15 +436,49 @@ def main():
                     "[bold #dbac30]說明[/bold #dbac30]\n"
                     "差分（Differencing）是時間序列分析常用的預處理方法。\n"
                     "可以消除數據中的趨勢與季節性，讓資料更穩定，有助於提升統計檢定與回測策略的準確性。\n"
-                    "在量化回測中，我們往往不會選擇價格(原始因子)，而是收益率(差分值)作為預測因子，因為收益率更能反映資產的實際表現。",
+                    "在量化回測中，我們往往不會選擇價格(原始因子)，而是收益率(差分值)作為預測因子，因為收益率更能反映資產的實際表現。\n\n"
+                    "[bold #dbac30]選項說明：[/bold #dbac30]\n"
+                    "• 選擇預測因子：進行差分處理後回測\n"
+                    "• 輸入 'price'：僅使用價格數據進行回測",
                     title="[bold #dbac30]📊 數據載入 Dataloader 步驟：選擇差分預測因子[/bold #dbac30]",
                     border_style="#dbac30"
                 ))
                 while True:
-                    console.print(f"[bold #dbac30]請輸入要差分的預測因子（可選: {available_factors}，預設 {default}）：[/bold #dbac30]")
+                    console.print(f"[bold #dbac30]請輸入要差分的預測因子（可選: {available_factors}，預設 {default}，或輸入 'price' 僅使用價格數據）：[/bold #dbac30]")
                     predictor_col = input().strip() or default
-                    if predictor_col not in available_factors:
-                        console.print(Panel(f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}）", title=Text("📊 數據載入 Dataloader", style="bold #8f1511"), border_style="#8f1511"))
+                    if predictor_col.lower() == 'price':
+                        # 用戶選擇僅使用價格數據
+                        console.print(Panel(
+                            "🟢 選擇價格數據來源\n"
+                            "🟢 輸入預測因子 🔵\n"
+                            "🟢 導出合併後數據 🔵\n"
+                            "🟢 選擇差分預測因子 🔵\n"
+                            "\n🔵已跳過\n\n"
+                            "[bold #dbac30]說明[/bold #dbac30]\n"
+                            "已選擇僅使用價格數據進行回測，跳過差分處理。",
+                            title="[bold #dbac30]📊 數據載入 Dataloader 步驟：差分處理[/bold #dbac30]",
+                            border_style="#dbac30"
+                        ))
+                        # 直接進行回測，不進行差分處理
+                        backtester = BaseBacktester(data, frequency, logger)
+                        backtester.run()
+                        logger.info("回測完成")
+                        console.print(Panel("[bold green]回測完成！[/bold green]", title="[bold #dbac30]🧑‍💻 回測 Backtester[/bold #dbac30]", border_style="#dbac30"))
+                        # 交易分析
+                        metric_tracker = BaseMetricTracker()
+                        metric_tracker.run_analysis()
+                        console.print(f"[bold #dbac30]是否啟動可視化平台？(y/n，預設y)：[/bold #dbac30]")
+                        run_plotter = input().strip().lower() or 'y'
+                        if run_plotter == 'y':
+                            try:
+                                from plotter.Base_plotter import BasePlotter
+                                plotter = BasePlotter(logger=logger)
+                                plotter.run(host='127.0.0.1', port=8050, debug=False)
+                            except Exception as e:
+                                print(f"❌ 可視化平台啟動失敗: {e}")
+                        return
+                    elif predictor_col not in available_factors:
+                        console.print(Panel(f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}，或輸入 'price' 僅使用價格數據）", title=Text("📊 數據載入 Dataloader", style="bold #8f1511"), border_style="#8f1511"))
                         continue
                     break
                 predictor_loader = PredictorLoader(data)
@@ -436,6 +504,41 @@ def main():
                 return
             # 非 __SKIP_STATANALYSER__，也要做差分處理
             available_factors = [col for col in data.columns if col not in ['Time', 'Open', 'High', 'Low', 'Close', 'Volume', 'open_return', 'close_return', 'open_logreturn', 'close_logreturn']]
+            
+            # 檢查是否有可用的預測因子
+            if not available_factors:
+                console.print(Panel(
+                    "🟢 選擇價格數據來源\n"
+                    "🟢 輸入預測因子 🔵\n"
+                    "🟢 導出合併後數據 🔵\n"
+                    "🟢 選擇差分預測因子 🔵\n"
+                    "\n🔵可跳過\n\n"
+                    "[bold #dbac30]說明[/bold #dbac30]\n"
+                    "檢測到僅有價格數據，無預測因子可進行差分處理。\n"
+                    "將直接進行回測，使用價格數據作為基礎。",
+                    title="[bold #dbac30]📊 數據載入 Dataloader 步驟：差分處理[/bold #dbac30]",
+                    border_style="#dbac30"
+                ))
+                # 直接進行回測，不進行差分處理
+                logger.info("開始回測...")
+                backtester = BaseBacktester(data, frequency, logger)
+                backtester.run()
+                logger.info("回測完成")
+                console.print(Panel("[bold green]回測完成！[/bold green]", title="[bold #dbac30]🧑‍💻 回測 Backtester[/bold #dbac30]", border_style="#dbac30"))
+                # 交易分析
+                metric_tracker = BaseMetricTracker()
+                metric_tracker.run_analysis()
+                console.print(f"[bold #dbac30]是否啟動可視化平台？(y/n，預設y)：[/bold #dbac30]")
+                run_plotter = input().strip().lower() or 'y'
+                if run_plotter == 'y':
+                    try:
+                        from plotter.Base_plotter import BasePlotter
+                        plotter = BasePlotter(logger=logger)
+                        plotter.run(host='127.0.0.1', port=8050, debug=False)
+                    except Exception as e:
+                        print(f"❌ 可視化平台啟動失敗: {e}")
+                return
+            
             default = available_factors[0]
             console.print(Panel(
                 "🟢 選擇價格數據來源\n"
@@ -443,18 +546,53 @@ def main():
                 "🟢 導出合併後數據 🔵\n"
                 "🟢 選擇差分預測因子 🔵\n"
                 "\n🔵可跳過\n\n"
-                "\n[bold #dbac30]說明[/bold #dbac30]\n"
+                "[bold #dbac30]說明[/bold #dbac30]\n"
                 "差分（Differencing）是時間序列分析常用的預處理方法。\n"
                 "可以消除數據中的趨勢與季節性，讓資料更穩定，有助於提升統計檢定與回測策略的準確性。\n"
-                "在量化回測中，我們往往不會選擇價格(原始因子)，而是收益率(差分值)作為預測因子，因為收益率更能反映資產的實際表現。",
+                "在量化回測中，我們往往不會選擇價格(原始因子)，而是收益率(差分值)作為預測因子，因為收益率更能反映資產的實際表現。\n\n"
+                "[bold #dbac30]選項說明：[/bold #dbac30]\n"
+                "• 選擇預測因子：進行差分處理後回測\n"
+                "• 輸入 'price'：僅使用價格數據進行回測",
                 title="[bold #dbac30]📊 數據載入 Dataloader 步驟：選擇差分預測因子[/bold #dbac30]",
                 border_style="#dbac30"
             ))
             while True:
-                console.print(f"[bold #dbac30]請輸入要差分的預測因子（可選: {available_factors}，預設 {default}）：[/bold #dbac30]")
+                console.print(f"[bold #dbac30]請輸入要差分的預測因子（可選: {available_factors}，預設 {default}，或輸入 'price' 僅使用價格數據）：[/bold #dbac30]")
                 predictor_col = input().strip() or default
-                if predictor_col not in available_factors:
-                    console.print(Panel(f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}）", title=Text("📊 數據載入 Dataloader", style="bold #8f1511"), border_style="#8f1511"))
+                if predictor_col.lower() == 'price':
+                    # 用戶選擇僅使用價格數據
+                    console.print(Panel(
+                        "🟢 選擇價格數據來源\n"
+                        "🟢 輸入預測因子 🔵\n"
+                        "🟢 導出合併後數據 🔵\n"
+                        "🟢 選擇差分預測因子 🔵\n"
+                        "\n🔵已跳過\n\n"
+                        "[bold #dbac30]說明[/bold #dbac30]\n"
+                        "已選擇僅使用價格數據進行回測，跳過差分處理。",
+                        title="[bold #dbac30]📊 數據載入 Dataloader 步驟：差分處理[/bold #dbac30]",
+                        border_style="#dbac30"
+                    ))
+                    # 直接進行回測，不進行差分處理
+                    logger.info("開始回測...")
+                    backtester = BaseBacktester(data, frequency, logger)
+                    backtester.run()
+                    logger.info("回測完成")
+                    console.print(Panel("[bold green]回測完成！[/bold green]", title="[bold #dbac30]🧑‍💻 回測 Backtester[/bold #dbac30]", border_style="#dbac30"))
+                    # 交易分析
+                    metric_tracker = BaseMetricTracker()
+                    metric_tracker.run_analysis()
+                    console.print(f"[bold #dbac30]是否啟動可視化平台？(y/n，預設y)：[/bold #dbac30]")
+                    run_plotter = input().strip().lower() or 'y'
+                    if run_plotter == 'y':
+                        try:
+                            from plotter.Base_plotter import BasePlotter
+                            plotter = BasePlotter(logger=logger)
+                            plotter.run(host='127.0.0.1', port=8050, debug=False)
+                        except Exception as e:
+                            print(f"❌ 可視化平台啟動失敗: {e}")
+                    return
+                elif predictor_col not in available_factors:
+                    console.print(Panel(f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}，或輸入 'price' 僅使用價格數據）", title=Text("📊 數據載入 Dataloader", style="bold #8f1511"), border_style="#8f1511"))
                     continue
                 break
             predictor_loader = PredictorLoader(data)
