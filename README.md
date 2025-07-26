@@ -145,6 +145,7 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
 ### 2. 預測因子文件（非必須）
 - 支援 Excel（.xlsx）、CSV、JSON
 - 必要欄位：Time, [自訂因子欄位]
+- 需放在`records\dataloader\import`，系統會自動檢測
 - 範例：
   | Time | factor1 | factor2 |
   |------|---------|---------|
