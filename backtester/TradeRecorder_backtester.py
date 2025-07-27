@@ -3,60 +3,46 @@ TradeRecorder_backtester.py
 
 【功能說明】
 ------------------------------------------------------------
-本模組為 Lo2cin4BT 回測框架的「交易紀錄器」，負責記錄每筆交易、驗證交易資料結構、計算績效指標，並生成交易明細，供下游模組導出與分析。
+本模組為 Lo2cin4BT 回測框架的交易記錄工具，負責記錄和管理回測過程中的交易詳情，包括開倉、平倉、持倉變化等資訊。
 
-【關聯流程與數據流】
+【流程與數據流】
 ------------------------------------------------------------
-- 由 BacktestEngine 調用，根據模擬交易結果記錄每筆交易
-- 計算績效指標，並導出給 TradeRecordExporter
-- 主要數據流：
+- 由 BacktestEngine 調用，記錄交易詳情
+- 記錄結果傳遞給 TradeRecordExporter 進行導出
 
 ```mermaid
 flowchart TD
     A[BacktestEngine] -->|調用| B[TradeRecorder]
-    B -->|記錄交易| C[交易明細]
-    B -->|計算績效| D[績效指標]
-    B -->|導出| E[TradeRecordExporter]
+    B -->|記錄交易| C[TradeRecordExporter]
 ```
 
-【主控流程細節】
+【維護與擴充重點】
 ------------------------------------------------------------
-- record_trades() 為主入口，負責驗證並記錄所有交易資料
-- 檢查欄位完整性、數據型態、邏輯正確性（如 Equity Value > 0）
-- 支援自訂欄位（如 Holding_period、Trade_return）並保留於明細
-- 計算績效指標供下游模組使用
-
-【維護與擴充提醒】
-------------------------------------------------------------
-- 新增績效指標、紀錄欄位時，請同步更新 record_trades/頂部註解
-- 若紀錄結構有變動，需同步更新 TradeRecordExporter、BacktestEngine 等依賴模組
-- 欄位驗證與型態規則如有調整，請於 README 詳列
+- 新增/修改記錄欄位、格式時，請同步更新頂部註解與下游流程
+- 若記錄結構有變動，需同步更新本檔案與 TradeRecordExporter
+- 記錄格式如有調整，請同步通知協作者
 
 【常見易錯點】
 ------------------------------------------------------------
-- 紀錄格式不符會導致導出失敗
-- 欄位遺漏或型態錯誤會導致下游模組報錯
-- 績效指標計算錯誤會影響回測結果
+- 記錄欄位缺失或格式錯誤會導致導出失敗
+- 交易記錄不完整會影響績效計算
+- 記錄結構變動會影響下游分析
 
 【範例】
 ------------------------------------------------------------
-- 記錄交易：recorder = TradeRecorder_backtester(trade_records, Backtest_id); df = recorder.record_trades()
-- 計算績效：calculate_performance()
+- recorder = TradeRecorder()
+  recorder.record_trade(trade_data)
 
 【與其他模組的關聯】
 ------------------------------------------------------------
-- 由 BacktestEngine 調用，協調交易紀錄與績效計算
-- 紀錄結構依賴下游 TradeRecordExporter
-
-【維護重點】
-------------------------------------------------------------
-- 新增/修改績效指標、紀錄格式時，務必同步更新本檔案與所有依賴模組
-- 欄位驗證與型態規則需與主流程保持一致
+- 由 BacktestEngine 調用，記錄結果傳遞給 TradeRecordExporter
+- 需與 TradeRecordExporter 的記錄結構保持一致
 
 【參考】
 ------------------------------------------------------------
-- 詳細紀錄規範如有變動，請同步更新本註解與 README
-- 其他模組如有依賴本模組，請於對應檔案頂部註解標明
+- pandas 官方文件
+- BacktestEngine_backtester.py、TradeRecordExporter_backtester.py
+- 專案 README
 """
 
 import pandas as pd

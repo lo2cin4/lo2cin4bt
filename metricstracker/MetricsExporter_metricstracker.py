@@ -3,15 +3,46 @@ MetricsExporter_metricstracker.py
 
 【功能說明】
 ------------------------------------------------------------
-- 專責將每日指標（如 Drawdown, BAH_Equity, BAH_Return）與 summary 指標（依 README 對照表）寫入 DataFrame，並輸出新的 parquet。
-- 所有 parquet 輸出、欄位補齊、metadata 寫入等流程全部集中於此，Calculator 僅負責指標計算。
-- 支援多策略分群（Backtest_id）與單策略模式。
+本模組為 Lo2cin4BT 績效分析框架的績效指標導出工具，負責將績效分析結果導出為多種格式，支援 CSV、Excel、JSON 等格式，便於後續分析。
 
-【使用方式】
+【流程與數據流】
 ------------------------------------------------------------
-from metricstracker.MetricsExporter_metricstracker import MetricsExporter
-MetricsExporter.export(df, orig_parquet_path, time_unit, risk_free_rate)
+- 由 BaseMetricTracker 調用，導出績效分析結果
+- 導出結果供用戶或下游模組分析
 
+```mermaid
+flowchart TD
+    A[BaseMetricTracker] -->|調用| B[MetricsExporter]
+    B -->|導出結果| C[CSV/Excel/JSON]
+```
+
+【維護與擴充重點】
+------------------------------------------------------------
+- 新增/修改導出格式、欄位時，請同步更新頂部註解與下游流程
+- 若導出結構有變動，需同步更新本檔案與上游模組
+- 導出格式如有調整，請同步通知協作者
+
+【常見易錯點】
+------------------------------------------------------------
+- 導出格式錯誤或欄位缺失會導致導出失敗
+- 檔案權限不足會導致寫入失敗
+- 數據結構變動會影響下游分析
+
+【範例】
+------------------------------------------------------------
+- exporter = MetricsExporter()
+  exporter.export_metrics(metrics, format='csv')
+
+【與其他模組的關聯】
+------------------------------------------------------------
+- 由 BaseMetricTracker 調用，導出結果供用戶或下游模組使用
+- 需與上游模組的數據結構保持一致
+
+【參考】
+------------------------------------------------------------
+- pandas 官方文件
+- Base_metricstracker.py、MetricsCalculator_metricstracker.py
+- 專案 README
 """
 import pandas as pd
 import numpy as np

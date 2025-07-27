@@ -3,58 +3,45 @@ SeasonalAnalysis_statanalyser.py
 
 【功能說明】
 ------------------------------------------------------------
-本模組為 Lo2cin4BT 統計分析子模組，專責對時序資料進行季節性分析（如週期性、月份效應等），協助判斷資料中是否存在顯著的季節性規律，並提供策略建議。
+本模組為 Lo2cin4BT 統計分析模組，負責對時序數據進行季節性分析（如週期性、趨勢分解等），評估時間序列的季節性模式，輔助模型選擇與策略設計。
 
-【關聯流程與數據流】
+【流程與數據流】
 ------------------------------------------------------------
-- 由 Base_statanalyser 繼承，接收主流程傳入的資料
-- 分析結果傳遞給 ReportGenerator_statanalyser 產生報表
-- 主要數據流：
+- 繼承 Base_statanalyser，作為統計分析子類之一
+- 檢定結果傳遞給 ReportGenerator 或下游模組
 
 ```mermaid
 flowchart TD
-    A[main.py/主流程] -->|調用| B[SeasonalAnalysis_statanalyser]
-    B -->|分析結果| C[ReportGenerator_statanalyser]
+    A[SeasonalAnalysis] -->|檢定結果| B[ReportGenerator/下游模組]
 ```
 
-【主控流程細節】
+【維護與擴充重點】
 ------------------------------------------------------------
-- analyze() 為主入口，執行週期性檢定、季節性分解等分析
-- 根據自動偵測的週期與強度，給出是否納入策略模型的建議
-- 分析結果以 dict 格式回傳，供報表模組與下游流程使用
-- 支援自訂分析參數，並可擴充其他季節性檢定方法
-
-【維護與擴充提醒】
-------------------------------------------------------------
-- 新增分析方法、參數時，請同步更新 analyze() 及頂部註解
-- 若數據結構或欄位有變動，需同步調整與 Base_statanalyser、ReportGenerator_statanalyser 的介面
-- 分析指標、臨界值如有調整，請於 README 詳列
+- 新增/修改檢定類型、參數、圖表邏輯時，請同步更新頂部註解與下游流程
+- 若介面、欄位、分析流程有變動，需同步更新本檔案與 Base_statanalyser
+- 統計結果格式如有調整，請同步通知協作者
 
 【常見易錯點】
 ------------------------------------------------------------
-- 分析樣本數不足時，無法有效檢測季節性
-- 週期偵測錯誤會導致分析失準
-- 統計結果格式不符會影響下游報表產生
+- 檢定參數設置錯誤或數據點不足會導致結果異常
+- 頻率設定不符或欄位型態錯誤會影響分析正確性
+- 統計結果格式不符會影響下游報表或流程
 
 【範例】
 ------------------------------------------------------------
-- analysis = SeasonalAnalysis(data, predictor_col="因子欄位")
-  result = analysis.analyze()
+- test = SeasonalAnalysis(data, predictor_col, return_col)
+  result = test.analyze()
 
 【與其他模組的關聯】
 ------------------------------------------------------------
-- 由主流程或 Base_statanalyser 調用，分析結果傳遞給 ReportGenerator_statanalyser
-- 依賴 pandas、statsmodels 等第三方庫
-
-【維護重點】
-------------------------------------------------------------
-- 新增/修改分析方法、參數時，務必同步更新本檔案、Base_statanalyser 及 README
-- 分析結果格式需與 ReportGenerator_statanalyser 保持一致
+- 繼承 Base_statanalyser，檢定結果傳遞給 ReportGenerator 或下游模組
+- 需與 ReportGenerator、主流程等下游結構保持一致
 
 【參考】
 ------------------------------------------------------------
-- 詳細分析規範與指標定義請參閱 README
-- 其他模組如有依賴本模組，請於對應檔案頂部註解標明
+- statsmodels 官方文件
+- Base_statanalyser.py、ReportGenerator_statanalyser.py
+- 專案 README
 """
 import pandas as pd
 import numpy as np

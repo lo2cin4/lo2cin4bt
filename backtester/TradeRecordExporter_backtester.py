@@ -1,66 +1,48 @@
 """
 TradeRecordExporter_backtester.py
 
-【功能說明】更新時間 16-07-2025
+【功能說明】
 ------------------------------------------------------------
-| 欄位名稱               | 型態      | 出現時機           | 說明
-|------------------------|-----------|--------------------|-----------------------------------------------
-| Time                   | datetime  | 每筆皆有           | 交易紀錄發生時間
-| Open                   | float     | 每筆皆有           | 開盤價
-| High                   | float     | 每筆皆有           | 最高價
-| Low                    | float     | 每筆皆有           | 最低價
-| Close                  | float     | 每筆皆有           | 收盤價
-| Trading_instrument     | str       | 每筆皆有           | 標的代碼
-| Position_type          | str       | 開倉或平倉時有      | 持倉方向（如 new_long/new_short/close_long/close_short）
-| Open_position_price    | float     | 每筆皆有           | 開倉價格 (平時為0)
-| Close_position_price   | float     | 每筆皆有           | 平倉價格 (平時為0)
-| Position_size          | float/int | 每筆皆有           | 持倉數量 (0=沒有持倉,1=有持倉)
-| Return                 | float     | 每筆皆有           | 每日報酬率（小數）(沒有持倉=0)
-| Trade_group_id         | int/str   | 持倉時有           | 交易分組流水號
-| Trade_action           | str       | 每筆皆有           | 交易動作(1=開倉,2=平倉,3=減倉,4=平倉,0=沒有動作)
-| Open_time              | datetime  | 開倉時有           | 只在開倉時有值
-| Close_time             | datetime  | 平倉時有           | 只在平倉時有值
-| Parameter_set_id       | int/str   | 每筆皆有           | 參數組流水號
-| Equity_value           | float     | 每筆皆有           | 每筆後的資產淨值
-| Transaction_cost       | float     | 每筆皆有           | 交易時固定百份比手續費
-| Slippage_cost          | float     | 每筆皆有           | 交易時固定百份比滑價
-| Predictor_value        | float     | 每筆皆有           | 預測器分數/值
-| Entry_signal           | 任意      | 每筆皆有           | 進場訊號內容(觸發時為1,平時為0)
-| Exit_signal            | 任意      | 每筆皆有           | 出場訊號內容(觸發時為-1,平時為0)
-| Holding_period_count   | int       | 每筆皆有           | 持倉天數（每日計算），無持倉時為0
-| Holding_period         | int/float | 平倉時有           | 持倉天數（最終持倉時間）
-| Trade_return           | float     | 平倉時有           | 一筆交易的百分比報酬率（僅平倉時有值）
-| Backtest_id            | str       | 每筆皆有           | 批次唯一識別碼，主表格與 meta 對應
+本模組為 Lo2cin4BT 回測框架的交易記錄導出工具，負責將回測結果和交易記錄導出為多種格式，支援 CSV、Excel、Parquet 等格式，便於後續分析。
+
+【流程與數據流】
 ------------------------------------------------------------
-- 新增欄位、metadata 結構、導出格式時，請同步更新 export_to_csv/export_to_parquet/頂部註解
-- 若欄位或參數結構有變動，需同步更新所有依賴模組
-- 檔案命名與 metadata 結構如有調整，請於 README 詳列
+- 由 BaseBacktester 調用，導出回測結果和交易記錄
+- 導出結果供用戶或下游模組分析
+
+```mermaid
+flowchart TD
+    A[BaseBacktester] -->|調用| B[TradeRecordExporter]
+    B -->|導出結果| C[CSV/Excel/Parquet]
+```
+
+【維護與擴充重點】
+------------------------------------------------------------
+- 新增/修改導出格式、欄位時，請同步更新頂部註解與下游流程
+- 若導出結構有變動，需同步更新本檔案與上游模組
+- 導出格式如有調整，請同步通知協作者
 
 【常見易錯點】
 ------------------------------------------------------------
-- 欄位結構未同步更新，導致導出失敗或下游分析錯誤
-- metadata 結構不一致，影響批次分析或視覺化
-- 必要欄位缺失或型態錯誤導致導出異常
+- 導出格式錯誤或欄位缺失會導致導出失敗
+- 檔案權限不足會導致寫入失敗
+- 數據結構變動會影響下游分析
 
 【範例】
 ------------------------------------------------------------
-- 導出 CSV：exporter = TradeRecordExporter_backtester(...); exporter.export_to_csv()
-- 導出 Parquet：exporter.export_to_parquet()
+- exporter = TradeRecordExporter()
+  exporter.export_results(results, format='csv')
 
 【與其他模組的關聯】
 ------------------------------------------------------------
-- 由 BacktestEngine 或 TradeRecorder 調用，協調交易紀錄導出與 metadata 管理
-- 欄位結構依賴主流程與下游分析工具（如 plotguy）
-
-【維護重點】
-------------------------------------------------------------
-- 新增/修改欄位、metadata 結構、導出格式時，務必同步更新本檔案與所有依賴模組
-- 欄位與 metadata 結構需與主流程、README、下游工具保持一致
+- 由 BaseBacktester 調用，導出結果供用戶或下游模組使用
+- 需與上游模組的數據結構保持一致
 
 【參考】
 ------------------------------------------------------------
-- 詳細欄位與 metadata 規範請參閱 README
-- 其他模組如有依賴本模組，請於對應檔案頂部註解標明
+- pandas 官方文件
+- Base_backtester.py、TradeRecorder_backtester.py
+- 專案 README
 """
 
 import pandas as pd

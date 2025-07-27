@@ -1,3 +1,49 @@
+"""
+DataImporter_metricstracker.py
+
+【功能說明】
+------------------------------------------------------------
+本模組為 Lo2cin4BT 績效分析框架的數據導入工具，負責從指定目錄載入 Parquet 格式的交易記錄檔案，支援檔案列表顯示和選擇功能。
+
+【流程與數據流】
+------------------------------------------------------------
+- 由 BaseMetricTracker 調用，載入 Parquet 格式的交易記錄
+- 載入數據後傳遞給 MetricsCalculator 進行績效計算
+
+```mermaid
+flowchart TD
+    A[BaseMetricTracker] -->|調用| B[DataImporter]
+    B -->|載入數據| C[MetricsCalculator]
+```
+
+【維護與擴充重點】
+------------------------------------------------------------
+- 新增/修改檔案格式支援時，請同步更新頂部註解與下游流程
+- 若數據結構有變動，需同步更新本檔案與 MetricsCalculator
+- 檔案格式如有調整，請同步通知協作者
+
+【常見易錯點】
+------------------------------------------------------------
+- 檔案路徑錯誤或檔案不存在會導致載入失敗
+- 檔案格式不符會影響績效計算
+- 數據結構變動會影響下游分析
+
+【範例】
+------------------------------------------------------------
+- files = list_parquet_files(directory)
+- selected = select_files(files, user_input)
+
+【與其他模組的關聯】
+------------------------------------------------------------
+- 由 BaseMetricTracker 調用，數據傳遞給 MetricsCalculator
+- 需與 MetricsCalculator 的數據結構保持一致
+
+【參考】
+------------------------------------------------------------
+- pandas 官方文件
+- Base_metricstracker.py、MetricsCalculator_metricstracker.py
+- 專案 README
+"""
 import os
 import glob
 from rich.console import Console

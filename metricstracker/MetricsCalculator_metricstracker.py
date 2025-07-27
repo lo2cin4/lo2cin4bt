@@ -1,39 +1,63 @@
 """
-【主表格欄位詳細規格】（2024-07-16 最新）
+MetricsCalculator_metricstracker.py
+
+【功能說明】
 ------------------------------------------------------------
-| 欄位名稱               | 型態      | 出現時機           | 說明                                         | 產生位置           |
-|------------------------|-----------|--------------------|----------------------------------------------|--------------------|
-| Time                   | datetime  | 每筆皆有           | 交易紀錄發生時間                             | TradeRecordExporter|
-| Open                   | float     | 每筆皆有           | 開盤價                                       | TradeRecordExporter|
-| High                   | float     | 每筆皆有           | 最高價                                       | TradeRecordExporter|
-| Low                    | float     | 每筆皆有           | 最低價                                       | TradeRecordExporter|
-| Close                  | float     | 每筆皆有           | 收盤價                                       | TradeRecordExporter|
-| Trading_Instrument     | str       | 每筆皆有           | 標的代碼                                     | TradeRecordExporter|
-| Position_Type          | str       | 開倉或平倉時有      | 持倉方向（如 new_long/new_short/close_long/close_short）| TradeRecordExporter|
-| Open_Position_Price    | float     | 每筆皆有           | 開倉價格 (平時為0)                           | TradeRecordExporter|
-| Close_Position_Price   | float     | 每筆皆有           | 平倉價格 (平時為0)                           | TradeRecordExporter|
-| Position_Size          | float/int | 每筆皆有           | 持倉數量 (0=沒有持倉,1=有持倉)               | TradeRecordExporter|
-| Return                 | float     | 每筆皆有           | 每日報酬率（小數）(沒有持倉=0)                | TradeRecordExporter|
-| Trade_Group_ID         | int/str   | 持倉時有           | 交易分組流水號                               | TradeRecordExporter|
-| Trade_Action           | str       | 每筆皆有           | 交易動作(1=開倉,2=平倉,3=減倉,4=平倉,0=沒有動作)| TradeRecordExporter|
-| Open_Time              | datetime  | 開倉時有           | 只在開倉時有值                               | TradeRecordExporter|
-| Close_Time             | datetime  | 平倉時有           | 只在平倉時有值                               | TradeRecordExporter|
-| Parameter_Set_ID       | int/str   | 每筆皆有           | 參數組流水號                                 | TradeRecordExporter|
-| Equity_Value           | float     | 每筆皆有           | 每筆後的資產淨值                             | TradeRecordExporter|
-| Transaction_Cost       | float     | 每筆皆有           | 交易時固定百份比手續費                       | TradeRecordExporter|
-| Slippage_Cost          | float     | 每筆皆有           | 交易時固定百份比滑價                         | TradeRecordExporter|
-| Predictor_value        | float     | 每筆皆有           | 預測器分數/值                                | TradeRecordExporter|
-| Entry_Signal           | 任意      | 每筆皆有           | 進場訊號內容(觸發時為1,平時為0)              | TradeRecordExporter|
-| Exit_Signal            | 任意      | 每筆皆有           | 出場訊號內容(觸發時為-1,平時為0)             | TradeRecordExporter|
-| Holding_period_count   | int       | 每筆皆有           | 持倉天數（每日計算），無持倉時為0             | TradeRecordExporter|
-| Holding_period         | int/float | 平倉時有           | 持倉天數（最終持倉時間）                     | TradeRecordExporter|
-| Trade_return           | float     | 平倉時有           | 一筆交易的百分比報酬率（僅平倉時有值）        | TradeRecordExporter|
-| Backtest_id            | str       | 每筆皆有           | 批次唯一識別碼，主表格與 meta 對應           | TradeRecordExporter|
-| Drawdown               | float     | 每筆皆有           | 最大回撤（小數）                             | MetricsCalculator  |
-| BAH_Equity             | float     | 每筆皆有           | Buy & Hold 模擬資產淨值（小數）              | MetricsCalculator  |
-| BAH_Return             | float     | 每筆皆有           | Buy & Hold 當日報酬率（小數）                | MetricsCalculator  |
-| BAH_Drawdown           | float     | 每筆皆有           | B&H 最大回撤（小數）                         | 未開發            |
+本模組為 Lo2cin4BT 績效分析框架的績效指標計算核心模組，負責計算各種交易績效指標，包括收益率、風險指標、夏普比率、最大回撤等，提供完整的績效評估。
+
+【流程與數據流】
 ------------------------------------------------------------
+- 由 BaseMetricTracker 調用，對交易記錄進行績效指標計算
+- 計算結果傳遞給 MetricsExporter 進行導出
+- 主要數據流：
+
+```mermaid
+flowchart TD
+    A[BaseMetricTracker] -->|調用| B[MetricsCalculator]
+    B -->|計算績效| C[績效指標]
+    B -->|傳遞結果| D[MetricsExporter]
+```
+
+【維護與擴充重點】
+------------------------------------------------------------
+- 新增績效指標、計算邏輯時，請同步更新 calculate_metrics/頂部註解
+- 若績效指標結構有變動，需同步更新 MetricsExporter、BaseMetricTracker 等依賴模組
+- 績效指標計算邏輯如有調整，請於 README 詳列
+- 新增/修改績效指標、計算邏輯時，務必同步更新本檔案與所有依賴模組
+- 績效指標定義需與業界標準保持一致
+
+【常見易錯點】
+------------------------------------------------------------
+- 績效指標計算邏輯錯誤會導致結果不準確
+- 數據結構變動會影響計算結果
+- 績效指標定義不一致會影響比較分析
+
+【錯誤處理】
+------------------------------------------------------------
+- 數據缺失時提供詳細診斷
+- 計算異常時提供修正建議
+- 指標定義錯誤時提供標準參考
+
+【範例】
+------------------------------------------------------------
+- 計算績效指標：calculator = MetricsCalculator(); metrics = calculator.calculate_metrics(df)
+- 計算特定指標：calculate_sharpe_ratio(returns)
+
+【與其他模組的關聯】
+------------------------------------------------------------
+- 由 BaseMetricTracker 調用，績效指標傳遞給 MetricsExporter
+- 績效指標結構依賴 MetricsExporter
+
+【版本與變更記錄】
+------------------------------------------------------------
+- v1.0: 初始版本，支援基本績效指標
+- v1.1: 新增風險調整指標
+- v1.2: 新增多維度績效分析
+
+【參考】
+------------------------------------------------------------
+- 詳細績效指標定義請參閱 README
+- 其他模組如有依賴本模組，請於對應檔案頂部註解標明
 """
 import pandas as pd
 import numpy as np

@@ -3,58 +3,45 @@ DistributionTest_statanalyser.py
 
 【功能說明】
 ------------------------------------------------------------
-本模組為 Lo2cin4BT 統計分析子模組，專責對指定數據欄位進行分布檢定（如常態性、偏態、峰態等），協助判斷資料是否適合用於標準化、Z-Score 或分位數策略。
+本模組為 Lo2cin4BT 統計分析模組，負責對預測因子進行分布檢定（如常態性、偏態、峰態等），評估數據分布特性，輔助模型選擇與風險評估。
 
-【關聯流程與數據流】
+【流程與數據流】
 ------------------------------------------------------------
-- 由 Base_statanalyser 繼承，接收主流程傳入的資料
-- 檢定結果傳遞給 ReportGenerator_statanalyser 產生報表
-- 主要數據流：
+- 繼承 Base_statanalyser，作為統計分析子類之一
+- 檢定結果傳遞給 ReportGenerator 或下游模組
 
 ```mermaid
 flowchart TD
-    A[main.py/主流程] -->|調用| B[DistributionTest_statanalyser]
-    B -->|檢定結果| C[ReportGenerator_statanalyser]
+    A[DistributionTest] -->|檢定結果| B[ReportGenerator/下游模組]
 ```
 
-【主控流程細節】
+【維護與擴充重點】
 ------------------------------------------------------------
-- analyze() 為主入口，執行常態性（KS/AD）、偏態、峰態等檢定
-- 根據檢定結果自動給出建議（如建議轉換、分位數分析等）
-- 檢定結果以 dict 格式回傳，供報表模組與下游流程使用
-- 支援自訂檢定參數，並可擴充其他分布檢定方法
-
-【維護與擴充提醒】
-------------------------------------------------------------
-- 新增檢定方法、參數時，請同步更新 analyze() 及頂部註解
-- 若數據結構或欄位有變動，需同步調整與 Base_statanalyser、ReportGenerator_statanalyser 的介面
-- 檢定指標、臨界值如有調整，請於 README 詳列
+- 新增/修改檢定類型、參數、圖表邏輯時，請同步更新頂部註解與下游流程
+- 若介面、欄位、分析流程有變動，需同步更新本檔案與 Base_statanalyser
+- 統計結果格式如有調整，請同步通知協作者
 
 【常見易錯點】
 ------------------------------------------------------------
-- 檢定樣本數不足時，結果不具統計意義
-- 檢定參數設置錯誤會導致判斷失準
-- 統計結果格式不符會影響下游報表產生
+- 數據點不足或極端值過多會導致檢定結果異常
+- 欄位型態錯誤或缺失值處理不當會影響分析正確性
+- 統計結果格式不符會影響下游報表或流程
 
 【範例】
 ------------------------------------------------------------
-- test = DistributionTest(data, predictor_col="因子欄位")
+- test = DistributionTest(data, predictor_col, return_col)
   result = test.analyze()
 
 【與其他模組的關聯】
 ------------------------------------------------------------
-- 由主流程或 Base_statanalyser 調用，檢定結果傳遞給 ReportGenerator_statanalyser
-- 依賴 pandas、scipy.stats 等第三方庫
-
-【維護重點】
-------------------------------------------------------------
-- 新增/修改檢定方法、參數時，務必同步更新本檔案、Base_statanalyser 及 README
-- 檢定結果格式需與 ReportGenerator_statanalyser 保持一致
+- 繼承 Base_statanalyser，檢定結果傳遞給 ReportGenerator 或下游模組
+- 需與 ReportGenerator、主流程等下游結構保持一致
 
 【參考】
 ------------------------------------------------------------
-- 詳細檢定規範與指標定義請參閱 README
-- 其他模組如有依賴本模組，請於對應檔案頂部註解標明
+- scipy、pandas 官方文件
+- Base_statanalyser.py、ReportGenerator_statanalyser.py
+- 專案 README
 """
 import pandas as pd
 import numpy as np
