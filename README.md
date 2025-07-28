@@ -215,7 +215,7 @@ lo2cin4bt/
 ### 未來開發目標
 - Print messages 代碼整理
 - 新增技術指標指導文檔
-- 更多技術指標，包括 RSI, percentile, 大於/小於特定值
+- 更多技術指標，包括 RSI, percentile, 連續N日大於/小於特定值
 - 參數平原 (Parameter plateau)
 - 穩健性測試 (Robustness Check)
 - 重新整理代碼以維持封裝，如 main 只負責記錄全域 log、調動各庫的 Base.py 和傳送資料
