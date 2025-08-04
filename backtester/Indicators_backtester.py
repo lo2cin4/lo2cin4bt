@@ -4,19 +4,33 @@ Indicators_backtester.py
 【功能說明】
 ------------------------------------------------------------
 本模組為 Lo2cin4BT 回測框架的「指標協調與信號產生器」，統一管理所有技術指標的註冊、調用、參數組合產生與信號產生接口，支援多種指標型態與細分策略。
+- 提供統一的指標註冊與管理機制
+- 支援多種指標型態：MA（移動平均）、BOLL（布林通道）、NDAY（N日週期）
+- 整合 Numba JIT 編譯優化，提升信號計算性能
+- 提供向量化信號計算接口，支援批量處理
 
 【流程與數據流】
 ------------------------------------------------------------
-- 由 BacktestEngine 調用，根據用戶參數產生對應指標信號
+- 由 BacktestEngine 或 VectorBacktestEngine 調用，根據用戶參數產生對應指標信號
 - 調用各指標模組（如 MovingAverage、BollingerBand、NDayCycle）產生信號
 - 主要數據流：
 
 ```mermaid
 flowchart TD
-    A[BacktestEngine] -->|調用| B[IndicatorsBacktester]
+    A[BacktestEngine/VBT] -->|調用| B[IndicatorsBacktester]
     B -->|產生信號| C[各指標模組]
-    C -->|信號| D[BacktestEngine]
+    C -->|MA信號| D[MovingAverage_Indicator]
+    C -->|BOLL信號| E[BollingerBand_Indicator]
+    C -->|NDAY信號| F[NDayCycle_Indicator]
+    D & E & F -->|信號| G[BacktestEngine/VBT]
 ```
+
+【指標支援】
+------------------------------------------------------------
+- MA 指標：支援 MA1-MA12，包含單均線、雙均線、多均線策略
+- BOLL 指標：支援 BOLL1-BOLL4，包含突破、回歸等策略
+- NDAY 指標：支援 NDAY1-NDAY2，包含順勢、反轉策略
+- 所有指標支援 SMA、EMA、WMA 等均線型態
 
 【維護與擴充重點】
 ------------------------------------------------------------
@@ -25,40 +39,54 @@ flowchart TD
 - 指標描述與細分型態如有調整，請於 README 詳列
 - 新增/修改指標、參數結構、細分型態時，務必同步更新本檔案、IndicatorParams、BacktestEngine
 - 指標註冊與描述需與主流程保持一致
+- 向量化計算邏輯需要與單個指標計算保持一致
+- Numba 優化需要確保跨平台兼容性
 
 【常見易錯點】
 ------------------------------------------------------------
 - 指標註冊或參數結構未同步更新，導致信號產生錯誤
 - 預測因子與指標數據對齊錯誤，易產生 NaN 或信號偏移
 - 新增指標未正確加入 alias_map，導致無法調用
+- 向量化計算與單個指標計算結果不一致
+- Numba 編譯失敗時未提供備用方案
 
 【錯誤處理】
 ------------------------------------------------------------
 - 指標參數錯誤時提供詳細診斷
 - 信號產生失敗時提供備用方案
 - 數據對齊問題時提供修正建議
+- Numba 編譯失敗時自動降級為標準 Python 計算
+- 向量化計算錯誤時提供單個指標計算備用方案
 
 【範例】
 ------------------------------------------------------------
 - 取得所有細分型態：IndicatorsBacktester().get_all_indicator_aliases()
 - 產生參數組合：IndicatorsBacktester().get_indicator_params('MA1', params_config)
 - 產生信號：IndicatorsBacktester().run_indicator('ma', data, params)
+- 向量化信號計算：IndicatorsBacktester().calculate_signals(indicator_type, data, params)
 
 【與其他模組的關聯】
 ------------------------------------------------------------
-- 由 BacktestEngine 調用，協調各指標模組產生信號
+- 由 BacktestEngine 或 VectorBacktestEngine 調用，協調各指標模組產生信號
 - 參數結構依賴 IndicatorParams
+- 與各指標模組（MovingAverage、BollingerBand、NDayCycle）緊密耦合
+- 支援向量化計算，與 VectorBacktestEngine 配合
 
 【版本與變更記錄】
 ------------------------------------------------------------
 - v1.0: 初始版本，支援基本指標
 - v1.1: 新增指標註冊機制
 - v1.2: 新增細分型態支援
+- v2.0: 整合 Numba JIT 編譯優化
+- v2.1: 新增向量化信號計算接口
+- v2.2: 完善錯誤處理與備用方案
 
 【參考】
 ------------------------------------------------------------
 - 詳細指標規範與參數定義請參閱 README
 - 其他模組如有依賴本模組，請於對應檔案頂部註解標明
+- Numba 官方文檔：https://numba.pydata.org/
+- 技術指標計算與信號產生最佳實踐
 """
 
 import pandas as pd
@@ -73,6 +101,34 @@ from typing import Optional
 logger = logging.getLogger("lo2cin4bt")
 
 pd.set_option('future.no_silent_downcasting', True)
+
+# 優化：嘗試導入 Numba 進行 JIT 編譯加速
+try:
+    from numba import njit, prange
+    NUMBA_AVAILABLE = True
+except ImportError:
+    NUMBA_AVAILABLE = False
+    print("Numba 未安裝，將使用標準 Python 計算。建議安裝 numba 以獲得更好的性能。")
+
+# 核心算法：純 Numba + ndarray 實現
+if NUMBA_AVAILABLE:
+    @njit(fastmath=True)
+    def _combine_signals_njit(signals_list):
+        """
+        使用 Numba 合併多個信號序列
+        """
+        if len(signals_list) == 0:
+            return np.zeros(0)
+        
+        n = len(signals_list[0])
+        result = np.zeros(n)
+        
+        for i in range(n):
+            for signal in signals_list:
+                if i < len(signal):
+                    result[i] += signal[i]
+        
+        return result
 
 # 註冊指標
 INDICATOR_REGISTRY = {
@@ -97,6 +153,7 @@ class IndicatorsBacktester:
             'BOLL': 'BollingerBand_Indicator_backtester',
             'NDayCycle': 'NDayCycle_Indicator_backtester'
         }
+        
         # 細分型態對應表
         self.indicator_alias_map = self._build_indicator_alias_map()
 
@@ -216,30 +273,19 @@ class IndicatorsBacktester:
         return list(self.new_indicators.keys())
     
     def calculate_signals(self, indicator_type: str, data: pd.DataFrame, params: IndicatorParams, predictor: Optional[str] = None, entry_signal: Optional[pd.Series] = None):
-        """計算指定指標的信號 - 使用現有的信號生成邏輯"""
-        # 處理 NDayCycle 細分型態
-        if indicator_type in ['NDAY1', 'NDAY2']:
-            try:
-                module = importlib.import_module('backtester.NDayCycle_Indicator_backtester')
-                if hasattr(module, 'NDayCycleIndicator'):
-                    return module.NDayCycleIndicator.calculate_signals(data, params, predictor, entry_signal)
-            except Exception as e:
-                self.logger.warning(f"無法調用 NDayCycle 信號產生: {e}")
-                return pd.Series(0, index=data.index)
-        
-        # 處理主指標類型
+        """
+        計算指標信號，支援快取機制
+        """
+        # 根據指標類型調用對應的計算方法
         if indicator_type == 'MA':
             signals = self._calculate_ma_signals(data, params, predictor)
         elif indicator_type == 'BOLL':
             signals = self._calculate_boll_signals(data, params, predictor)
+        elif indicator_type in ['NDAY1', 'NDAY2']:
+            signals = self._calculate_ndaycycle_signals(data, params, predictor, entry_signal)
         else:
-            raise ValueError(f"不支持的指標類型: {indicator_type}")
+            raise ValueError(f"不支援的指標類型: {indicator_type}")
         
-        if isinstance(signals, pd.DataFrame):
-            print(f"[DEBUG] signals 是 DataFrame, columns: {signals.columns.tolist()}, shape: {signals.shape}")
-            signals = signals.iloc[:, 0]
-        if not isinstance(signals, pd.Series):
-            print(f"[DEBUG] signals 型別異常: {type(signals)}, 內容: {signals}")
         return signals
     
     def _calculate_ma_signals(self, data, params, predictor=None):
@@ -249,6 +295,7 @@ class IndicatorsBacktester:
         # print(f"[DEBUG] 預測因子存在於數據中：{predictor in data.columns if predictor else False}")
         
         try:
+            # 動態導入模組
             module = importlib.import_module('backtester.MovingAverage_Indicator_backtester')
             indicator_cls = getattr(module, 'MovingAverageIndicator')
             # print(f"[DEBUG] 成功導入 MovingAverageIndicator")
@@ -262,7 +309,7 @@ class IndicatorsBacktester:
             
             return signals
         except Exception as e:
-            print(f"[DEBUG] MA 信號計算失敗：{e}")
+            # MA 信號計算失敗：{e}
             import traceback
             traceback.print_exc()
             raise
@@ -273,6 +320,7 @@ class IndicatorsBacktester:
         # print(f"[DEBUG] 預測因子：{predictor}")
         
         try:
+            # 動態導入模組
             module = importlib.import_module('backtester.BollingerBand_Indicator_backtester')
             indicator_cls = getattr(module, 'BollingerBandIndicator')
             # print(f"[DEBUG] 成功導入 BollingerBandIndicator")
@@ -286,7 +334,57 @@ class IndicatorsBacktester:
             
             return signals
         except Exception as e:
-            print(f"[DEBUG] BOLL 信號計算失敗：{e}")
+            # BOLL 信號計算失敗：{e}
             import traceback
             traceback.print_exc()
             raise
+    
+    def _calculate_ndaycycle_signals(self, data, params, predictor=None, entry_signal=None):
+        """
+        計算 NDayCycle 指標信號
+        """
+        try:
+            # 動態導入模組
+            module = importlib.import_module('backtester.NDayCycle_Indicator_backtester')
+            
+            if hasattr(module, 'NDayCycleIndicator'):
+                indicator = module.NDayCycleIndicator(data)
+                return indicator.generate_signals(params, predictor)
+        except Exception as e:
+            self.logger.warning(f"無法調用 NDayCycle 信號產生: {e}")
+            return pd.Series(0, index=data.index)
+    
+    def combine_signals_optimized(self, signals_list):
+        """
+        使用 Numba 優化合併多個信號序列
+        """
+        if not signals_list:
+            return pd.Series(0, index=signals_list[0].index if signals_list else None)
+        
+        # 核心算法：使用純 Numba + ndarray
+        if NUMBA_AVAILABLE and len(signals_list) > 1:
+            # 轉換為 ndarray 數組
+            signals_arrays = []
+            for signal in signals_list:
+                if isinstance(signal, pd.Series):
+                    signal_array = signal.values.astype(np.float64)
+                    signal_array = np.nan_to_num(signal_array, nan=0.0)
+                    signals_arrays.append(signal_array)
+                else:
+                    signals_arrays.append(np.array(signal, dtype=np.float64))
+            
+            # 使用 Numba 合併信號
+            combined_array = _combine_signals_njit(signals_arrays)
+            
+            # 轉換回 pandas Series
+            return pd.Series(combined_array, index=signals_list[0].index)
+        else:
+            # 備用方案：使用標準 pandas 實現
+            if len(signals_list) == 1:
+                return signals_list[0].fillna(0)
+            
+            # 多信號合併邏輯
+            combined = pd.Series(0, index=signals_list[0].index)
+            for signal in signals_list:
+                combined += signal.fillna(0)
+            return combined

@@ -31,7 +31,7 @@ flowchart TD
 - **每次新增/修改主流程、參數結構、結果格式時，必須同步檢查本檔案與所有依賴模組**
 
 【維護與擴充提醒】
-------------------------------------------------------------
+-----------------------------------------------------`-------
 - 新增主流程步驟、參數、結果欄位時，請同步更新頂部註解與對應模組  
 - 若參數結構有變動，需同步更新 BaseBacktester、BacktestEngine、IndicatorParams、TradeRecordExporter 等依賴模組
 
@@ -270,7 +270,7 @@ def main():
             data = data_loader.run()
             
             if data is None:
-                console.print(Panel("[DEBUG] 數據載入失敗，程式終止", title=Text("⚠️ 數據載入警告", style="bold #8f1511"), border_style="#8f1511"))
+                console.print(Panel("數據載入失敗，程式終止", title=Text("⚠️ 數據載入警告", style="bold #8f1511"), border_style="#8f1511"))
                 logger.error("數據載入失敗")
                 return
             
@@ -296,70 +296,95 @@ def main():
             if diff_cols:
                 logger.info(f"差分處理完成，差分欄位：{diff_cols}")
             
-            # 統計分析
-            selected_col = select_predictor_factor(data, default_factor=diff_cols[0] if diff_cols else None)
-            used_series = data[selected_col]
-            stats_data = standardize_data_for_stats(data)
-            updated_data = stats_data.copy()
-            updated_data[selected_col] = used_series
-            
-            def infer_data_freq(df):
-                import pandas as pd
-                if not isinstance(df.index, pd.DatetimeIndex):
-                    if 'Time' in df.columns:
-                        df['Time'] = pd.to_datetime(df['Time'])
-                        df = df.set_index('Time')
-                    else:
-                        raise ValueError("資料必須有 DatetimeIndex 或 'Time' 欄位")
-                freq = pd.infer_freq(df.index)
-                if freq is None:
-                    freq = 'D'
-                    print("⚠️ 無法自動判斷頻率，已預設為日線（D）")
-                return freq[0].upper()  # 只取第一個字母 D/H/T
-            
-            freq = infer_data_freq(updated_data)
-            analyzers = [
-                CorrelationTest(updated_data, selected_col, "close_return"),
-                StationarityTest(updated_data, selected_col, "close_return"),
-                AutocorrelationTest(updated_data, selected_col, "close_return", freq=freq),
-                DistributionTest(updated_data, selected_col, "close_return"),
-                SeasonalAnalysis(updated_data, selected_col, "close_return"),
-            ]
-            results = {}
-            for analyzer in analyzers:
-                test_name = f"{analyzer.__class__.__name__}_{analyzer.predictor_col}"
-                try:
-                    analyzer.analyze()
-                    results[test_name] = analyzer.results if hasattr(analyzer, 'results') else None
-                except Exception as e:
-                    console.print(Panel(f"[DEBUG] Error in {test_name}: {e}", title=Text("⚠️ 執行錯誤", style="bold #8f1511"), border_style="#8f1511"))
-                    logger.error(f"統計分析失敗 {test_name}: {e}")
-                    results[test_name] = {"error": str(e)}
-            
-            reporter = ReportGenerator()
-            reporter.save_report(results)
-            reporter.save_data(updated_data, format="csv")
-            logger.info("統計分析完成")
-            
-            # 回測
-            backtester = BaseBacktester(data, frequency, logger)
-            backtester.run()
-            logger.info("回測完成")
-            console.print(Panel("[bold green]回測完成！[/bold green]", title="[bold #dbac30]🧑‍💻 回測 Backtester[/bold #dbac30]", border_style="#dbac30"))
-            
-            # 交易分析
-            metric_tracker = BaseMetricTracker()
-            metric_tracker.run_analysis()
-            console.print(f"[bold #dbac30]是否啟動可視化平台？(y/n，預設y）：[/bold #dbac30]")
-            run_plotter = input().strip().lower() or 'y'
-            if run_plotter == 'y':
-                try:
-                    from plotter.Base_plotter import BasePlotter
-                    plotter = BasePlotter(logger=logger)
-                    plotter.run(host='127.0.0.1', port=8050, debug=False)
-                except Exception as e:
-                    print(f"❌ 可視化平台啟動失敗: {e}")
-            return
+            # 檢查是否選擇了price（跳過統計分析）
+            if diff_cols is None:
+                # 用戶選擇了price，跳過統計分析
+                console.print(Panel("已選擇僅使用價格數據，跳過統計分析。", title=Text("📊 數據載入 Dataloader", style="bold #8f1511"), border_style="#dbac30"))
+                logger.info("用戶選擇price，跳過統計分析")
+                # 直接進行回測，不進行統計分析
+                backtester = BaseBacktester(data, frequency, logger)
+                backtester.run()
+                logger.info("回測完成")
+                console.print(Panel("[bold green]回測完成！[/bold green]", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
+                
+                # 交易分析
+                metric_tracker = BaseMetricTracker()
+                metric_tracker.run_analysis()
+                console.print(f"[bold #dbac30]是否啟動可視化平台？(y/n，預設y）：[/bold #dbac30]")
+                run_plotter = input().strip().lower() or 'y'
+                if run_plotter == 'y':
+                    try:
+                        from plotter.Base_plotter import BasePlotter
+                        plotter = BasePlotter(logger=logger)
+                        plotter.run(host='127.0.0.1', port=8050, debug=False)
+                    except Exception as e:
+                        print(f"❌ 可視化平台啟動失敗: {e}")
+                return
+            else:
+                # 進行統計分析
+                selected_col = select_predictor_factor(data, default_factor=diff_cols[0] if diff_cols else None)
+                used_series = data[selected_col]
+                stats_data = standardize_data_for_stats(data)
+                updated_data = stats_data.copy()
+                updated_data[selected_col] = used_series
+                
+                def infer_data_freq(df):
+                    import pandas as pd
+                    if not isinstance(df.index, pd.DatetimeIndex):
+                        if 'Time' in df.columns:
+                            df['Time'] = pd.to_datetime(df['Time'])
+                            df = df.set_index('Time')
+                        else:
+                            raise ValueError("資料必須有 DatetimeIndex 或 'Time' 欄位")
+                    freq = pd.infer_freq(df.index)
+                    if freq is None:
+                        freq = 'D'
+                        print("⚠️ 無法自動判斷頻率，已預設為日線（D）")
+                    return freq[0].upper()  # 只取第一個字母 D/H/T
+                
+                freq = infer_data_freq(updated_data)
+                analyzers = [
+                    CorrelationTest(updated_data, selected_col, "close_return"),
+                    StationarityTest(updated_data, selected_col, "close_return"),
+                    AutocorrelationTest(updated_data, selected_col, "close_return", freq=freq),
+                    DistributionTest(updated_data, selected_col, "close_return"),
+                    SeasonalAnalysis(updated_data, selected_col, "close_return"),
+                ]
+                results = {}
+                for analyzer in analyzers:
+                    test_name = f"{analyzer.__class__.__name__}_{analyzer.predictor_col}"
+                    try:
+                        analyzer.analyze()
+                        results[test_name] = analyzer.results if hasattr(analyzer, 'results') else None
+                    except Exception as e:
+                        console.print(Panel(f"Error in {test_name}: {e}", title=Text("⚠️ 執行錯誤", style="bold #8f1511"), border_style="#8f1511"))
+                        logger.error(f"統計分析失敗 {test_name}: {e}")
+                        results[test_name] = {"error": str(e)}
+                
+                reporter = ReportGenerator()
+                reporter.save_report(results)
+                reporter.save_data(updated_data, format="csv")
+                logger.info("統計分析完成")
+                
+                # 回測
+                backtester = BaseBacktester(data, frequency, logger)
+                backtester.run()
+                logger.info("回測完成")
+                console.print(Panel("[bold green]回測完成！[/bold green]", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
+                
+                # 交易分析
+                metric_tracker = BaseMetricTracker()
+                metric_tracker.run_analysis()
+                console.print(f"[bold #dbac30]是否啟動可視化平台？(y/n，預設y）：[/bold #dbac30]")
+                run_plotter = input().strip().lower() or 'y'
+                if run_plotter == 'y':
+                    try:
+                        from plotter.Base_plotter import BasePlotter
+                        plotter = BasePlotter(logger=logger)
+                        plotter.run(host='127.0.0.1', port=8050, debug=False)
+                    except Exception as e:
+                        print(f"❌ 可視化平台啟動失敗: {e}")
+                return
         elif choice == "2":
             # 回測交易
             logger.info("[主選單] 回測交易")
@@ -388,11 +413,17 @@ def main():
             if diff_cols:
                 logger.info(f"差分處理完成，差分欄位：{diff_cols}")
             
+            # 檢查是否選擇了price（跳過統計分析）
+            if diff_cols is None:
+                # 用戶選擇了price，跳過統計分析
+                console.print(Panel("已選擇僅使用價格數據，跳過統計分析。", title=Text("📊 數據載入 Dataloader", style="bold #8f1511"), border_style="#dbac30"))
+                logger.info("用戶選擇price，跳過統計分析")
+            
             # 回測
             backtester = BaseBacktester(data, frequency, logger)
             backtester.run()
             logger.info("回測完成")
-            console.print(Panel("[bold green]回測完成！[/bold green]", title="[bold #dbac30]🧑‍💻 回測 Backtester[/bold #dbac30]", border_style="#dbac30"))
+            console.print(Panel("[bold green]回測完成！[/bold green]", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
             
             # 交易分析
             metric_tracker = BaseMetricTracker()
@@ -439,14 +470,14 @@ def main():
         else:
             pass
     except Exception as e:
-        console.print(Panel(f"[DEBUG] 程式執行過程中發生錯誤：{e}", title=Text("⚠️ 執行錯誤", style="bold #8f1511"), border_style="#8f1511"))
+        console.print(Panel(f"程式執行過程中發生錯誤：{e}", title=Text("⚠️ 執行錯誤", style="bold #8f1511"), border_style="#8f1511"))
         logger.error(f"程式執行錯誤：{e}")
         import traceback
         traceback.print_exc()
     finally:
         if listener:
             listener.stop()
-            console.print(Panel("[DEBUG] 日誌系統已停止", title="[bold #dbac30]📊 系統通知[/bold #dbac30]", border_style="#dbac30"))
+            console.print(Panel("日誌系統已停止", title="[bold #dbac30]📊 系統通知[/bold #dbac30]", border_style="#dbac30"))
             logger.info("程式結束")
 
 # 移除 _run_trade_analysis 函數

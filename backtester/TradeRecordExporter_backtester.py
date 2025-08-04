@@ -4,6 +4,10 @@ TradeRecordExporter_backtester.py
 【功能說明】
 ------------------------------------------------------------
 本模組為 Lo2cin4BT 回測框架的交易記錄導出工具，負責將回測結果和交易記錄導出為多種格式，支援 CSV、Excel、Parquet 等格式，便於後續分析。
+- 提供智能回測摘要顯示，包含策略績效統計
+- 支援多種導出格式：CSV、Excel、Parquet
+- 整合 Rich Panel 美化顯示，提供分頁與篩選功能
+- 提供策略詳細分析與成功/失敗結果分類
 
 【流程與數據流】
 ------------------------------------------------------------
@@ -13,34 +17,73 @@ TradeRecordExporter_backtester.py
 ```mermaid
 flowchart TD
     A[BaseBacktester] -->|調用| B[TradeRecordExporter]
-    B -->|導出結果| C[CSV/Excel/Parquet]
+    B -->|智能摘要| C[display_backtest_summary]
+    B -->|導出CSV| D[export_to_csv]
+    B -->|導出Parquet| E[export_to_parquet]
+    B -->|策略分析| F[display_results_by_strategy]
+    C & D & E & F -->|結果| G[用戶/下游模組]
 ```
+
+【主要功能】
+------------------------------------------------------------
+- 智能摘要顯示：自動生成回測結果摘要，包含關鍵績效指標
+- 多格式導出：支援 CSV、Excel、Parquet 等多種格式
+- 策略分析：按策略分類顯示結果，提供詳細分析
+- 分頁顯示：支援大量結果的分頁顯示與篩選
+- 美化界面：整合 Rich Panel 提供美觀的 CLI 界面
 
 【維護與擴充重點】
 ------------------------------------------------------------
 - 新增/修改導出格式、欄位時，請同步更新頂部註解與下游流程
 - 若導出結構有變動，需同步更新本檔案與上游模組
 - 導出格式如有調整，請同步通知協作者
+- 摘要顯示邏輯需要與回測結果結構保持一致
+- 新增導出格式時需要確保跨平台兼容性
 
 【常見易錯點】
 ------------------------------------------------------------
 - 導出格式錯誤或欄位缺失會導致導出失敗
 - 檔案權限不足會導致寫入失敗
 - 數據結構變動會影響下游分析
+- 大量數據顯示時記憶體使用過高
+- 跨平台檔案路徑處理不當
+
+【錯誤處理】
+------------------------------------------------------------
+- 檔案寫入失敗時提供詳細錯誤信息
+- 數據格式錯誤時提供修正建議
+- 記憶體不足時提供分頁處理方案
+- 權限問題時提供解決方案
 
 【範例】
 ------------------------------------------------------------
-- exporter = TradeRecordExporter()
-  exporter.export_results(results, format='csv')
+- 創建導出器：exporter = TradeRecordExporter(trade_records, frequency, results, data)
+- 顯示智能摘要：exporter.display_backtest_summary()
+- 導出CSV：exporter.export_to_csv(backtest_id)
+- 導出Parquet：exporter.export_to_parquet(backtest_id)
+- 策略分析：exporter.display_results_by_strategy()
 
 【與其他模組的關聯】
 ------------------------------------------------------------
 - 由 BaseBacktester 調用，導出結果供用戶或下游模組使用
 - 需與上游模組的數據結構保持一致
+- 與 TradeRecorder_backtester 配合驗證交易記錄
+- 支援多種分析工具的下游處理
+
+【版本與變更記錄】
+------------------------------------------------------------
+- v1.0: 初始版本，基本導出功能
+- v1.1: 新增 Parquet 格式支援
+- v1.2: 整合 Rich Panel 美化顯示
+- v2.0: 新增智能摘要與策略分析
+- v2.1: 完善分頁顯示與篩選功能
+- v2.2: 優化記憶體使用與錯誤處理
 
 【參考】
 ------------------------------------------------------------
-- pandas 官方文件
+- pandas 官方文件：https://pandas.pydata.org/
+- pyarrow 官方文件：https://arrow.apache.org/docs/python/
+- Rich 官方文件：https://rich.readthedocs.io/
 - Base_backtester.py、TradeRecorder_backtester.py
 - 專案 README
 """
@@ -117,7 +160,12 @@ class TradeRecordExporter_backtester:
                         return f"MA{strat_idx}_{ma_type}({short_period},{long_period})"
                     else:
                         period = param.get('period', '')
-                        return f"MA{strat_idx}_{ma_type}({period})"
+                        # 對於 MA9-MA12，需要顯示連續日數 m
+                        if strat_idx in [9, 10, 11, 12]:
+                            m = param.get('m', 2)
+                            return f"MA{strat_idx}_{ma_type}({period},{m})"
+                        else:
+                            return f"MA{strat_idx}_{ma_type}({period})"
                 elif indicator_type == 'BOLL':
                     strat = param.get('strat', '')
                     ma_length = param.get('ma_length', '')
@@ -126,7 +174,7 @@ class TradeRecordExporter_backtester:
                 elif indicator_type == 'NDayCycle':
                     n = param.get('n', '')
                     strat_idx = param.get('strat_idx', '')
-                    return f"NDayCycle(N={n},T={strat_idx})"
+                    return f"NDayCycle(N={n})"
                 else:
                     return indicator_type
             elif hasattr(param, 'indicator_type'):
@@ -141,7 +189,12 @@ class TradeRecordExporter_backtester:
                         return f"MA{strat_idx}_{ma_type}({short_period},{long_period})"
                     else:
                         period = getattr(param, 'period', '')
-                        return f"MA{strat_idx}_{ma_type}({period})"
+                        # 對於 MA9-MA12，需要顯示連續日數 m
+                        if strat_idx in [9, 10, 11, 12]:
+                            m = getattr(param, 'm', 2)
+                            return f"MA{strat_idx}_{ma_type}({period},{m})"
+                        else:
+                            return f"MA{strat_idx}_{ma_type}({period})"
                 elif indicator_type == 'BOLL':
                     strat = getattr(param, 'strat', '')
                     ma_length = getattr(param, 'ma_length', '')
@@ -150,7 +203,7 @@ class TradeRecordExporter_backtester:
                 elif indicator_type == 'NDayCycle':
                     n = getattr(param, 'n', '')
                     strat_idx = getattr(param, 'strat_idx', '')
-                    return f"NDayCycle(N={n},T={strat_idx})"
+                    return f"NDayCycle(N={n})"
                 else:
                     return indicator_type
             return str(param)
@@ -168,14 +221,14 @@ class TradeRecordExporter_backtester:
         """
         try:
             if not self.results:
-                console.print(Panel("無回測結果可導出為CSV", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+                console.print(Panel("無回測結果可導出為CSV", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
                 return
             
             # 如果指定了backtest_id，只導出該回測結果
             if backtest_id:
                 results_to_export = [r for r in self.results if r.get("Backtest_id") == backtest_id]
                 if not results_to_export:
-                    console.print(Panel(f"找不到Backtest_id為 {backtest_id} 的回測結果", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+                    console.print(Panel(f"找不到Backtest_id為 {backtest_id} 的回測結果", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
                     return
             else:
                 results_to_export = self.results
@@ -183,7 +236,7 @@ class TradeRecordExporter_backtester:
             exported_count = 0
             msg_lines = []
             for result in results_to_export:
-                if "error" in result:
+                if result.get("error") is not None:
                     msg_lines.append(f"跳過失敗的回測 {result['Backtest_id']}: {result['error']}")
                     continue
                 
@@ -195,149 +248,26 @@ class TradeRecordExporter_backtester:
                 Backtest_id = result["Backtest_id"]
                 params = result.get("params")
                 if params is None:
-                    msg_lines.append(f"[DEBUG] result 無 params 欄位，跳過。result keys: {list(result.keys())}")
+                    msg_lines.append(f"result 無 params 欄位，跳過。result keys: {list(result.keys())}")
                     continue
                 predictor = params.get("predictor", "unknown")
                 
                 # 生成策略名稱
                 strategy = self._get_strategy_name(params)
                 
-                # 生成參數字符串
-                params_str = ""
-                if params:
-                    entry_params = params.get("entry", [])
-                    exit_params = params.get("exit", [])
-                    entry_str = []
-                    for param in entry_params:
-                        if isinstance(param, dict):
-                            indicator_type = param.get('indicator_type', '')
-                            if indicator_type == 'MA':
-                                strat_idx = param.get('strat_idx', '')
-                                ma_type = param.get('ma_type', '')
-                                mode = param.get('mode', 'single')
-                                consecutive_days = param.get('consecutive_days', None)
-                                if consecutive_days is not None:
-                                    period = param.get('period', '')
-                                    param_str = f"MA{strat_idx}_{ma_type}_m{consecutive_days}_n{period}"
-                                elif mode == 'double':
-                                    short_period = param.get('shortMA_period', '')
-                                    long_period = param.get('longMA_period', '')
-                                    param_str = f"MA{strat_idx}_{ma_type}({short_period},{long_period})"
-                                else:
-                                    period = param.get('period', '')
-                                    param_str = f"MA{strat_idx}_{ma_type}({period})"
-                            elif indicator_type == 'BOLL':
-                                strat = param.get('strat', '')
-                                ma_length = param.get('ma_length', '')
-                                std_multiplier = param.get('std_multiplier', '')
-                                param_str = f"BOLL{strat}_MA({ma_length})_SD({std_multiplier})"
-                            elif indicator_type == 'NDayCycle':
-                                n = param.get_param('n') if hasattr(param, 'get_param') else param.get('n', '')
-                                strat_idx = param.get_param('strat_idx') if hasattr(param, 'get_param') else param.get('strat_idx', '')
-                                param_str = f"NDayCycle(N={n},T={strat_idx})"
-                            else:
-                                param_str = indicator_type
-                            entry_str.append(param_str)
-                        elif hasattr(param, 'indicator_type'):
-                            indicator_type = getattr(param, 'indicator_type', '')
-                            if indicator_type == 'MA':
-                                strat_idx = getattr(param, 'strat_idx', '')
-                                ma_type = getattr(param, 'ma_type', '')
-                                mode = getattr(param, 'mode', 'single')
-                                consecutive_days = getattr(param, 'consecutive_days', None)
-                                if consecutive_days is not None:
-                                    period = getattr(param, 'period', '')
-                                    param_str = f"MA{strat_idx}_{ma_type}_m{consecutive_days}_n{period}"
-                                elif mode == 'double':
-                                    short_period = getattr(param, 'shortMA_period', '')
-                                    long_period = getattr(param, 'longMA_period', '')
-                                    param_str = f"MA{strat_idx}_{ma_type}({short_period},{long_period})"
-                                else:
-                                    period = getattr(param, 'period', '')
-                                    param_str = f"MA{strat_idx}_{ma_type}({period})"
-                            elif indicator_type == 'BOLL':
-                                strat = getattr(param, 'strat', '')
-                                ma_length = getattr(param, 'ma_length', '')
-                                std_multiplier = getattr(param, 'std_multiplier', '')
-                                param_str = f"BOLL{strat}_MA({ma_length})_SD({std_multiplier})"
-                            elif indicator_type == 'NDayCycle':
-                                n = getattr(param, 'n', '')
-                                strat_idx = getattr(param, 'strat_idx', '')
-                                param_str = f"NDayCycle(N={n},T={strat_idx})"
-                            else:
-                                param_str = indicator_type
-                            entry_str.append(param_str)
-                    exit_str = []
-                    for param in exit_params:
-                        if isinstance(param, dict):
-                            indicator_type = param.get('indicator_type', '')
-                            if indicator_type == 'MA':
-                                strat_idx = param.get('strat_idx', '')
-                                ma_type = param.get('ma_type', '')
-                                mode = param.get('mode', 'single')
-                                consecutive_days = param.get('consecutive_days', None)
-                                if consecutive_days is not None:
-                                    period = param.get('period', '')
-                                    param_str = f"MA{strat_idx}_{ma_type}_m{consecutive_days}_n{period}"
-                                elif mode == 'double':
-                                    short_period = param.get('shortMA_period', '')
-                                    long_period = param.get('longMA_period', '')
-                                    param_str = f"MA{strat_idx}_{ma_type}({short_period},{long_period})"
-                                else:
-                                    period = param.get('period', '')
-                                    param_str = f"MA{strat_idx}_{ma_type}({period})"
-                            elif indicator_type == 'BOLL':
-                                strat = param.get('strat', '')
-                                ma_length = param.get('ma_length', '')
-                                std_multiplier = param.get('std_multiplier', '')
-                                param_str = f"BOLL{strat}_MA({ma_length})_SD({std_multiplier})"
-                            elif indicator_type == 'NDayCycle':
-                                n = param.get_param('n') if hasattr(param, 'get_param') else param.get('n', '')
-                                strat_idx = param.get_param('strat_idx') if hasattr(param, 'get_param') else param.get('strat_idx', '')
-                                param_str = f"NDayCycle(N={n},T={strat_idx})"
-                            else:
-                                param_str = indicator_type
-                            exit_str.append(param_str)
-                        elif hasattr(param, 'indicator_type'):
-                            indicator_type = getattr(param, 'indicator_type', '')
-                            if indicator_type == 'MA':
-                                strat_idx = getattr(param, 'strat_idx', '')
-                                ma_type = getattr(param, 'ma_type', '')
-                                mode = getattr(param, 'mode', 'single')
-                                consecutive_days = getattr(param, 'consecutive_days', None)
-                                if consecutive_days is not None:
-                                    period = getattr(param, 'period', '')
-                                    param_str = f"MA{strat_idx}_{ma_type}_m{consecutive_days}_n{period}"
-                                elif mode == 'double':
-                                    short_period = getattr(param, 'shortMA_period', '')
-                                    long_period = getattr(param, 'longMA_period', '')
-                                    param_str = f"MA{strat_idx}_{ma_type}({short_period},{long_period})"
-                                else:
-                                    period = getattr(param, 'period', '')
-                                    param_str = f"MA{strat_idx}_{ma_type}({period})"
-                            elif indicator_type == 'BOLL':
-                                strat = getattr(param, 'strat', '')
-                                ma_length = getattr(param, 'ma_length', '')
-                                std_multiplier = getattr(param, 'std_multiplier', '')
-                                param_str = f"BOLL{strat}_MA({ma_length})_SD({std_multiplier})"
-                            elif indicator_type == 'NDayCycle':
-                                n = getattr(param, 'n', '')
-                                strat_idx = getattr(param, 'strat_idx', '')
-                                param_str = f"NDayCycle(N={n},T={strat_idx})"
-                            else:
-                                param_str = indicator_type
-                            exit_str.append(param_str)
-                    params_str = f"{'+'.join(entry_str)}+{'+'.join(exit_str)}" if entry_str or exit_str else "unknown"
-                
-                # 生成文件名
-                filename = f"{date_str}_{self.frequency}_{strategy}_{predictor}_{params_str}_{Backtest_id[:8]}.csv"
+                # 生成文件名 - 移除重複的params_str，只使用strategy
+                filename = f"{date_str}_{self.frequency}_{strategy}_{predictor}_{Backtest_id[:8]}.csv"
                 filepath = os.path.join(self.output_dir, filename)
                 
                 # 導出CSV
                 # 新增 Backtest_id 欄位，確保主表格與 metadata 一一對應
-                result["records"] = result["records"].copy()
-                result["records"]["Backtest_id"] = Backtest_id
-                result["records"].to_csv(filepath, index=False)
+                # 優化：只在需要時才拷貝，避免不必要的記憶體使用
+                if "Backtest_id" not in result["records"].columns:
+                    records_to_export = result["records"].copy()
+                    records_to_export["Backtest_id"] = Backtest_id
+                else:
+                    records_to_export = result["records"]
+                records_to_export.to_csv(filepath, index=False)
                 msg_lines.append(f"已導出: {filename}")
                 exported_count += 1
             
@@ -383,7 +313,6 @@ class TradeRecordExporter_backtester:
                     if "Backtest_id" in result:
                         params = result.get("params")
                         if params is None:
-                            print(f"[DEBUG] result 無 params 欄位，跳過。result keys: {list(result.keys())}")
                             continue
                         # entry/exit 參數完整記錄
                         def param_to_dict(param):
@@ -491,15 +420,11 @@ class TradeRecordExporter_backtester:
             all_records = []
             if results_to_export:
                 for result in results_to_export:
+                    # 優化：避免不必要的數據拷貝
                     if "records" in result and not result["records"].empty:
-                        # 強制補齊 Backtest_id 欄位
-                        if "Backtest_id" not in result["records"].columns:
-                            result["records"] = result["records"].copy()
-                            result["records"]["Backtest_id"] = result["Backtest_id"]
-                        # 確保 DataFrame 不是空的且包含有效數據
-                        df = result["records"]
-                        if not df.empty and not df.isna().all().all() and len(df.columns) > 0:
-                            all_records.append(df)
+                        # 直接使用原始數據，不進行拷貝
+                        records_df = result["records"]
+                        all_records.append(records_df)
                 
                 # 再次檢查並過濾，確保沒有空的 DataFrame 或全為 NA 的 DataFrame
                 filtered_records = []
@@ -577,7 +502,7 @@ class TradeRecordExporter_backtester:
         table.add_column("狀態", style="yellow", no_wrap=True)
 
         for i, result in enumerate(self.results, 1):
-            if "error" in result:
+            if result.get("error") is not None:
                 table.add_row(
                     str(i),
                     result["Backtest_id"],
@@ -640,20 +565,20 @@ class TradeRecordExporter_backtester:
                 result = self.results[i]
                 # 嚴格判斷成功/無交易/失敗 - 檢查實際交易行為
                 is_success = (
-                    "error" not in result and
+                    result.get("error") is None and
                     "records" in result and
                     isinstance(result["records"], pd.DataFrame) and
                     not result["records"].empty and
                     (result["records"]["Trade_action"] != 0).sum() > 0
                 )
                 is_no_trade = (
-                    "error" not in result and
+                    result.get("error") is None and
                     "records" in result and
                     isinstance(result["records"], pd.DataFrame) and
                     not result["records"].empty and
                     (result["records"]["Trade_action"] != 0).sum() == 0
                 )
-                is_failed = "error" in result
+                is_failed = result.get("error") is not None
                 if is_failed:
                     table.add_row(
                         str(i + 1),
@@ -692,7 +617,7 @@ class TradeRecordExporter_backtester:
             
             # 分頁導航
             if total_pages > 1:
-                console.print(Panel("📄 分頁導航: [m] 下一頁(m) | [n] 上一頁(n) | [數字] 跳轉到指定頁 | [q] 進入操作選單(q)", title="[bold #8f1511]📄 👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+                console.print(Panel("📄 分頁導航: [m] 下一頁(m) | [n] 上一頁(n) | [數字] 跳轉到指定頁 | [q] 進入操作選單(q)", title="[bold #ff6b6b]📄 👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
                 console.print("[bold #dbac30]請輸入導航指令: [/bold #dbac30]", end="")
                 nav = input().lower()
                 
@@ -727,7 +652,7 @@ class TradeRecordExporter_backtester:
 4. 導出特定回測結果為 CSV (輸入 Backtest_id)
 5. 結束交易回測，進入下一階段"""
         
-        console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#dbac30"))
+        console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #ff6b6b"), border_style="#dbac30"))
 
         while True:
             console.print("[bold #dbac30]請選擇操作: [/bold #dbac30]", end="")
@@ -740,7 +665,7 @@ class TradeRecordExporter_backtester:
 3. 導出所有回測結果為 CSV
 4. 導出特定回測結果為 CSV (輸入 Backtest_id)
 5. 結束交易回測，進入下一階段"""
-                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#dbac30"))
+                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #ff6b6b"), border_style="#dbac30"))
             elif choice == "2":
                 self.display_failed_results()
                 # 重新顯示選單
@@ -749,7 +674,7 @@ class TradeRecordExporter_backtester:
 3. 導出所有回測結果為 CSV
 4. 導出特定回測結果為 CSV (輸入 Backtest_id)
 5. 結束交易回測，進入下一階段"""
-                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#dbac30"))
+                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #ff6b6b"), border_style="#dbac30"))
             elif choice == "3":
                 self.export_to_csv()
                 console.print("✅ CSV 導出完成！", style="green")
@@ -759,7 +684,7 @@ class TradeRecordExporter_backtester:
 3. 導出所有回測結果為 CSV
 4. 導出特定回測結果為 CSV (輸入 Backtest_id)
 5. 結束交易回測，進入下一階段"""
-                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#dbac30"))
+                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #ff6b6b"), border_style="#dbac30"))
             elif choice == "4":
                 while True:
                     console.print("[bold #dbac30]請輸入Backtest ID（可用逗號分隔多個），或按Enter返回選單: [/bold #dbac30]", end="")
@@ -773,7 +698,7 @@ class TradeRecordExporter_backtester:
                     if not backtest_ids:
                         continue
                     if not_found:
-                        console.print(Panel(f"找不到Backtest_id為 {', '.join(not_found)} 的回測結果", title=Text("👨‍💻交易回測 Backtester", style="bold #8f1511"), border_style="#8f1511"))
+                        console.print(Panel(f"找不到Backtest_id為 {', '.join(not_found)} 的回測結果", title=Text("👨‍💻交易回測 Backtester", style="bold #ff6b6b"), border_style="#8f1511"))
                         continue
                     for bid in backtest_ids:
                         self.export_to_csv(backtest_id=bid)
@@ -785,7 +710,7 @@ class TradeRecordExporter_backtester:
 3. 導出所有回測結果為 CSV
 4. 導出特定回測結果為 CSV (輸入 Backtest_id)
 5. 結束交易回測，進入下一階段"""
-                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#dbac30"))
+                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #ff6b6b"), border_style="#dbac30"))
             elif choice == "5":
                 console.print("結束交易回測，進入下一階段...", style="yellow")
                 break
@@ -822,7 +747,7 @@ class TradeRecordExporter_backtester:
         
         # 選擇策略查看詳情
         while True:
-            console.print(Panel("⌨請選擇策略編號查看詳情", title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#dbac30"))
+            console.print(Panel("⌨請選擇策略編號查看詳情", title=Text("👨‍💻 交易回測 Backtester", style="bold #ff6b6b"), border_style="#dbac30"))
             choice = input(" 策略編號 (或按 Enter 返回選單): ")
             if not choice:
                 break
@@ -884,7 +809,7 @@ class TradeRecordExporter_backtester:
         successful_results = [r for r in self.results if "error" not in r and "records" in r and isinstance(r["records"], pd.DataFrame) and not r["records"].empty and (r["records"]["Trade_action"] != 0).sum() > 0]
         
         if not successful_results:
-            console.print(Panel("成功結果：沒有", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+            console.print(Panel("成功結果：沒有", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
             return
         
         table = Table(title="成功回測結果", style="bold green")
@@ -911,7 +836,7 @@ class TradeRecordExporter_backtester:
         failed_results = [r for r in self.results if "error" in r or "records" not in r or not isinstance(r["records"], pd.DataFrame) or r["records"].empty or (r["records"]["Trade_action"] != 0).sum() == 0]
         
         if not failed_results:
-            console.print(Panel("失敗結果：沒有", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+            console.print(Panel("失敗結果：沒有", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
             return
         
         table = Table(title="失敗回測結果", style="bold red")

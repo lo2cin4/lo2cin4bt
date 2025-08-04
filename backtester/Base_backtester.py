@@ -4,7 +4,9 @@ Base_backtester.py
 【功能說明】
 ------------------------------------------------------------
 本模組為 Lo2cin4BT 回測框架的「回測流程協調器」，負責協調數據載入、用戶互動、回測執行、結果導出等全流程。
-- 負責主流程調用、用戶參數收集、回測結果摘要與導出。
+- 負責主流程調用、用戶參數收集、回測結果摘要與導出
+- 提供完整的 CLI 互動界面，支援多策略配置與參數驗證
+- 整合 Rich Panel 美化顯示，提供步驟跟蹤與進度提示
 
 【流程與數據流】
 ------------------------------------------------------------
@@ -16,7 +18,7 @@ flowchart TD
     A[main.py] -->|調用| B(BaseBacktester)
     B -->|載入數據| C[DataImporter]
     B -->|用戶互動| D[UserInterface]
-    B -->|執行回測| E[BacktestEngine]
+    B -->|執行回測| E[VectorBacktestEngine]
     E -->|產生信號| F[Indicators]
     E -->|模擬交易| G[TradeSimulator]
     B -->|導出結果| H[TradeRecordExporter]
@@ -27,49 +29,62 @@ flowchart TD
 - 新增流程步驟、結果欄位、參數顯示時，請同步更新 run/_export_results/頂部註解
 - 若參數結構有變動，需同步更新 IndicatorParams、TradeRecordExporter 等依賴模組
 - 新增/修改流程、結果格式、參數顯示時，務必同步更新本檔案與所有依賴模組
+- CLI 互動邏輯與 Rich Panel 顯示需保持一致
+- 用戶輸入驗證與錯誤處理需完善
 
 【常見易錯點】
 ------------------------------------------------------------
 - 結果摘要顯示邏輯未同步更新，導致參數顯示錯誤
 - 用戶互動流程與主流程不同步，導致參數遺漏
+- 指標參數驗證邏輯不完整，導致回測失敗
+- 預設策略配置與用戶自定義策略衝突
 
 【錯誤處理】
 ------------------------------------------------------------
 - 參數驗證失敗時提供詳細錯誤訊息
 - 用戶輸入錯誤時提供重新輸入選項
 - 流程執行失敗時提供診斷建議
+- 數據載入失敗時提供備用方案
 
 【範例】
 ------------------------------------------------------------
 - 執行完整回測流程：BaseBacktester().run()
 - 導出回測結果摘要：_export_results(config)
+- 用戶配置收集：get_user_config(predictors)
 
 【與其他模組的關聯】
 ------------------------------------------------------------
-- 由 main.py 調用，協調 DataImporter、UserInterface、BacktestEngine、TradeRecordExporter
+- 由 main.py 調用，協調 DataImporter、UserInterface、VectorBacktestEngine、TradeRecordExporter
 - 參數結構依賴 IndicatorParams
+- 指標配置依賴 IndicatorsBacktester
+- 結果導出依賴 TradeRecordExporter_backtester
 
 【版本與變更記錄】
 ------------------------------------------------------------
 - v1.0: 初始版本，定義基本流程
 - v1.1: 新增 Rich Panel 顯示和步驟跟蹤
 - v1.2: 重構為模組化架構，支援多指標組合
+- v2.0: 整合向量化回測引擎，優化性能
+- v2.1: 完善 CLI 互動與參數驗證
 
 【參考】
 ------------------------------------------------------------
 - 詳細流程規範如有變動，請同步更新本註解與 README
 - 其他模組如有依賴本模組的行為，請於對應模組頂部註解標明
+- CLI 美化規範請參考專案記憶體中的用戶偏好設定
 """
 
 import pandas as pd
 import logging
+import re
+from collections import defaultdict
 from typing import List, Dict, Tuple
 from .DataImporter_backtester import DataImporter
-from .BacktestEngine_backtester import BacktestEngine
+from .VectorBacktestEngine_backtester import VectorBacktestEngine as BacktestEngine
 from .TradeRecordExporter_backtester import TradeRecordExporter_backtester
 from datetime import datetime
 # 新增 rich 匯入
-from rich.console import Console
+from rich.console import Console, Group
 from rich.panel import Panel
 from .Indicators_backtester import IndicatorsBacktester
 
@@ -111,7 +126,7 @@ class BaseBacktester:
         config = self.get_user_config([])
         
         if not config:
-            console.print(Panel("[bold #8f1511]用戶取消操作，程式終止。[/bold #8f1511]", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+            console.print(Panel("[bold #ff6b6b]用戶取消操作，程式終止。[/bold #ff6b6b]", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#ff6b6b"))
             return
 
         # Step 5: 開始回測[自動]
@@ -164,9 +179,9 @@ class BaseBacktester:
             raise ValueError("數據未載入")
         all_predictors = [col for col in self.data.columns if col not in ["Time", "High", "Low"]]
         if predictor_col is not None and predictor_col in all_predictors:
-            console.print(Panel(f"已選擇欄位: [bold #dbac30]{predictor_col}[/bold #dbac30]", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+            console.print(Panel(f"已選擇欄位: [bold #dbac30]{predictor_col}[/bold #dbac30]", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
             return predictor_col
-        console.print(Panel(f"可用欄位：{all_predictors}", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+        console.print(Panel(f"可用欄位：{all_predictors}", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
         columns = list(self.data.columns)
         if 'close_logreturn' in columns:
             idx = columns.index('close_logreturn')
@@ -184,9 +199,9 @@ class BaseBacktester:
             console.print(f"[bold #dbac30]請選擇要用於回測的欄位（預設 {default}）：[/bold #dbac30]")
             selected = input().strip() or default
             if selected not in all_predictors:
-                console.print(Panel(f"輸入錯誤，請重新輸入（可選: {all_predictors}，預設 {default}）", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                console.print(Panel(f"輸入錯誤，請重新輸入（可選: {all_predictors}，預設 {default}）", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#ff6b6b"))
                 continue
-            console.print(Panel(f"已選擇欄位: [bold #dbac30]{selected}[/bold #dbac30]", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+            console.print(Panel(f"已選擇欄位: [bold #dbac30]{selected}[/bold #dbac30]", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
             return selected
     
     def _export_results(self, config: Dict):
@@ -216,7 +231,7 @@ class BaseBacktester:
     
     def get_user_config(self, predictors: List[str]) -> Dict:
         """
-        獲取用戶的回測配置，包括指標、參數、交易成本等。
+        獲取用戶的回測配置，包括指標、參數、交易手續費等。
         """
         # Step 1: 選擇要用於回測的預測因子
         self._print_step_panel(1, "選擇要用於交易回測的預測因子，可選擇原因子或差分後的因子。")
@@ -240,7 +255,7 @@ class BaseBacktester:
         indicator_params = self._collect_indicator_params(condition_pairs)
         
         # Step 4: 輸入回測環境參數
-        step4_desc = "- 交易成本、滑點、延遲等參數將影響回測結果，請根據實際情況填寫。\n- 交易價格可選擇以開盤價或收盤價成交。"
+        step4_desc = "- 交易手續費、滑點、延遲等參數將影響回測結果，請根據實際情況填寫。\n- 交易價格可選擇以開盤價或收盤價成交。"
         self._print_step_panel(4, step4_desc)
         trading_params = self._collect_trading_params()
         
@@ -255,8 +270,6 @@ class BaseBacktester:
 
     def _display_available_indicators(self):
         """動態分組指標顯示，返回說明內容"""
-        import re
-        from collections import defaultdict
         all_aliases = self.indicators_helper.get_all_indicator_aliases()
         indicator_descs = {}
         try:
@@ -319,7 +332,7 @@ class BaseBacktester:
             entry_indicators = self._get_indicator_input(entry_prompt, all_aliases)
             if not entry_indicators:
                 if pair_count == 1:
-                    console.print(Panel("至少需要設定一組條件，請重新輸入。", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                    console.print(Panel("至少需要設定一組條件，請重新輸入。", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#ff6b6b"))
                     continue
                 else:
                     break
@@ -346,7 +359,7 @@ class BaseBacktester:
                 if continue_input in ['y', 'n']:
                     break
                 else:
-                    console.print(Panel(f"❌ 請輸入 y 或 n！當前輸入：{continue_input}", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                    console.print(Panel(f"❌ 請輸入 y 或 n！當前輸入：{continue_input}", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#ff6b6b"))
             if continue_input != 'y':
                 break
         return condition_pairs
@@ -356,12 +369,11 @@ class BaseBacktester:
         每個策略只顯示一個大Panel，Panel內依序顯示所有參數問題與已填值，動態刷新，直到該策略所有參數輸入完畢。
         步驟說明Panel與指標選擇Panel只顯示一次，後續不再清除畫面。
         """
-        from rich.console import Group
         indicator_params = {}
         
         # 顯示一次所有策略條件摘要
         for strategy_idx, pair in enumerate(condition_pairs):
-            console.print(Panel(f"策略 {strategy_idx + 1} 條件摘要\n開倉指標：{pair['entry']}\n平倉指標：{pair['exit']}", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+            console.print(Panel(f"策略 {strategy_idx + 1} 條件摘要\n開倉指標：{pair['entry']}\n平倉指標：{pair['exit']}", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
         
         # 簡化版本：只顯示一個 Panel，不清除其他內容
         for strategy_idx, pair in enumerate(condition_pairs):
@@ -421,31 +433,31 @@ class BaseBacktester:
                                     start, end, step = map(int, parts)
                                     # 驗證 start < end
                                     if start >= end:
-                                        console.print(Panel(f"❌ {alias} - {question} 起始值必須小於結束值！當前：{start} >= {end}", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                                        console.print(Panel(f"❌ {alias} - {question} 範圍錯誤：{start} >= {end}", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#ff6b6b"))
                                         continue
                                     # 驗證 step > 0
                                     if step <= 0:
-                                        console.print(Panel(f"❌ {alias} - {question} 步長必須大於0！當前：{step}", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                                        console.print(Panel(f"❌ {alias} - {question} 步長必須大於0！當前：{step}", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#ff6b6b"))
                                         continue
                                 except Exception:
-                                    console.print(Panel(f"❌ {alias} - {question} 內容必須為整數，請重新輸入！", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                                    console.print(Panel(f"❌ {alias} - {question} 內容必須為整數，請重新輸入！", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#ff6b6b"))
                                     continue
                                 param_values[(alias, key)] = value
                                 break
                             else:
-                                console.print(Panel(f"❌ {alias} - {question} 請用 'start : end : step' 格式，且三段都需為整數！", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                                console.print(Panel(f"❌ {alias} - {question} 請用 'start : end : step' 格式，且三段都需為整數！", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#ff6b6b"))
                         else:
                             # 驗證 MA 型態
                             if key == 'ma_type':
                                 valid_types = ['SMA', 'EMA', 'WMA']
                                 if value.upper() not in [t.upper() for t in valid_types]:
-                                    console.print(Panel(f"❌ {alias} - {question} 必須為 SMA、EMA 或 WMA 其中之一！", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                                    console.print(Panel(f"❌ {alias} - {question} 必須為 SMA、EMA 或 WMA 其中之一！", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#ff6b6b"))
                                     continue
                                 value = value.upper()
                             param_values[(alias, key)] = value
                             break
                     except Exception as e:
-                        console.print(Panel(f"❌ {alias} - {question} 輸入錯誤：{e}", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                        console.print(Panel(f"❌ {alias} - {question} 輸入錯誤：{e}", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#ff6b6b"))
                         continue
             
             # 處理參數並添加到最終結果
@@ -457,7 +469,7 @@ class BaseBacktester:
                 param_list = self.indicators_helper.get_indicator_params(alias, param_dict)
                 strategy_alias = f"{alias}_strategy_{strategy_idx + 1}"
                 indicator_params[strategy_alias] = param_list
-                console.print(Panel(f"{alias} (策略 {strategy_idx + 1}) 參數設定完成，產生 {len(param_list)} 組參數", title=f"[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+                console.print(Panel(f"{alias} (策略 {strategy_idx + 1}) 參數設定完成，產生 {len(param_list)} 組參數", title=f"[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
         
         return indicator_params
 
@@ -466,23 +478,23 @@ class BaseBacktester:
         收集交易參數（成本、滑點、延遲、價格），完全參考原UserInterface，並用Rich Panel美化
         """
         trading_params = {}
-        # 交易成本
+        # 交易手續費
         while True:
             try:
-                cost_input = console.input("[bold #dbac30]請輸入交易成本 (小數，如 0.01 表示 1%，預設 0.001)：[/bold #dbac30]").strip()
+                cost_input = console.input("[bold #dbac30]請輸入買賣交易手續費 (小數，如 0.01 表示 1%，預設 0.001)：[/bold #dbac30]").strip()
                 trading_params['transaction_cost'] = float(cost_input) if cost_input else 0.001
                 if trading_params['transaction_cost'] < 0:
-                    raise ValueError("交易成本必須為非負數")
+                    raise ValueError("買賣交易手續費必須為非負數")
                 break
             except ValueError as e:
                 console.print(Panel(f"輸入錯誤：{e}，請重新輸入。", title="[bold #8f1511]👨‍💻 用戶互動 - 回測環境參數[/bold #8f1511]", border_style="#8f1511"))
         # 滑點
         while True:
             try:
-                slippage_input = console.input("[bold #dbac30]請輸入滑點 (小數，如 0.005 表示 0.5%，預設 0.0005)：[/bold #dbac30]").strip()
+                slippage_input = console.input("[bold #dbac30]請輸入買賣滑點 (小數，如 0.005 表示 0.5%，預設 0.0005)：[/bold #dbac30]").strip()
                 trading_params['slippage'] = float(slippage_input) if slippage_input else 0.0005
                 if trading_params['slippage'] < 0:
-                    raise ValueError("滑點必須為非負數")
+                    raise ValueError("買賣買賣滑點必須為非負數")
                 break
             except ValueError as e:
                 console.print(Panel(f"輸入錯誤：{e}，請重新輸入。", title="[bold #8f1511]👨‍💻 用戶互動 - 回測環境參數[/bold #8f1511]", border_style="#8f1511"))
@@ -514,15 +526,15 @@ class BaseBacktester:
             indicators = [i.strip().upper() for i in user_input.split(",") if i.strip()]
             # 檢查是否為開倉信號且包含 NDayCycle
             if "開倉" in prompt and any(ind in indicators for ind in ["NDAY1", "NDAY2"]):
-                console.print(Panel("錯誤：NDAY1/NDAY2 只能作為平倉信號，不能作為開倉信號！請重新選擇。", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                console.print(Panel("錯誤：NDAY1/NDAY2 只能作為平倉信號，不能作為開倉信號！請重新選擇。", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#ff6b6b"))
                 continue
             invalid_indicators = [ind for ind in indicators if ind not in valid_indicators]
             if invalid_indicators:
-                console.print(Panel(f"❌ 無效的指標: {invalid_indicators}", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                console.print(Panel(f"❌ 無效的指標: {invalid_indicators}", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#ff6b6b"))
                 console.print(Panel(f"請重新輸入，有效指標包括: {valid_indicators}", title="[bold #dbac30]👨‍💻 交易回測 Backtester[/bold #dbac30]", border_style="#dbac30"))
                 continue
             if not indicators:
-                console.print(Panel("請至少輸入一個有效的指標", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                console.print(Panel("請至少輸入一個有效的指標", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#ff6b6b"))
                 continue
             return indicators
 
@@ -553,9 +565,9 @@ class BaseBacktester:
                     if len(parts) == 3 and all(p.strip().isdigit() for p in parts):
                         return s
                     else:
-                        console.print(Panel(f"❌ {field_name} 請用 'start : end : step' 格式（如 10:20:2），且三段都需為整數！", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                        console.print(Panel(f"❌ {field_name} 請用 'start : end : step' 格式（如 10:20:2），且三段都需為整數！", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#ff6b6b"))
                 else:
-                    console.print(Panel(f"❌ {field_name} 請用 'start : end : step' 格式（如 10:20:2），且三段都需為整數！", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                    console.print(Panel(f"❌ {field_name} 請用 'start : end : step' 格式（如 10:20:2），且三段都需為整數！", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#ff6b6b"))
                 input_str = console.input(f"[bold #dbac30]請重新輸入{field_name} (格式: start : end : step，例如 10:50:10)：[/bold #dbac30]")
         def beautify_range_hint(hint: str) -> str:
             return hint.replace(":", "：")

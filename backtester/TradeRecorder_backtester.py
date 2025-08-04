@@ -4,6 +4,10 @@ TradeRecorder_backtester.py
 【功能說明】
 ------------------------------------------------------------
 本模組為 Lo2cin4BT 回測框架的交易記錄工具，負責記錄和管理回測過程中的交易詳情，包括開倉、平倉、持倉變化等資訊。
+- 提供完整的交易記錄結構，包含所有必要的交易信息欄位
+- 支援交易記錄的驗證與清理，確保數據品質
+- 提供標準化的交易記錄格式，便於後續分析
+- 整合錯誤處理機制，確保記錄的完整性
 
 【流程與數據流】
 ------------------------------------------------------------
@@ -13,34 +17,69 @@ TradeRecorder_backtester.py
 ```mermaid
 flowchart TD
     A[BacktestEngine] -->|調用| B[TradeRecorder]
-    B -->|記錄交易| C[TradeRecordExporter]
+    B -->|記錄交易| C[record_trades]
+    B -->|驗證數據| D[數據驗證]
+    B -->|清理數據| E[數據清理]
+    C & D & E -->|標準化記錄| F[TradeRecordExporter]
 ```
+
+【記錄欄位】
+------------------------------------------------------------
+- 基本交易信息：Time, Open, High, Low, Close
+- 交易詳情：Trading_instrument, Position_type, Position_size
+- 價格信息：Open_position_price, Close_position_price
+- 績效指標：Return, Equity_value, Transaction_cost
+- 時間信息：Open_time, Close_time, Trade_action
+- 參數信息：Parameter_set_id, Predictor_value
 
 【維護與擴充重點】
 ------------------------------------------------------------
 - 新增/修改記錄欄位、格式時，請同步更新頂部註解與下游流程
 - 若記錄結構有變動，需同步更新本檔案與 TradeRecordExporter
 - 記錄格式如有調整，請同步通知協作者
+- 數據驗證規則需要與交易邏輯保持一致
+- 記錄結構需要支援新的交易型態
 
 【常見易錯點】
 ------------------------------------------------------------
 - 記錄欄位缺失或格式錯誤會導致導出失敗
 - 交易記錄不完整會影響績效計算
 - 記錄結構變動會影響下游分析
+- 數據驗證不完整會導致記錄錯誤
+- 時間格式不一致會影響分析結果
+
+【錯誤處理】
+------------------------------------------------------------
+- 記錄格式錯誤時提供詳細錯誤信息
+- 數據缺失時提供插值或默認值
+- 驗證失敗時提供修正建議
+- 記錄不完整時提供警告信息
 
 【範例】
 ------------------------------------------------------------
-- recorder = TradeRecorder()
-  recorder.record_trade(trade_data)
+- 創建記錄器：recorder = TradeRecorder_backtester(trade_records, Backtest_id)
+- 記錄交易：recorder.record_trades()
+- 驗證記錄：recorder.validate_records()
 
 【與其他模組的關聯】
 ------------------------------------------------------------
 - 由 BacktestEngine 調用，記錄結果傳遞給 TradeRecordExporter
 - 需與 TradeRecordExporter 的記錄結構保持一致
+- 與 TradeSimulator 配合記錄交易詳情
+- 支援多種分析工具的下游處理
+
+【版本與變更記錄】
+------------------------------------------------------------
+- v1.0: 初始版本，基本交易記錄功能
+- v1.1: 新增詳細欄位支援
+- v1.2: 完善數據驗證與清理
+- v2.0: 新增標準化記錄格式
+- v2.1: 完善錯誤處理機制
+- v2.2: 優化記錄結構與性能
 
 【參考】
 ------------------------------------------------------------
-- pandas 官方文件
+- pandas 官方文件：https://pandas.pydata.org/
 - BacktestEngine_backtester.py、TradeRecordExporter_backtester.py
 - 專案 README
 """
