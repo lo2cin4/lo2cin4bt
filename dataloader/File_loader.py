@@ -184,10 +184,10 @@ class FileLoader:
         """要求用戶輸入完整文件路徑
         返回: str - 文件路徑或 None
         """
-        console.print("[bold #dbac30]請輸入文件名稱（例如 data.xlsx 或 data.csv）：[/bold #dbac30]")
+        console.print("[bold #dbac30]請輸入文件名稱（例如 D:/Python/data.xlsx 或 D:/Python/data.csv，按Enter跳過）：[/bold #dbac30]")
         file_name = input().strip()
         if not file_name:
-            console.print(Panel("❌ 文件名不能為空", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
+            console.print(Panel("ℹ️ 跳過文件路徑輸入", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
             return None
         return file_name
 

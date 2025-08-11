@@ -103,49 +103,69 @@ class CallbackHandler:
             entry_open = [id['indicator'] in entry_types for id in entry_ids]
             exit_open = [id['indicator'] in exit_types for id in exit_ids]
             return entry_open, exit_open
-        # ⚠️ 全選按鈕 callback 只做全選，不做全不選，且只影響對應 indicator checklist，其他保持原狀。
+        # ⚠️ 切換按鈕 callback 在全選和清空之間切換，只影響對應 indicator checklist，其他保持原狀。
         @app.callback(
             Output({'type': 'entry_param_checklist', 'indicator': ALL, 'param': ALL}, 'value'),
-            Input({'type': 'entry_param_select_all', 'indicator': ALL}, 'n_clicks'),
+            Input({'type': 'entry_param_toggle_all', 'indicator': ALL}, 'n_clicks'),
             State({'type': 'entry_param_checklist', 'indicator': ALL, 'param': ALL}, 'id'),
             State({'type': 'entry_param_checklist', 'indicator': ALL, 'param': ALL}, 'options'),
             State({'type': 'entry_param_checklist', 'indicator': ALL, 'param': ALL}, 'value'),
             prevent_initial_call=True
         )
-        def entry_select_all(n_clicks, ids, options, current_values):
+        def entry_toggle_all(n_clicks, ids, options, current_values):
             triggered = ctx.triggered_id
             if not triggered:
                 raise PreventUpdate
             indicator = triggered['indicator']
             values = []
+            
             for id_, opts, cur in zip(ids, options, current_values):
                 if id_['indicator'] == indicator:
                     all_vals = [o['value'] for o in opts]
-                    values.append(all_vals)
+                    # 檢查是否已經全選
+                    is_all_selected = cur and len(cur) == len(all_vals) and all(v in cur for v in all_vals)
+                    if is_all_selected:
+                        # 如果全選，則清空
+                        values.append([])
+                    else:
+                        # 如果不是全選，則全選
+                        values.append(all_vals)
                 else:
                     values.append(cur)
+            
             return values
         @app.callback(
             Output({'type': 'exit_param_checklist', 'indicator': ALL, 'param': ALL}, 'value'),
-            Input({'type': 'exit_param_select_all', 'indicator': ALL}, 'n_clicks'),
+            Input({'type': 'exit_param_toggle_all', 'indicator': ALL}, 'n_clicks'),
             State({'type': 'exit_param_checklist', 'indicator': ALL, 'param': ALL}, 'id'),
             State({'type': 'exit_param_checklist', 'indicator': ALL, 'param': ALL}, 'options'),
             State({'type': 'exit_param_checklist', 'indicator': ALL, 'param': ALL}, 'value'),
             prevent_initial_call=True
         )
-        def exit_select_all(n_clicks, ids, options, current_values):
+        def exit_toggle_all(n_clicks, ids, options, current_values):
             triggered = ctx.triggered_id
             if not triggered:
                 raise PreventUpdate
             indicator = triggered['indicator']
             values = []
+            
             for id_, opts, cur in zip(ids, options, current_values):
                 if id_['indicator'] == indicator:
                     all_vals = [o['value'] for o in opts]
-                    values.append(all_vals)
+                    # 檢查是否已經全選
+                    is_all_selected = cur and len(cur) == len(all_vals) and all(v in cur for v in all_vals)
+                    if is_all_selected:
+                        # 如果全選，則清空
+                        values.append([])
+                    else:
+                        # 如果不是全選，則全選
+                        values.append(all_vals)
                 else:
                     values.append(cur)
+            
             return values
+        
+
         # === 功能性主 callback ===
         @app.callback(
             Output('equity_chart', 'figure'),

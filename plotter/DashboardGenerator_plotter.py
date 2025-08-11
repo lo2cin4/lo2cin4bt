@@ -240,12 +240,12 @@ class DashboardGenerator:
                             inline=True
                         )
                     ]))
-                # 標題列右側小型全選按鈕
+                # 標題列右側小型切換按鈕
                 header = html.Div([
                     html.Span(type_name, style={"fontWeight": "bold", "fontSize": "16px"}),
                     dbc.Button(
-                        "全選",
-                        id={'type': f'{prefix}_param_select_all', 'indicator': type_name},
+                        "全選",  # 動態文字，由callback控制
+                        id={'type': f'{prefix}_param_toggle_all', 'indicator': type_name},
                         color="secondary", size="sm", outline=True,
                         style={"float": "right", "marginLeft": "8px"}
                     )
