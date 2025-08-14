@@ -91,10 +91,28 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
 ## 💾 下載與安裝
 
 1. 點選 GitHub 頁面右上角的「Code」→「Download ZIP」下載專案
+2. 解壓縮 ZIP 檔案
+3. 安裝 Python（建議 3.9 以上）
+4. 開啟終端機（Terminal）或命令提示字元（CMD），切換到專案資料夾
+5. 安裝依賴套件：
+   ```bash
+   pip install -r requirements.txt
+   ```
+6. 運行主程式：
+   ```bash
+   python main.py
+   ```
+7. 按照畫面指示選擇數據來源、回測參數，即可開始！
+
+---
+
+## 💾 下載與安裝 (完全編程新手懶人包)
+
+1. 點選 GitHub 頁面右上角的「Code」→「Download ZIP」下載專案
 2. 解壓縮 ZIP 檔案 lo2cin4bt，並將檔案移至你想放置的磁碟 / 資料夾
 3. 複製目前 lo2cin4bt 的檔案路徑
 4. 安裝 Cursor
-5. 詢問它：「如何建立虛擬環境，並運行在 "檔案路徑" 的 lo2cin4bt ？」
+5. 詢問它：「如何建立虛擬環境，並運行在 "檔案路徑" 的 lo2cin4bt？」
 6. AI會指導你下載各種 Library 和 安裝環境
 
 ---
@@ -104,7 +122,6 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
 ### 安裝 Cursor（AI 編輯器）
 1. 前往 [Cursor 官方網站](https://www.cursor.cn/) 下載並安裝 Cursor。
 2. 支援 AI 助理協作，可以自然語言解決安裝難題。
-3. 可免費試用兩周
 
 ### 用 Cursor 開啟本專案
 1. 開啟 Cursor。
