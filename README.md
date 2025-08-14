@@ -106,26 +106,21 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
 
 ---
 
-## 💻 推薦新手開發環境：VS Code & Cursor
+## 💻 推薦編程新手開發環境： Cursor
 
-### 安裝 VS Code
-1. 前往 [Visual Studio Code 官方網站](https://code.visualstudio.com/) 下載並安裝 VS Code。
-2. 安裝 Python 擴充套件（Extension）：
-   - 開啟 VS Code，點選左側 Extensions（方塊圖示），搜尋「Python」並安裝。
+### 安裝 Cursor（AI 編輯器）
+1. 前往 [Cursor 官方網站](https://www.cursor.cn/) 下載並安裝 Cursor。
+2. 支援 AI 助理協作，可以自然語言解決安裝難題。
 
-### 安裝 Cursor（AI 編輯器，可選）
-1. 前往 [Cursor 官方網站](https://www.cursor.so/) 下載並安裝 Cursor。
-2. Cursor 介面與 VS Code 幾乎一致，支援 AI 助理協作。
-
-### 用 VS Code / Cursor 開啟本專案
-1. 開啟 VS Code 或 Cursor。
+### 用 Cursor 開啟本專案
+1. 開啟 Cursor。
 2. 點選「File」→「Open Folder...」，選擇剛剛解壓縮的專案資料夾。
 3. 建議在左側 EXPLORER 檢視所有檔案結構，右側可直接點擊 .py 檔案進行編輯。
 4. 內建終端機（Terminal）：
    - 點選「Terminal」→「New Terminal」，即可在專案根目錄下執行 pip、python 等指令。
 
 ### 執行與除錯
-- 在 VS Code/Cursor 內直接按 F5 或點選「Run」→「Start Debugging」可進行除錯。
+- 在 Cursor 內直接按 F5 或點選「Run」→「Start Debugging」可進行除錯。
 - 也可在內建終端機輸入 `python main.py` 直接執行。
 
 ---
@@ -185,14 +180,14 @@ lo2cin4bt/
 - **預測因子檔案存放**：
   - 需存放於 `records/dataloader/import` 資料夾，格式為 `csv/xlsx/json` 檔案。
 - **回測結果（交易紀錄）**：
-  - 會自動存放於 `records/backtester/` 資料夾，格式為 `.parquet` 檔案。
+  - 自動產生並存放於 `records/backtester/` 資料夾，格式為 `.parquet` 檔案。
   - 每次回測會產生一個唯一檔名（如 `20250723_97dpnzl6.parquet`）。
 - **統計分析結果**：
-  - 存放於 `records/backtester/statanalyser` 資料夾，包含 `processed_data.csv`、`stats_report.txt` 等。
+  - 自動產生於存放於 `records/backtester/statanalyser` 資料夾，包含 `processed_data.csv`、`stats_report.txt` 等。
 - **交易分析**：
-  - 會讀取 `records/backtester/` 下的 parquet 檔案，計算後會產生新的 `.parquet` 檔案並放至`records/metricstracker/`內 。
+  - 系統會自動讀取 `records/backtester/` 下的 parquet 檔案，計算後會產生新的 `.parquet` 檔案，並存放於`records/metricstracker/`內 。
 - **可視化平台**：
-  - 會自動讀取 `records/metricstracker/` 下的 parquet 檔案，並以互動式圖表展示。
+  - 系統會會自動讀取 `records/metricstracker/` 下的 parquet 檔案，並以互動式圖表展示。
 - **日誌檔案**：
   - 所有錯誤與執行日誌會存於 `logs/backtest_errors.log`。
 - **自訂導出**：
