@@ -207,20 +207,20 @@ lo2cin4bt/
 ### 目前已完成
 
 <details>
-<summary>📅 2025-08-12 - 可視化平台增加了反選功能</summary>
+<summary>📅 2025-08-12</summary>
 
 - 可視化平台增加了反選功能
 </details>
 
 <details>
-<summary>📅 2025-08-04 - 向量化重構與系統優化</summary>
+<summary>📅 2025-08-04</summary>
 
 - 向量化形式重構回測部份
 - 動態檢測電腦配置以確保程式不會崩潰
 </details>
 
 <details>
-<summary>📅 2025-07-23 - 核心功能完成</summary>
+<summary>📅 2025-07-23 (公佈日) </summary>
 
 - 三大量化核心：統計分析、回測、可視化平台
 - 支援多種數據來源（本地、Yahoo、Binance）
