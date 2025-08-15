@@ -213,10 +213,11 @@ lo2cin4bt/
 ### 目前已完成
 
 <details>
-<summary>📅 2025-08-15</summary>
+<summary>📅 2025-08-15 </summary>
 
-- 可視化平台增加了參數高原，檢測過擬合無難度
+- 【重榜】可視化平台增加了參數高原，檢測過擬合無難度
 - BUG修正Calamar Ratio 的 Bug 已修正
+- 反選功能指示更清晰
 </details>
 
 <details>
@@ -226,9 +227,9 @@ lo2cin4bt/
 </details>
 
 <details>
-<summary>📅 2025-08-04</summary>
+<summary>📅 2025-08-04 </summary>
 
-- 向量化形式重構回測部份
+- 【重榜】向量化形式重構回測部份
 - 動態檢測電腦配置以確保程式不會崩潰
 </details>
 
