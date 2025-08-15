@@ -117,6 +117,11 @@ class DataImporterPlotter:
         # 確保目錄存在
         if not os.path.exists(self.data_path):
             raise FileNotFoundError(f"數據目錄不存在: {self.data_path}")
+        
+        # 新增：初始化緩存系統
+        self.strategy_analysis_cache = {}
+        self.parameter_index_cache = {}
+        self.cache_stats = {'hits': 0, 'misses': 0, 'size': 0}
     
     def scan_parquet_files(self) -> List[str]:
         """
@@ -247,6 +252,109 @@ class DataImporterPlotter:
             self.logger.warning(f"提取權益曲線數據失敗: {e}")
             return pd.DataFrame()
     
+    def _load_single_parquet_file_optimized(self, file_path: str) -> List[Dict[str, Any]]:
+        """
+        優化的單個parquet檔案載入邏輯（批量處理版本）
+        
+        Args:
+            file_path: parquet檔案路徑
+            
+        Returns:
+            List[Dict[str, Any]]: 包含數據和元信息的字典列表
+        """
+        file_start_time = datetime.now()
+        filename = os.path.basename(file_path)
+        
+        try:
+            print(f"📁 [DEBUG] 開始載入檔案: {filename}")
+            
+            # 步驟1: 讀取parquet檔案
+            step1_start = datetime.now()
+            table = pq.read_table(file_path)
+            step1_time = (datetime.now() - step1_start).total_seconds()
+            print(f"📊 [DEBUG] {filename} - 步驟1(讀取檔案)完成: {step1_time:.3f}秒")
+            
+            # 步驟2: 選擇必要列
+            step2_start = datetime.now()
+            required_columns = ['Time', 'Equity_value', 'BAH_Equity', 'Backtest_id']
+            available_columns = [col for col in required_columns if col in table.column_names]
+            table = table.select(available_columns)
+            step2_time = (datetime.now() - step2_start).total_seconds()
+            print(f"🔧 [DEBUG] {filename} - 步驟2(選擇列)完成: {step2_time:.3f}秒, 選擇列: {available_columns}")
+            
+            # 步驟3: 轉換為pandas
+            step3_start = datetime.now()
+            df = table.to_pandas()
+            step3_time = (datetime.now() - step3_start).total_seconds()
+            print(f"🔄 [DEBUG] {filename} - 步驟3(轉換pandas)完成: {step3_time:.3f}秒, 數據形狀: {df.shape}")
+            
+            # 步驟4: 提取metadata
+            step4_start = datetime.now()
+            meta = table.schema.metadata or {}
+            batch_metadata = []
+            if b'batch_metadata' in meta:
+                batch_metadata = json.loads(meta[b'batch_metadata'].decode())
+                print(f"📋 [DEBUG] {filename} - 找到 {len(batch_metadata)} 個batch_metadata")
+            else:
+                print(f"⚠️ [DEBUG] {filename} - 找不到 batch_metadata")
+            step4_time = (datetime.now() - step4_start).total_seconds()
+            print(f"📋 [DEBUG] {filename} - 步驟4(提取metadata)完成: {step4_time:.3f}秒")
+            
+            # 步驟5: 批量處理數據（優化版本）
+            step5_start = datetime.now()
+            print(f"⚙️ [DEBUG] {filename} - 開始批量處理 {len(batch_metadata)} 個策略...")
+            
+            # 批量處理：一次性分組所有數據
+            print(f"🔄 [DEBUG] {filename} - 開始groupby分組...")
+            grouped_data = {}
+            for backtest_id, group in df.groupby('Backtest_id'):
+                grouped_data[backtest_id] = {
+                    'equity_curve': group[['Time', 'Equity_value']] if 'Equity_value' in group.columns else None,
+                    'bah_curve': group[['Time', 'BAH_Equity']] if 'BAH_Equity' in group.columns else None
+                }
+            print(f"✅ [DEBUG] {filename} - groupby分組完成，共 {len(grouped_data)} 個分組")
+            
+            # 批量創建結果
+            print(f"🔄 [DEBUG] {filename} - 開始創建結果...")
+            results = []
+            for i, meta_item in enumerate(batch_metadata):
+                if i % 100 == 0:  # 每100個顯示一次進度
+                    print(f"📊 [DEBUG] {filename} - 處理進度: {i}/{len(batch_metadata)}")
+                
+                backtest_id = meta_item.get('Backtest_id')
+                if backtest_id is not None and backtest_id in grouped_data:
+                    group_data = grouped_data[backtest_id]
+                    results.append({
+                        'Backtest_id': backtest_id,
+                        'metrics': meta_item,
+                        'equity_curve': group_data['equity_curve'],
+                        'bah_curve': group_data['bah_curve'],
+                        'file_path': file_path
+                    })
+                else:
+                    # 如果找不到對應的backtest_id，創建空的結果
+                    results.append({
+                        'Backtest_id': backtest_id,
+                        'metrics': meta_item,
+                        'equity_curve': None,
+                        'bah_curve': None,
+                        'file_path': file_path
+                    })
+            
+            print(f"✅ [DEBUG] {filename} - 結果創建完成，共 {len(results)} 個結果")
+            
+            # 總計時間
+            total_file_time = (datetime.now() - file_start_time).total_seconds()
+            print(f"✅ [DEBUG] {filename} - 載入完成: 總耗時 {total_file_time:.3f}秒")
+            
+            return results
+            
+        except Exception as e:
+            total_file_time = (datetime.now() - file_start_time).total_seconds()
+            self.logger.error(f"❌ 優化載入檔案失敗 {filename}: {e}")
+            print(f"❌ [DEBUG] {filename} - 載入失敗: 耗時 {total_file_time:.3f}秒, 錯誤: {e}")
+            return []
+    
     def load_parquet_file(self, file_path: str) -> List[Dict[str, Any]]:
         """
         載入單個 parquet 檔案
@@ -358,7 +466,7 @@ class DataImporterPlotter:
             all_parameters = []
             for file_path in selected_files:
                 try:
-                    file_data = self.load_parquet_file(file_path)
+                    file_data = self._load_single_parquet_file_optimized(file_path)
                     for item in file_data:
                         backtest_id = item['Backtest_id']
                         if backtest_id is not None:
@@ -765,3 +873,70 @@ class DataImporterPlotter:
             'total_combinations': len(strategy_parameters),
             'parameter_indices': parameter_indices
         } 
+
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """獲取緩存統計信息"""
+        return {
+            'hits': self.cache_stats['hits'],
+            'misses': self.cache_stats['misses'],
+            'size': self.cache_stats['size'],
+            'hit_rate': self.cache_stats['hits'] / (self.cache_stats['hits'] + self.cache_stats['misses']) if (self.cache_stats['hits'] + self.cache_stats['misses']) > 0 else 0
+        }
+    
+    def get_strategy_analysis_cached(self, parameters: list, strategy_key: str) -> Dict[str, Any]:
+        """
+        獲取策略分析結果（帶緩存）
+        
+        Args:
+            parameters: 參數列表
+            strategy_key: 選中的策略鍵
+            
+        Returns:
+            Dict[str, Any]: 參數分析結果
+        """
+        # 調試信息
+        print(f"🔍 [DEBUG] 調用緩存方法: strategy_key={strategy_key}, parameters_len={len(parameters)}")
+        print(f"🔍 [DEBUG] 緩存系統狀態: has_cache={hasattr(self, 'strategy_analysis_cache')}, cache_size={len(self.strategy_analysis_cache) if hasattr(self, 'strategy_analysis_cache') else 'N/A'}")
+        
+        # 創建緩存鍵
+        cache_key = f"analysis_{strategy_key}_{len(parameters)}"
+        print(f"🔍 [DEBUG] 緩存鍵: {cache_key}")
+        
+        # 檢查緩存
+        if hasattr(self, 'strategy_analysis_cache') and cache_key in self.strategy_analysis_cache:
+            self.cache_stats['hits'] += 1
+            self.logger.debug(f"緩存命中: {strategy_key}")
+            print(f"✅ [DEBUG] 緩存命中: {strategy_key}")
+            return self.strategy_analysis_cache[cache_key]
+        
+        # 緩存未命中，執行分析
+        self.cache_stats['misses'] += 1
+        self.logger.debug(f"緩存未命中，執行分析: {strategy_key}")
+        print(f"❌ [DEBUG] 緩存未命中，執行分析: {strategy_key}")
+        
+        # 使用靜態方法進行分析
+        analysis = self.analyze_strategy_parameters(parameters, strategy_key)
+        
+        # 存入緩存
+        if hasattr(self, 'strategy_analysis_cache'):
+            self.strategy_analysis_cache[cache_key] = analysis
+            self.cache_stats['size'] += 1
+            print(f"💾 [DEBUG] 存入緩存: {cache_key}")
+        else:
+            print(f"⚠️ [DEBUG] 緩存系統未初始化！")
+        
+        # 如果緩存過大，清理舊的緩存項
+        if hasattr(self, 'cache_stats') and self.cache_stats['size'] > 100:
+            self._cleanup_cache()
+        
+        return analysis 
+    
+    def _cleanup_cache(self):
+        """清理緩存，保留最近使用的項目"""
+        if len(self.strategy_analysis_cache) > 50:
+            # 簡單的緩存清理：刪除一半的緩存項
+            keys_to_remove = list(self.strategy_analysis_cache.keys())[:25]
+            for key in keys_to_remove:
+                del self.strategy_analysis_cache[key]
+            self.cache_stats['size'] = len(self.strategy_analysis_cache)
+            self.logger.debug(f"緩存清理完成，當前大小: {self.cache_stats['size']}") 

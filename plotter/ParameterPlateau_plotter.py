@@ -914,7 +914,15 @@ class ParameterPlateauPlotter:
             try:
                 from .DataImporter_plotter import DataImporterPlotter
                 parameters = data.get('parameters', [])
-                analysis = DataImporterPlotter.analyze_strategy_parameters(parameters, strategy_key)
+                
+                # 使用緩存的策略分析方法
+                # 檢查是否有DataImporterPlotter實例
+                if hasattr(self, 'data_importer') and self.data_importer is not None:
+                    analysis = self.data_importer.get_strategy_analysis_cached(parameters, strategy_key)
+                else:
+                    # 如果沒有實例，創建一個臨時實例
+                    temp_importer = DataImporterPlotter("", None)
+                    analysis = temp_importer.get_strategy_analysis_cached(parameters, strategy_key)
                 
                 if not analysis:
                     return html.P("無法分析策略參數", className="text-danger")
@@ -964,7 +972,13 @@ class ParameterPlateauPlotter:
                 from .DataImporter_plotter import DataImporterPlotter
                 parameters = data.get('parameters', [])
                 
-                analysis = DataImporterPlotter.analyze_strategy_parameters(parameters, strategy_key)
+                # 使用緩存的策略分析方法
+                if hasattr(self, 'data_importer') and self.data_importer is not None:
+                    analysis = self.data_importer.get_strategy_analysis_cached(parameters, strategy_key)
+                else:
+                    # 如果沒有實例，創建一個臨時實例
+                    temp_importer = DataImporterPlotter("", None)
+                    analysis = temp_importer.get_strategy_analysis_cached(parameters, strategy_key)
                 
                 if not analysis:
                     return html.P("無法分析策略參數", className="text-danger")
