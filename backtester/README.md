@@ -304,4 +304,58 @@ results = backtester.run()  # 互動式選擇因子、參數、執行回測、�
 - 智能CPU配置：根據系統核心數自動優化並行處理參數
 - 記憶體安全檢查：實時監控記憶體使用量，防止系統崩潰
 - 跨平台兼容：支援 Windows、Linux、macOS 系統檢測
-- 性能優化建議：根據系統配置提供最佳化建議 
+- 性能優化建議：根據系統配置提供最佳化建議
+
+7. 回測結果狀態判斷邏輯不一致問題 19/12/2024 ✅ 已解決
+問題詳情：VectorBacktestEngine 統計階段顯示成功回測數量與 TradeRecordExporter 顯示階段不一致。具體表現為：
+- 統計階段：顯示 368 成功，0 失敗，48 無交易
+- 顯示階段：查看成功結果顯示 0 個，查看失敗結果顯示全部失敗
+
+根本原因：兩個模組使用不同的判斷邏輯來分類回測結果狀態：
+- VectorBacktestEngine 使用正確的邏輯：Trade_action == 1 判斷是否有開倉交易
+- TradeRecordExporter 使用錯誤的邏輯：把無交易的回測也歸類為失敗
+
+解決方法：統一所有判斷邏輯為與 VectorBacktestEngine 完全一致的標準
+- 成功：無錯誤且有實際開倉交易（Trade_action == 1 的數量 > 0）
+- 失敗：有錯誤（error 不為 None）
+- 無交易：沒有錯誤但沒有開倉交易（Trade_action == 1 的數量 == 0）
+
+修正的文件和方法：
+- TradeRecordExporter_backtester.py 中的 display_successful_results()
+- TradeRecordExporter_backtester.py 中的 display_failed_results()  
+- TradeRecordExporter_backtester.py 中的 display_no_trade_results()
+- TradeRecordExporter_backtester.py 中的 display_strategy_details()
+- 按策略分組邏輯和 success_count 計算
+
+優點：
+- 統計階段與顯示階段完全一致，避免用戶困惑
+- 正確區分成功、失敗、無交易三種狀態
+- 為未來擴充提供統一的判斷標準
+- 提升用戶體驗和系統可靠性 
+
+8. BOLL 指標參數管理統一化 15/08/2025 ✅ 已解決
+問題詳情：BOLL 指標仍保留內部預設值設定，與 MA 和 NDAY 指標的 UserInterface 模式不一致。具體表現為：
+- MA 指標：完全使用 UserInterface 傳入參數，無內部預設值
+- NDAY 指標：完全使用 UserInterface 傳入參數，無內部預設值  
+- BOLL 指標：仍使用 `params_config.get("ma_range", "10:20:10")` 和 `params_config.get("sd_multi", "2,3")` 等內部預設值
+
+根本原因：BOLL 指標的 `get_params` 方法沒有完全移除內部預設值，導致參數管理方式不一致。
+
+解決方法：將 BOLL 指標改為完全使用 UserInterface 模式
+- 移除 `params_config.get("ma_range", "10:20:10")` 的預設值設定
+- 移除 `params_config.get("sd_multi", "2,3")` 的預設值設定
+- 移除範圍格式解析失敗時的預設值回退邏輯
+- 添加參數驗證，確保 `ma_range` 和 `sd_multi` 必須由 UserInterface 提供
+- 統一錯誤處理方式，與 MA 和 NDAY 指標保持一致
+
+修正的文件和方法：
+- BollingerBand_Indicator_backtester.py 中的 get_params() 方法
+- 參數驗證邏輯
+- 錯誤處理機制
+
+優點：
+- 三個指標（MA、NDAY、BOLL）的參數管理方式完全一致
+- 所有預設值統一在 Base_backtester.py 中管理
+- 提升系統的一致性和可維護性
+- 為未來指標擴充提供統一的開發模式
+- 錯誤處理更加清晰，用戶體驗更好 

@@ -213,6 +213,13 @@ lo2cin4bt/
 ### 目前已完成
 
 <details>
+<summary>📅 2025-08-15</summary>
+
+- 可視化平台增加了參數高原，檢測過擬合無難度
+- BUG修正Calamar Ratio 的 Bug 已修正
+</details>
+
+<details>
 <summary>📅 2025-08-12</summary>
 
 - 可視化平台增加了反選功能

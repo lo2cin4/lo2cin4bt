@@ -370,8 +370,214 @@ else:
 
 # 疑難排解
 
-1. 權益曲線圖表高度調整無效 23/07/2024
+1. 權益曲線圖表高度調整無效
 圖表雖然在 dcc.Graph 設定 height，但被 fig.update_layout(height=500) 覆蓋，需同步修改 fig.update_layout(height=1000) 才會生效。
 
-2. 點擊曲線無法正確顯示績效 23/07/2024
-原本 callback 用 curveNumber 或 trace name 對應 Backtest_id，當 trace 隱藏或只剩一條時會失效。改為在 add_trace 時加上 customdata，callback 直接用 clickData['points'][0]['customdata'] 對應 Backtest_id，問題解決。 
+2. 點擊曲線無法正確顯示績效
+原本 callback 用 curveNumber 或 trace name 對應 Backtest_id，當 trace 隱藏或只剩一條時會失效。改為在 add_trace 時加上 customdata，callback 直接用 clickData['points'][0]['customdata'] 對應 Backtest_id，問題解決。
+
+3. 參數高原控制面板滑動條數值顯示問題
+**問題描述**：滑動條選擇波點下方顯示索引值（0, 1, 2...）而不是實際參數值（10, 15, 20...）
+
+**解決方法**：
+- 修改 `marks` 系統：從 `{i: str(val) for i, val in enumerate(param_values)}` 改為 `{val: str(val) for val in param_values}`
+- 調整滑動條範圍：`min=min(param_values)`, `max=max(param_values)`
+- 設置 `step=None` 使用 marks 中定義的步長
+- 初始值設為 `value=min(param_values)`
+
+**修復後效果**：現在滑動條會顯示實際的參數值，而不是索引值
+
+4. 滑動條變暗效果問題 15/01/2025 ⏳
+**問題描述**：勾選參數後滑動條沒有變暗，無法區分固定參數和可變參數
+
+**當前狀態**：CSS樣式已添加但未生效，需要進一步調試
+
+5. 參數高原滑動條功能異常問題 15/01/2025 ✅
+**問題描述**：多種策略組合下，滑動條出現不同程度的功能異常
+
+**根本原因分析**：
+- **參數值類型錯誤**：所有參數值都被轉換為字符串，導致滑動條無法正確處理數值範圍
+- **範圍值解析失敗**：像 "10:20:10" 這樣的範圍值無法直接用作滑動條的數值範圍
+- **字符串排序問題**：字符串比較導致數值順序錯誤（如 "10:20:10" 排在 "5:10:5" 前面）
+
+**測試案例與問題表現**：
+
+**案例1：MA5&MA8策略（雙均線策略）**
+- MA5短MA長度範圍：顯示10---5，無法拖動
+- MA5長MA長度範圍：能正常拖動20->30
+- MA8短MA長度範圍：顯示10---5，無法拖動
+- MA8長MA長度範圍：能正常拖動20->30
+- 問題：短MA參數（第2、4個參數）無法移動，長MA參數（第3、5個參數）正常
+
+**案例2：BOLL1~BOLL4策略**
+- BOLL1標準差倍數：無法運行（策略第2個參數）
+- BOLL4標準差倍數：無法運行（策略第4個參數）
+- 問題：偶數位置的標準差參數無法移動
+
+**案例3：MA1,MA9入場，NDAY2出場策略**
+- MA1 MA長度範圍：滑動條拖動時會到處亂動
+- MA9連續日數m：有2:10:1但只感應到10,0
+- MA9 MA長度範圍n：滑動條拖動時會到處亂動
+- NDAY2 N值範圍：無法移動
+- 問題：MA策略的period參數滑動異常，NDAY策略完全無法移動
+
+**解決方案**：
+- **重構參數解析邏輯**：在 `analyze_strategy_parameters` 函數中添加 `parse_parameter_value` 函數
+- **智能參數類型識別**：
+  - 範圍值（如 "10:20:10"）→ 解析為實際數值列表 [10, 20]
+  - 逗號分隔值（如 "2,2.5,3"）→ 解析為數值列表 [2.0, 2.5, 3.0]
+  - 單一數值 → 直接轉換為數值
+- **正確的數值排序**：使用數值比較而非字符串比較進行排序
+
+**修復後效果**：
+- 滑動條現在使用正確的數值範圍，而不是字符串
+- 範圍值（如 "10:20:10"）會被正確解析為 [10, 20]
+- 數值排序正確，滑動條可以正常拖動
+- 所有參數類型（MA、BOLL、NDAY）的滑動條都能正常工作
+
+6. 參數高原動態軸選擇功能開發 15/01/2025 ✅
+**功能描述**：實現用戶可固定n-2個參數，動態選擇剩餘2個可變參數作為XY軸的參數高原分析功能
+
+**核心改進**：從靜態的「前兩個參數作為軸」改為動態的「用戶選擇固定參數，剩餘可變參數作為軸」
+
+**已完成功能**：
+- ✅ 分層數據索引系統：高效的參數組合查詢
+- ✅ 動態參數狀態管理：用戶自由選擇固定參數
+- ✅ 圖表軸動態選擇：根據固定參數自動選擇XY軸
+- ✅ 智能索引管理：按需建立參數索引
+- ✅ 完整數據流程：從用戶選擇到圖表生成
+
+**使用方法**：
+1. 選擇策略
+2. 勾選要固定的參數，調整其值
+3. 當可變參數=2個時，更新圖表按鈕變紅可點擊
+4. 系統自動選擇可變參數作為XY軸，生成參數高原圖表
+
+---
+
+## 硬編碼分析報告（Hardcoded Components Analysis）
+
+### 🚨 主要硬編碼問題
+
+#### 1. **策略結構硬編碼** ⚠️
+```python
+# 硬編碼的結構假設
+if 'Entry_params' in param:  # 假設所有策略都有Entry_params
+if 'Exit_params' in param:   # 假設所有策略都有Exit_params
+
+# 硬編碼的字段名稱
+indicator_type = entry_param.get('indicator_type', '')  # 假設字段名固定
+strat_idx = entry_param.get('strat_idx', '')           # 假設字段名固定
+```
+
+**問題**：如果未來策略結構改變（例如添加 `Signal_params`、`Filter_params` 等），這些硬編碼會失效。
+
+#### 2. **績效指標硬編碼** ⚠️
+```python
+# 硬編碼的績效指標
+dbc.Button("Sharpe Ratio", id="btn-sharpe", ...)
+dbc.Button("Sortino Ratio", id="btn-sortino", ...)
+dbc.Button("Calmar Ratio", id="btn-calmar", ...)
+dbc.Button("MDD", id="btn-mdd", ...)
+
+# 硬編碼的指標名稱
+if metric == "Max_drawdown":
+    metric_key = "Max_drawdown"
+```
+
+**問題**：如果未來添加新的績效指標（如 `Omega Ratio`、`Information Ratio` 等），需要手動修改代碼。
+
+#### 3. **參數名稱格式硬編碼** ⚠️
+```python
+# 硬編碼的參數名稱格式
+# Entry_MA8_shortMA_period 或 Exit_MA5_longMA_period
+parts = param_name.split('_', 2)  # 假設格式固定
+indicator_key = parts[1]          # 假設第二部分是指標類型
+actual_param_name = parts[2]      # 假設第三部分是參數名
+```
+
+**問題**：如果未來使用不同的參數命名格式，這個邏輯會失效。
+
+#### 4. **UI佈局硬編碼** ⚠️
+```python
+# 硬編碼的UI元素ID
+id="btn-sharpe"
+id="btn-sortino"
+id="btn-calmar"
+id="btn-mdd"
+```
+
+**問題**：如果未來需要動態添加或移除績效指標按鈕，需要修改多個地方。
+
+### 🔧 建議的改進方案
+
+#### 1. **配置化策略結構**
+```python
+# 建議改為配置驅動
+STRATEGY_CONFIG = {
+    'param_sections': ['Entry_params', 'Exit_params', 'Signal_params', 'Filter_params'],
+    'required_fields': ['indicator_type', 'strat_idx'],
+    'optional_fields': ['custom_field1', 'custom_field2']
+}
+```
+
+#### 2. **動態績效指標**
+```python
+# 建議改為動態生成
+def get_available_metrics(data):
+    """從數據中動態獲取可用的績效指標"""
+    metrics = set()
+    for param in data.get('parameters', []):
+        for key in param.keys():
+            if key not in ['Entry_params', 'Exit_params', 'indicator_type', 'strat_idx']:
+                metrics.add(key)
+    return sorted(list(metrics))
+```
+
+#### 3. **靈活的參數名稱解析**
+```python
+# 建議改為配置驅動的解析
+PARAM_NAME_PATTERNS = [
+    r'Entry_(\w+)_(\w+)',      # Entry_MA8_shortMA_period
+    r'Exit_(\w+)_(\w+)',       # Exit_MA5_longMA_period
+    r'Signal_(\w+)_(\w+)',     # Signal_RSI_period
+    r'(\w+)_(\w+)',            # 通用格式
+]
+```
+
+#### 4. **動態UI生成**
+```python
+# 建議改為動態生成UI
+def create_metric_buttons(available_metrics):
+    """根據可用指標動態生成按鈕"""
+    buttons = []
+    for metric in available_metrics:
+        buttons.append(dbc.Button(
+            metric, 
+            id=f"btn-{metric.lower()}", 
+            color="primary", 
+            outline=True, 
+            className="me-2"
+        ))
+    return buttons
+```
+
+### 擴展性評估
+
+**當前狀態**：
+- 🟡 中等擴展性：支持基本的Entry/Exit策略
+- ⚠️ 需要手動修改代碼來支持新指標
+- ⚠️ 策略結構變化需要重構
+
+**改進後**：
+- 高擴展性：配置驅動，支持任意策略結構
+- 自動適應新的績效指標
+- 支持任意參數命名格式
+
+### 優先級建議
+
+1. **高優先級**：績效指標動態化（影響功能擴展）
+2. **中優先級**：參數名稱解析靈活化（影響策略支持）
+3. **低優先級**：策略結構配置化（影響架構穩定性）
+
+**注意**：目前功能運行正常，這些改進主要為未來擴展做準備，暫時不需要立即實施。 

@@ -129,4 +129,121 @@ h5.mb-3, h5.mb-4, h5.p-3 {
 
 .Select__single-value, .Select-value-label, .Select-option.is-selected {
     color: #ecbc4f !important;
+}
+
+/* 參數高原控制面板滑動條樣式 */
+.slider-enabled {
+    opacity: 1 !important;
+}
+
+.slider-disabled {
+    opacity: 0.3 !important;
+    filter: grayscale(50%) !important;
+}
+
+/* 強制啟用滑動條的樣式 */
+.slider-enabled .dash-slider {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+.slider-enabled .dash-slider .rc-slider {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+.slider-enabled .dash-slider .rc-slider-track {
+    background-color: #1890ff !important;
+    cursor: pointer !important;
+}
+
+.slider-enabled .dash-slider .rc-slider-handle {
+    background-color: #1890ff !important;
+    border-color: #1890ff !important;
+    cursor: grab !important;
+}
+
+.slider-enabled .dash-slider .rc-slider-rail {
+    background-color: #d9d9d9 !important;
+}
+
+/* 禁用狀態下滑動條的顏色調整 - 使用更精確的選擇器 */
+.slider-disabled .dash-slider .rc-slider-track {
+    background-color: #666 !important;
+}
+
+.slider-disabled .dash-slider .rc-slider-handle {
+    background-color: #999 !important;
+    border-color: #666 !important;
+}
+
+/* 針對 Dash Slider 組件的特定樣式 */
+.slider-disabled .dash-slider {
+    opacity: 0.3 !important;
+}
+
+.slider-disabled .dash-slider .rc-slider {
+    opacity: 0.3 !important;
+}
+
+/* 確保禁用狀態下的滑動條軌道變暗 */
+.slider-disabled .dash-slider .rc-slider-rail {
+    background-color: #444 !important;
+}
+
+/* 更精確的選擇器，針對 Dash 的內部結構 */
+.slider-disabled .dash-slider .rc-slider .rc-slider-track {
+    background-color: #666 !important;
+}
+
+.slider-disabled .dash-slider .rc-slider .rc-slider-handle {
+    background-color: #999 !important;
+    border-color: #666 !important;
+    cursor: not-allowed !important;
+}
+
+.slider-disabled .dash-slider .rc-slider .rc-slider-rail {
+    background-color: #444 !important;
+}
+
+/* 針對 Dash 的特定樣式覆蓋 */
+.slider-disabled .dash-slider .rc-slider .rc-slider-track {
+    background-color: #666 !important;
+}
+
+.slider-disabled .dash-slider .rc-slider .rc-slider-handle {
+    background-color: #999 !important;
+    border-color: #666 !important;
+    cursor: not-allowed !important;
+}
+
+.slider-disabled .dash-slider .rc-slider .rc-slider-rail {
+    background-color: #444 !important;
 } 
+
+
+
+/* 標題和軸標籤不使用外框 */
+.js-plotly-plot .gtitle text,
+.plotly .gtitle text,
+.js-plotly-plot .g-gtitle text,
+.plotly .g-gtitle text,
+.js-plotly-plot .axis text,
+.plotly .axis text,
+.js-plotly-plot .g-xtick text,
+.plotly .g-xtick text,
+.js-plotly-plot .g-ytick text,
+.plotly .g-ytick text {
+    stroke: none !important;
+    stroke-width: 0 !important;
+}
+
+/* 顏色條（指示棒）不使用外框 */
+.js-plotly-plot .colorbar text,
+.plotly .colorbar text,
+.js-plotly-plot .g-colorbar text,
+.plotly .g-colorbar text {
+    stroke: none !important;
+    stroke-width: 0 !important;
+}
+

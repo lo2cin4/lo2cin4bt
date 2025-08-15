@@ -207,8 +207,20 @@ class BollingerBandIndicator:
     
     @classmethod
     def get_params(cls, strat_idx=None, params_config=None):
-        ma_range = params_config.get("ma_range", "10:20:10") if params_config else "10:20:10"
-        sd_input = params_config.get("sd_multi", "2,3") if params_config else "2"
+        """
+        參數必須完全由 UserInterface 層傳入，否則丟出 ValueError。
+        不再於此處設定任何預設值。
+        """
+        if params_config is None:
+            raise ValueError("params_config 必須由 UserInterface 提供，且不得為 None")
+        
+        if "ma_range" not in params_config:
+            raise ValueError("ma_range 必須由 UserInterface 提供")
+        if "sd_multi" not in params_config:
+            raise ValueError("sd_multi 必須由 UserInterface 提供")
+        
+        ma_range = params_config["ma_range"]
+        sd_input = params_config["sd_multi"]
         
         # 處理MA範圍參數
         start, end, step = map(int, ma_range.split(":"))
@@ -222,15 +234,14 @@ class BollingerBandIndicator:
                 sd_start, sd_end, sd_step = map(float, sd_input.split(":"))
                 sd_multi_list = [sd_start + i * sd_step for i in range(int((sd_end - sd_start) / sd_step) + 1)]
             except (ValueError, ZeroDivisionError):
-                # 如果範圍格式解析失敗，使用預設值
-                sd_multi_list = [2.0, 3.0]
+                raise ValueError("sd_multi 範圍格式解析失敗，請檢查格式是否正確")
         else:
             # 逗號分隔格式，如 "2,3" 或 "1.5,2.0,2.5"
             sd_multi_list = [float(x.strip()) for x in sd_input.split(",") if x.strip()]
         
         # 確保至少有一個標準差倍數
         if not sd_multi_list:
-            sd_multi_list = [2.0]
+            raise ValueError("sd_multi 參數不能為空")
         
         param_list = []
         if strat_idx in [1, 2, 3, 4]:
@@ -242,14 +253,7 @@ class BollingerBandIndicator:
                     param.add_param("strat_idx", strat_idx)
                     param_list.append(param)
         else:
-            for strat_idx in [1, 2, 3, 4]:
-                for n in ma_lengths:
-                    for sd in sd_multi_list:
-                        param = IndicatorParams("BOLL")
-                        param.add_param("ma_length", n)
-                        param.add_param("std_multiplier", sd)
-                        param.add_param("strat_idx", strat_idx)
-                        param_list.append(param)
+            raise ValueError("strat_idx 必須由 UserInterface 明確指定且有效")
         return param_list
 
     def generate_signals(self, predictor=None):

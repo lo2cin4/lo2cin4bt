@@ -111,6 +111,10 @@ def setup_logging(log_queue=None):
     os.makedirs(log_dir, exist_ok=True)
     log_file = os.path.join(log_dir, "backtest_errors.log")
 
+    # 關閉HTTP請求日誌，讓控制台更簡潔
+    logging.getLogger('werkzeug').setLevel(logging.ERROR)
+    logging.getLogger('dash').setLevel(logging.ERROR)
+
     # 主進程創建 log_queue
     if multiprocessing.current_process().name == "MainProcess":
         if log_queue is None:

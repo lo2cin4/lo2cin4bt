@@ -147,17 +147,29 @@ class DashboardGenerator:
                 
                 # 主要內容區域
                 dbc.Container([
-                    dbc.Row([
-                        # 左側控制面板
-                        dbc.Col([
-                            self._create_control_panel(indicator_param_structure)
-                        ], width=3),
-                        
-                        # 右側主要內容
-                        dbc.Col([
-                            self._create_main_content(data)
-                        ], width=9)
-                    ])
+                    # 資產曲線頁面布局（帶左側控制面板）
+                    html.Div([
+                        dbc.Row([
+                            # 左側控制面板
+                            dbc.Col([
+                                self._create_control_panel(indicator_param_structure)
+                            ], width=3),
+                            
+                            # 右側主要內容
+                            dbc.Col([
+                                self._create_asset_curve_content(data)
+                            ], width=9)
+                        ])
+                    ], id="layout-asset-curve-with-panel", style={"display": "block"}),
+                    
+                    # 參數高原頁面布局（全寬，無左側控制面板）
+                    html.Div([
+                        dbc.Row([
+                            dbc.Col([
+                                self._create_parameter_landscape_content(data)
+                            ], width=12)
+                        ])
+                    ], id="layout-parameter-landscape-full", style={"display": "none"})
                 ], fluid=True)
             ])
             
@@ -174,6 +186,21 @@ class DashboardGenerator:
                 dbc.Container([
                     dbc.NavbarBrand("Lo2cin4BT 可視化平台", className="ms-2"),
                     dbc.Nav([
+                        # 頁面切換按鈕
+                        dbc.NavItem(dbc.Button(
+                            "📊 資產曲線組合圖", 
+                            id="btn-asset-curve", 
+                            color="success", 
+                            className="me-2",
+                            n_clicks=0
+                        )),
+                        dbc.NavItem(dbc.Button(
+                            "🏔️ 參數高原", 
+                            id="btn-parameter-landscape", 
+                            color="info", 
+                            className="me-2",
+                            n_clicks=0
+                        )),
                         dbc.NavItem(dbc.NavLink("lo2cin4官網", href="https://lo2cin4.com", target="_blank", style={"color": "#ecbc4f", "fontWeight": "bold"})),
                         dbc.NavItem(dbc.NavLink("lo2cin4終身會籍詳情", href="https://lo2cin4.com/membership/", target="_blank", style={"color": "#ecbc4f", "fontWeight": "bold"})),
                         dbc.NavItem(dbc.NavLink("其他社群連結", href="https://linktr.ee/lo2cin4", target="_blank", style={"color": "#ecbc4f", "fontWeight": "bold"})),
@@ -302,38 +329,49 @@ class DashboardGenerator:
             self.logger.error(f"創建控制面板失敗: {e}\n{tb}")
             return html.Div("控制面板創建失敗")
     
-    def _create_main_content(self, data: Dict[str, Any]) -> html.Div:
+    def _create_asset_curve_content(self, data: Dict[str, Any]) -> html.Div:
         """
-        創建主要內容區域
+        創建資產曲線頁面內容
         
         Args:
             data: 解析後的數據字典
             
         Returns:
-            html.Div: 主要內容組件
+            html.Div: 資產曲線頁面組件
         """
         try:
-            # 圖表區域
-            chart_area = html.Div([
-                html.H5("權益曲線圖", className="mb-3"),
+            return html.Div([
+                html.H5("📊 資產曲線組合圖", className="mb-3"),
                 dcc.Graph(
                     id='equity_chart',
                     style={'height': '1000px'}
-                )
-            ])
-            # 選中策略詳情（改為績效指標）
-            selected_details = html.Div([
+                ),
                 html.H5("績效指標", className="mb-3"),
                 html.Div(id='selected_details')
             ])
-            main_content = html.Div([
-                chart_area,
-                selected_details
-            ])
-            return main_content
+            
         except Exception as e:
-            self.logger.error(f"創建主要內容失敗: {e}")
-            return html.Div("主要內容創建失敗")
+            self.logger.error(f"創建資產曲線內容失敗: {e}")
+            return html.Div("資產曲線內容創建失敗")
+    
+    def _create_parameter_landscape_content(self, data: Dict[str, Any]) -> html.Div:
+        """
+        創建參數高原頁面內容
+        
+        Args:
+            data: 解析後的數據字典
+            
+        Returns:
+            html.Div: 參數高原頁面組件
+        """
+        try:
+            from .ParameterPlateau_plotter import ParameterPlateauPlotter
+            plateau_plotter = ParameterPlateauPlotter()
+            return plateau_plotter.create_parameter_landscape_layout(data)
+            
+        except Exception as e:
+            self.logger.error(f"創建參數高原內容失敗: {e}")
+            return html.Div("參數高原內容創建失敗")
     
     def create_equity_chart(self, equity_data: Dict[str, Any], bah_data: Dict[str, Any], selected_params: List[str]) -> dict:
         import plotly.graph_objs as go

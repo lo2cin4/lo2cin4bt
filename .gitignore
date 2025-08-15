@@ -43,4 +43,5 @@ build/
 
 # Local env
 .env 
-README_CLI_STYLE.md 
+README_CLI_STYLE.md
+Development_Guideline.md 

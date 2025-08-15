@@ -375,7 +375,7 @@ class BaseBacktester:
         for strategy_idx, pair in enumerate(condition_pairs):
             console.print(Panel(f"策略 {strategy_idx + 1} 條件摘要\n開倉指標：{pair['entry']}\n平倉指標：{pair['exit']}", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
         
-        # 簡化版本：只顯示一個 Panel，不清除其他內容
+        # 增加參數或修改預設值
         for strategy_idx, pair in enumerate(condition_pairs):
             all_questions = []
             indicator_aliases = []
@@ -384,20 +384,20 @@ class BaseBacktester:
                 if alias.startswith('MA'):
                     if alias in ['MA5', 'MA6', 'MA7', 'MA8']:
                         all_questions.append((alias, 'ma_type', f"{alias}的MA型態 (SMA/EMA/WMA，預設 SMA)", "SMA"))
-                        all_questions.append((alias, 'short_range', f"{alias}的短MA長度範圍 (格式: start : end : step，預設 5:10:5)", "5:10:5"))
-                        all_questions.append((alias, 'long_range', f"{alias}的長MA長度範圍 (格式: start : end : step，預設 20:30:10)", "20:30:10"))
+                        all_questions.append((alias, 'short_range', f"{alias}的短MA長度範圍 (格式: start : end : step，預設 10:50:20)", "10:50:20"))
+                        all_questions.append((alias, 'long_range', f"{alias}的長MA長度範圍 (格式: start : end : step，預設 60:90:30)", "60:90:30"))
                     elif alias in ['MA9', 'MA10', 'MA11', 'MA12']:
-                        all_questions.append((alias, 'm_range', f"{alias}的連續日數 m (格式: 單一數字或 start : end : step，預設 2:3:1)", "2:3:1"))
-                        all_questions.append((alias, 'n_range', f"{alias}的MA長度範圍 n (格式: start : end : step，預設 10:20:10)", "10:20:10"))
+                        all_questions.append((alias, 'm_range', f"{alias}的連續日數 m (格式: 單一數字或 start : end : step，預設 1:20:5)", "1:20:5"))
+                        all_questions.append((alias, 'n_range', f"{alias}的MA長度範圍 n (格式: start : end : step，預設 10:200:40)", "10:200:40"))
                         all_questions.append((alias, 'ma_type', f"{alias}的MA型態 (SMA/EMA/WMA，預設 SMA)", "SMA"))
                     else:
-                        all_questions.append((alias, 'ma_range', f"{alias}的MA長度範圍 (格式: start : end : step，例如 10:50:10，預設 10:20:10)", "10:20:10"))
+                        all_questions.append((alias, 'ma_range', f"{alias}的MA長度範圍 (格式: start : end : step，預設 10:200:40)", "10:200:40"))
                         all_questions.append((alias, 'ma_type', f"{alias}的MA型態 (SMA/EMA/WMA，預設 SMA)", "SMA"))
                 elif alias.startswith('BOLL'):
-                    all_questions.append((alias, 'ma_range', f"{alias}的BOLL均線長度範圍 (格式: start : end : step，例如 10:30:10，預設 10:20:10)", "10:20:10"))
-                    all_questions.append((alias, 'sd_multi', f"{alias}的標準差倍數 (可用逗號分隔多個，例如 2,2.5,3，預設2)", "2"))
+                    all_questions.append((alias, 'ma_range', f"{alias}的BOLL均線長度範圍 (格式: start : end : step，預設 10:200:40)", "10:200:40"))
+                    all_questions.append((alias, 'sd_multi', f"{alias}的標準差倍數 (可用逗號分隔多個，預設1,1.5,2)", "1.5,2"))
                 elif alias in ['NDAY1', 'NDAY2']:
-                    all_questions.append((alias, 'n_range', f"{alias}的N值範圍 (格式: start : end : step，例如 3:10:1，預設 2:3:1)", "2:3:1"))
+                    all_questions.append((alias, 'n_range', f"{alias}的N值範圍 (格式: start : end : step，例如 1:10:3)", "1:10:3"))
             
             param_values = {}
             
@@ -421,7 +421,7 @@ class BaseBacktester:
                     console.print(Panel(Group(*lines), title="[bold #dbac30]👨‍💻 交易回測 Backtester[/bold #dbac30]", border_style="#dbac30"))
                     
                     try:
-                        value = console.input(f"[bold #dbac30]{alias} - {question}（預設: {default}）：[/bold #dbac30]").strip()
+                        value = console.input(f"[bold #dbac30]{alias} - {question}：[/bold #dbac30]").strip()
                         if value == '' or value.lower() == 'default':
                             value = default
                         value = value.replace("：", ":")
@@ -571,52 +571,53 @@ class BaseBacktester:
                 input_str = console.input(f"[bold #dbac30]請重新輸入{field_name} (格式: start : end : step，例如 10:50:10)：[/bold #dbac30]")
         def beautify_range_hint(hint: str) -> str:
             return hint.replace(":", "：")
+        
         if alias.startswith('MA'):
             # 雙均線指標
             if alias in ['MA5', 'MA6', 'MA7', 'MA8']:
-                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的MA型態 (SMA/EMA/WMA，預設 SMA)")
+                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的MA型態 (SMA/EMA/WMA)")
                 ma_type = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip().upper() or "SMA"
-                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的短MA長度範圍 (格式: start : end : step，預設 5:10:5)")
+                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的短MA長度範圍 (格式: start : end : step)")
                 short_range = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "5:10:5"
                 short_range = short_range.replace("：", ":")
                 short_range = check_range_format(short_range, f"策略{strategy_num}的{alias}的短MA長度範圍")
-                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的長MA長度範圍 (格式: start : end : step，預設 20:30:10)")
+                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的長MA長度範圍 (格式: start : end : step)")
                 long_range = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "20:30:10"
                 long_range = long_range.replace("：", ":")
                 long_range = check_range_format(long_range, f"策略{strategy_num}的{alias}的長MA長度範圍")
                 params_config = {"ma_type": ma_type, "short_range": short_range, "long_range": long_range}
             # MA9~MA12 需輸入連續日數 m 與 MA長度 n
             elif alias in ['MA9', 'MA10', 'MA11', 'MA12']:
-                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的連續日數 m (格式: 單一數字或 start : end : step，預設 2:3:1)")
+                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的連續日數 m (格式: 單一數字或 start : end : step)")
                 m_range = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "2:3:1"
                 m_range = m_range.replace("：", ":")
                 m_range = check_range_format(m_range, f"策略{strategy_num}的{alias}的連續日數 m")
-                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的MA長度範圍 n (格式: start : end : step，預設 10:20:10)")
+                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的MA長度範圍 n (格式: start : end : step)")
                 n_range = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "10:20:10"
                 n_range = n_range.replace("：", ":")
                 n_range = check_range_format(n_range, f"策略{strategy_num}的{alias}的MA長度範圍 n")
-                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的MA型態 (SMA/EMA/WMA，預設 SMA)")
+                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的MA型態 (SMA/EMA/WMA)")
                 ma_type = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip().upper() or "SMA"
                 params_config = {"m_range": m_range, "n_range": n_range, "ma_type": ma_type}
             else:
                 # 單均線
-                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的MA長度範圍 (格式: start : end : step，例如 10:50:10，預設 10:20:10)")
+                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的MA長度範圍 (格式: start : end : step，例如 10:50:10)")
                 ma_range = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "10:20:10"
                 ma_range = ma_range.replace("：", ":")
                 ma_range = check_range_format(ma_range, f"策略{strategy_num}的{alias}的MA長度範圍")
-                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的MA型態 (SMA/EMA/WMA，預設 SMA)")
+                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的MA型態 (SMA/EMA/WMA)")
                 ma_type = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip().upper() or "SMA"
                 params_config = {"ma_range": ma_range, "ma_type": ma_type}
         elif alias.startswith('BOLL'):
-            panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的BOLL均線長度範圍 (格式: start : end : step，例如 10:30:10，預設 10:20:10)")
+            panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的BOLL均線長度範圍 (格式: start : end : step，例如 10:30:10)")
             ma_range = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "10:20:10"
             ma_range = ma_range.replace("：", ":")
             ma_range = check_range_format(ma_range, f"策略{strategy_num}的{alias}的BOLL均線長度範圍")
-            panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的標準差倍數 (可用逗號分隔多個，例如 2,2.5,3，預設2)")
+            panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的標準差倍數 (可用逗號分隔多個，例如 2,2.5,3)")
             sd_input = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "2"
             params_config = {"ma_range": ma_range, "sd_multi": sd_input}
         elif alias in ['NDAY1', 'NDAY2']:
-            panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的N值範圍 (格式: start : end : step，例如 3:10:1，預設 2:3:1)")
+            panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的N值範圍 (格式: start : end : step，例如 3:10:1)")
             n_range = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "2:3:1"
             n_range = n_range.replace("：", ":")
             n_range = check_range_format(n_range, f"策略{strategy_num}的{alias}的N值範圍")

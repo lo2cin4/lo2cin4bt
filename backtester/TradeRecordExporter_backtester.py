@@ -240,7 +240,7 @@ class TradeRecordExporter_backtester:
                     msg_lines.append(f"跳過失敗的回測 {result['Backtest_id']}: {result['error']}")
                     continue
                 
-                if "records" not in result or not isinstance(result["records"], pd.DataFrame) or result["records"].empty or (result["records"]["Trade_action"] != 0).sum() == 0:
+                if "records" not in result or not isinstance(result["records"], pd.DataFrame) or result["records"].empty or (result["records"]["Trade_action"] == 1).sum() == 0:
                     msg_lines.append(f"跳過無交易記錄的回測 {result['Backtest_id']}")
                     continue
                 
@@ -511,7 +511,7 @@ class TradeRecordExporter_backtester:
                 )
                 continue
 
-            if "records" not in result or not isinstance(result["records"], pd.DataFrame) or result["records"].empty or (result["records"]["Trade_action"] != 0).sum() == 0:
+            if "records" not in result or not isinstance(result["records"], pd.DataFrame) or result["records"].empty or (result["records"]["Trade_action"] == 1).sum() == 0:
                 params = result.get("params")
                 strategy = self._get_strategy_name(params) if params else "N/A"
                 table.add_row(
@@ -569,14 +569,14 @@ class TradeRecordExporter_backtester:
                     "records" in result and
                     isinstance(result["records"], pd.DataFrame) and
                     not result["records"].empty and
-                    (result["records"]["Trade_action"] != 0).sum() > 0
+                    (result["records"]["Trade_action"] == 1).sum() > 0
                 )
                 is_no_trade = (
                     result.get("error") is None and
                     "records" in result and
                     isinstance(result["records"], pd.DataFrame) and
                     not result["records"].empty and
-                    (result["records"]["Trade_action"] != 0).sum() == 0
+                    (result["records"]["Trade_action"] == 1).sum() == 0
                 )
                 is_failed = result.get("error") is not None
                 if is_failed:
@@ -726,13 +726,19 @@ class TradeRecordExporter_backtester:
         # 按策略分組
         strategy_groups = {}
         for result in self.results:
-            if "error" in result:
+            # 使用與VectorBacktestEngine相同的判斷邏輯
+            if result.get("error") is not None:
                 strategy = "失敗"
-            elif "records" not in result or result["records"].empty or (result["records"]["Trade_action"] != 0).sum() == 0:
-                strategy = "無交易"
             else:
-                params = result.get("params", {})
-                strategy = self._get_strategy_name(params)
+                records = result.get("records", pd.DataFrame())
+                # 檢查是否有開倉交易（Trade_action == 1）
+                if len(records) == 0:
+                    strategy = "無交易"
+                elif (records['Trade_action'] == 1).sum() == 0:
+                    strategy = "無交易"
+                else:
+                    params = result.get("params", {})
+                    strategy = self._get_strategy_name(params)
             
             if strategy not in strategy_groups:
                 strategy_groups[strategy] = []
@@ -741,7 +747,10 @@ class TradeRecordExporter_backtester:
         # 顯示策略列表
         console.print("\n=== 按策略分組 ===")
         for i, (strategy, results) in enumerate(strategy_groups.items(), 1):
-            success_count = len([r for r in results if "error" not in r and "records" in r and not r["records"].empty and (r["records"]["Trade_action"] != 0).sum() > 0])
+            # 使用與VectorBacktestEngine相同的判斷邏輯
+            success_count = len([r for r in results if r.get("error") is None and 
+                               "records" in r and isinstance(r.get("records"), pd.DataFrame) and 
+                               not r.get("records").empty and (r.get("records")["Trade_action"] == 1).sum() > 0])
             total_count = len(results)
             console.print(f"{i}. {strategy}: {success_count}/{total_count} 成功")
         
@@ -774,18 +783,26 @@ class TradeRecordExporter_backtester:
 
         
         for i, result in enumerate(results, 1):
-            if "error" in result:
+            # 使用與VectorBacktestEngine相同的判斷邏輯
+            if result.get("error") is not None:
                 status = "❌ 失敗"
                 total_return = "N/A"
                 trade_count = "N/A"
-            elif "records" not in result or result["records"].empty or (result["records"]["Trade_action"] != 0).sum() == 0:
-                status = "⚠️ 無交易"
-                total_return = "N/A"
-                trade_count = "0"
             else:
-                status = "✅ 成功"
-                total_return = f"{result.get('total_return', 0):.2%}" if result.get('total_return') is not None else "N/A"
-                trade_count = str(result.get('total_trades', 0))
+                records = result.get("records", pd.DataFrame())
+                # 檢查是否有開倉交易（Trade_action == 1）
+                if len(records) == 0:
+                    status = "⚠️ 無交易"
+                    total_return = "N/A"
+                    trade_count = "0"
+                elif (records['Trade_action'] == 1).sum() == 0:
+                    status = "⚠️ 無交易"
+                    total_return = "N/A"
+                    trade_count = "0"
+                else:
+                    status = "✅ 成功"
+                    total_return = f"{result.get('total_return', 0):.2%}" if result.get('total_return') is not None else "N/A"
+                    trade_count = str(result.get('total_trades', 0))
             
             params = result.get("params", {})
             predictor = params.get("predictor", "N/A")
@@ -806,7 +823,11 @@ class TradeRecordExporter_backtester:
 
     def display_successful_results(self):
         """顯示成功的回測結果"""
-        successful_results = [r for r in self.results if "error" not in r and "records" in r and isinstance(r["records"], pd.DataFrame) and not r["records"].empty and (r["records"]["Trade_action"] != 0).sum() > 0]
+        # 使用與VectorBacktestEngine相同的判斷邏輯
+        # 成功：無錯誤且有實際開倉交易
+        successful_results = [r for r in self.results if r.get("error") is None and 
+                           "records" in r and isinstance(r.get("records"), pd.DataFrame) and 
+                           not r.get("records").empty and (r.get("records")["Trade_action"] == 1).sum() > 0]
         
         if not successful_results:
             console.print(Panel("成功結果：沒有", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
@@ -833,7 +854,9 @@ class TradeRecordExporter_backtester:
 
     def display_failed_results(self):
         """顯示失敗的回測結果"""
-        failed_results = [r for r in self.results if "error" in r or "records" not in r or not isinstance(r["records"], pd.DataFrame) or r["records"].empty or (r["records"]["Trade_action"] != 0).sum() == 0]
+        # 使用與VectorBacktestEngine相同的判斷邏輯
+        # 失敗：有錯誤
+        failed_results = [r for r in self.results if r.get("error") is not None]
         
         if not failed_results:
             console.print(Panel("失敗結果：沒有", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
@@ -849,15 +872,89 @@ class TradeRecordExporter_backtester:
             params = result.get("params")
             strategy = self._get_strategy_name(params) if params else "N/A"
             
-            if "error" in result:
-                status = "❌ 失敗"
-                error_msg = result.get("error", "未知錯誤")
-            elif "records" not in result or result["records"].empty:
-                status = "⚠️ 無交易"
-                error_msg = "無交易記錄"
-            else:
-                status = "❌ 失敗"
-                error_msg = "未知錯誤"
+            status = "❌ 失敗"
+            error_msg = result.get("error", "未知錯誤")
+            
+            table.add_row(
+                str(i),
+                result["Backtest_id"],
+                strategy,
+                status
+            )
+        
+        console.print(table)
+
+    def debug_trade_actions(self):
+        """調試方法：檢查Trade_action的實際值分布"""
+        console.print(Panel("🔍 調試：Trade_action值分布分析", title="[bold #dbac30]👨‍💻 交易回測 Backtester[/bold #dbac30]", border_style="#dbac30"))
+        
+        # 統計所有Trade_action值的分布
+        all_trade_actions = []
+        for result in self.results:
+            if "error" not in result and "records" in result and isinstance(result["records"], pd.DataFrame) and not result["records"].empty:
+                trade_actions = result["records"]["Trade_action"].values
+                all_trade_actions.extend(trade_actions)
+        
+        if all_trade_actions:
+            unique_values, counts = np.unique(all_trade_actions, return_counts=True)
+            console.print(f"📊 Trade_action值分布：")
+            for value, count in zip(unique_values, counts):
+                percentage = count / len(all_trade_actions) * 100
+                console.print(f"   {value}: {count} 次 ({percentage:.1f}%)")
+            
+            # 檢查是否有NaN值
+            nan_count = sum(1 for x in all_trade_actions if pd.isna(x))
+            if nan_count > 0:
+                console.print(f"⚠️  發現 {nan_count} 個NaN值")
+            
+            # 檢查是否有非預期值
+            expected_values = {0, 1, 4}
+            unexpected_values = set(all_trade_actions) - expected_values
+            if unexpected_values:
+                console.print(f"❌ 發現非預期值：{unexpected_values}")
+        else:
+            console.print("❌ 沒有找到有效的交易記錄")
+        
+        # 檢查每個回測的Trade_action分布
+        console.print(f"\n📊 各回測Trade_action分布：")
+        for i, result in enumerate(self.results[:5]):  # 只顯示前5個
+            if "error" not in result and "records" in result and isinstance(result["records"], pd.DataFrame) and not result["records"].empty:
+                trade_actions = result["records"]["Trade_action"].values
+                unique_values, counts = np.unique(trade_actions, return_counts=True)
+                console.print(f"  回測 {i+1} ({result.get('Backtest_id', 'N/A')}): {dict(zip(unique_values, counts))}")
+        
+        console.print("\n[bold #dbac30]按 Enter 繼續: [/bold #dbac30]", end="")
+        input()
+
+    def display_no_trade_results(self):
+        """顯示無交易的回測結果"""
+        # 使用與VectorBacktestEngine相同的判斷邏輯
+        # 無交易：沒有錯誤但沒有開倉交易的回測
+        no_trade_results = []
+        for r in self.results:
+            if r.get("error") is None:
+                records = r.get("records", pd.DataFrame())
+                # 檢查是否有開倉交易（Trade_action == 1）
+                if len(records) == 0:
+                    no_trade_results.append(r)
+                elif (records['Trade_action'] == 1).sum() == 0:
+                    no_trade_results.append(r)
+        
+        if not no_trade_results:
+            console.print(Panel("無交易結果：沒有", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
+            return
+        
+        table = Table(title="無交易回測結果", style="bold yellow")
+        table.add_column("序號", style="cyan", no_wrap=True)
+        table.add_column("回測ID", style="green", no_wrap=True)
+        table.add_column("策略", style="blue", no_wrap=True)
+        table.add_column("狀態", style="yellow", no_wrap=True)
+        
+        for i, result in enumerate(no_trade_results, 1):
+            params = result.get("params")
+            strategy = self._get_strategy_name(params) if params else "N/A"
+            
+            status = "⚠️ 無交易"
             
             table.add_row(
                 str(i),

@@ -90,6 +90,28 @@ class CallbackHandler:
         self.data = None
         
     def setup_callbacks(self, app, data: Dict[str, Any]):
+        # 頁面切換回調函數
+        @app.callback(
+            [Output("layout-asset-curve-with-panel", "style"),
+             Output("layout-parameter-landscape-full", "style")],
+            [Input("btn-asset-curve", "n_clicks"),
+             Input("btn-parameter-landscape", "n_clicks")],
+            prevent_initial_call=False
+        )
+        def switch_page(asset_curve_clicks, parameter_landscape_clicks):
+            """切換頁面顯示"""
+            if not ctx.triggered_id:
+                # 初始狀態：顯示資產曲線頁面
+                return {"display": "block"}, {"display": "none"}
+            
+            if ctx.triggered_id == "btn-asset-curve":
+                return {"display": "block"}, {"display": "none"}
+            elif ctx.triggered_id == "btn-parameter-landscape":
+                return {"display": "none"}, {"display": "block"}
+            
+            # 預設顯示資產曲線頁面
+            return {"display": "block"}, {"display": "none"}
+        
         # ⚠️ 以下 callback 為動態展開/收合 collapsible，支援多指標自動擴充，勿隨意更動！
         @app.callback(
             [Output({'type': 'entry_param_collapse', 'indicator': ALL}, 'is_open'),
@@ -105,7 +127,8 @@ class CallbackHandler:
             return entry_open, exit_open
         # ⚠️ 切換按鈕 callback 在全選和清空之間切換，只影響對應 indicator checklist，其他保持原狀。
         @app.callback(
-            Output({'type': 'entry_param_checklist', 'indicator': ALL, 'param': ALL}, 'value'),
+            [Output({'type': 'entry_param_checklist', 'indicator': ALL, 'param': ALL}, 'value'),
+             Output({'type': 'entry_param_toggle_all', 'indicator': ALL}, 'children')],
             Input({'type': 'entry_param_toggle_all', 'indicator': ALL}, 'n_clicks'),
             State({'type': 'entry_param_checklist', 'indicator': ALL, 'param': ALL}, 'id'),
             State({'type': 'entry_param_checklist', 'indicator': ALL, 'param': ALL}, 'options'),
@@ -117,8 +140,9 @@ class CallbackHandler:
             if not triggered:
                 raise PreventUpdate
             indicator = triggered['indicator']
-            values = []
             
+            # 動態處理：為每個參數設置值
+            values = []
             for id_, opts, cur in zip(ids, options, current_values):
                 if id_['indicator'] == indicator:
                     all_vals = [o['value'] for o in opts]
@@ -133,9 +157,35 @@ class CallbackHandler:
                 else:
                     values.append(cur)
             
-            return values
+            # 動態處理：為每個indicator按鈕設置文字
+            # 獲取所有唯一的indicator類型
+            unique_indicators = set(id_['indicator'] for id_ in ids)
+            button_texts = []
+            
+            for unique_indicator in unique_indicators:
+                if unique_indicator == indicator:
+                    # 檢查觸發的indicator是否全選
+                    indicator_values = []
+                    for id_, opts, cur in zip(ids, options, current_values):
+                        if id_['indicator'] == unique_indicator:
+                            indicator_values.extend(cur if cur else [])
+                    
+                    # 獲取該indicator的所有選項
+                    all_options = []
+                    for id_, opts, cur in zip(ids, options, current_values):
+                        if id_['indicator'] == unique_indicator:
+                            all_options.extend([o['value'] for o in opts])
+                    
+                    # 檢查是否全選
+                    is_all_selected = len(indicator_values) == len(all_options) and all(v in indicator_values for v in all_options)
+                    button_texts.append("反選" if is_all_selected else "全選")
+                else:
+                    button_texts.append("全選")
+            
+            return values, button_texts
         @app.callback(
-            Output({'type': 'exit_param_checklist', 'indicator': ALL, 'param': ALL}, 'value'),
+            [Output({'type': 'exit_param_checklist', 'indicator': ALL, 'param': ALL}, 'value'),
+             Output({'type': 'exit_param_toggle_all', 'indicator': ALL}, 'children')],
             Input({'type': 'exit_param_toggle_all', 'indicator': ALL}, 'n_clicks'),
             State({'type': 'exit_param_checklist', 'indicator': ALL, 'param': ALL}, 'id'),
             State({'type': 'exit_param_checklist', 'indicator': ALL, 'param': ALL}, 'options'),
@@ -147,8 +197,9 @@ class CallbackHandler:
             if not triggered:
                 raise PreventUpdate
             indicator = triggered['indicator']
-            values = []
             
+            # 動態處理：為每個參數設置值
+            values = []
             for id_, opts, cur in zip(ids, options, current_values):
                 if id_['indicator'] == indicator:
                     all_vals = [o['value'] for o in opts]
@@ -163,7 +214,59 @@ class CallbackHandler:
                 else:
                     values.append(cur)
             
-            return values
+            # 動態處理：為每個indicator按鈕設置文字
+            # 獲取所有唯一的indicator類型
+            unique_indicators = set(id_['indicator'] for id_ in ids)
+            button_texts = []
+            
+            for unique_indicator in unique_indicators:
+                if unique_indicator == indicator:
+                    # 檢查觸發的indicator是否全選
+                    indicator_values = []
+                    for id_, opts, cur in zip(ids, options, current_values):
+                        if id_['indicator'] == unique_indicator:
+                            indicator_values.extend(cur if cur else [])
+                    
+                    # 獲取該indicator的所有選項
+                    all_options = []
+                    for id_, opts, cur in zip(ids, options, current_values):
+                        if id_['indicator'] == unique_indicator:
+                            all_options.extend([o['value'] for o in opts])
+                    
+                    # 檢查是否全選
+                    is_all_selected = len(indicator_values) == len(all_options) and all(v in indicator_values for v in all_options)
+                    button_texts.append("反選" if is_all_selected else "全選")
+                else:
+                    button_texts.append("全選")
+            
+            return values, button_texts
+            
+            # 動態處理：為每個indicator按鈕設置文字
+            # 獲取所有唯一的indicator類型
+            unique_indicators = set(id_['indicator'] for id_ in ids)
+            button_texts = []
+            
+            for unique_indicator in unique_indicators:
+                if unique_indicator == indicator:
+                    # 檢查觸發的indicator是否全選
+                    indicator_values = []
+                    for id_, opts, cur in zip(ids, options, current_values):
+                        if id_['indicator'] == unique_indicator:
+                            indicator_values.extend(cur if cur else [])
+                    
+                    # 獲取該indicator的所有選項
+                    all_options = []
+                    for id_, opts, cur in zip(ids, options, current_values):
+                        if id_['indicator'] == unique_indicator:
+                            all_options.extend([o['value'] for o in opts])
+                    
+                    # 檢查是否全選
+                    is_all_selected = len(indicator_values) == len(all_options) and all(v in indicator_values for v in all_options)
+                    button_texts.append("反選" if is_all_selected else "全選")
+                else:
+                    button_texts.append("全選")
+            
+            return values, button_texts
         
 
         # === 功能性主 callback ===
@@ -437,3 +540,220 @@ class CallbackHandler:
                     html.Button("x", id={"type": "remove_filter_btn", "index": i}, n_clicks=0, style={"background": "#8f1511", "color": "#fff", "border": "none", "borderRadius": "4px", "padding": "0 6px", "cursor": "pointer"})
                 ], style={"background": "#232323", "border": "1.5px solid #8f1511", "borderRadius": "4px", "padding": "2px 8px", "display": "flex", "alignItems": "center"}))
             return filter_list, children 
+
+    def create_2d_parameter_heatmap(self, analysis: Dict[str, Any], metric: str, data: Dict[str, Any]) -> html.Div:
+        """
+        創建2D參數高原熱力圖
+        
+        Args:
+            analysis: 策略參數分析結果
+            metric: 績效指標名稱
+            data: 完整數據字典
+            
+        Returns:
+            html.Div: 包含圖表的組件
+        """
+        try:
+            import plotly.graph_objs as go
+            import plotly.express as px
+            import numpy as np
+            import pandas as pd
+            
+            # 檢查是否有足夠的可變參數
+            variable_params = analysis.get('variable_params', {})
+            if len(variable_params) < 2:
+                return html.P("需要至少2個可變參數才能生成圖表", className="text-warning")
+            
+            # 自動選擇前兩個可變參數作為X和Y軸
+            param_names = list(variable_params.keys())
+            x_axis = param_names[0]
+            y_axis = param_names[1]
+            
+            # 獲取參數值列表
+            x_values = variable_params[x_axis]
+            y_values = variable_params[y_axis]
+            
+            # 創建績效指標矩陣
+            performance_matrix = []
+            valid_data_points = 0
+            total_data_points = 0
+            
+            for y_val in y_values:
+                row = []
+                for x_val in x_values:
+                    # 查找對應的績效指標值
+                    performance_value = self._find_performance_value(analysis, x_axis, x_val, y_axis, y_val, metric, data)
+                    row.append(performance_value)
+                    
+                    total_data_points += 1
+                    if performance_value is not None and not np.isnan(performance_value):
+                        valid_data_points += 1
+                
+                performance_matrix.append(row)
+            
+            # 轉換為numpy數組
+            performance_array = np.array(performance_matrix)
+            
+            # 檢查是否有有效數據
+            if valid_data_points == 0:
+                return html.P(f"沒有找到有效的 {metric} 數據", className="text-warning")
+            
+            # 過濾掉完全為 nan 的行和列
+            valid_rows = []
+            valid_cols = []
+            
+            # 檢查每行是否有有效數據
+            for i, row in enumerate(performance_matrix):
+                if any(val is not None and not np.isnan(val) for val in row):
+                    valid_rows.append(i)
+            
+            # 檢查每列是否有有效數據
+            for j in range(len(performance_matrix[0])):
+                if any(performance_matrix[i][j] is not None and not np.isnan(performance_matrix[i][j]) for i in range(len(performance_matrix))):
+                    valid_cols.append(j)
+            
+            if not valid_rows or not valid_cols:
+                return html.P(f"沒有找到有效的 {metric} 數據組合", className="text-warning")
+            
+            # 創建過濾後的數據
+            filtered_x_values = [x_values[j] for j in valid_cols]
+            filtered_y_values = [y_values[i] for i in valid_rows]
+            filtered_matrix = [[performance_matrix[i][j] for j in valid_cols] for i in valid_rows]
+            
+            # 轉換為numpy數組
+            filtered_array = np.array(filtered_matrix)
+            
+            # 創建熱力圖
+            fig = go.Figure(data=go.Heatmap(
+                z=filtered_array,
+                x=filtered_x_values,
+                y=filtered_y_values,
+                colorscale=[
+                    [0, 'rgba(0,0,0,0)'],      # 無色（透明）
+                    [0.3, '#8f1511'],            # 副主題紅色
+                    [1, '#dbac30']               # 主題金色
+                ],
+                text=[[f"{val:.2f}" if val is not None and not np.isnan(val) else "N/A" for val in row] for row in filtered_matrix],
+                texttemplate="%{text}",
+                textfont={"size": 12, "color": "white"},
+                hoverongaps=False,
+                hovertemplate=f"<b>{x_axis}</b>: %{{x}}<br>" +
+                             f"<b>{y_axis}</b>: %{{y}}<br>" +
+                             f"<b>{metric}</b>: %{{z:.2f}}<extra></extra>"
+            ))
+            
+            # 更新布局
+            fig.update_layout(
+                title=f"{metric} 參數高原圖表 (X: {x_axis}, Y: {y_axis}) - {valid_data_points}/{total_data_points} 有效數據點",
+                xaxis_title=x_axis,
+                yaxis_title=y_axis,
+                template=None,
+                height=600,
+                plot_bgcolor="#181818",
+                paper_bgcolor="#181818",
+                font=dict(color="#f5f5f5", size=14),
+                xaxis=dict(
+                    color="#ecbc4f",
+                    gridcolor="#444",
+                    tickfont=dict(color="#ecbc4f")
+                ),
+                yaxis=dict(
+                    color="#ecbc4f",
+                    gridcolor="#444",
+                    tickfont=dict(color="#ecbc4f")
+                ),
+                title_font=dict(color="#ecbc4f", size=18)
+            )
+            
+            # 創建圖表組件
+            chart_component = dcc.Graph(
+                id='parameter-heatmap',
+                figure=fig,
+                config={'displayModeBar': True, 'displaylogo': False}
+            )
+            
+            return chart_component
+            
+        except Exception as e:
+            return html.P(f"創建圖表失敗: {str(e)}", className="text-danger")
+    
+    def _find_performance_value(self, analysis: Dict[str, Any], x_axis: str, x_val: str, y_axis: str, y_val: str, metric: str, data: Dict[str, Any]) -> float:
+        """
+        查找特定參數組合的績效指標值
+        
+        Args:
+            analysis: 策略參數分析結果
+            x_axis: X軸參數名
+            x_val: X軸參數值
+            y_axis: Y軸參數值
+            y_val: Y軸參數值
+            metric: 績效指標名稱
+            data: 完整數據字典
+            
+        Returns:
+            float: 績效指標值，如果找不到則返回None
+        """
+        try:
+            parameters = data.get('parameters', [])
+            parameter_indices = analysis['parameter_indices']
+            
+            for idx in parameter_indices:
+                param = parameters[idx]
+                match = True
+                
+                # 檢查X軸參數
+                if not self._check_param_match(param, x_axis, x_val):
+                    match = False
+                
+                # 檢查Y軸參數
+                if not self._check_param_match(param, y_axis, y_val):
+                    match = False
+                
+                if match:
+                    # 找到匹配的參數組合，返回績效指標值
+                    return self._extract_metric_value(param, metric)
+            
+            return None
+            
+        except Exception as e:
+            return None
+    
+    def _check_param_match(self, param: Dict[str, Any], param_name: str, param_value: str) -> bool:
+        """檢查參數是否匹配"""
+        try:
+            # 檢查 Entry_params
+            if 'Entry_params' in param:
+                for entry_param in param['Entry_params']:
+                    if entry_param.get(param_name) == param_value:
+                        return True
+            
+            # 檢查 Exit_params
+            if 'Exit_params' in param:
+                for exit_param in param['Exit_params']:
+                    if exit_param.get(param_name) == param_value:
+                        return True
+            
+            return False
+            
+        except Exception:
+            return False
+    
+    def _extract_metric_value(self, param: Dict[str, Any], metric: str) -> float:
+        """提取績效指標值"""
+        try:
+            if metric == "Max_drawdown":
+                metric_key = "Max_drawdown"
+            else:
+                metric_key = metric
+            
+            if metric_key in param:
+                value = param[metric_key]
+                try:
+                    return float(value)
+                except (ValueError, TypeError):
+                    return None
+            
+            return None
+            
+        except Exception:
+            return None 

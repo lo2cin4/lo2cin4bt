@@ -162,7 +162,15 @@ class BasePlotter(ABC):
                 self.generate_dashboard()
             
             self.logger.info("開始設置回調函數")
+            
+            # 設置主要的回調函數（資金曲線組合圖相關）
             self.callback_handler.setup_callbacks(self.app, self.data)
+            
+            # 設置參數高原的回調函數
+            from .ParameterPlateau_plotter import ParameterPlateauPlotter
+            plateau_plotter = ParameterPlateauPlotter()
+            plateau_plotter.register_callbacks(self.app, self.data)
+            
             self.logger.info("回調函數設置完成")
         except Exception as e:
             self.logger.error(f"回調函數設置失敗: {e}")

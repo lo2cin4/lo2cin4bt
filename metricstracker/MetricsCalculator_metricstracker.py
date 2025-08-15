@@ -257,7 +257,7 @@ class MetricsCalculatorMetricTracker:
         mdd = abs(self.bah_max_drawdown())
         if mdd == 0:
             return np.nan
-        return ann-rf_year / mdd
+        return (ann - rf_year) / mdd
 
     def sharpe(self):
         mean = self.df['Return'].mean()
@@ -281,7 +281,7 @@ class MetricsCalculatorMetricTracker:
         mdd = abs(self.max_drawdown())
         if mdd == 0:
             return np.nan
-        return ann-rf_year / mdd
+        return (ann - rf_year) / mdd
 
     def information_ratio(self):
         """信息比率 (Information Ratio)：衡量策略相對 Buy & Hold 的超額報酬穩定性"""

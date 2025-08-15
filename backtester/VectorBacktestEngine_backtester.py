@@ -352,7 +352,11 @@ class VectorBacktestEngine:
         memory_used = final_memory - initial_memory
         
         # 修復統計邏輯，確保與狀態顯示一致
-        success_count = len([r for r in all_results if r.get("error") is None])
+        # 成功：無錯誤且有實際開倉交易
+        success_count = len([r for r in all_results if r.get("error") is None and 
+                           "records" in r and isinstance(r.get("records"), pd.DataFrame) and 
+                           not r.get("records").empty and (r.get("records")["Trade_action"] == 1).sum() > 0])
+        # 失敗：有錯誤
         error_count = len([r for r in all_results if r.get("error") is not None])
         
         # 更準確的無交易統計：檢查是否有實際交易記錄
