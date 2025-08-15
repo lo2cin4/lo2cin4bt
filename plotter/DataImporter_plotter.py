@@ -88,6 +88,14 @@ from dash.dependencies import Input, Output, State
 import warnings
 warnings.filterwarnings('ignore')
 
+# 檢查 psutil 是否可用
+PSUTIL_AVAILABLE = False
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    pass
+
 class DataImporterPlotter:
     """
     數據導入器
@@ -122,6 +130,28 @@ class DataImporterPlotter:
         self.strategy_analysis_cache = {}
         self.parameter_index_cache = {}
         self.cache_stats = {'hits': 0, 'misses': 0, 'size': 0}
+    
+    def _get_memory_usage(self) -> Dict[str, float]:
+        """獲取當前內存使用情況"""
+        if not PSUTIL_AVAILABLE:
+            return {'available': 0, 'used': 0, 'percent': 0}
+        
+        try:
+            memory = psutil.virtual_memory()
+            return {
+                'available': memory.available / 1024 / 1024 / 1024,  # GB
+                'used': memory.used / 1024 / 1024 / 1024,  # GB
+                'percent': memory.percent
+            }
+        except Exception as e:
+            self.logger.warning(f"獲取內存使用失敗: {e}")
+            return {'available': 0, 'used': 0, 'percent': 0}
+    
+    def _log_memory_usage(self, stage: str):
+        """記錄內存使用情況"""
+        if PSUTIL_AVAILABLE:
+            memory = self._get_memory_usage()
+            self.logger.info(f"{stage} - 內存使用: {memory['used']:.2f}GB / {memory['percent']:.1f}%")
     
     def scan_parquet_files(self) -> List[str]:
         """
@@ -383,6 +413,82 @@ class DataImporterPlotter:
         except Exception as e:
             self.logger.error(f"載入檔案失敗 {file_path}: {e}")
             raise
+    
+    def load_parquet_files_parallel(self, file_paths: List[str]) -> List[Dict[str, Any]]:
+        """
+        並行載入多個 parquet 檔案
+        
+        Args:
+            file_paths: parquet 檔案路徑列表
+            
+        Returns:
+            List[Dict[str, Any]]: 包含數據和元信息的字典列表
+        """
+        try:
+            self.logger.info(f"開始並行載入 {len(file_paths)} 個檔案")
+            
+            # 使用進程池並行讀取
+            max_workers = min(multiprocessing.cpu_count(), len(file_paths))
+            self.logger.info(f"使用 {max_workers} 個進程並行載入")
+            
+            with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+                # 並行提交所有檔案載入任務
+                future_to_file = {
+                    executor.submit(self._load_single_parquet_file_optimized, file_path): file_path 
+                    for file_path in file_paths
+                }
+                
+                results = []
+                completed_count = 0
+                failed_count = 0
+                
+                # 處理完成的任務
+                for future in concurrent.futures.as_completed(future_to_file):
+                    file_path = future_to_file[future]
+                    completed_count += 1
+                    
+                    try:
+                        file_data = future.result()
+                        results.extend(file_data)
+                        
+                        # 顯示進度
+                        if completed_count % 5 == 0 or completed_count == len(file_paths):
+                            self.logger.info(f"已載入 {completed_count}/{len(file_paths)} 個檔案")
+                            
+                    except Exception as e:
+                        failed_count += 1
+                        self.logger.error(f"並行處理檔案失敗 {file_path}: {e}")
+                        continue
+            
+            self.logger.info(f"並行載入完成，共處理 {len(results)} 個數據項")
+            return results
+            
+        except Exception as e:
+            self.logger.error(f"並行載入失敗: {e}")
+            # 如果並行載入失敗，回退到串行載入
+            self.logger.warning("回退到串行載入模式")
+            return self._fallback_serial_load(file_paths)
+    
+    def _fallback_serial_load(self, file_paths: List[str]) -> List[Dict[str, Any]]:
+        """
+        串行載入回退方法
+        
+        Args:
+            file_paths: parquet檔案路徑列表
+            
+        Returns:
+            List[Dict[str, Any]]: 包含數據和元信息的字典列表
+        """
+        self.logger.info("使用串行載入回退方法")
+        results = []
+        for file_path in file_paths:
+            try:
+                file_data = self._load_single_parquet_file_optimized(file_path)
+                results.extend(file_data)
+            except Exception as e:
+                self.logger.error(f"串行載入檔案失敗 {file_path}: {e}")
+                continue
+        return results
     
     def load_and_parse_data(self) -> Dict[str, Any]:
         """
