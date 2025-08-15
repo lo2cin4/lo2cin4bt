@@ -173,11 +173,6 @@ class BasePlotter(ABC):
             # 傳遞DataImporterPlotter實例以使用緩存
             plateau_plotter.data_importer = self.data_importer
             
-            # 添加調試信息
-            print(f"🔍 [DEBUG] Base_plotter: 傳遞data_importer實例")
-            print(f"🔍 [DEBUG] Base_plotter: data_importer類型: {type(self.data_importer)}")
-            print(f"🔍 [DEBUG] Base_plotter: data_importer是否有緩存: {hasattr(self.data_importer, 'strategy_analysis_cache')}")
-            
             plateau_plotter.register_callbacks(self.app, self.data)
             
             self.logger.info("回調函數設置完成")

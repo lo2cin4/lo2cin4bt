@@ -266,13 +266,10 @@ class DataImporterPlotter:
         filename = os.path.basename(file_path)
         
         try:
-            print(f"📁 [DEBUG] 開始載入檔案: {filename}")
-            
             # 步驟1: 讀取parquet檔案
             step1_start = datetime.now()
             table = pq.read_table(file_path)
             step1_time = (datetime.now() - step1_start).total_seconds()
-            print(f"📊 [DEBUG] {filename} - 步驟1(讀取檔案)完成: {step1_time:.3f}秒")
             
             # 步驟2: 選擇必要列
             step2_start = datetime.now()
@@ -280,13 +277,11 @@ class DataImporterPlotter:
             available_columns = [col for col in required_columns if col in table.column_names]
             table = table.select(available_columns)
             step2_time = (datetime.now() - step2_start).total_seconds()
-            print(f"🔧 [DEBUG] {filename} - 步驟2(選擇列)完成: {step2_time:.3f}秒, 選擇列: {available_columns}")
             
             # 步驟3: 轉換為pandas
             step3_start = datetime.now()
             df = table.to_pandas()
             step3_time = (datetime.now() - step3_start).total_seconds()
-            print(f"🔄 [DEBUG] {filename} - 步驟3(轉換pandas)完成: {step3_time:.3f}秒, 數據形狀: {df.shape}")
             
             # 步驟4: 提取metadata
             step4_start = datetime.now()
@@ -294,33 +289,22 @@ class DataImporterPlotter:
             batch_metadata = []
             if b'batch_metadata' in meta:
                 batch_metadata = json.loads(meta[b'batch_metadata'].decode())
-                print(f"📋 [DEBUG] {filename} - 找到 {len(batch_metadata)} 個batch_metadata")
-            else:
-                print(f"⚠️ [DEBUG] {filename} - 找不到 batch_metadata")
             step4_time = (datetime.now() - step4_start).total_seconds()
-            print(f"📋 [DEBUG] {filename} - 步驟4(提取metadata)完成: {step4_time:.3f}秒")
             
             # 步驟5: 批量處理數據（優化版本）
             step5_start = datetime.now()
-            print(f"⚙️ [DEBUG] {filename} - 開始批量處理 {len(batch_metadata)} 個策略...")
             
             # 批量處理：一次性分組所有數據
-            print(f"🔄 [DEBUG] {filename} - 開始groupby分組...")
             grouped_data = {}
             for backtest_id, group in df.groupby('Backtest_id'):
                 grouped_data[backtest_id] = {
                     'equity_curve': group[['Time', 'Equity_value']] if 'Equity_value' in group.columns else None,
                     'bah_curve': group[['Time', 'BAH_Equity']] if 'BAH_Equity' in group.columns else None
                 }
-            print(f"✅ [DEBUG] {filename} - groupby分組完成，共 {len(grouped_data)} 個分組")
             
             # 批量創建結果
-            print(f"🔄 [DEBUG] {filename} - 開始創建結果...")
             results = []
             for i, meta_item in enumerate(batch_metadata):
-                if i % 100 == 0:  # 每100個顯示一次進度
-                    print(f"📊 [DEBUG] {filename} - 處理進度: {i}/{len(batch_metadata)}")
-                
                 backtest_id = meta_item.get('Backtest_id')
                 if backtest_id is not None and backtest_id in grouped_data:
                     group_data = grouped_data[backtest_id]
@@ -341,18 +325,14 @@ class DataImporterPlotter:
                         'file_path': file_path
                     })
             
-            print(f"✅ [DEBUG] {filename} - 結果創建完成，共 {len(results)} 個結果")
-            
             # 總計時間
             total_file_time = (datetime.now() - file_start_time).total_seconds()
-            print(f"✅ [DEBUG] {filename} - 載入完成: 總耗時 {total_file_time:.3f}秒")
             
             return results
             
         except Exception as e:
             total_file_time = (datetime.now() - file_start_time).total_seconds()
-            self.logger.error(f"❌ 優化載入檔案失敗 {filename}: {e}")
-            print(f"❌ [DEBUG] {filename} - 載入失敗: 耗時 {total_file_time:.3f}秒, 錯誤: {e}")
+            self.logger.error(f"優化載入檔案失敗 {filename}: {e}")
             return []
     
     def load_parquet_file(self, file_path: str) -> List[Dict[str, Any]]:
@@ -408,9 +388,17 @@ class DataImporterPlotter:
         """
         載入並解析所有選定的 parquet 檔案，並合併所有 Backtest_id 資料
         """
+        start_time = datetime.now()
+        self.logger.info("開始載入和解析數據")
+        
         try:
             # 掃描檔案
+            scan_start = datetime.now()
+            self._log_memory_usage("掃描檔案開始")
             parquet_files = self.scan_parquet_files()
+            scan_time = (datetime.now() - scan_start).total_seconds()
+            self._log_memory_usage("掃描檔案完成")
+            
             if not parquet_files:
                 raise FileNotFoundError("未找到任何 parquet 檔案")
 
@@ -458,32 +446,77 @@ class DataImporterPlotter:
                     selected_files = parquet_files
 
             # 載入所有選定檔案
+            load_start = datetime.now()
+            self._log_memory_usage("檔案載入開始")
+            
             all_backtest_ids = []
             all_metrics = {}
             all_equity_curves = {}
             all_bah_curves = {}
             all_file_paths = {}
             all_parameters = []
-            for file_path in selected_files:
-                try:
-                    file_data = self._load_single_parquet_file_optimized(file_path)
-                    for item in file_data:
-                        backtest_id = item['Backtest_id']
-                        if backtest_id is not None:
-                            all_backtest_ids.append(backtest_id)
-                            all_parameters.append(item['metrics'])
-                            all_metrics[backtest_id] = item['metrics']
-                            all_equity_curves[backtest_id] = item['equity_curve']
-                            all_bah_curves[backtest_id] = item['bah_curve']
-                            all_file_paths[backtest_id] = item['file_path']
-                except Exception as e:
-                    self.logger.error(f"處理檔案失敗 {file_path}: {e}")
-                    continue
+            
+            # 使用並行載入替代串行載入
+            try:
+                self.logger.info("使用並行載入模式")
+                all_file_data = self.load_parquet_files_parallel(selected_files)
+                
+                for item in all_file_data:
+                    backtest_id = item['Backtest_id']
+                    if backtest_id is not None:
+                        all_backtest_ids.append(backtest_id)
+                        all_parameters.append(item['metrics'])
+                        all_metrics[backtest_id] = item['metrics']
+                        all_equity_curves[backtest_id] = item['equity_curve']
+                        all_bah_curves[backtest_id] = item['bah_curve']
+                        all_file_paths[backtest_id] = item['file_path']
+                        
+            except Exception as e:
+                self.logger.warning(f"並行載入失敗，回退到串行載入: {e}")
+                # 回退到原有的串行載入方式
+                for file_path in selected_files:
+                    try:
+                        file_data = self._load_single_parquet_file_optimized(file_path)
+                        for item in file_data:
+                            backtest_id = item['Backtest_id']
+                            if backtest_id is not None:
+                                all_backtest_ids.append(backtest_id)
+                                all_parameters.append(item['metrics'])
+                                all_metrics[backtest_id] = item['metrics']
+                                all_equity_curves[backtest_id] = item['equity_curve']
+                                all_bah_curves[backtest_id] = item['bah_curve']
+                                all_file_paths[backtest_id] = item['file_path']
+                    except Exception as e:
+                        self.logger.error(f"處理檔案失敗 {file_path}: {e}")
+                        continue
+            
+            load_time = (datetime.now() - load_start).total_seconds()
+            self._log_memory_usage("檔案載入完成")
+            
             if not all_parameters:
                 raise ValueError("沒有成功載入任何檔案或找到 Backtest_id")
             
             # 識別策略分組
+            strategy_start = datetime.now()
+            self._log_memory_usage("策略分組開始")
             strategy_groups = DataImporterPlotter.identify_strategy_groups(all_parameters)
+            strategy_time = (datetime.now() - strategy_start).total_seconds()
+            self._log_memory_usage("策略分組完成")
+            
+            # 記錄性能統計
+            end_time = datetime.now()
+            total_time = (end_time - start_time).total_seconds()
+            
+            self.logger.info(f"數據載入完成統計:")
+            self.logger.info(f"  - 總檔案數: {len(selected_files)}")
+            self.logger.info(f"  - 總策略數: {len(all_parameters)}")
+            self.logger.info(f"  - 總耗時: {total_time:.2f}秒")
+            self.logger.info(f"  - 平均每檔案: {total_time/len(selected_files):.3f}秒")
+            
+            # 顯示緩存統計（如果啟用了緩存）
+            if hasattr(self, 'cache_stats'):
+                cache_stats = self.get_cache_stats()
+                self.logger.info(f"緩存統計: 命中率 {cache_stats['hit_rate']:.2%}")
             
             result = {
                 'dataframes': all_metrics,
@@ -495,7 +528,9 @@ class DataImporterPlotter:
                 'backtest_ids': all_backtest_ids,  # 新增Backtest_id列表
                 'strategy_groups': strategy_groups,  # 新增策略分組信息
                 'total_files': len(selected_files),
-                'loaded_at': datetime.now().isoformat()
+                'loaded_at': datetime.now().isoformat(),
+                'load_time_seconds': total_time,  # 新增載入時間統計
+                'cache_stats': self.get_cache_stats() if hasattr(self, 'cache_stats') else None  # 新增緩存統計
             }
             return result
         except Exception as e:
