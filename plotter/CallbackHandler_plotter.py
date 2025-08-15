@@ -65,11 +65,10 @@ flowchart TD
 
 import logging
 from typing import Dict, Any, List, Optional
-from dash import Input, Output, State, callback_context, ALL
+from dash import Input, Output, State, callback_context, ALL, html, dcc, ctx
 from dash.exceptions import PreventUpdate
 import pandas as pd
 import json
-from dash import html, dcc, ctx
 
 class CallbackHandler:
     """
