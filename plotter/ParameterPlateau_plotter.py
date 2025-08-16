@@ -342,6 +342,19 @@ class ParameterPlateauPlotter:
             )
             
             return html.Div([
+                # 使用說明
+                html.Div([
+                    html.Div([
+                        html.Span("使用說明:", className="fw-bold", style={"color": "#20c997"})
+                    ], className="mb-2"),
+                    html.Ol([
+                        html.Li("勾選參數來固定其值", className="mb-1", style={"color": "#20c997"}),
+                        html.Li("使用滑動條選擇固定的參數值", className="mb-1", style={"color": "#20c997"}),
+                        html.Li("未勾選的參數將作為圖表的XY軸", className="mb-1", style={"color": "#20c997"}),
+                        html.Li("需要2個未被勾選的參數才能生成圖表", className="mb-1", style={"color": "#20c997"})
+                    ], className="mb-3", style={"paddingLeft": "20px"})
+                ], className="mb-3"),
+                
                 html.H6(f"當前有 {param_count} 個參數，最多可固定 {max(0, param_count-2)} 個參數，必須留空至少 2 個參數", className="text-info mb-3"),
                 html.Div([
                     html.Div([

@@ -24,6 +24,9 @@
 - 已完成多層 checklist AND 篩選邏輯，能正確顯示所有滿足條件的資金曲線
 - 已完成排序方法 dropdown、Num of Combination 顯示、Filter UI
 - 已完成 callback debug print，方便追蹤互動與篩選過程
+- 已完成參數高原分析功能，支援2D熱力圖可視化
+- 已完成參數解析邏輯重構，統一參數處理流程
+- 已完成使用說明UI，提升用戶體驗
 
 ### 已解決的難題
 - 多層 checklist 與 Backtest_id 參數 mapping 的 AND 篩選正確性
@@ -33,6 +36,9 @@
 - DataImporter 靜態方法調用時不需初始化物件，避免 FileNotFoundError
 - parquet metadata 合併時只增量更新 Backtest_id，避免覆蓋舊資料
 - callback 內 debug print 幫助定位互動問題
+- 參數解析邏輯重複實現問題，已統一至 ParameterParser 工具類
+- 參數高原滑動條數值顯示異常問題，已修復參數值類型轉換
+- 參數高原動態軸選擇功能，支援用戶自由選擇固定參數
 
 ---
 
@@ -40,14 +46,20 @@
 
 ```plaintext
 plotter/
-├── __init__.py                    # 模組初始化
-├── Base_plotter.py                # 可視化平台基底類
-├── DataImporter_plotter.py        # Parquet 檔案讀取與解析
-├── DashboardGenerator_plotter.py  # Dash 界面生成器
-├── CallbackHandler_plotter.py     # Dash 回調處理器
-├── ChartComponents_plotter.py     # 圖表組件生成器
-├── MetricsDisplay_plotter.py      # 績效指標顯示組件
-├── README.md                      # 本文件
+├── __init__.py                                    # 模組初始化
+├── Base_plotter.py                                # 可視化平台基底類
+├── DataImporter_plotter.py                        # Parquet 檔案讀取與解析
+├── DashboardGenerator_plotter.py                  # Dash 界面生成器
+├── CallbackHandler_plotter.py                     # Dash 回調處理器
+├── ChartComponents_plotter.py                     # 圖表組件生成器
+├── MetricsDisplay_plotter.py                      # 績效指標顯示組件
+├── ParameterPlateau_plotter.py                    # 參數高原分析與可視化
+├── CallbackHandler_plotter.py                     # Dash 回調處理器
+├── utils/                                         # 工具模組目錄
+│   ├── __init__.py                               # 工具模組初始化
+│   └── ParameterParser_utils_plotter.py          # 參數解析工具類
+├── USAGE.md                                       # 使用說明文檔
+└── README.md                                      # 本文件
 ```
 
 - **Base_plotter.py**：定義可視化平台的標準介面與基底類
@@ -56,6 +68,8 @@ plotter/
 - **CallbackHandler_plotter.py**：處理 Dash 回調函數
 - **ChartComponents_plotter.py**：生成各種圖表組件
 - **MetricsDisplay_plotter.py**：生成績效指標顯示組件
+- **ParameterPlateau_plotter.py**：參數高原分析與2D熱力圖可視化
+- **utils/ParameterParser_utils_plotter.py**：統一的參數解析工具類，處理各種參數格式和策略結構
 
 ---
 
@@ -97,6 +111,18 @@ plotter/
 - **輸入**：績效指標數據
 - **輸出**：HTML 表格組件
 
+### 7. ParameterPlateau_plotter.py
+- **功能**：參數高原分析與2D熱力圖可視化
+- **主要處理**：參數組合分析、性能熱力圖生成、動態軸選擇
+- **輸入**：策略參數數據、性能指標
+- **輸出**：互動式參數高原圖表
+
+### 8. utils/ParameterParser_utils_plotter.py
+- **功能**：統一的參數解析工具類
+- **主要處理**：參數格式解析、策略結構識別、參數值轉換
+- **輸入**：各種格式的參數字符串
+- **輸出**：標準化的參數結構
+
 ---
 
 ## 輸入輸出規格（Input and Output Specifications）
@@ -132,11 +158,14 @@ plotter/
 - 支援多參數組合篩選
 - 即時更新顯示結果
 - 支援全選/取消全選功能
+- 支援參數高原動態軸選擇
+- 支援參數固定與可變狀態管理
 
 ### 2. 圖表顯示
 - 權益曲線圖（支援多線比較）
 - 績效指標分布圖
 - 參數敏感性分析圖
+- 參數高原2D熱力圖（支援動態軸選擇）
 
 ### 3. 績效指標
 - 詳細績效指標表格
@@ -147,6 +176,8 @@ plotter/
 - 圖表縮放和平移
 - 數據點懸停顯示
 - 圖表下載功能
+- 參數高原互動式控制面板
+- 使用說明與操作指引
 
 ---
 
@@ -195,6 +226,7 @@ plotter.run(port=8050, debug=True)
 
 ### 1. 命名規範
 - 檔案名稱：`ModuleName_plotter.py`
+- 工具模組：`ModuleName_utils_plotter.py`
 - 類名稱：`PascalCase`
 - 函數名稱：`snake_case`
 - 變數名稱：`snake_case`
@@ -214,20 +246,25 @@ plotter.run(port=8050, debug=True)
 - 編寫單元測試
 - 測試邊界條件
 - 確保代碼覆蓋率
+- 測試參數解析的各種格式
+- 測試參數高原的互動功能
 
 ---
 
 ## 未來擴充（Future Enhancements）
 
-### 1. 參數平原驗證
-- 參數敏感性分析
-- 穩健性檢驗
-- 參數優化建議
+### 1. 參數高原功能增強
+- 3D參數高原可視化
+- 多維參數組合分析
+- 參數優化建議算法
+- 參數穩健性檢驗
 
 ### 2. 進階圖表
 - 3D 圖表顯示
 - 動態圖表更新
 - 自訂圖表樣式
+- 多維參數高原圖表
+- 互動式參數敏感性分析
 
 ### 3. 數據導出
 - 圖表圖片導出
@@ -353,11 +390,17 @@ else:
    - 確認輸入輸出組件 ID
    - 檢查數據類型匹配
 
+4. **參數高原功能異常**
+   - 檢查參數值類型轉換
+   - 確認滑動條數值範圍設置
+   - 檢查參數固定狀態管理
+
 ### 調試技巧
 - 使用 `debug=True` 模式
 - 檢查瀏覽器開發者工具
 - 查看 Dash 應用日誌
-- 使用 print 語句調試
+- 使用 logger 進行結構化日誌記錄
+- 檢查參數解析工具類的輸出
 
 ---
 
@@ -366,7 +409,26 @@ else:
 - [Dash 官方文檔](https://dash.plotly.com/)
 - [Plotly 圖表庫](https://plotly.com/python/)
 - [Dash Bootstrap Components](https://dash-bootstrap-components.opensource.faculty.ai/)
-- [Lo2cin4BT 框架文檔](../README.md) 
+- [Lo2cin4BT 框架文檔](../README.md)
+
+---
+
+## 架構更新日誌（Architecture Update Log）
+
+### 2025-08-16 重構更新
+- ✅ 創建 `utils` 目錄結構，提升模組組織性
+- ✅ 創建 `ParameterParser_utils_plotter.py` 統一參數解析邏輯
+- ✅ 重構 `DataImporter_plotter.py`，移除重複的參數解析方法
+- ✅ 移除 `CallbackHandler_plotter.py` 中的重複方法
+- ✅ 實現參數高原動態軸選擇功能
+- ✅ 添加參數高原使用說明UI
+- ✅ 修復參數高原滑動條數值顯示問題
+
+### 架構改進效果
+- **代碼重複度**：從多個模組重複實現降至統一工具類
+- **模組職責**：更清晰的職責分離，參數解析與數據導入分離
+- **可維護性**：統一的參數解析邏輯，便於未來擴展
+- **用戶體驗**：參數高原功能更直觀，添加使用說明 
 
 # 疑難排解
 
@@ -472,6 +534,8 @@ strat_idx = entry_param.get('strat_idx', '')           # 假設字段名固定
 
 **問題**：如果未來策略結構改變（例如添加 `Signal_params`、`Filter_params` 等），這些硬編碼會失效。
 
+**✅ 已改進**：參數解析邏輯已統一至 `ParameterParser_utils_plotter.py`，提高了靈活性
+
 #### 2. **績效指標硬編碼** ⚠️
 ```python
 # 硬編碼的績效指標
@@ -570,9 +634,10 @@ def create_metric_buttons(available_metrics):
 - ⚠️ 策略結構變化需要重構
 
 **改進後**：
-- 高擴展性：配置驅動，支持任意策略結構
-- 自動適應新的績效指標
-- 支持任意參數命名格式
+- 🟢 高擴展性：配置驅動，支持任意策略結構
+- 🟢 自動適應新的績效指標
+- 🟢 支持任意參數命名格式
+- 🟢 統一的參數解析架構
 
 ### 優先級建議
 
@@ -580,4 +645,12 @@ def create_metric_buttons(available_metrics):
 2. **中優先級**：參數名稱解析靈活化（影響策略支持）
 3. **低優先級**：策略結構配置化（影響架構穩定性）
 
-**注意**：目前功能運行正常，這些改進主要為未來擴展做準備，暫時不需要立即實施。 
+**注意**：目前功能運行正常，這些改進主要為未來擴展做準備，暫時不需要立即實施。
+
+### ✅ 已完成的重構改進
+
+1. **參數解析統一化**：創建 `ParameterParser_utils_plotter.py` 工具類
+2. **代碼重複消除**：移除 `CallbackHandler_plotter.py` 中的重複方法
+3. **模組職責分離**：參數解析邏輯與數據導入邏輯分離
+4. **參數高原功能**：實現動態軸選擇和互動式控制面板
+5. **使用說明UI**：添加參數高原操作指引 

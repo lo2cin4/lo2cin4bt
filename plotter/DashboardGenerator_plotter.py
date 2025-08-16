@@ -374,50 +374,31 @@ class DashboardGenerator:
             return html.Div("參數高原內容創建失敗")
     
     def create_equity_chart(self, equity_data: Dict[str, Any], bah_data: Dict[str, Any], selected_params: List[str]) -> dict:
-        import plotly.graph_objs as go
-        fig = go.Figure()
-        # 畫策略 equity
-        for param_key in selected_params:
-            if param_key in equity_data:
-                df = equity_data[param_key]
-                if df is not None and not df.empty and 'Time' in df.columns and 'Equity_value' in df.columns:
-                    fig.add_trace(
-                        go.Scatter(
-                            x=pd.to_datetime(df['Time']),
-                            y=df['Equity_value'],
-                            mode='lines',
-                            name=f"{param_key} (策略)"
-                        )
-                    )
-        # 畫 BAH equity
-        for param_key in selected_params:
-            if param_key in bah_data:
-                df = bah_data[param_key]
-                if df is not None and not df.empty and 'Time' in df.columns and 'BAH_Equity' in df.columns:
-                    fig.add_trace(
-                        go.Scatter(
-                            x=pd.to_datetime(df['Time']),
-                            y=df['BAH_Equity'],
-                            mode='lines',
-                            name=f"{param_key} (BAH)",
-                            line=dict(dash='dot')
-                        )
-                    )
-        fig.update_layout(
-            title="權益曲線比較",
-            xaxis_title="時間",
-            yaxis_title="權益值",
-            template=None,
-            height=500,
-            showlegend=True,
-            plot_bgcolor="#181818",
-            paper_bgcolor="#181818",
-            font=dict(color="#f5f5f5", size=15),
-            legend=dict(font=dict(color="#ecbc4f", size=13)),
-            xaxis=dict(color="#f5f5f5", gridcolor="#444"),
-            yaxis=dict(color="#f5f5f5", gridcolor="#444")
-        )
-        return fig.to_dict()
+        """
+        創建權益曲線圖表（使用ChartComponents）
+        
+        Args:
+            equity_data: 權益曲線數據
+            bah_data: BAH權益曲線數據
+            selected_params: 選中的參數組合
+            
+        Returns:
+            dict: Plotly 圖表配置
+        """
+        try:
+            from .ChartComponents_plotter import ChartComponents
+            
+            # 使用ChartComponents創建圖表
+            chart_components = ChartComponents(self.logger)
+            return chart_components.create_equity_chart(
+                equity_data=equity_data,
+                selected_params=selected_params,
+                bah_data=bah_data
+            )
+            
+        except Exception as e:
+            self.logger.error(f"創建權益曲線圖表失敗: {e}")
+            return {}
     
     def create_metrics_table(self, metrics_data: Dict[str, Any], selected_params: List[str]) -> html.Div:
         """
