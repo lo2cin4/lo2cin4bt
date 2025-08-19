@@ -309,7 +309,7 @@ def main():
                 backtester = BaseBacktester(data, frequency, logger)
                 backtester.run()
                 logger.info("回測完成")
-                console.print(Panel("[bold green]回測完成！[/bold green]", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
+                console.print(Panel("[bold green]回測完成！[/bold green]", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
                 
                 # 交易分析
                 metric_tracker = BaseMetricTracker()
@@ -374,7 +374,7 @@ def main():
                 backtester = BaseBacktester(data, frequency, logger)
                 backtester.run()
                 logger.info("回測完成")
-                console.print(Panel("[bold green]回測完成！[/bold green]", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
+                console.print(Panel("[bold green]回測完成！[/bold green]", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
                 
                 # 交易分析
                 metric_tracker = BaseMetricTracker()
@@ -427,7 +427,7 @@ def main():
             backtester = BaseBacktester(data, frequency, logger)
             backtester.run()
             logger.info("回測完成")
-            console.print(Panel("[bold green]回測完成！[/bold green]", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
+            console.print(Panel("[bold green]回測完成！[/bold green]", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
             
             # 交易分析
             metric_tracker = BaseMetricTracker()

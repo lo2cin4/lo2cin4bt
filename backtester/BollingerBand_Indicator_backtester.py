@@ -298,27 +298,6 @@ class BollingerBandIndicator:
             
             # 轉換回 pandas Series
             signal = pd.Series(signal_values, index=self.data.index)
-        else:
-            # 備用方案：使用標準 pandas 實現
-            ma = predictor_series.rolling(ma_length, min_periods=1).mean()
-            sd = predictor_series.rolling(ma_length, min_periods=1).std(ddof=0)
-            upper = ma + std_multiplier * sd
-            lower = ma - std_multiplier * sd
-            
-            signal = pd.Series(0, index=self.data.index)
-            prev_predictor = predictor_series.shift(1)
-            
-            if strat_idx == 1:  # BOLL1：預測因子突破上軌做多
-                signal = np.where((prev_predictor <= upper) & (predictor_series > upper), 1, 0)
-            elif strat_idx == 2:  # BOLL2：預測因子突破上軌做空
-                signal = np.where((prev_predictor <= upper) & (predictor_series > upper), -1, 0)
-            elif strat_idx == 3:  # BOLL3：預測因子突破下軌做多
-                signal = np.where((prev_predictor >= lower) & (predictor_series < lower), 1, 0)
-            elif strat_idx == 4:  # BOLL4：預測因子突破下軌做空
-                signal = np.where((prev_predictor >= lower) & (predictor_series < lower), -1, 0)
-            
-            signal = pd.Series(signal, index=self.data.index)
-            signal = signal.fillna(0)
         
         # 確保在有效期間之前不產生信號
         signal.iloc[:ma_length-1] = 0
@@ -391,15 +370,8 @@ class BollingerBandIndicator:
                 cache_key = (ma_length, std_multiplier, predictor)
                 if cache_key not in global_boll_cache:
                     # 使用Numba優化的函數計算布林帶
-                    if NUMBA_AVAILABLE:
-                        ma_values = _calculate_rolling_mean_njit(predictor_values, ma_length)
-                        std_values = _calculate_rolling_std_njit(predictor_values, ma_length)
-                    else:
-                        # 備用方案：使用pandas rolling
-                        ma_values = data[predictor].rolling(window=ma_length).mean().values
-                        std_values = data[predictor].rolling(window=ma_length).std().values
-                        ma_values = np.nan_to_num(ma_values, nan=0.0)
-                        std_values = np.nan_to_num(std_values, nan=0.0)
+                    ma_values = _calculate_rolling_mean_njit(predictor_values, ma_length)
+                    std_values = _calculate_rolling_std_njit(predictor_values, ma_length)
                     
                     upper_band = ma_values + (std_values * std_multiplier)
                     lower_band = ma_values - (std_values * std_multiplier)

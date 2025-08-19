@@ -44,4 +44,5 @@ build/
 # Local env
 .env 
 README_CLI_STYLE.md
-Development_Guideline.md 
+Development_Guideline.md
+HowToAddNewTA_AIPROMPT.md

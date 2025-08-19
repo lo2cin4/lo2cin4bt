@@ -134,6 +134,7 @@ if NUMBA_AVAILABLE:
 INDICATOR_REGISTRY = {
     # 其他指標
     "NDayCycle": None,  # 實際信號產生於TradeSimulator
+    "PERC": None,  # 實際信號產生於PercentileIndicator
 }
 
 class IndicatorsBacktester:
@@ -151,7 +152,8 @@ class IndicatorsBacktester:
         self.new_indicators = {
             'MA': 'MovingAverage_Indicator_backtester',
             'BOLL': 'BollingerBand_Indicator_backtester',
-            'NDayCycle': 'NDayCycle_Indicator_backtester'
+            'NDayCycle': 'NDayCycle_Indicator_backtester',
+            'PERC': 'Percentile_Indicator_backtester'
         }
         
         # 細分型態對應表
@@ -179,6 +181,15 @@ class IndicatorsBacktester:
                         alias_map[f"BOLL{i}"] = ('BOLL', i)
         except Exception as e:
             self.logger.warning(f"無法獲取BOLL指標描述: {e}")
+        # PERC
+        try:
+            module = importlib.import_module('backtester.Percentile_Indicator_backtester')
+            if hasattr(module, 'PercentileIndicator') and hasattr(module.PercentileIndicator, 'STRATEGY_DESCRIPTIONS'):
+                for i, desc in enumerate(module.PercentileIndicator.STRATEGY_DESCRIPTIONS, 1):
+                    if i <= 6:
+                        alias_map[f"PERC{i}"] = ('PERC', i)
+        except Exception as e:
+            self.logger.warning(f"無法獲取PERC指標描述: {e}")
         # NDayCycle
         alias_map["NDAY1"] = ('NDayCycle', 1)  # 開倉後N日做多
         alias_map["NDAY2"] = ('NDayCycle', 2)  # 開倉後N日做空
@@ -204,7 +215,8 @@ class IndicatorsBacktester:
             indicator_cls_name_map = {
                 'MA': 'MovingAverageIndicator',
                 'BOLL': 'BollingerBandIndicator',
-                'NDayCycle': 'NDayCycleIndicator'
+                'NDayCycle': 'NDayCycleIndicator',
+                'PERC': 'PercentileIndicator'
             }
             indicator_cls_name = indicator_cls_name_map.get(main_type, main_type.capitalize() + 'Indicator')
             if not indicator_cls_name:
@@ -224,7 +236,21 @@ class IndicatorsBacktester:
             elif hasattr(module, indicator_type.capitalize() + 'Indicator'):
                 indicator_cls = getattr(module, indicator_type.capitalize() + 'Indicator')
                 if hasattr(indicator_cls, 'get_params'):
-                    return indicator_cls.get_params(params_config=params_config)
+                    # 對於 PERC 指標，需要特殊處理
+                    if indicator_type == 'PERC':
+                        # 從 params_config 中提取 strat_idx
+                        if 'strat_idx' in params_config:
+                            strat_idx = params_config['strat_idx']
+                        else:
+                            # 嘗試從別名推斷
+                            alias = params_config.get('alias', 'PERC1')
+                            if alias in ['PERC1', 'PERC2', 'PERC3', 'PERC4', 'PERC5', 'PERC6']:
+                                strat_idx = int(alias[4:])  # 提取數字部分
+                            else:
+                                strat_idx = 1  # 默認使用策略1
+                        return indicator_cls.get_params(strat_idx=strat_idx, params_config=params_config)
+                    else:
+                        return indicator_cls.get_params(params_config=params_config)
             raise ValueError(f"指標 {indicator_type} 未實作 get_params() 方法")
         raise ValueError(f"不支援的指標類型: {indicator_type}")
 
@@ -266,6 +292,14 @@ class IndicatorsBacktester:
                     indicator_descs[f"BOLL{i}"] = desc
         except Exception as e:
             self.logger.warning(f"無法獲取BOLL指標描述: {e}")
+        # PERC (added)
+        try:
+            module = importlib.import_module('backtester.Percentile_Indicator_backtester')
+            if hasattr(module, 'PercentileIndicator') and hasattr(module.PercentileIndicator, 'STRATEGY_DESCRIPTIONS'):
+                for i, desc in enumerate(module.PercentileIndicator.STRATEGY_DESCRIPTIONS, 1):
+                    indicator_descs[f"PERC{i}"] = desc
+        except Exception as e:
+            self.logger.warning(f"無法獲取PERC指標描述: {e}")
         # print所有指標與說明
         print("\n可用技術指標與說明：")
         for code, desc in indicator_descs.items():
@@ -281,6 +315,8 @@ class IndicatorsBacktester:
             signals = self._calculate_ma_signals(data, params, predictor)
         elif indicator_type == 'BOLL':
             signals = self._calculate_boll_signals(data, params, predictor)
+        elif indicator_type == 'PERC':
+            signals = self._calculate_percentile_signals(data, params, predictor)
         elif indicator_type in ['NDAY1', 'NDAY2']:
             signals = self._calculate_ndaycycle_signals(data, params, predictor, entry_signal)
         else:
@@ -339,6 +375,31 @@ class IndicatorsBacktester:
             traceback.print_exc()
             raise
     
+    def _calculate_percentile_signals(self, data, params, predictor=None):
+        # print(f"[DEBUG] _calculate_percentile_signals 開始")
+        # print(f"[DEBUG] 數據形狀：{data.shape}")
+        # print(f"[DEBUG] 預測因子：{predictor}")
+        
+        try:
+            # 動態導入模組
+            module = importlib.import_module('backtester.Percentile_Indicator_backtester')
+            indicator_cls = getattr(module, 'PercentileIndicator')
+            # print(f"[DEBUG] 成功導入 PercentileIndicator")
+            
+            indicator = indicator_cls(data, params, logger=self.logger)
+            # print(f"[DEBUG] 成功創建指標實例")
+            
+            signals = indicator.generate_signals(predictor)
+            # print(f"[DEBUG] 信號生成完成，信號形狀：{signals.shape}")
+            # print(f"[DEBUG] 信號分佈：{signals.value_counts().to_dict()}")
+            
+            return signals
+        except Exception as e:
+            # PERC 信號計算失敗：{e}
+            import traceback
+            traceback.print_exc()
+            raise
+    
     def _calculate_ndaycycle_signals(self, data, params, predictor=None, entry_signal=None):
         """
         計算 NDayCycle 指標信號
@@ -379,12 +440,22 @@ class IndicatorsBacktester:
             # 轉換回 pandas Series
             return pd.Series(combined_array, index=signals_list[0].index)
         else:
-            # 備用方案：使用標準 pandas 實現
+            # 單信號情況
             if len(signals_list) == 1:
                 return signals_list[0].fillna(0)
             
-            # 多信號合併邏輯
-            combined = pd.Series(0, index=signals_list[0].index)
+            # 多信號合併邏輯 - 使用 Numba 優化
+            signals_arrays = []
             for signal in signals_list:
-                combined += signal.fillna(0)
-            return combined
+                if isinstance(signal, pd.Series):
+                    signal_array = signal.values.astype(np.float64)
+                    signal_array = np.nan_to_num(signal_array, nan=0.0)
+                    signals_arrays.append(signal_array)
+                else:
+                    signals_arrays.append(np.array(signal, dtype=np.float64))
+            
+            # 使用 Numba 合併信號
+            combined_array = _combine_signals_njit(signals_arrays)
+            
+            # 轉換回 pandas Series
+            return pd.Series(combined_array, index=signals_list[0].index)

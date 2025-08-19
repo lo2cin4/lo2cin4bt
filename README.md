@@ -215,6 +215,14 @@ lo2cin4bt/
 <details>
 <summary>📅 2025-08-16 </summary>
 
+- 【重榜】增加了 Percentile 指標
+- Percentile 指標已加入 default 策略
+</details>
+
+
+<details>
+<summary>📅 2025-08-16 </summary>
+
 - 【重榜】可視化平台增加了參數高原，檢測過擬合無難度
 - BUG修正Calamar Ratio 的 Bug 已修正
 - 反選功能指示更清晰

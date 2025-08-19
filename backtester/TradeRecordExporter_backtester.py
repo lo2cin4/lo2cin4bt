@@ -175,6 +175,18 @@ class TradeRecordExporter_backtester:
                     n = param.get('n', '')
                     strat_idx = param.get('strat_idx', '')
                     return f"NDayCycle(N={n})"
+                elif indicator_type == 'PERC':
+                    window = param.get('window', '')
+                    strat_idx = param.get('strat_idx', 1)
+                    if strat_idx in [1, 2, 3, 4]:
+                        percentile = param.get('percentile', '')
+                        return f"PERC{strat_idx}(W={window},P={percentile})"
+                    elif strat_idx in [5, 6]:
+                        m1 = param.get('m1', '')
+                        m2 = param.get('m2', '')
+                        return f"PERC{strat_idx}(W={window},M1={m1},M2={m2})"
+                    else:
+                        return f"PERC{strat_idx}(W={window})"
                 else:
                     return indicator_type
             elif hasattr(param, 'indicator_type'):
@@ -204,6 +216,18 @@ class TradeRecordExporter_backtester:
                     n = getattr(param, 'n', '')
                     strat_idx = getattr(param, 'strat_idx', '')
                     return f"NDayCycle(N={n})"
+                elif indicator_type == 'PERC':
+                    window = getattr(param, 'window', '')
+                    strat_idx = getattr(param, 'strat_idx', 1)
+                    if strat_idx in [1, 2, 3, 4]:
+                        percentile = getattr(param, 'percentile', '')
+                        return f"PERC{strat_idx}(W={window},P={percentile})"
+                    elif strat_idx in [5, 6]:
+                        m1 = getattr(param, 'm1', '')
+                        m2 = getattr(param, 'm2', '')
+                        return f"PERC{strat_idx}(W={window},M1={m1},M2={m2})"
+                    else:
+                        return f"PERC{strat_idx}(W={window})"
                 else:
                     return indicator_type
             return str(param)
@@ -221,14 +245,14 @@ class TradeRecordExporter_backtester:
         """
         try:
             if not self.results:
-                console.print(Panel("無回測結果可導出為CSV", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
+                console.print(Panel("無回測結果可導出為CSV", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
                 return
             
             # 如果指定了backtest_id，只導出該回測結果
             if backtest_id:
                 results_to_export = [r for r in self.results if r.get("Backtest_id") == backtest_id]
                 if not results_to_export:
-                    console.print(Panel(f"找不到Backtest_id為 {backtest_id} 的回測結果", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
+                    console.print(Panel(f"找不到Backtest_id為 {backtest_id} 的回測結果", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
                     return
             else:
                 results_to_export = self.results
@@ -617,7 +641,7 @@ class TradeRecordExporter_backtester:
             
             # 分頁導航
             if total_pages > 1:
-                console.print(Panel("📄 分頁導航: [m] 下一頁(m) | [n] 上一頁(n) | [數字] 跳轉到指定頁 | [q] 進入操作選單(q)", title="[bold #ff6b6b]📄 👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
+                console.print(Panel("📄 分頁導航: [m] 下一頁(m) | [n] 上一頁(n) | [數字] 跳轉到指定頁 | [q] 進入操作選單(q)", title="[bold #8f1511]📄 👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
                 console.print("[bold #dbac30]請輸入導航指令: [/bold #dbac30]", end="")
                 nav = input().lower()
                 
@@ -652,7 +676,7 @@ class TradeRecordExporter_backtester:
 4. 導出特定回測結果為 CSV (輸入 Backtest_id)
 5. 結束交易回測，進入下一階段"""
         
-        console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #ff6b6b"), border_style="#dbac30"))
+        console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#dbac30"))
 
         while True:
             console.print("[bold #dbac30]請選擇操作: [/bold #dbac30]", end="")
@@ -665,7 +689,7 @@ class TradeRecordExporter_backtester:
 3. 導出所有回測結果為 CSV
 4. 導出特定回測結果為 CSV (輸入 Backtest_id)
 5. 結束交易回測，進入下一階段"""
-                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #ff6b6b"), border_style="#dbac30"))
+                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#dbac30"))
             elif choice == "2":
                 self.display_failed_results()
                 # 重新顯示選單
@@ -674,7 +698,7 @@ class TradeRecordExporter_backtester:
 3. 導出所有回測結果為 CSV
 4. 導出特定回測結果為 CSV (輸入 Backtest_id)
 5. 結束交易回測，進入下一階段"""
-                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #ff6b6b"), border_style="#dbac30"))
+                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#8f1511"))
             elif choice == "3":
                 self.export_to_csv()
                 console.print("✅ CSV 導出完成！", style="green")
@@ -684,7 +708,7 @@ class TradeRecordExporter_backtester:
 3. 導出所有回測結果為 CSV
 4. 導出特定回測結果為 CSV (輸入 Backtest_id)
 5. 結束交易回測，進入下一階段"""
-                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #ff6b6b"), border_style="#dbac30"))
+                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#dbac30"))
             elif choice == "4":
                 while True:
                     console.print("[bold #dbac30]請輸入Backtest ID（可用逗號分隔多個），或按Enter返回選單: [/bold #dbac30]", end="")
@@ -698,7 +722,7 @@ class TradeRecordExporter_backtester:
                     if not backtest_ids:
                         continue
                     if not_found:
-                        console.print(Panel(f"找不到Backtest_id為 {', '.join(not_found)} 的回測結果", title=Text("👨‍💻交易回測 Backtester", style="bold #ff6b6b"), border_style="#8f1511"))
+                        console.print(Panel(f"找不到Backtest_id為 {', '.join(not_found)} 的回測結果", title=Text("👨‍💻交易回測 Backtester", style="bold #8f1511"), border_style="#8f1511"))
                         continue
                     for bid in backtest_ids:
                         self.export_to_csv(backtest_id=bid)
@@ -710,7 +734,7 @@ class TradeRecordExporter_backtester:
 3. 導出所有回測結果為 CSV
 4. 導出特定回測結果為 CSV (輸入 Backtest_id)
 5. 結束交易回測，進入下一階段"""
-                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #ff6b6b"), border_style="#dbac30"))
+                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#dbac30"))
             elif choice == "5":
                 console.print("結束交易回測，進入下一階段...", style="yellow")
                 break
@@ -756,7 +780,7 @@ class TradeRecordExporter_backtester:
         
         # 選擇策略查看詳情
         while True:
-            console.print(Panel("⌨請選擇策略編號查看詳情", title=Text("👨‍💻 交易回測 Backtester", style="bold #ff6b6b"), border_style="#dbac30"))
+            console.print(Panel("⌨請選擇策略編號查看詳情", title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#dbac30"))
             choice = input(" 策略編號 (或按 Enter 返回選單): ")
             if not choice:
                 break
@@ -830,7 +854,7 @@ class TradeRecordExporter_backtester:
                            not r.get("records").empty and (r.get("records")["Trade_action"] == 1).sum() > 0]
         
         if not successful_results:
-            console.print(Panel("成功結果：沒有", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
+            console.print(Panel("成功結果：沒有", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
             return
         
         table = Table(title="成功回測結果", style="bold green")
@@ -859,7 +883,7 @@ class TradeRecordExporter_backtester:
         failed_results = [r for r in self.results if r.get("error") is not None]
         
         if not failed_results:
-            console.print(Panel("失敗結果：沒有", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
+            console.print(Panel("失敗結果：沒有", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
             return
         
         table = Table(title="失敗回測結果", style="bold red")
@@ -941,7 +965,7 @@ class TradeRecordExporter_backtester:
                     no_trade_results.append(r)
         
         if not no_trade_results:
-            console.print(Panel("無交易結果：沒有", title="[bold #ff6b6b]👨‍💻 交易回測 Backtester[/bold #ff6b6b]", border_style="#dbac30"))
+            console.print(Panel("無交易結果：沒有", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
             return
         
         table = Table(title="無交易回測結果", style="bold yellow")

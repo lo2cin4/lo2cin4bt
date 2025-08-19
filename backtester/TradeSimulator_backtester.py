@@ -571,6 +571,18 @@ class TradeSimulator_backtester:
                 n = param.get_param("n")
                 strat_idx = param.get_param("strat_idx", 1)
                 entry_str += f"NDayCycle({n})"
+            elif param.indicator_type == "PERC":
+                window = param.get_param("window")
+                strat_idx = param.get_param("strat_idx", 1)
+                if strat_idx in [1, 2, 3, 4]:
+                    percentile = param.get_param("percentile")
+                    entry_str += f"PERC{strat_idx}(W={window},P={percentile})"
+                elif strat_idx in [5, 6]:
+                    m1 = param.get_param("m1")
+                    m2 = param.get_param("m2")
+                    entry_str += f"PERC{strat_idx}(W={window},M1={m1},M2={m2})"
+                else:
+                    entry_str += f"PERC{strat_idx}(W={window})"
             
             if i < len(entry_params) - 1:
                 entry_str += "+"
@@ -598,6 +610,18 @@ class TradeSimulator_backtester:
                 n = param.get_param("n")
                 strat_idx = param.get_param("strat_idx", 1)
                 exit_str += f"NDayCycle({n})"
+            elif param.indicator_type == "PERC":
+                window = param.get_param("window")
+                strat_idx = param.get_param("strat_idx", 1)
+                if strat_idx in [1, 2, 3, 4]:
+                    percentile = param.get_param("percentile")
+                    exit_str += f"PERC{strat_idx}(W={window},P={percentile})"
+                elif strat_idx in [5, 6]:
+                    m1 = param.get_param("m1")
+                    m2 = param.get_param("m2")
+                    exit_str += f"PERC{strat_idx}(W={window},M1={m1},M2={m2})"
+                else:
+                    exit_str += f"PERC{strat_idx}(W={window})"
             
             if i < len(exit_params) - 1:
                 exit_str += "+"

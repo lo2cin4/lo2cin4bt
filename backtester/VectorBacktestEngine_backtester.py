@@ -1114,6 +1114,7 @@ class VectorBacktestEngine:
         # 初始化全局快取
         global_ma_cache = {}
         global_boll_cache = {}
+        global_percentile_cache = {}
         
         # 按指標類型分組任務
         indicator_groups = {}
@@ -1144,6 +1145,10 @@ class VectorBacktestEngine:
                     BollingerBandIndicator.vectorized_calculate_boll_signals(tasks, predictor, signals_matrix, global_boll_cache, self.data)
                 elif indicator_type == 'NDayCycle':
                     NDayCycleIndicator.vectorized_calculate_ndaycycle_signals(tasks, predictor, signals_matrix, self.data)
+                elif indicator_type == 'PERC':
+                    # Use Percentile_Indicator_backtester's vectorized method
+                    from .Percentile_Indicator_backtester import PercentileIndicator
+                    PercentileIndicator.vectorized_calculate_percentile_signals(tasks, predictor, signals_matrix, global_percentile_cache, self.data)
                 else:
                     # 其他指標類型使用原有方法
                     for task_idx, indicator_idx, param in tasks:
