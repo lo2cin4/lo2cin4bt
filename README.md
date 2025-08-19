@@ -221,7 +221,7 @@ lo2cin4bt/
 </details>
 
 <details>
-<summary>📅 2025-08-16 </summary>
+<summary>📅 2025-08-18 </summary>
 
 - 【重榜】增加了 Percentile 指標
 - Percentile 指標已加入 default 策略
