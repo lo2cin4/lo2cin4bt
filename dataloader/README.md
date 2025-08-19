@@ -4,7 +4,7 @@
 
 **dataloader** 是 Lo2cin4BT 量化回測框架的標準化數據載入與前處理模組，負責將多種來源的行情數據、預測因子、技術指標等載入、驗證、轉換與導出，確保下游回測與分析流程的數據品質與一致性。
 
-- **輸入來源**：本地 Excel/CSV、Yahoo Finance、Binance API、外部預測因子檔案
+- **輸入來源**：本地 Excel/CSV、Yahoo Finance、Binance API、Coinbase API、外部預測因子檔案
 - **輸出目標**：標準化 DataFrame，支援導出為 CSV、Excel、JSON 等格式，供回測、分析、特徵工程等模組使用
 
 ---
@@ -26,6 +26,7 @@ dataloader/
 ├── __init__.py
 ├── Base_loader.py            # 數據載入基底類，定義統一介面
 ├── Binance_loader.py         # Binance API 數據載入
+├── Coinbase_loader.py        # Coinbase API 數據載入
 ├── Yfinance_loader.py        # Yahoo Finance 數據載入
 ├── File_loader.py            # 本地 Excel/CSV 數據載入
 ├── Calculator_loader.py      # 技術指標/衍生欄位計算
@@ -37,6 +38,7 @@ dataloader/
 
 - **Base_loader.py**：定義所有數據來源載入器的抽象基底類與介面規範
 - **Binance_loader.py**：連接 Binance API，下載多頻率行情數據
+- **Coinbase_loader.py**：連接 Coinbase API，下載多頻率行情數據
 - **Yfinance_loader.py**：連接 Yahoo Finance API，下載行情數據
 - **File_loader.py**：讀取本地 Excel/CSV，欄位標準化
 - **Calculator_loader.py**：批次計算技術指標、收益率等衍生欄位
@@ -54,8 +56,8 @@ dataloader/
 - **輸入**：數據來源參數
 - **輸出**：標準化 DataFrame
 
-### 2. Binance_loader.py / Yfinance_loader.py / File_loader.py
-- **功能**：分別對接 Binance API、Yahoo Finance API、本地檔案，下載並標準化行情數據
+### 2. Binance_loader.py / Coinbase_loader.py / Yfinance_loader.py / File_loader.py
+- **功能**：分別對接 Binance API、Coinbase API、Yahoo Finance API、本地檔案，下載並標準化行情數據
 - **主要處理**：互動式輸入參數、欄位標準化、缺失值處理
 - **輸入**：API 參數或檔案路徑
 - **輸出**：標準化 DataFrame
@@ -90,7 +92,7 @@ dataloader/
 
 ```mermaid
 flowchart TD
-    A[File/Binance/Yahoo] -->|行情數據| B[Base_loader]
+    A[File/Binance/Coinbase/Yahoo] -->|行情數據| B[Base_loader]
     B -->|標準化| C[Validator_loader]
     C -->|清洗| D[Calculator_loader]
     D -->|技術指標| E[Predictor_loader]
@@ -107,7 +109,7 @@ flowchart TD
 ## 主要類別與方法（Key Classes & Methods）
 
 - `DataLoader`：主流程協調器，互動式選擇數據來源、載入、驗證、合併、導出
-- `FileLoader` / `BinanceLoader` / `YahooFinanceLoader`：各自負責不同來源的行情數據載入
+- `FileLoader` / `BinanceLoader` / `CoinbaseLoader` / `YahooFinanceLoader`：各自負責不同來源的行情數據載入
 - `PredictorLoader`：載入並合併外部預測因子
 - `DataValidator`：欄位、型態、缺失值、時間序列驗證與清洗
 - `ReturnCalculator`：自動計算 open/close return、logreturn 等欄位

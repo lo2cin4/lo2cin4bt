@@ -46,7 +46,7 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
 ### 1. 📊 載入數據 (Data Loading)
 - **用途**：建立回測的基礎數據
 - **功能**：
-  - 支援多種數據來源：本地 Excel/CSV、Yahoo Finance、Binance API
+  - 支援多種數據來源：本地 Excel/CSV、Yahoo Finance、Binance API、Coinbase API
   - 自動數據清洗與標準化
   - 預測因子載入與時間對齊
   - 數據驗證與缺失值處理
@@ -213,6 +213,14 @@ lo2cin4bt/
 ### 目前已完成
 
 <details>
+<summary>📅 2025-08-19 </summary>
+
+- 新增 Coinbase API 數據載入器
+- 支援加密貨幣市場數據獲取（BTC、ETH 等交易對）
+- 支援多種時間週期（1m、5m、15m、1h、6h、1d）
+</details>
+
+<details>
 <summary>📅 2025-08-16 </summary>
 
 - 【重榜】增加了 Percentile 指標
@@ -245,7 +253,7 @@ lo2cin4bt/
 <summary>📅 2025-07-23 (公佈日) </summary>
 
 - 三大量化核心：統計分析、回測、可視化平台
-- 支援多種數據來源（本地、Yahoo、Binance）
+- 支援多種數據來源（本地、Yahoo、Binance、Coinbase）
 - 多策略多參數組合批量回測
 - 詳細績效指標與互動式 Dash 可視化
 - 完善的錯誤提示與日誌
