@@ -46,3 +46,8 @@ build/
 README_CLI_STYLE.md
 Development_Guideline.md
 HowToAddNewTA_AIPROMPT.md
+
+# Claude
+CLAUDE.md
+.mcp.json
+.claude/
