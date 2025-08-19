@@ -306,6 +306,8 @@ lo2cin4bt/
 
 ## 🙏 鳴謝
 
-本專案部分可視化設計與互動靈感來自 [plotguy](https://pypi.org/project/plotguy/) 開源庫，特此致謝！ 
+本專案部分可視化設計與互動靈感來自 [plotguy](https://pypi.org/project/plotguy/) 開源庫，特此致謝！
+
+特別感謝 [@LouisChanCLY](https://github.com/LouisChanCLY) 對本專案的寶貴貢獻與支持！ 
 
 ---
