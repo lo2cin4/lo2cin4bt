@@ -93,10 +93,10 @@ console = Console()
 
 DEFAULT_STRATEGY_PAIRS = [
     ("MA1", "MA4"),
+    (["MA1", "MA9"], "MA4"),
     ("BOLL1", "BOLL4"),
-    (["MA1", "MA9"], "NDAY2"),
-    ("PERC5", "PERC4"),
-    ("PERC6", "PERC1"),
+    ("PERC1", "PERC4"),
+    ("PERC3", "PERC2")
 ]
 
 """
@@ -417,23 +417,26 @@ class BaseBacktester:
                         all_questions.append((alias, 'short_range', f"{alias}的短MA長度範圍 (格式: start : end : step，預設 10:50:20)", "10:50:20"))
                         all_questions.append((alias, 'long_range', f"{alias}的長MA長度範圍 (格式: start : end : step，預設 60:90:30)", "60:90:30"))
                     elif alias in ['MA9', 'MA10', 'MA11', 'MA12']:
-                        all_questions.append((alias, 'm_range', f"{alias}的連續日數 m (格式: 單一數字或 start : end : step，預設 1:20:5)", "1:20:5"))
+                        all_questions.append((alias, 'm_range', f"{alias}的連續日數 m (格式: 單一數字或 start : end : step，預設 1:20:5)", "1:2:1"))
                         all_questions.append((alias, 'n_range', f"{alias}的MA長度範圍 n (格式: start : end : step，預設 10:200:40)", "10:200:40"))
                         all_questions.append((alias, 'ma_type', f"{alias}的MA型態 (SMA/EMA/WMA，預設 SMA)", "SMA"))
                     else:
-                        all_questions.append((alias, 'ma_range', f"{alias}的MA長度範圍 (格式: start : end : step，預設 10:200:40)", "10:200:40"))
+                        all_questions.append((alias, 'ma_range', f"{alias}的MA長度範圍 (格式: start : end : step，預設 10:200:20)", "10:200:20"))
                         all_questions.append((alias, 'ma_type', f"{alias}的MA型態 (SMA/EMA/WMA，預設 SMA)", "SMA"))
                 elif alias.startswith('BOLL'):
-                    all_questions.append((alias, 'ma_range', f"{alias}的BOLL均線長度範圍 (格式: start : end : step，預設 10:200:40)", "10:200:40"))
+                    all_questions.append((alias, 'ma_range', f"{alias}的BOLL均線長度範圍 (格式: start : end : step，預設 10:200:20)", "10:200:20"))
                     all_questions.append((alias, 'sd_multi', f"{alias}的標準差倍數 (可用逗號分隔多個，預設1,1.5,2)", "1.5,2"))
                 elif alias.startswith('PERC'):
-                    if alias in ['PERC1', 'PERC2', 'PERC3', 'PERC4']:
-                        all_questions.append((alias, 'window_range', f"{alias}的窗口長度範圍 (格式: start : end : step，預設 10:90:20)", "10:90:20"))
-                        all_questions.append((alias, 'percentile_range', f"{alias}的百分位範圍 (格式: start : end : step，預設 10:99:10)", "10:99:10"))
+                    if alias in ['PERC1', 'PERC4']:
+                        all_questions.append((alias, 'window_range', f"{alias}的窗口長度範圍 (格式: start : end : step，預設 10:200:20)", "10:200:20"))
+                        all_questions.append((alias, 'percentile_range', f"{alias}的百分位範圍 (格式: start : end : step，預設 80:100:10)", "80:100:10"))
+                    elif alias in ['PERC2', 'PERC3']:
+                        all_questions.append((alias, 'window_range', f"{alias}的窗口長度範圍 (格式: start : end : step，預設 10:200:20)", "10:200:20"))
+                        all_questions.append((alias, 'percentile_range', f"{alias}的百分位範圍 (格式: start : end : step，預設 0:10:10)", "0:10:10"))
                     elif alias in ['PERC5', 'PERC6']:
-                        all_questions.append((alias, 'window_range', f"{alias}的窗口長度範圍 (格式: start : end : step，預設 10:90:20)", "10:90:20"))
-                        all_questions.append((alias, 'm1_range', f"{alias}的下百分位範圍 (格式: start : end : step，預設 10:50:10)", "10:50:10"))
-                        all_questions.append((alias, 'm2_range', f"{alias}的上百分位範圍 (格式: start : end : step，預設 60:90:10)", "60:90:10"))
+                        all_questions.append((alias, 'window_range', f"{alias}的窗口長度範圍 (格式: start : end : step，預設 10:200:20)", "10:200:20"))
+                        all_questions.append((alias, 'm1_range', f"{alias}的下百分位範圍 (格式: start : end : step，預設 60:80:10)", "60:80:10"))
+                        all_questions.append((alias, 'm2_range', f"{alias}的上百分位範圍 (格式: start : end : step，預設 80:100:10)", "80:100:10"))
                 elif alias in ['NDAY1', 'NDAY2']:
                     all_questions.append((alias, 'n_range', f"{alias}的N值範圍 (格式: start : end : step，例如 1:10:3)", "1:10:3"))
             
@@ -544,8 +547,8 @@ class BaseBacktester:
         # 交易延遲
         while True:
             try:
-                trade_delay_input = console.input("[bold #dbac30]請輸入交易延遲 (信號後第幾個數據點執行交易，整數 ≥ 0，預設 0)：[/bold #dbac30]").strip()
-                trading_params['trade_delay'] = int(trade_delay_input) if trade_delay_input else 0
+                trade_delay_input = console.input("[bold #dbac30]請輸入交易延遲 (信號發出後，延遲至下幾個數據點執行交易，整數 ≥ 0，預設為 0 (注意可能會導致使用未來參數！))：[/bold #dbac30]").strip()
+                trading_params['trade_delay'] = int(trade_delay_input) if trade_delay_input else 1
                 if trading_params['trade_delay'] < 0:
                     raise ValueError("交易延遲必須為 0 或以上")
                 break

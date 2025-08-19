@@ -187,7 +187,7 @@ class BaseMetricTracker:
         console.print(f"[bold #dbac30]請輸入年化時間單位（如日線股票252，日線幣365，預設為252）：[/bold #dbac30]")
         time_unit = input().strip()
         if time_unit == "":
-            time_unit = 252
+            time_unit = 365
         else:
             time_unit = int(time_unit)
         

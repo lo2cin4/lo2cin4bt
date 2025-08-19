@@ -327,7 +327,7 @@ class VectorBacktestEngine:
         
         # 向量化處理 - 一次性處理所有任務
         all_results = self._true_vectorized_backtest(
-            all_combinations, condition_pairs, predictors, trading_params, None, None
+            all_combinations, condition_pairs, predictors, trading_params
         )
             
         # 記憶體管理 - 使用動態閾值
@@ -422,7 +422,7 @@ class VectorBacktestEngine:
         return all_results
     
     def _true_vectorized_backtest(self, all_combinations: List[Tuple], condition_pairs: List[Dict], 
-                                 predictors: List[str], trading_params: Dict, progress, task) -> List[Dict]:
+                                 predictors: List[str], trading_params: Dict) -> List[Dict]:
         """向量化回測 - 一次性處理所有任務"""
         total_backtests = len(all_combinations) * len(predictors)
         
@@ -698,6 +698,10 @@ class VectorBacktestEngine:
             if progress_monitor is not None:
                 progress_monitor.batch_completed(batch_idx=0, completed_tasks_in_batch=len(results))
                 progress_monitor.finish()
+            else:
+                # 如果沒有進度監控器，直接顯示完成信息
+                console.print(Panel(f"✅ 單進程處理完成: {n_tasks} 個任務", 
+                                   title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#dbac30"))
             
             # 單進程處理完成後進行記憶體檢查
             current_memory = SpecMonitor.get_memory_usage()
