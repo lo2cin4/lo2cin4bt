@@ -9,5 +9,6 @@
     "headings": true,
     "strict": false,
     "stern": false
-  }
+  },
+  "MD033": false
 }
