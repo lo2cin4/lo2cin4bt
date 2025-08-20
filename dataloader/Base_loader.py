@@ -62,25 +62,24 @@ flowchart TD
 """
 
 import logging
+from typing import List, Optional, Tuple, Union
 
+import pandas as pd
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
 from dataloader.Validator_loader import print_dataframe_table
 
-from .Binance_loader import BinanceLoader  # 自定義模組：從 Binance API 載入價格數據
-from .Calculator_loader import ReturnCalculator  # 自定義模組：計算收益率
-from .Coinbase_loader import CoinbaseLoader  # 自定義模組：從 Coinbase API 載入價格數據
-from .DataExporter_loader import DataExporter  # 自定義模組：導出數據為 CSV/XLSX/JSON
-from .File_loader import FileLoader  # 自定義模組：從 Excel/CSV 文件載入價格數據
-from .Predictor_loader import (
-    PredictorLoader,
-)  # 自定義模組：載入預測因子數據（Excel/CSV/JSON）
-from .Validator_loader import DataValidator  # 自定義模組：驗證和清洗數據
-from .Yfinance_loader import (
-    YahooFinanceLoader,
-)  # 自定義模組：從 Yahoo Finance API 載入價格數據
+# 自定義模組：從各種數據源載入數據
+from .Binance_loader import BinanceLoader  # Binance API
+from .Calculator_loader import ReturnCalculator  # 收益率計算
+from .Coinbase_loader import CoinbaseLoader  # Coinbase API
+from .DataExporter_loader import DataExporter  # 數據導出
+from .File_loader import FileLoader  # Excel/CSV 文件
+from .Predictor_loader import PredictorLoader  # 預測因子
+from .Validator_loader import DataValidator  # 數據驗證
+from .Yfinance_loader import YahooFinanceLoader  # Yahoo Finance
 
 console = Console()
 
@@ -90,14 +89,15 @@ class BaseDataLoader:
     重構後的數據載入框架核心協調器，負責調用各模組並統一管理步驟跟蹤
     """
 
-    def __init__(self, logger=None):
-        self.data = None
-        self.frequency = None
-        self.source = None
+    def __init__(self, logger: Optional[logging.Logger] = None) -> None:
+        self.data: Optional[pd.DataFrame] = None
+        self.frequency: Optional[str] = None
+        self.source: Optional[str] = None
         self.logger = logger or logging.getLogger("BaseDataLoader")
 
     @staticmethod
-    def get_steps():
+    def get_steps() -> List[str]:
+        """Get the list of steps for data loading process."""
         return [
             "選擇價格數據來源",
             "輸入預測因子",
@@ -105,7 +105,9 @@ class BaseDataLoader:
             "選擇差分預測因子",
         ]
 
-    def process_difference(self, data, predictor_col=None):
+    def process_difference(
+        self, data: pd.DataFrame, predictor_col: Optional[str] = None
+    ) -> Tuple[pd.DataFrame, Optional[List[str]], Optional[pd.Series]]:
         """
         處理差分步驟，讓用戶選擇是否進行差分處理
         """
@@ -150,7 +152,8 @@ class BaseDataLoader:
 
         while True:
             console.print(
-                f"[bold #dbac30]請輸入要差分的預測因子（可選: {available_factors}，預設 {default}，或輸入 'price' 僅使用價格數據）：[/bold #dbac30]"
+                f"[bold #dbac30]請輸入要差分的預測因子（可選: {available_factors}，"
+                f"預設 {default}，或輸入 'price' 僅使用價格數據）：[/bold #dbac30]"
             )
             predictor_col = input().strip() or default
             if predictor_col.lower() == "price":
@@ -159,7 +162,7 @@ class BaseDataLoader:
                     4, "已選擇僅使用價格數據進行回測，跳過差分處理。"
                 )
                 return data, None, None
-            elif predictor_col not in available_factors:
+            if predictor_col not in available_factors:
                 console.print(
                     Panel(
                         f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}，或輸入 'price' 僅使用價格數據）",
@@ -178,7 +181,8 @@ class BaseDataLoader:
         return data, diff_cols, used_series
 
     @staticmethod
-    def print_step_panel(current_step: int, desc: str = ""):
+    def print_step_panel(current_step: int, desc: str = "") -> None:
+        """Print a step panel with progress information."""
         steps = BaseDataLoader.get_steps()
         step_content = ""
         for idx, step in enumerate(steps):
@@ -189,14 +193,16 @@ class BaseDataLoader:
         content = step_content.strip()
         if desc:
             content += f"\n\n[bold #dbac30]說明[/bold #dbac30]\n{desc}"
-        panel_title = f"[bold #dbac30]📊 數據載入 Dataloader 步驟：{steps[current_step-1]}[/bold #dbac30]"
+        panel_title = f"[bold #dbac30]📊 數據載入 Dataloader 步驟：{steps[current_step - 1]}[/bold #dbac30]"
         console.print(Panel(content.strip(), title=panel_title, border_style="#dbac30"))
 
-    def _print_step_panel(self, current_step: int, desc: str = ""):
+    def _print_step_panel(self, current_step: int, desc: str = "") -> None:
         # 已被靜態方法取代，保留兼容性
         BaseDataLoader.print_step_panel(current_step, desc)
 
-    def run(self):
+    def run(  # noqa: C901 # pylint: disable=too-many-statements, too-many-branches
+        self,
+    ) -> Optional[Union[pd.DataFrame, str]]:
         """
         主執行函數，協調數據載入、預測因子處理、數據導出等全流程
         """
@@ -206,13 +212,15 @@ class BaseDataLoader:
                 1,
                 "請選擇你要載入的價格數據來源，可選擇本地 Excel/CSV、Yahoo Finance 或 Binance API。\n"
                 "這一步會決定後續所有分析與回測的基礎數據。\n"
-                "[bold yellow]本地檔案讀取格式：Time | Open | High | Low | Close | Volume(可選)（首字母大寫）[/bold yellow]",
+                "[bold yellow]本地檔案讀取格式：Time | Open | High | Low | Close | "
+                "Volume(可選)（首字母大寫）[/bold yellow]",
             )
 
             # 數據來源選單 Panel
             console.print(
                 Panel(
-                    "[bold white]請選擇價格數據來源：\n1. Excel/CSV 文件\n2. Yahoo Finance\n3. Binance API\n4. Coinbase API[/bold white]",
+                    "[bold white]請選擇價格數據來源：\n1. Excel/CSV 文件\n"
+                    "2. Yahoo Finance\n3. Binance API\n4. Coinbase API[/bold white]",
                     title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
                     border_style="#dbac30",
                 )
@@ -294,7 +302,7 @@ class BaseDataLoader:
                 if not hasattr(self, "frequency") or self.frequency is None:
                     self.frequency = "1d"
                 return "__SKIP_STATANALYSER__"
-            elif predictor_data is not None:
+            if predictor_data is not None:
                 self.data = predictor_data
             else:
                 console.print(
@@ -350,11 +358,11 @@ class BaseDataLoader:
 
             return self.data
 
-        except Exception as e:
-            self.logger.error(f"數據載入失敗: {e}")
+        except Exception as err:  # pylint: disable=broad-exception-caught
+            self.logger.error(f"數據載入失敗: {err}")
             console.print(
                 Panel(
-                    f"[bold #8f1511]數據載入失敗: {e}[/bold #8f1511]",
+                    f"[bold #8f1511]數據載入失敗: {err}[/bold #8f1511]",
                     title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
                     border_style="#8f1511",
                 )
@@ -362,15 +370,23 @@ class BaseDataLoader:
             return None
 
 
-class DataLoader:
-    def __init__(self):
+class DataLoader:  # pylint: disable=too-few-public-methods
+    """Data loader wrapper class for backward compatibility."""
+
+    def __init__(self) -> None:
         """初始化 DataLoader，設置數據和來源為 None
         使用模組: 無（僅標準 Python）
         """
-        self.data = None  # 儲存載入的數據（pandas DataFrame）
-        self.source = None  # 記錄價格數據來源（1: 文件, 2: Yahoo Finance, 3: Binance）
+        self.data: Optional[Union[pd.DataFrame, str]] = (
+            None  # 儲存載入的數據（pandas DataFrame）
+        )
+        self.source: Optional[str] = (
+            None  # 記錄價格數據來源（1: 文件, 2: Yahoo Finance, 3: Binance）
+        )
+        self.frequency: Optional[str] = None  # 資料頻率
 
-    def load_data(self):
+    def load_data(self) -> Optional[Union[pd.DataFrame, str]]:
+        """Load data using BaseDataLoader."""
         # 使用新的 BaseDataLoader
         loader = BaseDataLoader()
         result = loader.run()
@@ -378,7 +394,6 @@ class DataLoader:
             self.data = loader.data
             self.frequency = loader.frequency
             return "__SKIP_STATANALYSER__"
-        else:
-            self.data = result
-            self.frequency = loader.frequency
-            return result
+        self.data = result
+        self.frequency = loader.frequency
+        return result
