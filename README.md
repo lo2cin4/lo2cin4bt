@@ -1,6 +1,8 @@
+<!-- markdownlint-disable MD041 -->
 <p align="center">
   <img src="images/lo2cin4logo.png" alt="Lo2cin4BT Logo" width="180"/>
 </p>
+<!-- markdownlint-enable MD041 -->
 
 # 🚀 Lo2cin4bt
 
@@ -155,6 +157,7 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
 - 必要欄位：Time, Open, High, Low, Close, Volume
 - 目前僅支援單一預測因子進行回測與差分，未來將開放多預測因子功能，敬請期待！
 - 範例：
+
   | Time | Open | High | Low | Close | Volume |
   |------|------|------|-----|-------|--------|
   | 2020-01-01 | 100 | 110 | 90 | 105 | 1000 |
@@ -165,6 +168,7 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
 - 必要欄位：Time, [自訂因子欄位]
 - 需放在`records\dataloader\import`，系統會自動檢測
 - 範例：
+
   | Time | factor1 | factor2 |
   |------|---------|---------|
   | 2020-01-01 | 0.5 | 1.2 |
@@ -181,7 +185,7 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
 
 ## 🗂️ 專案結構
 
-```
+```raw
 lo2cin4bt/
 ├── main.py
 ├── backtester/
@@ -295,6 +299,39 @@ lo2cin4bt/
 歡迎任何 issue、PR、建議！
 如有想法請直接開 issue 或 fork 專案。
 
+### 開發環境設置
+
+#### Pre-commit Hooks
+
+本專案使用 pre-commit hooks 來確保程式碼品質。請在開發前安裝：
+
+```bash
+# 安裝 pre-commit
+pip install pre-commit
+
+# 安裝 git hooks
+pre-commit install
+
+# 手動執行所有檢查
+pre-commit run --all-files
+```
+
+Pre-commit 會自動執行以下檢查：
+
+- **程式碼格式化**: black, isort, autoflake
+- **程式碼檢查**: flake8, pylint
+- **型別檢查**: mypy
+- **一般檢查**: 移除尾隨空白、修正檔案結尾等
+
+### 程式碼規範
+
+提交程式碼前請確保：
+
+1. 所有 pre-commit hooks 檢查通過
+2. 新增的函數包含型別提示
+3. 遵循既有的命名慣例（如檔案名稱使用 PascalCase）
+4. 保持中文註解風格，方便新手理解
+
 ---
 
 ⚠️ **免責聲明**
@@ -303,7 +340,8 @@ lo2cin4bt/
 
 ⚠️ **Disclaimer**
 
-**This tool is for educational purposes only. It does not constitute investment advice, an offer, or a solicitation to buy or sell any investment product.**
+**This tool is for educational purposes only. It does not constitute investment advice, an offer, or a solicitation to
+buy or sell any investment product.**
 
 ---
 
