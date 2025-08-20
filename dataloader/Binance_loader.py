@@ -53,6 +53,7 @@ from binance.client import Client
 from datetime import datetime
 from rich.console import Console
 from rich.panel import Panel
+from dataloader.Calculator_loader import ReturnCalculator
 console = Console()
 
 
@@ -107,11 +108,9 @@ class BinanceLoader:
             # 轉換為數值類型
             data[['Open', 'High', 'Low', 'Close', 'Volume']] = data[['Open', 'High', 'Low', 'Close', 'Volume']].astype(float)
 
-            # 計算收益率
-            data['open_return'] = data['Open'].pct_change().fillna(0)
-            data['close_return'] = data['Close'].pct_change().fillna(0)
-            data['open_logreturn'] = np.log(data['Open'] / data['Open'].shift(1)).fillna(0)
-            data['close_logreturn'] = np.log(data['Close'] / data['Close'].shift(1)).fillna(0)
+            # 使用 ReturnCalculator 計算收益率
+            calculator = ReturnCalculator(data)
+            data = calculator.calculate_returns()
 
             # 檢查缺失值
             # 缺失值比例 Panel
@@ -121,7 +120,7 @@ class BinanceLoader:
                 missing_msgs.append(f"{col} 缺失值比例：{missing_ratio:.2%}")
             console.print(Panel("\n".join(missing_msgs), title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#dbac30"))
 
-            console.print(Panel(f"從 Binance 載入 '{symbol}' 成功，行數：{len(data)}\n已計算收益率：open_return, close_return, open_logreturn, close_logreturn", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#dbac30"))
+            console.print(Panel(f"從 Binance 載入 '{symbol}' 成功，行數：{len(data)}", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#dbac30"))
             return data, interval
         except Exception as e:
             console.print(Panel(f"❌ {e}", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
