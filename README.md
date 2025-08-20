@@ -213,6 +213,14 @@ lo2cin4bt/
 ### 目前已完成
 
 <details>
+<summary>📅 2025-08-20 </summary>
+
+- 重構數據載入器，統一使用 ReturnCalculator 計算收益率
+- 優化程式碼結構，消除重複的收益率計算邏輯
+- 提升程式碼可維護性，遵循 DRY 原則
+</details>
+
+<details>
 <summary>📅 2025-08-19 </summary>
 
 - 新增 Coinbase API 數據載入器
