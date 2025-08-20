@@ -99,15 +99,15 @@ flowchart TD
 - 交易邏輯設計與驗證方法
 """
 
-import pandas as pd
-import numpy as np
 import logging
-import uuid
-import os
+
+import numpy as np
+import pandas as pd
 
 # 優化：嘗試導入 Numba 進行 JIT 編譯加速
 try:
-    from numba import njit, prange
+    from numba import njit
+
     NUMBA_AVAILABLE = True
 except ImportError:
     NUMBA_AVAILABLE = False
@@ -117,33 +117,48 @@ except ImportError:
 if NUMBA_AVAILABLE:
 
     @njit(fastmath=True, cache=True)
-    def _vectorized_trade_simulation_njit(entry_signals, exit_signals, close_prices, open_prices, transaction_cost, slippage, trade_price='close', trade_delay=0):
+    def _vectorized_trade_simulation_njit(
+        entry_signals,
+        exit_signals,
+        close_prices,
+        open_prices,
+        transaction_cost,
+        slippage,
+        trade_price="close",
+        trade_delay=0,
+    ):
         """
         向量化交易模擬 - 移植自 VBT
         """
         n_time, n_strategies = entry_signals.shape
-        
+
         # 預分配結果矩陣
         positions = np.zeros((n_time, n_strategies))
         returns = np.zeros((n_time, n_strategies))
         trade_actions = np.zeros((n_time, n_strategies))
         equity_values = np.zeros((n_time, n_strategies))
-        
+
         # 對每個策略進行優化的狀態機處理
         for s in range(n_strategies):
             # 狀態機：最小化記憶依賴
             current_state = 0.0  # 0=空倉, 1=多倉, -1=空倉
             equity = 1.0
-            
+
             for t in range(n_time):
                 # 計算信號索引（考慮交易延遲）
                 signal_index = t - trade_delay
-                entry_sig = entry_signals[signal_index, s] if 0 <= signal_index < n_time else 0.0
-                exit_sig = exit_signals[signal_index, s] if 0 <= signal_index < n_time else 0.0
-                
+                entry_sig = (
+                    entry_signals[signal_index, s]
+                    if 0 <= signal_index < n_time
+                    else 0.0
+                )
+                exit_sig = (
+                    exit_signals[signal_index, s] if 0 <= signal_index < n_time else 0.0
+                )
+
                 # 計算收益率（修正邏輯）
                 if t > 0 and current_state != 0.0:
-                    if trade_price == 'close':
+                    if trade_price == "close":
                         # Close 交易：使用前一日收盤價到當日收盤價的收益率
                         prev_close = close_prices[t - 1]
                         current_close = close_prices[t]
@@ -153,12 +168,12 @@ if NUMBA_AVAILABLE:
                         prev_close = close_prices[t - 1]
                         current_open = open_prices[t]
                         ret = (current_open - prev_close) / prev_close * current_state
-                    
-                    equity *= (1.0 + ret)
+
+                    equity *= 1.0 + ret
                     returns[t, s] = ret
                 else:
                     returns[t, s] = 0.0
-                
+
                 # 狀態轉換邏輯（優化版本）
                 if current_state == 0.0:  # 空倉
                     if entry_sig == 1.0:  # 開多倉
@@ -183,13 +198,15 @@ if NUMBA_AVAILABLE:
                         trade_actions[t, s] = 4
                         # 扣除滑點與手續費
                         equity *= (1.0 - slippage) * (1.0 - transaction_cost)
-                
+
                 positions[t, s] = current_state
                 equity_values[t, s] = equity * 100.0
-        
+
         return positions, returns, trade_actions, equity_values
 
+
 logger = logging.getLogger("lo2cin4bt")
+
 
 class TradeSimulator_backtester:
     """
@@ -210,7 +227,21 @@ class TradeSimulator_backtester:
         indicators (list): 所有參與的 indicator 實例列表，預設 None。
     """
 
-    def __init__(self, data, entry_signal, exit_signal, transaction_cost=0.001, slippage=0.0005, trade_delay=0, trade_price='close', Backtest_id=None, parameter_set_id=None, predictor=None, initial_equity=1.0, indicators=None):
+    def __init__(
+        self,
+        data,
+        entry_signal,
+        exit_signal,
+        transaction_cost=0.001,
+        slippage=0.0005,
+        trade_delay=0,
+        trade_price="close",
+        Backtest_id=None,
+        parameter_set_id=None,
+        predictor=None,
+        initial_equity=1.0,
+        indicators=None,
+    ):
         self.data = data
         self.entry_signal = entry_signal
         self.exit_signal = exit_signal
@@ -225,9 +256,8 @@ class TradeSimulator_backtester:
         self.logger = logger
         self.indicators = indicators  # 新增：所有參與的 indicator 實例列表，預設 None
 
-        entry_counts = entry_signal.value_counts().to_dict()
-        exit_counts = exit_signal.value_counts().to_dict()
-
+        entry_signal.value_counts().to_dict()
+        exit_signal.value_counts().to_dict()
 
     def simulate_trades(self):
         """
@@ -236,29 +266,33 @@ class TradeSimulator_backtester:
         exit_signal: -1=平多, 1=平空, 0=無操作
         """
         # 將單個策略轉換為向量化格式
-        entry_signals_matrix = self.entry_signal.values.reshape(-1, 1).astype(np.float64)
+        entry_signals_matrix = self.entry_signal.values.reshape(-1, 1).astype(
+            np.float64
+        )
         exit_signals_matrix = self.exit_signal.values.reshape(-1, 1).astype(np.float64)
-        
+
         # 處理 NaN 值
         entry_signals_matrix = np.nan_to_num(entry_signals_matrix, nan=0.0)
         exit_signals_matrix = np.nan_to_num(exit_signals_matrix, nan=0.0)
-        
+
         # 使用向量化方法進行交易模擬
         trading_params = {
-            'transaction_cost': self.transaction_cost,
-            'slippage': self.slippage,
-            'trade_delay': self.trade_delay,
-            'trade_price': self.trade_price
+            "transaction_cost": self.transaction_cost,
+            "slippage": self.slippage,
+            "trade_delay": self.trade_delay,
+            "trade_price": self.trade_price,
         }
-        
-        trade_results = self.simulate_trades_vectorized(entry_signals_matrix, exit_signals_matrix, trading_params)
-        
+
+        trade_results = self.simulate_trades_vectorized(
+            entry_signals_matrix, exit_signals_matrix, trading_params
+        )
+
         # 提取單個策略的結果
-        positions = trade_results['positions'][:, 0]
-        returns = trade_results['returns'][:, 0]
-        trade_actions = trade_results['trade_actions'][:, 0]
-        equity_values = trade_results['equity_values'][:, 0]
-        
+        positions = trade_results["positions"][:, 0]
+        returns = trade_results["returns"][:, 0]
+        trade_actions = trade_results["trade_actions"][:, 0]
+        equity_values = trade_results["equity_values"][:, 0]
+
         # 生成完整的交易記錄
         result = self.generate_single_result(
             0,  # task_idx
@@ -272,76 +306,93 @@ class TradeSimulator_backtester:
             self.Backtest_id,
             [],  # entry_params (單個策略不需要)
             [],  # exit_params (單個策略不需要)
-            trading_params
+            trading_params,
         )
-        
-        return result['records'], None  # 返回 records_df 和 warning_msg
 
-    def simulate_trades_vectorized(self, entry_signals_matrix, exit_signals_matrix, trading_params):
+        return result["records"], None  # 返回 records_df 和 warning_msg
+
+    def simulate_trades_vectorized(
+        self, entry_signals_matrix, exit_signals_matrix, trading_params
+    ):
         """
         向量化交易模擬 - 供 VBT 調用
-        
+
         Args:
             entry_signals_matrix: numpy.ndarray, shape (n_time, n_strategies)
             exit_signals_matrix: numpy.ndarray, shape (n_time, n_strategies)
             trading_params: dict, 包含交易參數
-            
+
         Returns:
             dict: 包含向量化交易結果
         """
         if NUMBA_AVAILABLE:
             # 使用 Numba 加速的向量化交易模擬
-            positions, returns, trade_actions, equity_values = _vectorized_trade_simulation_njit(
-                entry_signals_matrix, exit_signals_matrix, 
-                self.data['Close'].values.astype(np.float64),
-                self.data['Open'].values.astype(np.float64),
-                trading_params.get('transaction_cost', 0.001),
-                trading_params.get('slippage', 0.0005),
-                trading_params.get('trade_price', 'close'),
-                trading_params.get('trade_delay', 0)
+            positions, returns, trade_actions, equity_values = (
+                _vectorized_trade_simulation_njit(
+                    entry_signals_matrix,
+                    exit_signals_matrix,
+                    self.data["Close"].values.astype(np.float64),
+                    self.data["Open"].values.astype(np.float64),
+                    trading_params.get("transaction_cost", 0.001),
+                    trading_params.get("slippage", 0.0005),
+                    trading_params.get("trade_price", "close"),
+                    trading_params.get("trade_delay", 0),
+                )
             )
         else:
             # 備用實現
-            positions, returns, trade_actions, equity_values = self._fallback_vectorized_simulation(
-                entry_signals_matrix, exit_signals_matrix, trading_params
+            positions, returns, trade_actions, equity_values = (
+                self._fallback_vectorized_simulation(
+                    entry_signals_matrix, exit_signals_matrix, trading_params
+                )
             )
-        
+
         return {
-            'positions': positions,
-            'returns': returns,
-            'trade_actions': trade_actions,
-            'equity_values': equity_values
+            "positions": positions,
+            "returns": returns,
+            "trade_actions": trade_actions,
+            "equity_values": equity_values,
         }
-    
-    def _fallback_vectorized_simulation(self, entry_signals_matrix, exit_signals_matrix, trading_params):
+
+    def _fallback_vectorized_simulation(
+        self, entry_signals_matrix, exit_signals_matrix, trading_params
+    ):
         """備用向量化交易模擬實現"""
         n_time, n_strategies = entry_signals_matrix.shape
         positions = np.zeros((n_time, n_strategies))
         returns = np.zeros((n_time, n_strategies))
         trade_actions = np.zeros((n_time, n_strategies))
         equity_values = np.zeros((n_time, n_strategies))
-        
-        transaction_cost = trading_params.get('transaction_cost', 0.001)
-        slippage = trading_params.get('slippage', 0.0005)
-        trade_price = trading_params.get('trade_price', 'close')
-        trade_delay = trading_params.get('trade_delay', 0)
-        
-        close_prices = self.data['Close'].values
-        open_prices = self.data['Open'].values
-        
+
+        transaction_cost = trading_params.get("transaction_cost", 0.001)
+        slippage = trading_params.get("slippage", 0.0005)
+        trade_price = trading_params.get("trade_price", "close")
+        trade_delay = trading_params.get("trade_delay", 0)
+
+        close_prices = self.data["Close"].values
+        open_prices = self.data["Open"].values
+
         for s in range(n_strategies):
             position = 0.0
             equity = 1.0  # 初始權益
-            
+
             for t in range(n_time):
                 # 計算信號索引（考慮交易延遲）
                 signal_index = t - trade_delay
-                entry_sig = entry_signals_matrix[signal_index, s] if 0 <= signal_index < n_time else 0.0
-                exit_sig = exit_signals_matrix[signal_index, s] if 0 <= signal_index < n_time else 0.0
-                
+                entry_sig = (
+                    entry_signals_matrix[signal_index, s]
+                    if 0 <= signal_index < n_time
+                    else 0.0
+                )
+                exit_sig = (
+                    exit_signals_matrix[signal_index, s]
+                    if 0 <= signal_index < n_time
+                    else 0.0
+                )
+
                 # 計算收益率（修正邏輯）
                 if t > 0 and position != 0.0:
-                    if trade_price == 'close':
+                    if trade_price == "close":
                         # Close 交易：使用前一日收盤價到當日收盤價的收益率
                         prev_close = close_prices[t - 1]
                         current_close = close_prices[t]
@@ -351,12 +402,12 @@ class TradeSimulator_backtester:
                         prev_close = close_prices[t - 1]
                         current_open = open_prices[t]
                         ret = (current_open - prev_close) / prev_close * position
-                    
-                    equity *= (1.0 + ret)
+
+                    equity *= 1.0 + ret
                     returns[t, s] = ret
                 else:
                     returns[t, s] = 0.0
-                
+
                 # 交易邏輯
                 if position == 0.0:
                     if entry_sig == 1.0:  # 開多倉
@@ -381,34 +432,48 @@ class TradeSimulator_backtester:
                         trade_actions[t, s] = 4
                         # 扣除滑點與手續費
                         equity *= (1.0 - slippage) * (1.0 - transaction_cost)
-                
+
                 positions[t, s] = position
                 equity_values[t, s] = equity * 100.0  # 轉換為百分比
-        
+
         return positions, returns, trade_actions, equity_values
-    
-    def generate_single_result(self, task_idx, entry_signal, exit_signal, position, returns, trade_actions, equity_values, predictor, backtest_id, entry_params, exit_params, trading_params):
+
+    def generate_single_result(
+        self,
+        task_idx,
+        entry_signal,
+        exit_signal,
+        position,
+        returns,
+        trade_actions,
+        equity_values,
+        predictor,
+        backtest_id,
+        entry_params,
+        exit_params,
+        trading_params,
+    ):
         """
         生成單個任務的結果 - 移植自 VBT 的 _generate_single_result
         """
         import uuid
-        
+
         records = []
         current_trade_group_id = None
         open_price_map = {}
         open_time_map = {}
         holding_period_count = 0
-        
+
         for i in range(len(position)):
             row = self.data.iloc[i]
             # 確保使用正確的時間索引
             if isinstance(self.data.index, pd.DatetimeIndex):
                 time_index = self.data.index[i]
-            elif 'Time' in self.data.columns:
-                time_index = row['Time']
+            elif "Time" in self.data.columns:
+                time_index = row["Time"]
             else:
                 time_index = i  # 如果沒有時間索引，使用數字索引
-            
+
             # 根據trade_actions判斷交易類型
             position_type = None
             open_position_price = 0.0
@@ -420,13 +485,13 @@ class TradeSimulator_backtester:
             slippage_cost = 0.0
             holding_period = None
             trade_return = None
-            
+
             if trade_actions[i] == 1:  # 開倉
                 if position[i] > 0:
                     position_type = "new_long"
                 else:
                     position_type = "new_short"
-                open_position_price = row['Close']
+                open_position_price = row["Close"]
                 open_time = time_index
                 # 生成新的交易組ID
                 trade_group_id = f"T{str(uuid.uuid4())[:8]}"
@@ -435,23 +500,23 @@ class TradeSimulator_backtester:
                 open_price_map[trade_group_id] = open_position_price
                 open_time_map[trade_group_id] = open_time
                 # 計算交易成本
-                transaction_cost = trading_params.get('transaction_cost', 0.001)
-                slippage_cost = trading_params.get('slippage', 0.0005)
+                transaction_cost = trading_params.get("transaction_cost", 0.001)
+                slippage_cost = trading_params.get("slippage", 0.0005)
                 holding_period_count = 0
             elif trade_actions[i] == 4:  # 平倉
-                close_position_price = row['Close']
+                close_position_price = row["Close"]
                 close_time = time_index
                 # 補上平倉時的 Position_type
                 if i > 0:
-                    if position[i-1] > 0:
+                    if position[i - 1] > 0:
                         position_type = "close_long"
-                    elif position[i-1] < 0:
+                    elif position[i - 1] < 0:
                         position_type = "close_short"
                 # 使用當前的交易組ID
                 trade_group_id = current_trade_group_id
                 # 計算交易成本
-                transaction_cost = trading_params.get('transaction_cost', 0.001)
-                slippage_cost = trading_params.get('slippage', 0.0005)
+                transaction_cost = trading_params.get("transaction_cost", 0.001)
+                slippage_cost = trading_params.get("slippage", 0.0005)
                 # 計算持倉期間和交易收益率
                 if trade_group_id and trade_group_id in open_time_map:
                     open_time = open_time_map[trade_group_id]
@@ -466,9 +531,13 @@ class TradeSimulator_backtester:
                     # 計算交易收益率
                     if open_price > 0:
                         if position_type == "close_long":
-                            trade_return = (close_position_price - open_price) / open_price
+                            trade_return = (
+                                close_position_price - open_price
+                            ) / open_price
                         else:  # close_short
-                            trade_return = (open_price - close_position_price) / open_price
+                            trade_return = (
+                                open_price - close_position_price
+                            ) / open_price
                 # 清理交易組記錄
                 if trade_group_id in open_price_map:
                     open_price_map.pop(trade_group_id)
@@ -480,71 +549,91 @@ class TradeSimulator_backtester:
                 if current_trade_group_id is not None:
                     holding_period_count += 1
                     trade_group_id = current_trade_group_id
-            
+
             record = {
-                'Time': time_index,
-                'Open': row['Open'],
-                'High': row['High'],
-                'Low': row['Low'],
-                'Close': row['Close'],
-                'Trading_instrument': 'BTCUSDT',
-                'Position_type': position_type,
-                'Open_position_price': open_position_price,
-                'Close_position_price': close_position_price,
-                'Position_size': position[i],
-                'Return': returns[i],
-                'Trade_group_id': trade_group_id,
-                'Trade_action': int(trade_actions[i]),
-                'Open_time': open_time,
-                'Close_time': close_time,
-                'Parameter_set_id': self._generate_parameter_set_id(entry_params, exit_params, predictor),
-                'Equity_value': equity_values[i],
-                'Transaction_cost': transaction_cost,
-                'Slippage_cost': slippage_cost,
-                'Predictor_value': row[predictor] if predictor in self.data.columns else 0.0,
-                'Entry_signal': entry_signal[i],
-                'Exit_signal': exit_signal[i],
-                'Holding_period_count': holding_period_count,
-                'Holding_period': holding_period,
-                'Trade_return': trade_return,
-                'Backtest_id': backtest_id
+                "Time": time_index,
+                "Open": row["Open"],
+                "High": row["High"],
+                "Low": row["Low"],
+                "Close": row["Close"],
+                "Trading_instrument": "BTCUSDT",
+                "Position_type": position_type,
+                "Open_position_price": open_position_price,
+                "Close_position_price": close_position_price,
+                "Position_size": position[i],
+                "Return": returns[i],
+                "Trade_group_id": trade_group_id,
+                "Trade_action": int(trade_actions[i]),
+                "Open_time": open_time,
+                "Close_time": close_time,
+                "Parameter_set_id": self._generate_parameter_set_id(
+                    entry_params, exit_params, predictor
+                ),
+                "Equity_value": equity_values[i],
+                "Transaction_cost": transaction_cost,
+                "Slippage_cost": slippage_cost,
+                "Predictor_value": (
+                    row[predictor] if predictor in self.data.columns else 0.0
+                ),
+                "Entry_signal": entry_signal[i],
+                "Exit_signal": exit_signal[i],
+                "Holding_period_count": holding_period_count,
+                "Holding_period": holding_period,
+                "Trade_return": trade_return,
+                "Backtest_id": backtest_id,
             }
             records.append(record)
-        
+
         # 轉換為DataFrame
         records_df = pd.DataFrame(records)
-        
+
         # 生成策略名稱
-        strategy_name = self._generate_parameter_set_id(entry_params, exit_params, predictor)
-        
+        strategy_name = self._generate_parameter_set_id(
+            entry_params, exit_params, predictor
+        )
+
         # 轉換參數為字典格式 - 與BacktestEngine格式一致
         params_dict = {
-            'entry': [param.to_dict() if hasattr(param, 'to_dict') else self._param_to_dict(param) for param in entry_params],
-            'exit': [param.to_dict() if hasattr(param, 'to_dict') else self._param_to_dict(param) for param in exit_params],
-            'predictor': predictor
+            "entry": [
+                (
+                    param.to_dict()
+                    if hasattr(param, "to_dict")
+                    else self._param_to_dict(param)
+                )
+                for param in entry_params
+            ],
+            "exit": [
+                (
+                    param.to_dict()
+                    if hasattr(param, "to_dict")
+                    else self._param_to_dict(param)
+                )
+                for param in exit_params
+            ],
+            "predictor": predictor,
         }
-        
+
         result = {
-            'Backtest_id': backtest_id,
-            'strategy_id': strategy_name,
-            'params': params_dict,
-            'records': records_df,
-            'warning_msg': None,
-            'error': None
+            "Backtest_id": backtest_id,
+            "strategy_id": strategy_name,
+            "params": params_dict,
+            "records": records_df,
+            "warning_msg": None,
+            "error": None,
         }
-        
+
         return result
-    
+
     def _param_to_dict(self, param):
         """將參數物件轉換為字典格式"""
         if param is None:
             return {}
-        
-        result = {'indicator_type': param.indicator_type}
+
+        result = {"indicator_type": param.indicator_type}
         for key, value in param.params.items():
             result[key] = value
         return result
-    
+
     def _generate_parameter_set_id(self, entry_params, exit_params, predictor):
         """
         根據 entry/exit 參數生成有意義的 parameter_set_id
@@ -583,10 +672,10 @@ class TradeSimulator_backtester:
                     entry_str += f"PERC{strat_idx}(W={window},M1={m1},M2={m2})"
                 else:
                     entry_str += f"PERC{strat_idx}(W={window})"
-            
+
             if i < len(entry_params) - 1:
                 entry_str += "+"
-        
+
         # 生成平倉參數字符串
         exit_str = ""
         # exit_params 是一個列表，需要遍歷
@@ -622,10 +711,10 @@ class TradeSimulator_backtester:
                     exit_str += f"PERC{strat_idx}(W={window},M1={m1},M2={m2})"
                 else:
                     exit_str += f"PERC{strat_idx}(W={window})"
-            
+
             if i < len(exit_params) - 1:
                 exit_str += "+"
-        
+
         # 組合最終字符串
         if exit_str:
             return f"{entry_str}_{predictor}_{exit_str}"

@@ -44,20 +44,24 @@ flowchart TD
 - Base_metricstracker.py、MetricsCalculator_metricstracker.py
 - 專案 README
 """
-import os
+
 import glob
+import os
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
 console = Console()
 
+
 def list_parquet_files(directory):
     """
     掃描指定資料夾下所有parquet檔案，回傳檔案路徑list。
     """
-    pattern = os.path.join(directory, '*.parquet')
+    pattern = os.path.join(directory, "*.parquet")
     return sorted(glob.glob(pattern))
+
 
 def show_parquet_files(files):
     """
@@ -66,14 +70,14 @@ def show_parquet_files(files):
     table = Table(title="可用 Parquet 檔案", show_lines=True, border_style="#dbac30")
     table.add_column("編號", style="bold white", no_wrap=True)
     table.add_column("檔案名稱", style="bold white", no_wrap=True)
-    
+
     for idx, file in enumerate(files, 1):
         table.add_row(
-            f"[white]{idx}[/white]",
-            f"[#1e90ff]{os.path.basename(file)}[/#1e90ff]"
+            f"[white]{idx}[/white]", f"[#1e90ff]{os.path.basename(file)}[/#1e90ff]"
         )
-    
+
     console.print(table)
+
 
 def select_files(files, user_input):
     """
@@ -84,21 +88,25 @@ def select_files(files, user_input):
     if user_input in ("all"):
         return files
     try:
-        idxs = [int(x) for x in user_input.split(',') if x.strip().isdigit()]
-        selected = [files[i-1] for i in idxs if 1 <= i <= len(files)]
+        idxs = [int(x) for x in user_input.split(",") if x.strip().isdigit()]
+        selected = [files[i - 1] for i in idxs if 1 <= i <= len(files)]
         if selected:
             return selected
         else:
-            console.print(Panel(
-                "請輸入有效編號！\n建議：請確認編號在可用範圍內，或使用 'all' 選擇所有檔案。",
-                title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
-                border_style="#8f1511"
-            ))
+            console.print(
+                Panel(
+                    "請輸入有效編號！\n建議：請確認編號在可用範圍內，或使用 'all' 選擇所有檔案。",
+                    title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
+                    border_style="#8f1511",
+                )
+            )
             return []
     except Exception:
-        console.print(Panel(
-            "輸入格式錯誤，請重新輸入！\n建議：請使用數字編號（如 1,2,3）或 'all' 選擇所有檔案。",
-            title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
-            border_style="#8f1511"
-        ))
-        return [] 
+        console.print(
+            Panel(
+                "輸入格式錯誤，請重新輸入！\n建議：請使用數字編號（如 1,2,3）或 'all' 選擇所有檔案。",
+                title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
+                border_style="#8f1511",
+            )
+        )
+        return []

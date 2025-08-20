@@ -25,7 +25,6 @@
 - [TG討論社群](https://t.me/lo2cin4group)
 - [DC討論社群](https://discord.com/invite/6HgJC2dUvg)
 
-
 ---
 
 ## ❓ 為什麼選擇 lo2cin4bt？
@@ -44,6 +43,7 @@
 lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化，每個步驟都有明確的用途：
 
 ### 1. 📊 載入數據 (Data Loading)
+
 - **用途**：建立回測的基礎數據
 - **功能**：
   - 支援多種數據來源：本地 Excel/CSV、Yahoo Finance、Binance API、Coinbase API
@@ -52,6 +52,7 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
   - 數據驗證與缺失值處理
 
 ### 2. 🔬 統計分析 (Statistical Analysis)
+
 - **用途**：深入分析數據特徵與預測因子有效性
 - **功能**：
   - 數據分布檢驗與異常值檢測
@@ -61,6 +62,7 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
   - 生成詳細的統計報告
 
 ### 3. 🧑‍💻 回測交易 (Backtesting)
+
 - **用途**：模擬真實交易環境，測試策略有效性
 - **功能**：
   - 多策略多參數組合向量化回測
@@ -69,6 +71,7 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
   - 可導出的詳細交易記錄
 
 ### 4. 📈 交易分析 (Trade Analysis)
+
 - **用途**：深入分析交易表現與策略優化
 - **功能**：
   - 計算關鍵績效指標：Sharpe、Sortino、Max Drawdown
@@ -78,6 +81,7 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
   - 生成績效報告與圖表
 
 ### 5. 👁️ 可視化平台 (Visualization Platform)
+
 - **用途**：直觀展示回測結果與策略表現
 - **功能**：
   - 互動式權益曲線圖
@@ -95,13 +99,17 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
 3. 安裝 Python（建議 3.9 以上）
 4. 開啟終端機（Terminal）或命令提示字元（CMD），切換到專案資料夾
 5. 安裝依賴套件：
+
    ```bash
    pip install -r requirements.txt
    ```
+
 6. 運行主程式：
+
    ```bash
    python main.py
    ```
+
 7. 按照畫面指示選擇數據來源、回測參數，即可開始！
 
 ---
@@ -120,10 +128,12 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
 ## 💻 推薦編程新手開發環境： Cursor
 
 ### 安裝 Cursor（AI 編輯器）
+
 1. 前往 [Cursor 官方網站](https://www.cursor.cn/) 下載並安裝 Cursor。
 2. 支援 AI 助理協作，可以自然語言解決安裝難題。
 
 ### 用 Cursor 開啟本專案
+
 1. 開啟 Cursor。
 2. 點選「File」→「Open Folder...」，選擇剛剛解壓縮的專案資料夾。
 3. 建議在左側 EXPLORER 檢視所有檔案結構，右側可直接點擊 .py 檔案進行編輯。
@@ -131,6 +141,7 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
    - 點選「Terminal」→「New Terminal」，即可在專案根目錄下執行 pip、python 等指令。
 
 ### 執行與除錯
+
 - 在 Cursor 內直接按 F5 或點選「Run」→「Start Debugging」可進行除錯。
 - 也可在內建終端機輸入 `python main.py` 直接執行。
 
@@ -139,6 +150,7 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
 ## 📄 準備文件格式
 
 ### 1. 價格文件（非必須）
+
 - 支援 Excel（.xlsx）、CSV
 - 必要欄位：Time, Open, High, Low, Close, Volume
 - 目前僅支援單一預測因子進行回測與差分，未來將開放多預測因子功能，敬請期待！
@@ -148,6 +160,7 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
   | 2020-01-01 | 100 | 110 | 90 | 105 | 1000 |
 
 ### 2. 預測因子文件（非必須）
+
 - 支援 Excel（.xlsx）、CSV、JSON
 - 必要欄位：Time, [自訂因子欄位]
 - 需放在`records\dataloader\import`，系統會自動檢測
@@ -204,11 +217,9 @@ lo2cin4bt/
 - **自訂導出**：
   - 可於互動流程中選擇導出個別回測結果為 CSV。
 
-
 ---
 
 ## 🎯 開發目標與進度
-
 
 ### 目前已完成
 
@@ -218,6 +229,7 @@ lo2cin4bt/
 - 新增 Coinbase API 數據載入器
 - 支援加密貨幣市場數據獲取（BTC、ETH 等交易對）
 - 支援多種時間週期（1m、5m、15m、1h、6h、1d）
+
 </details>
 
 <details>
@@ -225,8 +237,8 @@ lo2cin4bt/
 
 - 【重榜】增加了 Percentile 指標
 - Percentile 指標已加入 default 策略
-</details>
 
+</details>
 
 <details>
 <summary>📅 2025-08-16 </summary>
@@ -234,12 +246,14 @@ lo2cin4bt/
 - 【重榜】可視化平台增加了參數高原，檢測過擬合無難度
 - BUG修正Calamar Ratio 的 Bug 已修正
 - 反選功能指示更清晰
+
 </details>
 
 <details>
 <summary>📅 2025-08-12</summary>
 
 - 可視化平台增加了反選功能
+
 </details>
 
 <details>
@@ -247,6 +261,7 @@ lo2cin4bt/
 
 - 【重榜】向量化形式重構回測部份
 - 動態檢測電腦配置以確保程式不會崩潰
+
 </details>
 
 <details>
@@ -257,9 +272,11 @@ lo2cin4bt/
 - 多策略多參數組合批量回測
 - 詳細績效指標與互動式 Dash 可視化
 - 完善的錯誤提示與日誌
+
 </details>
 
 ### 未來開發目標
+
 - 更多技術指標，包括 RSI, percentile, 連續N日大於/小於特定值
 - 參數平原 (Parameter plateau)
 - 穩健性測試 (Robustness Check)
@@ -268,6 +285,7 @@ lo2cin4bt/
 - 回測時新增 ALL 功能，使用所有現有指標進行組合回測
 - 更多數據接口
 - 接駁 AI
+
 > 歡迎任何 issue、建議或貢獻，一起讓 lo2cin4bt 變得更好！
 
 ---
@@ -291,15 +309,15 @@ lo2cin4bt/
 
 ## 📜 授權聲明
 
-本專案所有原始碼、文件、數據，允許學術、個人、非商業及商業用途。  
-但如需商業授權（包括但不限於銷售、SaaS、商業顧問等），請聯絡作者 lo2cin4_Jesse 取得授權。  
+本專案所有原始碼、文件、數據，允許學術、個人、非商業及商業用途。
+但如需商業授權（包括但不限於銷售、SaaS、商業顧問等），請聯絡作者 lo2cin4_Jesse 取得授權。
 任何分發、修改、再利用，必須保留原作者署名（lo2cin4_Jesse）及本授權條款。
 
 ---
 
 ## 📬 聯絡方式或商務合作
 
-- Email: lo2cin4@gmail.com
+- Email: <lo2cin4@gmail.com>
 - Telegram: [@lo2cin4_jesse](https://t.me/lo2cin4_jesse)
 
 ---
@@ -308,6 +326,6 @@ lo2cin4bt/
 
 本專案部分可視化設計與互動靈感來自 [plotguy](https://pypi.org/project/plotguy/) 開源庫，特此致謝！
 
-特別感謝 [@LouisChanCLY](https://github.com/LouisChanCLY) 對本專案的寶貴貢獻與支持！ 
+特別感謝 [@LouisChanCLY](https://github.com/LouisChanCLY) 對本專案的寶貴貢獻與支持！
 
 ---

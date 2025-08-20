@@ -42,7 +42,7 @@ build/
 .pytest_cache/
 
 # Local env
-.env 
+.env
 README_CLI_STYLE.md
 Development_Guideline.md
 HowToAddNewTA_AIPROMPT.md

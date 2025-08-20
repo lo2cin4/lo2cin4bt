@@ -48,10 +48,11 @@ flowchart TD
 - 專案 README
 """
 
-import pandas as pd
-import numpy as np
-import requests
 from datetime import datetime, timedelta
+
+import numpy as np
+import pandas as pd
+import requests
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text

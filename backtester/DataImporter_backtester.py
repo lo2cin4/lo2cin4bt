@@ -84,11 +84,11 @@ flowchart TD
 - 專案 README
 """
 
-import pandas as pd
-import numpy as np
 import logging
 import os
-from datetime import datetime, timedelta
+
+import numpy as np
+import pandas as pd
 
 try:
     from dataloader.Base_loader import DataLoader
@@ -97,9 +97,12 @@ except ImportError as e:
     raise ImportError("請確認 dataloader.Base_loader 模組存在並可導入。")
 
 # 設置日誌
-log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "lo2cin4bt", "logs")
+log_dir = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "lo2cin4bt", "logs"
+)
 os.makedirs(log_dir, exist_ok=True)
 log_file = os.path.join(log_dir, "backtest_errors.log")
+
 
 class DataImporter:
     """從 dataloader 載入數據，標準化格式，檢測頻率。
@@ -143,20 +146,26 @@ class DataImporter:
             else:
                 self.data = result
                 self.frequency = loader.frequency
-            
-            if self.data is None or (isinstance(self.data, pd.DataFrame) and self.data.empty):
+
+            if self.data is None or (
+                isinstance(self.data, pd.DataFrame) and self.data.empty
+            ):
                 raise ValueError("數據載入失敗或數據為空")
 
             # 確保必要欄位
             required_cols = ["time", "open", "high", "low", "close", "volume"]
-            missing_cols = [col for col in required_cols if col.lower() not in [c.lower() for c in self.data.columns]]
+            missing_cols = [
+                col
+                for col in required_cols
+                if col.lower() not in [c.lower() for c in self.data.columns]
+            ]
             if missing_cols:
                 raise ValueError(f"缺少必要欄位: {missing_cols}")
 
             # 標準化欄位名稱（只對價格欄位進行標準化，保留預測因子的原始大小寫）
             column_mapping = {}
             new_columns = []
-            
+
             for col in self.data.columns:
                 col_lower = col.lower()
                 if col_lower == "time":
@@ -180,7 +189,7 @@ class DataImporter:
                 else:
                     # 保留預測因子欄位的原始大小寫
                     new_columns.append(col)
-            
+
             # 應用欄位重命名
             self.data = self.data.rename(columns=column_mapping)
 
@@ -196,7 +205,9 @@ class DataImporter:
             return self.data, self.frequency
 
         except Exception as e:
-            self.logger.error(f"數據載入或標準化失敗: {e}", extra={"Backtest_id": Backtest_id})
+            self.logger.error(
+                f"數據載入或標準化失敗: {e}", extra={"Backtest_id": Backtest_id}
+            )
             raise
 
     def _detect_frequency(self):
@@ -208,7 +219,7 @@ class DataImporter:
         try:
             if self.data is None:
                 raise ValueError("數據未載入")
-                
+
             # 取前 100 筆數據（或全部）計算時間差
             time_diffs = self.data["Time"].diff().dropna().dt.total_seconds()
             if len(time_diffs) == 0:

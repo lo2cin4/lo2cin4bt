@@ -6,6 +6,4 @@ Plotter 工具模組包
 
 from .ParameterParser_utils_plotter import ParameterParser
 
-__all__ = [
-    'ParameterParser'
-]
+__all__ = ["ParameterParser"]

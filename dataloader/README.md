@@ -51,36 +51,42 @@ dataloader/
 ## 核心模組功能（Core Components）
 
 ### 1. Base_loader.py
+
 - **功能**：定義數據載入器的標準介面與繼承規範
 - **主要處理**：規範 load_data、validate_data 等方法，所有子類必須實作
 - **輸入**：數據來源參數
 - **輸出**：標準化 DataFrame
 
 ### 2. Binance_loader.py / Coinbase_loader.py / Yfinance_loader.py / File_loader.py
+
 - **功能**：分別對接 Binance API、Coinbase API、Yahoo Finance API、本地檔案，下載並標準化行情數據
 - **主要處理**：互動式輸入參數、欄位標準化、缺失值處理
 - **輸入**：API 參數或檔案路徑
 - **輸出**：標準化 DataFrame
 
 ### 3. Calculator_loader.py
+
 - **功能**：批次計算技術指標（如移動平均、收益率等）
 - **主要處理**：自動新增 open_return、close_return、logreturn 等欄位
 - **輸入**：行情 DataFrame
 - **輸出**：含衍生欄位的 DataFrame
 
 ### 4. Predictor_loader.py
+
 - **功能**：載入、對齊、合併外部預測因子，支援特徵工程
 - **主要處理**：自動辨識時間欄位、合併對齊、差分處理
 - **輸入**：預測因子檔案、行情 DataFrame
 - **輸出**：合併後 DataFrame
 
 ### 5. Validator_loader.py
+
 - **功能**：多層次數據驗證與清洗
 - **主要處理**：欄位完整性、型態、缺失值、時間序列一致性
 - **輸入**：任意 DataFrame
 - **輸出**：清洗後 DataFrame
 
 ### 6. DataExporter_loader.py
+
 - **功能**：將處理後數據導出為 CSV、Excel、JSON 等格式
 - **主要處理**：互動式選擇格式、檔名，統一導出路徑
 - **輸入**：DataFrame
@@ -147,7 +153,7 @@ data = dataloader.load_data()  # 互動式選擇來源、驗證、合併、導�
 
 ---
 
-如需擴充新數據來源、技術指標或有特殊需求，請先參考本 README 並同步更新相關註解與文件。 
+如需擴充新數據來源、技術指標或有特殊需求，請先參考本 README 並同步更新相關註解與文件。
 
 ---
 
