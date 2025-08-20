@@ -65,6 +65,8 @@ dataloader/
 ### 3. Calculator_loader.py
 - **功能**：批次計算技術指標（如移動平均、收益率等）
 - **主要處理**：自動新增 open_return、close_return、logreturn 等欄位
+- **特色**：提供 ReturnCalculator 類，供所有載入器統一使用
+- **優化**：使用 Numba JIT 編譯優化計算效能
 - **輸入**：行情 DataFrame
 - **輸出**：含衍生欄位的 DataFrame
 
@@ -122,6 +124,7 @@ flowchart TD
 - 新增/修改數據來源、欄位、格式時，**務必同步更新 Base_loader 及所有依賴子類**
 - 所有互動式 input() 需有預設值與錯誤提示，避免 crash
 - 欄位名稱、型態、時間格式需全模組統一（如 'Time', 'Open', 'Close' 等）
+- **收益率計算統一使用 ReturnCalculator 類**，避免重複實作
 - 每次擴充功能、格式、驗證規則時，請同步更新本 README 與頂部註解
 - 若有下游依賴（如 BacktestEngine、metricstracker），需同步檢查數據流與欄位對應
 
@@ -129,9 +132,15 @@ flowchart TD
 
 ```python
 from dataloader.Base_loader import DataLoader
+from dataloader.Calculator_loader import ReturnCalculator
 
+# 載入數據
 dataloader = DataLoader()
 data = dataloader.load_data()  # 互動式選擇來源、驗證、合併、導出
+
+# 計算收益率（所有載入器內部已自動使用）
+calculator = ReturnCalculator(data)
+data_with_returns = calculator.calculate_returns()
 ```
 
 ---
@@ -154,8 +163,8 @@ data = dataloader.load_data()  # 互動式選擇來源、驗證、合併、導�
 ## 疑難排解（持續更新）
 
 1. API 金鑰/參數錯誤 22/07/2025
-問題詳情：請確認 Binance API 金鑰、頻率、日期等參數正確。
-解決方法：請依官方文件與本 README 設定。
+問題詳情：請確認 Binance/Coinbase API 金鑰、頻率、日期等參數正確。
+解決方法：請依官方文件與本 README 設定。注意 Coinbase 使用公開 API 無需金鑰。
 
 2. 欄位缺失/型態錯誤 22/07/2025
 問題詳情：請使用 Validator_loader 進行自動檢查與補全。
@@ -168,5 +177,9 @@ data = dataloader.load_data()  # 互動式選擇來源、驗證、合併、導�
 4. 批次計算/合併時欄位衝突 22/07/2025
 問題詳情：請檢查欄位命名規則，避免重複。
 解決方法：統一命名規則。
+
+5. 收益率計算重複 20/08/2025
+問題詳情：各載入器重複實作收益率計算邏輯。
+解決方法：統一使用 Calculator_loader.ReturnCalculator 類進行計算。
 
 ---
