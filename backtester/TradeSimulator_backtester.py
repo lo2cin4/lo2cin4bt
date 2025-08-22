@@ -231,9 +231,14 @@ class TradeSimulator_backtester:
 
     def simulate_trades(self):
         """
-        模擬交易，生成交易記錄。
-        entry_signal: 1=開多, -1=開空, 0=無操作
-        exit_signal: -1=平多, 1=平空, 0=無操作
+        模擬交易，生成交易記錄
+        
+        Returns:
+            tuple: (records_df, warning_msg) 包含交易記錄DataFrame和警告訊息
+            
+        Note:
+            entry_signal: 1=開多, -1=開空, 0=無操作
+            exit_signal: -1=平多, 1=平空, 0=無操作
         """
         # 將單個策略轉換為向量化格式
         entry_signals_matrix = self.entry_signal.values.reshape(-1, 1).astype(np.float64)
@@ -242,6 +247,8 @@ class TradeSimulator_backtester:
         # 處理 NaN 值
         entry_signals_matrix = np.nan_to_num(entry_signals_matrix, nan=0.0)
         exit_signals_matrix = np.nan_to_num(exit_signals_matrix, nan=0.0)
+        
+
         
         # 使用向量化方法進行交易模擬
         trading_params = {
@@ -258,6 +265,8 @@ class TradeSimulator_backtester:
         returns = trade_results['returns'][:, 0]
         trade_actions = trade_results['trade_actions'][:, 0]
         equity_values = trade_results['equity_values'][:, 0]
+        
+
         
         # 生成完整的交易記錄
         result = self.generate_single_result(
@@ -305,6 +314,8 @@ class TradeSimulator_backtester:
             positions, returns, trade_actions, equity_values = self._fallback_vectorized_simulation(
                 entry_signals_matrix, exit_signals_matrix, trading_params
             )
+        
+
         
         return {
             'positions': positions,
@@ -387,6 +398,8 @@ class TradeSimulator_backtester:
         
         return positions, returns, trade_actions, equity_values
     
+
+    
     def generate_single_result(self, task_idx, entry_signal, exit_signal, position, returns, trade_actions, equity_values, predictor, backtest_id, entry_params, exit_params, trading_params):
         """
         生成單個任務的結果 - 移植自 VBT 的 _generate_single_result
@@ -456,13 +469,11 @@ class TradeSimulator_backtester:
                 if trade_group_id and trade_group_id in open_time_map:
                     open_time = open_time_map[trade_group_id]
                     open_price = open_price_map[trade_group_id]
-                    # 計算持倉期間（以天為單位）
-                    try:
-                        open_date = pd.to_datetime(open_time)
-                        close_date = pd.to_datetime(close_time)
-                        holding_period = (close_date - open_date).days
-                    except:
-                        holding_period = holding_period_count
+                    # 先累加持倉期數（平倉當日也要計算）
+                    if current_trade_group_id is not None:
+                        holding_period_count += 1
+                    # 使用正確的 holding_period_count 作為 holding_period
+                    holding_period = holding_period_count
                     # 計算交易收益率
                     if open_price > 0:
                         if position_type == "close_long":
@@ -475,6 +486,8 @@ class TradeSimulator_backtester:
                 if trade_group_id in open_time_map:
                     open_time_map.pop(trade_group_id)
                 current_trade_group_id = None
+                # 平倉後重置 holding_period_count 為 0
+                holding_period_count = 0
             else:
                 # 持倉期間，累加持倉期數
                 if current_trade_group_id is not None:
@@ -567,10 +580,24 @@ class TradeSimulator_backtester:
                 std_multiplier = param.get_param("std_multiplier")
                 strat_idx = param.get_param("strat_idx", 1)
                 entry_str += f"BOLL{strat_idx}({ma_length},{std_multiplier})"
-            elif param.indicator_type == "NDayCycle":
-                n = param.get_param("n")
+            elif param.indicator_type == "HL":
+                n_length = param.get_param("n_length")
+                m_length = param.get_param("m_length")
                 strat_idx = param.get_param("strat_idx", 1)
-                entry_str += f"NDayCycle({n})"
+                entry_str += f"HL{strat_idx}({n_length},{m_length})"
+            elif param.indicator_type == "VALUE":
+                strat_idx = param.get_param("strat_idx", 1)
+                if strat_idx in [1, 2, 3, 4]:
+                    n_length = param.get_param("n_length")
+                    m_value = param.get_param("m_value")
+                    entry_str += f"VALUE{strat_idx}({n_length},{m_value})"
+                elif strat_idx in [5, 6]:
+                    m1_value = param.get_param("m1_value")
+                    m2_value = param.get_param("m2_value")
+                    entry_str += f"VALUE{strat_idx}({m1_value},{m2_value})"
+                else:
+                    entry_str += f"VALUE{strat_idx}"
+
             elif param.indicator_type == "PERC":
                 window = param.get_param("window")
                 strat_idx = param.get_param("strat_idx", 1)
@@ -606,10 +633,24 @@ class TradeSimulator_backtester:
                 std_multiplier = param.get_param("std_multiplier")
                 strat_idx = param.get_param("strat_idx", 1)
                 exit_str += f"BOLL{strat_idx}({ma_length},{std_multiplier})"
-            elif param.indicator_type == "NDayCycle":
-                n = param.get_param("n")
+            elif param.indicator_type == "HL":
+                n_length = param.get_param("n_length")
+                m_length = param.get_param("m_length")
                 strat_idx = param.get_param("strat_idx", 1)
-                exit_str += f"NDayCycle({n})"
+                exit_str += f"HL{strat_idx}({n_length},{m_length})"
+            elif param.indicator_type == "VALUE":
+                strat_idx = param.get_param("strat_idx", 1)
+                if strat_idx in [1, 2, 3, 4]:
+                    n_length = param.get_param("n_length")
+                    m_value = param.get_param("m_value")
+                    exit_str += f"VALUE{strat_idx}({n_length},{m_value})"
+                elif strat_idx in [5, 6]:
+                    m1_value = param.get_param("m1_value")
+                    m2_value = param.get_param("m2_value")
+                    exit_str += f"VALUE{strat_idx}({m1_value},{m2_value})"
+                else:
+                    exit_str += f"VALUE{strat_idx}"
+
             elif param.indicator_type == "PERC":
                 window = param.get_param("window")
                 strat_idx = param.get_param("strat_idx", 1)

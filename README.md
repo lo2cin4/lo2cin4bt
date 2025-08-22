@@ -212,10 +212,24 @@ lo2cin4bt/
 
 ### 目前已完成
 
+
+<details>
+<summary>📅 2025-08-22 </summary>
+
+- 【重榜】增加了 (高點、低點) HL、 (數值) VALUE 指標
+- HL、VALUE 指標已加入 default 策略
+- 【重榜】回測參數現在可以輸入單獨數值了，不用必須輸入區間
+- 修正了持倉時間計算錯誤問題
+- 修正了指標 MA9-MA12 輸入邏輯錯誤問題
+- 修正了指標 NDAYS 計算錯誤問題
+- 修改了策略參數設定時的文案，以更精簡直觀
+
+</details>
+
 <details>
 <summary>📅 2025-08-19 </summary>
 
-- 新增 Coinbase API 數據載入器
+- 新增 Coinbase API 數據載入器 (感謝協作)
 - 支援加密貨幣市場數據獲取（BTC、ETH 等交易對）
 - 支援多種時間週期（1m、5m、15m、1h、6h、1d）
 </details>
@@ -223,7 +237,7 @@ lo2cin4bt/
 <details>
 <summary>📅 2025-08-18 </summary>
 
-- 【重榜】增加了 Percentile 指標
+- 【重榜】增加了 (百份位) Percentile 指標
 - Percentile 指標已加入 default 策略
 </details>
 

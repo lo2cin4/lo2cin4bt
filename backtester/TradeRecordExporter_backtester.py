@@ -171,10 +171,24 @@ class TradeRecordExporter_backtester:
                     ma_length = param.get('ma_length', '')
                     std_multiplier = param.get('std_multiplier', '')
                     return f"BOLL{strat}_MA({ma_length})_SD({std_multiplier})"
-                elif indicator_type == 'NDayCycle':
-                    n = param.get('n', '')
+                elif indicator_type == 'HL':
                     strat_idx = param.get('strat_idx', '')
-                    return f"NDayCycle(N={n})"
+                    n_length = param.get('n_length', '')
+                    m_length = param.get('m_length', '')
+                    return f"HL{strat_idx}_N({n_length})_M({m_length})"
+                elif indicator_type == 'VALUE':
+                    strat_idx = param.get('strat_idx', '')
+                    if strat_idx in [1, 2, 3, 4]:
+                        n_length = param.get('n_length', '')
+                        m_value = param.get('m_value', '')
+                        return f"VALUE{strat_idx}_N({n_length})_M({m_value})"
+                    elif strat_idx in [5, 6]:
+                        m1_value = param.get('m1_value', '')
+                        m2_value = param.get('m2_value', '')
+                        return f"VALUE{strat_idx}_M1({m1_value})_M2({m2_value})"
+                    else:
+                        return f"VALUE{strat_idx}"
+
                 elif indicator_type == 'PERC':
                     window = param.get('window', '')
                     strat_idx = param.get('strat_idx', 1)
@@ -212,10 +226,24 @@ class TradeRecordExporter_backtester:
                     ma_length = getattr(param, 'ma_length', '')
                     std_multiplier = getattr(param, 'std_multiplier', '')
                     return f"BOLL{strat}_MA({ma_length})_SD({std_multiplier})"
-                elif indicator_type == 'NDayCycle':
-                    n = getattr(param, 'n', '')
+                elif indicator_type == 'HL':
                     strat_idx = getattr(param, 'strat_idx', '')
-                    return f"NDayCycle(N={n})"
+                    n_length = getattr(param, 'n_length', '')
+                    m_length = getattr(param, 'm_length', '')
+                    return f"HL{strat_idx}({n_length},{m_length})"
+                elif indicator_type == 'VALUE':
+                    strat_idx = getattr(param, 'strat_idx', '')
+                    if strat_idx in [1, 2, 3, 4]:
+                        n_length = getattr(param, 'n_length', '')
+                        m_value = getattr(param, 'm_value', '')
+                        return f"VALUE{strat_idx}({n_length},{m_value})"
+                    elif strat_idx in [5, 6]:
+                        m1_value = getattr(param, 'm1_value', '')
+                        m2_value = getattr(param, 'm2_value', '')
+                        return f"VALUE{strat_idx}({m1_value},{m2_value})"
+                    else:
+                        return f"VALUE{strat_idx}"
+
                 elif indicator_type == 'PERC':
                     window = getattr(param, 'window', '')
                     strat_idx = getattr(param, 'strat_idx', 1)
@@ -238,10 +266,14 @@ class TradeRecordExporter_backtester:
 
 
     def export_to_csv(self, backtest_id=None):
-        """導出交易記錄至 CSV。
+        """
+        導出交易記錄至 CSV
         
         Args:
-            backtest_id: 指定要導出的回測ID，如果為None則導出所有結果
+            backtest_id (str, optional): 指定要導出的回測ID，如果為None則導出所有結果
+            
+        Note:
+            導出的CSV檔案會保存在 records/backtester/ 目錄下
         """
         try:
             if not self.results:

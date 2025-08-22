@@ -95,8 +95,11 @@ DEFAULT_STRATEGY_PAIRS = [
     ("MA1", "MA4"),
     (["MA1", "MA9"], "MA4"),
     ("BOLL1", "BOLL4"),
+    ("HL1", "HL4"),
     ("PERC1", "PERC4"),
-    ("PERC3", "PERC2")
+    ("PERC3", "PERC2"),
+    ("HL1", "HL4"),
+    ("VALUE1", "VALUE4")
 ]
 
 """
@@ -298,6 +301,15 @@ class BaseBacktester:
                         indicator_descs[f"BOLL{i}"] = desc
         except Exception as e:
             self.logger.warning(f"無法獲取BOLL指標描述: {e}")
+        # HL
+        try:
+            module = __import__('backtester.HL_Indicator_backtester', fromlist=['HLIndicator'])
+            if hasattr(module, 'HLIndicator') and hasattr(module.HLIndicator, 'STRATEGY_DESCRIPTIONS'):
+                for i, desc in enumerate(module.HLIndicator.STRATEGY_DESCRIPTIONS, 1):
+                    if i <= 4:
+                        indicator_descs[f"HL{i}"] = desc
+        except Exception as e:
+            self.logger.warning(f"無法獲取HL指標描述: {e}")
         indicator_descs["NDAY1"] = "NDAY1：開倉後N日做多（僅可作為平倉信號）"
         indicator_descs["NDAY2"] = "NDAY2：開倉後N日做空（僅可作為平倉信號）"
         # PERC
@@ -309,6 +321,15 @@ class BaseBacktester:
                     indicator_descs[code] = desc
         except Exception as e:
             self.logger.warning(f"無法獲取PERC指標描述: {e}")
+        # VALUE
+        try:
+            module = __import__('backtester.VALUE_Indicator_backtester', fromlist=['VALUEIndicator'])
+            if hasattr(module, 'VALUEIndicator'):
+                descs = module.VALUEIndicator.get_strategy_descriptions()
+                for code, desc in descs.items():
+                    indicator_descs[code] = desc
+        except Exception as e:
+            self.logger.warning(f"無法獲取VALUE指標描述: {e}")
         # 動態分組
         group_dict = defaultdict(list)
         for alias in all_aliases:
@@ -316,7 +337,7 @@ class BaseBacktester:
             group = m.group(1) if m else '其他'
             group_dict[group].append((alias, indicator_descs.get(alias, f'未知策略 {alias}')))
         # Dynamic grouping order
-        group_order = ['MA', 'BOLL', 'PERC', 'NDAY'] + [g for g in sorted(group_dict.keys()) if g not in ['MA', 'BOLL', 'PERC', 'NDAY']]
+        group_order = ['MA', 'BOLL', 'HL', 'PERC', 'VALUE', 'NDAY'] + [g for g in sorted(group_dict.keys()) if g not in ['MA', 'BOLL', 'HL', 'PERC', 'VALUE', 'NDAY']]
         group_texts = []
         for group in group_order:
             if group in group_dict:
@@ -413,32 +434,42 @@ class BaseBacktester:
                 indicator_aliases.append(alias)
                 if alias.startswith('MA'):
                     if alias in ['MA5', 'MA6', 'MA7', 'MA8']:
-                        all_questions.append((alias, 'ma_type', f"{alias}的MA型態 (SMA/EMA/WMA，預設 SMA)", "SMA"))
-                        all_questions.append((alias, 'short_range', f"{alias}的短MA長度範圍 (格式: start : end : step，預設 10:50:20)", "10:50:20"))
-                        all_questions.append((alias, 'long_range', f"{alias}的長MA長度範圍 (格式: start : end : step，預設 60:90:30)", "60:90:30"))
+                        all_questions.append((alias, 'ma_type', f"{alias}MA型態 (SMA/EMA/WMA，留空預設 SMA)", "SMA"))
+                        all_questions.append((alias, 'short_range', f"{alias}短MA窗口長度 (可輸入單一值 或 開始值:結束值:間隔，留空預設 10:50:20)", "10:50:20"))
+                        all_questions.append((alias, 'long_range', f"{alias}長MA窗口長度 (可輸入單一值 或 開始值:結束值:間隔，留空預設 60:90:30)", "60:90:30"))
                     elif alias in ['MA9', 'MA10', 'MA11', 'MA12']:
-                        all_questions.append((alias, 'm_range', f"{alias}的連續日數 m (格式: 單一數字或 start : end : step，預設 1:20:5)", "1:2:1"))
-                        all_questions.append((alias, 'n_range', f"{alias}的MA長度範圍 n (格式: start : end : step，預設 10:200:40)", "10:200:40"))
-                        all_questions.append((alias, 'ma_type', f"{alias}的MA型態 (SMA/EMA/WMA，預設 SMA)", "SMA"))
+                        all_questions.append((alias, 'ma_type', f"{alias}MA型態 (SMA/EMA/WMA，留空預設 SMA)", "SMA"))
+                        all_questions.append((alias, 'm_range', f"{alias}連續次數 (可輸入單一值 或 開始值:結束值:間隔，留空預設 1:20:5)", "1:2:1"))
+                        all_questions.append((alias, 'n_range', f"{alias}MA窗口長度 (可輸入單一值 或 開始值:結束值:間隔，留空預設 10:200:40)", "10:200:40"))
                     else:
-                        all_questions.append((alias, 'ma_range', f"{alias}的MA長度範圍 (格式: start : end : step，預設 10:200:20)", "10:200:20"))
-                        all_questions.append((alias, 'ma_type', f"{alias}的MA型態 (SMA/EMA/WMA，預設 SMA)", "SMA"))
+                        all_questions.append((alias, 'ma_type', f"{alias}MA型態 (SMA/EMA/WMA，留空預設 SMA)", "SMA"))
+                        all_questions.append((alias, 'ma_range', f"{alias}MA窗口長度 (可輸入單一值 或 開始值:結束值:間隔，留空預設 10:200:20)", "10:200:20"))
                 elif alias.startswith('BOLL'):
-                    all_questions.append((alias, 'ma_range', f"{alias}的BOLL均線長度範圍 (格式: start : end : step，預設 10:200:20)", "10:200:20"))
-                    all_questions.append((alias, 'sd_multi', f"{alias}的標準差倍數 (可用逗號分隔多個，預設1,1.5,2)", "1.5,2"))
+                    all_questions.append((alias, 'ma_range', f"{alias}BOLL均線窗口長度 (可輸入單一值 或 開始值:結束值:間隔，留空預設 10:200:20)", "10:200:20"))
+                    all_questions.append((alias, 'sd_multi', f"{alias}標準差倍數 (可用逗號分隔多值，留空預設1,1.5,2)", "1.5,2"))
+                elif alias.startswith('HL'):
+                    all_questions.append((alias, 'n_range', f"{alias}連續次數 (可輸入單一值 或 開始值:結束值:間隔，留空預設 1:5:2)", "1:5:2"))
+                    all_questions.append((alias, 'm_range', f"{alias}窗口長度 (可輸入單一值 或 開始值:結束值:間隔，留空預設 10:200:20)", "10:200:20"))
+                elif alias.startswith('VALUE'):
+                    if alias in ['VALUE1', 'VALUE2', 'VALUE3', 'VALUE4']:
+                        all_questions.append((alias, 'n_range', f"{alias}連續次數 (可輸入單一值 或 開始值:結束值:間隔，留空預設 1:5:2)", "1:5:2"))
+                        all_questions.append((alias, 'm_range', f"{alias}閾值 (可輸入單一值 或 開始值:結束值:間隔，留空預設 10:50:10)", "10:50:10"))
+                    elif alias in ['VALUE5', 'VALUE6']:
+                        all_questions.append((alias, 'm1_range', f"{alias}下閾值 (可輸入單一值 或 開始值:結束值:間隔，留空預設 10:50:10)", "10:50:10"))
+                        all_questions.append((alias, 'm2_range', f"{alias}上閾值 (可輸入單一值 或 開始值:結束值:間隔，留空預設 60:90:10)", "60:90:10"))
                 elif alias.startswith('PERC'):
                     if alias in ['PERC1', 'PERC4']:
-                        all_questions.append((alias, 'window_range', f"{alias}的窗口長度範圍 (格式: start : end : step，預設 10:200:20)", "10:200:20"))
-                        all_questions.append((alias, 'percentile_range', f"{alias}的百分位範圍 (格式: start : end : step，預設 80:100:10)", "80:100:10"))
+                        all_questions.append((alias, 'window_range', f"{alias}窗口長度 (可輸入單一值 或 開始值:結束值:間隔，留空預設 10:200:20)", "10:200:20"))
+                        all_questions.append((alias, 'percentile_range', f"{alias}百分位 (可輸入單一值 或 開始值:結束值:間隔，留空預設 80:100:10)", "80:100:10"))
                     elif alias in ['PERC2', 'PERC3']:
-                        all_questions.append((alias, 'window_range', f"{alias}的窗口長度範圍 (格式: start : end : step，預設 10:200:20)", "10:200:20"))
-                        all_questions.append((alias, 'percentile_range', f"{alias}的百分位範圍 (格式: start : end : step，預設 0:10:10)", "0:10:10"))
+                        all_questions.append((alias, 'window_range', f"{alias}窗口長度 (可輸入單一值 或 開始值:結束值:間隔，留空預設 10:200:20)", "10:200:20"))
+                        all_questions.append((alias, 'percentile_range', f"{alias}百分位 (可輸入單一值 或 開始值:結束值:間隔，留空預設 0:10:10)", "0:10:10"))
                     elif alias in ['PERC5', 'PERC6']:
-                        all_questions.append((alias, 'window_range', f"{alias}的窗口長度範圍 (格式: start : end : step，預設 10:200:20)", "10:200:20"))
-                        all_questions.append((alias, 'm1_range', f"{alias}的下百分位範圍 (格式: start : end : step，預設 60:80:10)", "60:80:10"))
-                        all_questions.append((alias, 'm2_range', f"{alias}的上百分位範圍 (格式: start : end : step，預設 80:100:10)", "80:100:10"))
+                        all_questions.append((alias, 'window_range', f"{alias}窗口長度 (可輸入單一值 或 開始值:結束值:間隔，留空預設 10:200:20)", "10:200:20"))
+                        all_questions.append((alias, 'm1_range', f"{alias}下百分位 (可輸入單一值 或 開始值:結束值:間隔，留空預設 60:80:10)", "60:80:10"))
+                        all_questions.append((alias, 'm2_range', f"{alias}上百分位 (可輸入單一值 或 開始值:結束值:間隔，留空預設 80:100:10)", "80:100:10"))
                 elif alias in ['NDAY1', 'NDAY2']:
-                    all_questions.append((alias, 'n_range', f"{alias}的N值範圍 (格式: start : end : step，例如 1:10:3)", "1:10:3"))
+                    all_questions.append((alias, 'n_range', f"{alias}N日後平倉 (可輸入單一值 或 開始值:結束值:間隔，留空預設 1:10:3)", "1:10:3"))
             
             param_values = {}
             
@@ -466,27 +497,46 @@ class BaseBacktester:
                         if value == '' or value.lower() == 'default':
                             value = default
                         value = value.replace("：", ":")
-                        if 'range' in key and ':' in value:
-                            parts = value.split(':')
-                            if len(parts) == 3 and all(p.strip().isdigit() for p in parts):
-                                # 額外驗證能否轉換為int
-                                try:
-                                    start, end, step = map(int, parts)
-                                    # 驗證 start < end
-                                    if start >= end:
-                                        console.print(Panel(f"❌ {alias} - {question} 範圍錯誤：{start} >= {end}", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                        if 'range' in key:
+                            # 檢查是否為冒號格式
+                            if ':' in value:
+                                parts = value.split(':')
+                                if len(parts) == 3 and all(p.strip().isdigit() for p in parts):
+                                    # 額外驗證能否轉換為int
+                                    try:
+                                        start, end, step = map(int, parts)
+                                        # 驗證 start <= end
+                                        if start > end:
+                                            console.print(Panel(f"❌ {alias} - {question} 範圍錯誤：{start} > {end}", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                                            continue
+                                        # 驗證 step > 0
+                                        if step <= 0:
+                                            console.print(Panel(f"❌ {alias} - {question} 步長必須大於0！當前：{step}", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                                            continue
+                                    except Exception:
+                                        console.print(Panel(f"❌ {alias} - {question} 內容必須為整數，請重新輸入！", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
                                         continue
-                                    # 驗證 step > 0
-                                    if step <= 0:
-                                        console.print(Panel(f"❌ {alias} - {question} 步長必須大於0！當前：{step}", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
-                                        continue
-                                except Exception:
-                                    console.print(Panel(f"❌ {alias} - {question} 內容必須為整數，請重新輸入！", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
-                                    continue
-                                param_values[(alias, key)] = value
-                                break
+                                    param_values[(alias, key)] = value
+                                    break
+                                else:
+                                    console.print(Panel(f"❌ {alias} - {question} 請用 '開始:結束:步長' 格式，且三段都需為整數！", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
                             else:
-                                console.print(Panel(f"❌ {alias} - {question} 請用 'start : end : step' 格式，且三段都需為整數！", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                                # 檢查是否為逗號格式（錯誤格式）
+                                if ',' in value:
+                                    console.print(Panel(f"❌ {alias} - {question} 格式錯誤！請使用冒號分隔格式 '開始:結束:步長'，而不是逗號分隔！", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                                    console.print(Panel(f"正確格式示例：10 : 50 : 10", title="[bold #dbac30]👨‍💻 交易回測 Backtester[/bold #dbac30]", border_style="#dbac30"))
+                                    continue
+                                else:
+                                    # 檢查是否為單一數值
+                                    if value.strip().isdigit():
+                                        # 單一數值，轉換為範圍格式
+                                        single_value = int(value.strip())
+                                        param_values[(alias, key)] = f"{single_value}:{single_value}:1"
+                                        break
+                                    else:
+                                        console.print(Panel(f"❌ {alias} - {question} 格式錯誤！請使用 '開始:結束:步長' 格式或單一數值！", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
+                                        console.print(Panel(f"正確格式示例：10 : 50 : 10 或 20", title="[bold #dbac30]👨‍💻 交易回測 Backtester[/bold #dbac30]", border_style="#dbac30"))
+                                        continue
                         else:
                             # 驗證 MA 型態
                             if key == 'ma_type':
@@ -522,6 +572,9 @@ class BaseBacktester:
     def _collect_trading_params(self) -> dict:
         """
         收集交易參數（成本、滑點、延遲、價格），完全參考原UserInterface，並用Rich Panel美化
+        
+        Returns:
+            dict: 包含交易手續費、滑點、延遲、價格等參數的字典
         """
         trading_params = {}
         # 交易手續費
@@ -548,7 +601,7 @@ class BaseBacktester:
         while True:
             try:
                 trade_delay_input = console.input("[bold #dbac30]請輸入交易延遲 (信號發出後，延遲至下幾個數據點執行交易，整數 ≥ 0，預設為 0 (注意可能會導致使用未來參數！))：[/bold #dbac30]").strip()
-                trading_params['trade_delay'] = int(trade_delay_input) if trade_delay_input else 1
+                trading_params['trade_delay'] = int(trade_delay_input) if trade_delay_input else 0
                 if trading_params['trade_delay'] < 0:
                     raise ValueError("交易延遲必須為 0 或以上")
                 break
@@ -562,6 +615,13 @@ class BaseBacktester:
     def _get_indicator_input(self, prompt: str, valid_indicators: list) -> list:
         """
         獲取指標輸入，所有互動美化
+        
+        Args:
+            prompt (str): 提示訊息
+            valid_indicators (list): 有效的指標列表
+            
+        Returns:
+            list: 用戶選擇的指標列表
         """
         while True:
             user_input = console.input(prompt).strip()
@@ -570,10 +630,7 @@ class BaseBacktester:
             if user_input.lower() == 'default':
                 return ['__DEFAULT__']
             indicators = [i.strip().upper() for i in user_input.split(",") if i.strip()]
-            # 檢查是否為開倉信號且包含 NDayCycle
-            if "開倉" in prompt and any(ind in indicators for ind in ["NDAY1", "NDAY2"]):
-                console.print(Panel("錯誤：NDAY1/NDAY2 只能作為平倉信號，不能作為開倉信號！請重新選擇。", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
-                continue
+
             invalid_indicators = [ind for ind in indicators if ind not in valid_indicators]
             if invalid_indicators:
                 console.print(Panel(f"❌ 無效的指標: {invalid_indicators}", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
@@ -587,6 +644,12 @@ class BaseBacktester:
     def _get_trading_param(self, prompt: str) -> float:
         """
         從用戶獲取回測環境參數的輸入，並轉換為浮點數
+        
+        Args:
+            prompt (str): 提示訊息
+            
+        Returns:
+            float: 用戶輸入的數值參數
         """
         while True:
             console.print(f"[bold #dbac30]{prompt}[/bold #dbac30]")
@@ -598,78 +661,13 @@ class BaseBacktester:
                     console.print(Panel(f"輸入 '{user_input}' 無效，請輸入數字。", title="[bold #8f1511]👨‍💻 用戶互動 - 回測環境參數[/bold #8f1511]", border_style="#8f1511"))
             console.print(Panel("輸入不能為空，請重新輸入。", title="[bold #8f1511]👨‍💻 用戶互動 - 回測環境參數[/bold #8f1511]", border_style="#8f1511"))
 
-    def _get_indicator_params_config(self, alias: str, strategy_num: int) -> dict:
-        """
-        根據指標型態互動式收集參數，含格式驗證與美化
-        """
-        params_config = {}
-        def check_range_format(input_str, field_name):
-            while True:
-                s = input_str.strip()
-                if ':' in s:
-                    parts = s.split(':')
-                    if len(parts) == 3 and all(p.strip().isdigit() for p in parts):
-                        return s
-                    else:
-                        console.print(Panel(f"❌ {field_name} 請用 'start : end : step' 格式（如 10:20:2），且三段都需為整數！", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
-                else:
-                    console.print(Panel(f"❌ {field_name} 請用 'start : end : step' 格式（如 10:20:2），且三段都需為整數！", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#8f1511"))
-                input_str = console.input(f"[bold #dbac30]請重新輸入{field_name} (格式: start : end : step，例如 10:50:10)：[/bold #dbac30]")
-        def beautify_range_hint(hint: str) -> str:
-            return hint.replace(":", "：")
-        
-        if alias.startswith('MA'):
-            # 雙均線指標
-            if alias in ['MA5', 'MA6', 'MA7', 'MA8']:
-                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的MA型態 (SMA/EMA/WMA)")
-                ma_type = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip().upper() or "SMA"
-                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的短MA長度範圍 (格式: start : end : step)")
-                short_range = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "5:10:5"
-                short_range = short_range.replace("：", ":")
-                short_range = check_range_format(short_range, f"策略{strategy_num}的{alias}的短MA長度範圍")
-                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的長MA長度範圍 (格式: start : end : step)")
-                long_range = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "20:30:10"
-                long_range = long_range.replace("：", ":")
-                long_range = check_range_format(long_range, f"策略{strategy_num}的{alias}的長MA長度範圍")
-                params_config = {"ma_type": ma_type, "short_range": short_range, "long_range": long_range}
-            # MA9~MA12 需輸入連續日數 m 與 MA長度 n
-            elif alias in ['MA9', 'MA10', 'MA11', 'MA12']:
-                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的連續日數 m (格式: 單一數字或 start : end : step)")
-                m_range = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "2:3:1"
-                m_range = m_range.replace("：", ":")
-                m_range = check_range_format(m_range, f"策略{strategy_num}的{alias}的連續日數 m")
-                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的MA長度範圍 n (格式: start : end : step)")
-                n_range = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "10:20:10"
-                n_range = n_range.replace("：", ":")
-                n_range = check_range_format(n_range, f"策略{strategy_num}的{alias}的MA長度範圍 n")
-                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的MA型態 (SMA/EMA/WMA)")
-                ma_type = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip().upper() or "SMA"
-                params_config = {"m_range": m_range, "n_range": n_range, "ma_type": ma_type}
-            else:
-                # 單均線
-                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的MA長度範圍 (格式: start : end : step，例如 10:50:10)")
-                ma_range = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "10:20:10"
-                ma_range = ma_range.replace("：", ":")
-                ma_range = check_range_format(ma_range, f"策略{strategy_num}的{alias}的MA長度範圍")
-                panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的MA型態 (SMA/EMA/WMA)")
-                ma_type = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip().upper() or "SMA"
-                params_config = {"ma_range": ma_range, "ma_type": ma_type}
-        elif alias.startswith('BOLL'):
-            panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的BOLL均線長度範圍 (格式: start : end : step，例如 10:30:10)")
-            ma_range = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "10:20:10"
-            ma_range = ma_range.replace("：", ":")
-            ma_range = check_range_format(ma_range, f"策略{strategy_num}的{alias}的BOLL均線長度範圍")
-            panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的標準差倍數 (可用逗號分隔多個，例如 2,2.5,3)")
-            sd_input = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "2"
-            params_config = {"ma_range": ma_range, "sd_multi": sd_input}
-        elif alias in ['NDAY1', 'NDAY2']:
-            panel_hint = beautify_range_hint(f"請輸入策略{strategy_num}的{alias}的N值範圍 (格式: start : end : step，例如 3:10:1)")
-            n_range = console.input(f"[bold #dbac30]{panel_hint}[/bold #dbac30]").strip() or "2:3:1"
-            n_range = n_range.replace("：", ":")
-            n_range = check_range_format(n_range, f"策略{strategy_num}的{alias}的N值範圍")
-            params_config = {"n_range": n_range, "signal_type": 1 if alias == 'NDAY1' else -1}
-        return params_config
+
     
     def get_results(self) -> List[Dict]:
-        """獲取回測結果"""
+        """
+        獲取回測結果
+        
+        Returns:
+            List[Dict]: 回測結果列表，每個元素包含一個策略的回測結果
+        """
         return self.results

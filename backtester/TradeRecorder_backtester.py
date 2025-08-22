@@ -123,7 +123,12 @@ class TradeRecorder_backtester:
         }
 
     def record_trades(self):
-        """記錄並驗證交易記錄。"""
+        """
+        記錄並驗證交易記錄
+        
+        Returns:
+            pd.DataFrame: 驗證後的交易記錄DataFrame，驗證失敗時返回空DataFrame
+        """
         try:
             df = self.trade_records.copy()
 
