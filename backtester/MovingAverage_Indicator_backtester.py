@@ -216,6 +216,18 @@ if NUMBA_AVAILABLE:
         """
         統一向量化生成移動平均信號 - 支持所有12種策略
         消除重複代碼，統一所有信號生成邏輯
+
+        Args:
+            price_values: 價格數組
+            ma_values: 移動平均數組
+            strat_idx: 策略索引 (1-12)
+            period: 移動平均週期
+            short_ma_values: 短均線數組（雙均線策略用）
+            long_ma_values: 長均線數組（雙均線策略用）
+            m: 連續日數（連續策略用）
+
+        Returns:
+            np.ndarray: 信號數組，1=做多，-1=做空，0=無信號
         """
         n = len(price_values)
         signals = np.zeros(n)
@@ -283,8 +295,10 @@ if NUMBA_AVAILABLE:
                 if strat_idx in [9, 10]:  # 連續m日位於MA以上
                     above_ma = price_values > ma_values
                     consecutive_above = np.zeros_like(price_values, dtype=np.bool_)
-                    for j in range(m - 1, len(price_values)):
-                        if np.all(above_ma[j - m + 1 : j + 1]):
+                    for j in range(m - 1, len(price_values)):  # 從第(m-1)天開始檢查
+                        if np.all(
+                            above_ma[j - m + 1 : j + 1]
+                        ):  # 檢查包含當天在內的連續m天
                             consecutive_above[j] = True
 
                     if strat_idx == 9:  # 做多
@@ -295,8 +309,10 @@ if NUMBA_AVAILABLE:
                 else:  # strat_idx in [11, 12], 連續m日位於MA以下
                     below_ma = price_values < ma_values
                     consecutive_below = np.zeros_like(price_values, dtype=np.bool_)
-                    for j in range(m - 1, len(price_values)):
-                        if np.all(below_ma[j - m + 1 : j + 1]):
+                    for j in range(m - 1, len(price_values)):  # 從第(m-1)天開始檢查
+                        if np.all(
+                            below_ma[j - m + 1 : j + 1]
+                        ):  # 檢查包含當天在內的連續m天
                             consecutive_below[j] = True
 
                     if strat_idx == 11:  # 做多
@@ -319,6 +335,13 @@ if NUMBA_AVAILABLE:
 def _validate_ma_params(params, required_params):
     """
     統一參數驗證函數，消除重複的驗證邏輯
+
+    Args:
+        params: 參數物件
+        required_params: 必需參數列表
+
+    Raises:
+        ValueError: 當必需參數缺失時
     """
     for param_name in required_params:
         if params.get_param(param_name) is None:
@@ -328,13 +351,20 @@ def _validate_ma_params(params, required_params):
 def _get_predictor_series(data, predictor):
     """
     統一獲取預測因子序列，消除重複邏輯
+
+    Args:
+        data: 數據DataFrame
+        predictor: 預測因子列名
+
+    Returns:
+        pd.Series: 預測因子序列
     """
     if predictor is None:
         predictor_series = data["Close"]
-        return predictor_series, "Close"
+        return predictor_series
     else:
         if predictor in data.columns:
-            return data[predictor], predictor
+            return data[predictor]
         else:
             raise ValueError(
                 f"預測因子 '{predictor}' 不存在於數據中，可用欄位: {list(data.columns)}"
@@ -657,10 +687,24 @@ class MovingAverageIndicator:
                 predictor_values, period, ma_type, predictor_name
             )
 
-            # 生成信號
-            signal_values = _generate_ma_signals_unified(
-                predictor_values, ma_values, strat_idx, period
-            )
+            # 生成信號 - 為MA9-MA12傳遞m參數
+            if strat_idx in [9, 10, 11, 12]:
+                m = self.params.get_param("m")
+                if m is None:
+                    raise ValueError("MA9-MA12策略需要m參數")
+                signal_values = _generate_ma_signals_unified(
+                    predictor_values,
+                    ma_values,
+                    strat_idx,
+                    period,
+                    short_ma_values=None,
+                    long_ma_values=None,
+                    m=m,
+                )
+            else:
+                signal_values = _generate_ma_signals_unified(
+                    predictor_values, ma_values, strat_idx, period
+                )
 
         else:  # 雙均線模式
             _validate_ma_params(self.params, ["shortMA_period", "longMA_period"])
@@ -723,7 +767,8 @@ class MovingAverageIndicator:
         cache_manager._cache = global_ma_cache
 
         # 獲取預測因子序列
-        predictor_series, predictor_name = _get_predictor_series(data, predictor)
+        predictor_series = _get_predictor_series(data, predictor)
+        predictor_name = predictor
         predictor_values = predictor_series.values.astype(np.float64)
         predictor_values = np.nan_to_num(predictor_values, nan=0.0)
 
@@ -744,10 +789,24 @@ class MovingAverageIndicator:
                         predictor_values, period, ma_type, f"{predictor_name}_{period}"
                     )
 
-                    # 生成信號
-                    signals = _generate_ma_signals_unified(
-                        predictor_values, ma_values, strat_idx, period
-                    )
+                    # 生成信號 - 為MA9-MA12傳遞m參數
+                    if strat_idx in [9, 10, 11, 12]:
+                        m = param.get_param("m")
+                        if m is None:
+                            continue  # 跳過缺少m參數的任務
+                        signals = _generate_ma_signals_unified(
+                            predictor_values,
+                            ma_values,
+                            strat_idx,
+                            period,
+                            short_ma_values=None,
+                            long_ma_values=None,
+                            m=m,
+                        )
+                    else:
+                        signals = _generate_ma_signals_unified(
+                            predictor_values, ma_values, strat_idx, period
+                        )
 
                 else:  # 雙均線模式
                     short_period = param.get_param("shortMA_period")

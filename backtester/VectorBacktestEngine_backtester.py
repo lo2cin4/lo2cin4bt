@@ -90,25 +90,19 @@ flowchart TD
 """
 
 import gc
-import itertools
-import logging
-import time
-import uuid
 from concurrent.futures import ProcessPoolExecutor
 from typing import Dict, List, Tuple
 
-import numpy as np
-import pandas as pd
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
-from backtester.NDayCycle_Indicator_backtester import NDayCycleIndicator
-
 from .BollingerBand_Indicator_backtester import BollingerBandIndicator
+from .HL_Indicator_backtester import HLIndicator
 from .Indicators_backtester import IndicatorsBacktester
 from .SpecMonitor_backtester import SpecMonitor
 from .TradeSimulator_backtester import TradeSimulator_backtester
+from .VALUE_Indicator_backtester import VALUEIndicator
 
 # 嘗試導入 Numba
 try:
@@ -222,6 +216,8 @@ class VectorBacktestEngine:
         # 全局緩存
         self._ma_cache = {}
         self._boll_cache = {}
+        self._hl_cache = {}
+        self._value_cache = {}
         self._price_cache = {}
 
         # 預計算常用數據
@@ -242,7 +238,15 @@ class VectorBacktestEngine:
             )
 
     def generate_parameter_combinations(self, config: Dict) -> List[Tuple]:
-        """生成參數組合 - 與原有引擎完全相同"""
+        """
+        生成參數組合 - 與原有引擎完全相同
+
+        Args:
+            config (Dict): 回測配置，包含條件配對、指標參數、預測因子等
+
+        Returns:
+            List[Tuple]: 所有參數組合的列表
+        """
         condition_pairs = config["condition_pairs"]
         indicator_params = config["indicator_params"]
         config["predictors"]
@@ -289,7 +293,16 @@ class VectorBacktestEngine:
     def _generate_indicator_combinations(
         self, indicators: List[str], param_lists: List[List]
     ) -> List[Tuple]:
-        """為指標列表生成參數組合 - 與原有引擎完全相同"""
+        """
+        為指標列表生成參數組合 - 與原有引擎完全相同
+
+        Args:
+            indicators (List[str]): 指標列表
+            param_lists (List[List]): 對應的參數列表
+
+        Returns:
+            List[Tuple]: 指標參數組合列表
+        """
         if not indicators:
             return [()]
 
@@ -300,7 +313,15 @@ class VectorBacktestEngine:
         return combinations
 
     def run_backtests(self, config: Dict) -> List[Dict]:
-        """執行真正的向量化回測 - 一次性處理所有任務"""
+        """
+        執行真正的向量化回測 - 一次性處理所有任務
+
+        Args:
+            config (Dict): 回測配置，包含條件配對、指標參數、預測因子、交易參數等
+
+        Returns:
+            List[Dict]: 回測結果列表，每個元素包含一個策略的回測結果
+        """
         all_combinations = self.generate_parameter_combinations(config)
         condition_pairs = config["condition_pairs"]
         predictors = config["predictors"]
@@ -707,16 +728,6 @@ class VectorBacktestEngine:
         )
         combined_exit_signals = self._vectorized_combine_signals(
             exit_signals_matrix, is_exit_signals=True
-        )
-
-        # 處理 NDayCycle 平倉信號
-        combined_exit_signals = (
-            NDayCycleIndicator.process_ndaycycle_exit_signals_in_batch(
-                exit_params_list,
-                combined_entry_signals,
-                combined_exit_signals,
-                self.data,
-            )
         )
 
         return {
@@ -1490,6 +1501,8 @@ class VectorBacktestEngine:
         # 初始化全局快取
         global_ma_cache = {}
         global_boll_cache = {}
+        global_hl_cache = {}
+        global_value_cache = {}
         global_percentile_cache = {}
 
         # 按指標類型分組任務
@@ -1526,10 +1539,15 @@ class VectorBacktestEngine:
                     BollingerBandIndicator.vectorized_calculate_boll_signals(
                         tasks, predictor, signals_matrix, global_boll_cache, self.data
                     )
-                elif indicator_type == "NDayCycle":
-                    NDayCycleIndicator.vectorized_calculate_ndaycycle_signals(
-                        tasks, predictor, signals_matrix, self.data
+                elif indicator_type == "HL":
+                    HLIndicator.vectorized_calculate_hl_signals(
+                        tasks, predictor, signals_matrix, global_hl_cache, self.data
                     )
+                elif indicator_type == "VALUE":
+                    VALUEIndicator.vectorized_calculate_value_signals(
+                        tasks, predictor, signals_matrix, global_value_cache, self.data
+                    )
+
                 elif indicator_type == "PERC":
                     # Use Percentile_Indicator_backtester's vectorized method
                     from .Percentile_Indicator_backtester import PercentileIndicator
@@ -1688,11 +1706,7 @@ class VectorBacktestEngine:
 
             result = {"indicator_type": param.indicator_type}
             # 只允許特定參數進入字典，過濾多餘欄位
-            if param.indicator_type == "NDayCycle":
-                for key in ["n", "strat_idx"]:
-                    if key in param.params:
-                        result[key] = param.params[key]
-            elif param.indicator_type == "MA":
+            if param.indicator_type == "MA":
                 for key in [
                     "period",
                     "ma_type",
@@ -1706,6 +1720,14 @@ class VectorBacktestEngine:
                         result[key] = param.params[key]
             elif param.indicator_type == "BOLL":
                 for key in ["ma_length", "std_multiplier", "strat_idx"]:
+                    if key in param.params:
+                        result[key] = param.params[key]
+            elif param.indicator_type == "HL":
+                for key in ["n_length", "m_length", "strat_idx"]:
+                    if key in param.params:
+                        result[key] = param.params[key]
+            elif param.indicator_type == "VALUE":
+                for key in ["n_length", "m_value", "m1_value", "m2_value", "strat_idx"]:
                     if key in param.params:
                         result[key] = param.params[key]
             else:

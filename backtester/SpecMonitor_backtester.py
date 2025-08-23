@@ -263,7 +263,12 @@ class SpecMonitor:
 
     @staticmethod
     def get_serial_threshold() -> Tuple[int, str]:
-        """根據CPU核心數和記憶體動態計算並行處理閾值"""
+        """
+        根據CPU核心數和記憶體動態計算並行處理閾值
+
+        Returns:
+            Tuple[int, str]: (閾值, 配置說明)
+        """
         total_cores = multiprocessing.cpu_count()
 
         try:

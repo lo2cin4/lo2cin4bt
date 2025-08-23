@@ -11,7 +11,7 @@ IndicatorParams_backtester.py
 
 【流程與數據流】
 ------------------------------------------------------------
-- 各指標（如 MovingAverage, BollingerBand, NDayCycle 等）在 get_params 時產生 IndicatorParams 物件
+- 各指標（如 MovingAverage, BollingerBand 等）在 get_params 時產生 IndicatorParams 物件
 - BacktestEngine/Indicators 只與 IndicatorParams 物件互動
 - 參數流向如下：
 
@@ -25,7 +25,7 @@ flowchart TD
 
 【參數結構】
 ------------------------------------------------------------
-- 指標類型：indicator_type（MA、BOLL、NDAY等）
+- 指標類型：indicator_type（MA、BOLL等）
 - 指標參數：params（包含各種指標特定參數）
 - 交易參數：trading_params（手續費、滑點等）
 - 參數雜湊：get_param_hash（用於緩存鍵生成）
@@ -60,7 +60,6 @@ flowchart TD
 - MovingAverage 單均線：IndicatorParams("MA").add_param("period", 20).add_param("ma_type", "SMA")
 - MovingAverage 雙均線：IndicatorParams("MA").add_param("shortMA_period", 10).add_param("longMA_period", 20).add_param("mode", "double")
 - BollingerBand：IndicatorParams("BOLL").add_param("ma_length", 20).add_param("std_multiplier", 2.0)
-- NDayCycle：IndicatorParams("NDayCycle").add_param("n", 3).add_param("signal_type", 1)
 - 參數雜湊：hash_value = params.get_param_hash()
 
 【與其他模組的關聯】
@@ -103,17 +102,47 @@ class IndicatorParams:
             setattr(self, key, value)
 
     def add_param(self, name: str, value, param_type: str = "numeric"):
+        """
+        添加參數到參數容器
+
+        Args:
+            name (str): 參數名稱
+            value: 參數值
+            param_type (str): 參數類型，預設為 "numeric"
+        """
         self.params[name] = {"value": value, "type": param_type}
 
     def set_trading_params(self, **kwargs):
+        """
+        設置交易參數
+
+        Args:
+            **kwargs: 交易參數鍵值對
+        """
         self.trading_params.update(kwargs)
 
     def get_param(self, name: str, default=None):
+        """
+        獲取參數值
+
+        Args:
+            name (str): 參數名稱
+            default: 預設值，當參數不存在時返回
+
+        Returns:
+            參數值或預設值
+        """
         if name in self.params:
             return self.params[name]["value"]
         return default
 
     def to_dict(self):
+        """
+        將參數轉換為字典格式
+
+        Returns:
+            dict: 包含所有參數的字典
+        """
         result = {
             "indicator_type": self.indicator_type,
             **{k: v["value"] for k, v in self.params.items()},

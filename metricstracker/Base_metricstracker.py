@@ -206,7 +206,7 @@ class BaseMetricTracker:
     def _get_analysis_params(self):
         """獲取分析參數"""
         console.print(
-            f"[bold #dbac30]請輸入年化時間單位（如日線股票252，日線幣365，預設為252）：[/bold #dbac30]"
+            f"[bold #dbac30]請輸入年化時間單位（如日線股票252，日線幣365，預設為365）：[/bold #dbac30]"
         )
         time_unit = input().strip()
         if time_unit == "":

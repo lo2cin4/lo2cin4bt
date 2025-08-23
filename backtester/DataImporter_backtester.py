@@ -211,10 +211,14 @@ class DataImporter:
             raise
 
     def _detect_frequency(self):
-        """自動檢測數據頻率，支援非標準頻率。
+        """
+        自動檢測數據頻率，支援非標準頻率
 
         Returns:
-            str: 檢測到的頻率（day, week, month, hour, minute, 15m, 4h 等）。
+            str: 檢測到的頻率（day, week, month, hour, minute, 15m, 4h 等）
+
+        Raises:
+            ValueError: 當數據未載入或數據過少時
         """
         try:
             if self.data is None:
