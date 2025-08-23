@@ -32,10 +32,10 @@ body { background: #181818 !important; color: #f5f5f5 !important; }
 .btn:hover, .btn:focus { background: #ecbc4f !important; color: #181818 !important; border: 1.5px solid #8f1511 !important; }
 .card, .border, .rounded { background: #232323 !important; color: #f5f5f5 !important; border: 1.5px solid #8f1511 !important; }
 /* 控制面板卡片樣式 - 金色邊框 */
-.card, .border, .rounded { 
-    background: #232323 !important; 
-    color: #f5f5f5 !important; 
-    border: 1.5px solid #dbac30 !important; 
+.card, .border, .rounded {
+    background: #232323 !important;
+    color: #f5f5f5 !important;
+    border: 1.5px solid #dbac30 !important;
 }
 .mb-3, .mb-4, .p-3 { background: #232323 !important; }
 .mb-3:not(h5), .mb-4:not(h5), .p-3:not(h5) { background: #232323 !important; }
@@ -51,7 +51,7 @@ h5.mb-3, h5.mb-4, h5.p-3 {
 .dash-table-container .dash-spreadsheet-inner { background: #232323 !important; }
 .dash-table-container .dash-spreadsheet-container th { background: #8f1511 !important; color: #ecbc4f !important; }
 .dash-table-container .dash-spreadsheet-container td { background: #232323 !important; color: #f5f5f5 !important; }
-.dash-graph .js-plotly-plot .plotly { background: #181818 !important; } 
+.dash-graph .js-plotly-plot .plotly { background: #181818 !important; }
 
 /* 新增：Details 與 Performance 區塊背景改為淺灰 */
 .details-block, .performance-block, .performance-table, .details-table, .performance, .details {
@@ -125,7 +125,7 @@ h5.mb-3, h5.mb-4, h5.p-3 {
     background: #181818 !important;
     color: #ecbc4f !important;
     border: 1.5px solid #8f1511 !important;
-} 
+}
 
 .Select__single-value, .Select-value-label, .Select-option.is-selected {
     color: #ecbc4f !important;
@@ -219,7 +219,7 @@ h5.mb-3, h5.mb-4, h5.p-3 {
 
 .slider-disabled .dash-slider .rc-slider .rc-slider-rail {
     background-color: #444 !important;
-} 
+}
 
 
 
@@ -246,4 +246,3 @@ h5.mb-3, h5.mb-4, h5.p-3 {
     stroke: none !important;
     stroke-width: 0 !important;
 }
-

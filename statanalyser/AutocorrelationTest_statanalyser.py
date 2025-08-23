@@ -43,25 +43,31 @@ flowchart TD
 - Base_statanalyser.py、ReportGenerator_statanalyser.py
 - 專案 README
 """
-import pandas as pd
-import numpy as np
-from .Base_statanalyser import BaseStatAnalyser
-from statsmodels.tsa.stattools import acf, pacf
-from plotly.subplots import make_subplots
-import plotly.graph_objects as go
+
 from typing import Dict
-from rich.panel import Panel
+
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from rich.console import Console
+from rich.panel import Panel
+from statsmodels.tsa.stattools import acf, pacf
+
+from .Base_statanalyser import BaseStatAnalyser
+
 
 class AutocorrelationTest(BaseStatAnalyser):
     """自相關性檢驗模組，檢測序列的記憶效應和週期性"""
 
-    def __init__(self, data: pd.DataFrame, predictor_col: str, return_col: str, freq: str = 'D'):
+    def __init__(
+        self, data: pd.DataFrame, predictor_col: str, return_col: str, freq: str = "D"
+    ):
         super().__init__(data, predictor_col, return_col)
         self.freq = freq.upper()
-        if self.freq not in ['D', 'H', 'T']:
+        if self.freq not in ["D", "H", "T"]:
             print(f"警告：未知頻率 {self.freq}，使用預設 'D'")
-            self.freq = 'D'
+            self.freq = "D"
 
     def analyze(self) -> Dict:
         """執行 ACF 和 PACF 分析"""
@@ -69,12 +75,12 @@ class AutocorrelationTest(BaseStatAnalyser):
         series = self.data[self.predictor_col].dropna()
         if len(series) < 5:
             print(f"3. 檢驗結果：數據點不足（{len(series)}個）")
-            return {'success': False, 'acf_lags': [], 'pacf_lags': []}
+            return {"success": False, "acf_lags": [], "pacf_lags": []}
         # 設置滯後期數
         lags = {
-            'D': min(60, len(series) // 2),
-            'H': min(24, len(series) // 2),
-            'T': min(120, len(series) // 2)
+            "D": min(60, len(series) // 2),
+            "H": min(24, len(series) // 2),
+            "T": min(120, len(series) // 2),
         }.get(self.freq, min(20, len(series) // 2))
         # 美化步驟說明 Panel
         panel_content = (
@@ -90,7 +96,11 @@ class AutocorrelationTest(BaseStatAnalyser):
             "檢驗功能：檢測序列的記憶效應和週期性。如有記憶效應，代表可用歷史數據預測未來數值，用家可嘗試發掘背後原因是否具備邏輯。小心過擬合。\n"
             f"檢測最大滯後期數：{lags}（頻率={self.freq}）"
         )
-        panel = Panel(panel_content, title="[bold #dbac30]🔬 統計分析 StatAnalyser 步驟：自相關性檢驗[自動][/bold #dbac30]", border_style="#dbac30")
+        panel = Panel(
+            panel_content,
+            title="[bold #dbac30]🔬 統計分析 StatAnalyser 步驟：自相關性檢驗[自動][/bold #dbac30]",
+            border_style="#dbac30",
+        )
         console.print(panel)
 
         # 計算 ACF 和 PACF
@@ -115,47 +125,93 @@ class AutocorrelationTest(BaseStatAnalyser):
 
         # 統計結果表格
         from rich.table import Table
-        
+
         # 主要統計指標表格
-        stats_table = Table(title="自相關性統計指標", border_style="#dbac30", show_lines=True)
+        stats_table = Table(
+            title="自相關性統計指標", border_style="#dbac30", show_lines=True
+        )
         stats_table.add_column("指標", style="bold white")
         stats_table.add_column("數值", style="bold white")
         stats_table.add_column("說明", style="bold white")
-        
+
         # 計算主要統計指標
         acf_max = max(abs(acf_vals[1:])) if len(acf_vals) > 1 else 0
         pacf_max = max(abs(pacf_vals[1:])) if len(pacf_vals) > 1 else 0
         acf_max_lag = np.argmax(abs(acf_vals[1:])) + 1 if len(acf_vals) > 1 else 0
         pacf_max_lag = np.argmax(abs(pacf_vals[1:])) + 1 if len(pacf_vals) > 1 else 0
-        
-        stats_table.add_row("數據點數", f"[bold #1e90ff]{len(series)}[/bold #1e90ff]", "有效數據點數量")
-        stats_table.add_row("檢測滯後期", f"[bold #1e90ff]{lags}[/bold #1e90ff]", f"最大檢測滯後期（頻率={self.freq}）")
-        stats_table.add_row("顯著性閾值", f"[bold #1e90ff]{threshold:.4f}[/bold #1e90ff]", "95% 置信區間閾值")
-        stats_table.add_row("ACF 最大值", f"[bold #1e90ff]{acf_max:.4f}[/bold #1e90ff]", f"滯後期 {acf_max_lag}")
-        stats_table.add_row("PACF 最大值", f"[bold #1e90ff]{pacf_max:.4f}[/bold #1e90ff]", f"滯後期 {pacf_max_lag}")
-        stats_table.add_row("ACF 顯著期數", f"[bold #1e90ff]{len(acf_sig_lags)}[/bold #1e90ff]", f"超過閾值的滯後期數")
-        stats_table.add_row("PACF 顯著期數", f"[bold #1e90ff]{len(pacf_sig_lags)}[/bold #1e90ff]", f"超過閾值的滯後期數")
-        
+
+        stats_table.add_row(
+            "數據點數", f"[bold #1e90ff]{len(series)}[/bold #1e90ff]", "有效數據點數量"
+        )
+        stats_table.add_row(
+            "檢測滯後期",
+            f"[bold #1e90ff]{lags}[/bold #1e90ff]",
+            f"最大檢測滯後期（頻率={self.freq}）",
+        )
+        stats_table.add_row(
+            "顯著性閾值",
+            f"[bold #1e90ff]{threshold:.4f}[/bold #1e90ff]",
+            "95% 置信區間閾值",
+        )
+        stats_table.add_row(
+            "ACF 最大值",
+            f"[bold #1e90ff]{acf_max:.4f}[/bold #1e90ff]",
+            f"滯後期 {acf_max_lag}",
+        )
+        stats_table.add_row(
+            "PACF 最大值",
+            f"[bold #1e90ff]{pacf_max:.4f}[/bold #1e90ff]",
+            f"滯後期 {pacf_max_lag}",
+        )
+        stats_table.add_row(
+            "ACF 顯著期數",
+            f"[bold #1e90ff]{len(acf_sig_lags)}[/bold #1e90ff]",
+            f"超過閾值的滯後期數",
+        )
+        stats_table.add_row(
+            "PACF 顯著期數",
+            f"[bold #1e90ff]{len(pacf_sig_lags)}[/bold #1e90ff]",
+            f"超過閾值的滯後期數",
+        )
+
         console.print(stats_table)
-        
+
         # 顯著滯後期詳細表格
-        sig_table = Table(title="ACF/PACF 顯著滯後期詳細結果", border_style="#dbac30", show_lines=True)
+        sig_table = Table(
+            title="ACF/PACF 顯著滯後期詳細結果", border_style="#dbac30", show_lines=True
+        )
         sig_table.add_column("類型", style="bold white")
         sig_table.add_column("顯著滯後期", style="bold white")
         sig_table.add_column("對應係數值", style="bold white")
-        
+
         if acf_sig_lags:
             acf_values = [f"{acf_vals[lag]:.4f}" for lag in acf_sig_lags]
-            sig_table.add_row("ACF", f"[bold #1e90ff]{acf_sig_lags}[/bold #1e90ff]", f"[bold #1e90ff]{acf_values}[/bold #1e90ff]")
+            sig_table.add_row(
+                "ACF",
+                f"[bold #1e90ff]{acf_sig_lags}[/bold #1e90ff]",
+                f"[bold #1e90ff]{acf_values}[/bold #1e90ff]",
+            )
         else:
-            sig_table.add_row("ACF", "[bold #1e90ff]無[/bold #1e90ff]", "[bold #1e90ff]無[/bold #1e90ff]")
-            
+            sig_table.add_row(
+                "ACF",
+                "[bold #1e90ff]無[/bold #1e90ff]",
+                "[bold #1e90ff]無[/bold #1e90ff]",
+            )
+
         if pacf_sig_lags:
             pacf_values = [f"{pacf_vals[lag]:.4f}" for lag in pacf_sig_lags]
-            sig_table.add_row("PACF", f"[bold #1e90ff]{pacf_sig_lags}[/bold #1e90ff]", f"[bold #1e90ff]{pacf_values}[/bold #1e90ff]")
+            sig_table.add_row(
+                "PACF",
+                f"[bold #1e90ff]{pacf_sig_lags}[/bold #1e90ff]",
+                f"[bold #1e90ff]{pacf_values}[/bold #1e90ff]",
+            )
         else:
-            sig_table.add_row("PACF", "[bold #1e90ff]無[/bold #1e90ff]", "[bold #1e90ff]無[/bold #1e90ff]")
-            
+            sig_table.add_row(
+                "PACF",
+                "[bold #1e90ff]無[/bold #1e90ff]",
+                "[bold #1e90ff]無[/bold #1e90ff]",
+            )
+
         console.print(sig_table)
 
         # 詢問是否生成ACF和PACF圖片（美化步驟說明）
@@ -178,30 +234,99 @@ class AutocorrelationTest(BaseStatAnalyser):
             "ACF不顯著，PACF顯著：股票交易量，突發事件短期影響。\n"
             "ACF顯著，PACF顯著：聖誕飾品銷售，趨勢+直接推動。\n"
         )
-        panel = Panel(panel_content, title="[bold #dbac30]🔬 統計分析 StatAnalyser 步驟：ACF/PACF 圖片生成[互動][/bold #dbac30]", border_style="#dbac30")
+        panel = Panel(
+            panel_content,
+            title="[bold #dbac30]🔬 統計分析 StatAnalyser 步驟：ACF/PACF 圖片生成[互動][/bold #dbac30]",
+            border_style="#dbac30",
+        )
         console.print(panel)
-        console.print("[bold #dbac30]輸出 ACF 或 PACF 互動圖片？(輸入 y 生成，n 跳過，預設 n)[/bold #dbac30]")
-        generate_plots = console.input().strip().lower() or 'n'
-        generate_plots = generate_plots == 'y'
-        
+        console.print(
+            "[bold #dbac30]輸出 ACF 或 PACF 互動圖片？(輸入 y 生成，n 跳過，預設 n)[/bold #dbac30]"
+        )
+        generate_plots = console.input().strip().lower() or "n"
+        generate_plots = generate_plots == "y"
+
         # 根據設定決定是否繪製圖表
         if generate_plots:
             print("正在生成 ACF 和 PACF 圖片...")
             # 繪製圖表
-            fig = make_subplots(rows=2, cols=1, subplot_titles=(f'ACF of {self.predictor_col}', f'PACF of {self.predictor_col}'))
-            fig.add_trace(go.Scatter(x=list(range(lags + 1)), y=acf_vals, mode='lines+markers', name='ACF'), row=1, col=1)
+            fig = make_subplots(
+                rows=2,
+                cols=1,
+                subplot_titles=(
+                    f"ACF of {self.predictor_col}",
+                    f"PACF of {self.predictor_col}",
+                ),
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=list(range(lags + 1)),
+                    y=acf_vals,
+                    mode="lines+markers",
+                    name="ACF",
+                ),
+                row=1,
+                col=1,
+            )
             if acf_conf is not None:
-                fig.add_trace(go.Scatter(x=list(range(lags + 1)), y=acf_conf[:, 0] - acf_vals, line=dict(color='rgba(0,0,0,0)'), showlegend=False), row=1, col=1)
-                fig.add_trace(go.Scatter(x=list(range(lags + 1)), y=acf_conf[:, 1] - acf_vals, fill='tonexty', line=dict(color='rgba(100,100,100,0.3)'), name='95% CI'), row=1, col=1)
-            fig.add_trace(go.Scatter(x=list(range(lags + 1)), y=pacf_vals, mode='lines+markers', name='PACF'), row=2, col=1)
+                fig.add_trace(
+                    go.Scatter(
+                        x=list(range(lags + 1)),
+                        y=acf_conf[:, 0] - acf_vals,
+                        line=dict(color="rgba(0,0,0,0)"),
+                        showlegend=False,
+                    ),
+                    row=1,
+                    col=1,
+                )
+                fig.add_trace(
+                    go.Scatter(
+                        x=list(range(lags + 1)),
+                        y=acf_conf[:, 1] - acf_vals,
+                        fill="tonexty",
+                        line=dict(color="rgba(100,100,100,0.3)"),
+                        name="95% CI",
+                    ),
+                    row=1,
+                    col=1,
+                )
+            fig.add_trace(
+                go.Scatter(
+                    x=list(range(lags + 1)),
+                    y=pacf_vals,
+                    mode="lines+markers",
+                    name="PACF",
+                ),
+                row=2,
+                col=1,
+            )
             if pacf_conf is not None:
-                fig.add_trace(go.Scatter(x=list(range(lags + 1)), y=pacf_conf[:, 0] - pacf_vals, line=dict(color='rgba(0,0,0,0)'), showlegend=False), row=2, col=1)
-                fig.add_trace(go.Scatter(x=list(range(lags + 1)), y=pacf_conf[:, 1] - pacf_vals, fill='tonexty', line=dict(color='rgba(100,100,100,0.3)'), name='95% CI'), row=2, col=1)
-            fig.update_layout(template='plotly_dark', height=600, showlegend=True)
-            fig.update_xaxes(title_text='Lag', row=1, col=1)
-            fig.update_xaxes(title_text='Lag', row=2, col=1)
-            fig.update_yaxes(title_text='Autocorrelation', row=1, col=1)
-            fig.update_yaxes(title_text='Partial Autocorrelation', row=2, col=1)
+                fig.add_trace(
+                    go.Scatter(
+                        x=list(range(lags + 1)),
+                        y=pacf_conf[:, 0] - pacf_vals,
+                        line=dict(color="rgba(0,0,0,0)"),
+                        showlegend=False,
+                    ),
+                    row=2,
+                    col=1,
+                )
+                fig.add_trace(
+                    go.Scatter(
+                        x=list(range(lags + 1)),
+                        y=pacf_conf[:, 1] - pacf_vals,
+                        fill="tonexty",
+                        line=dict(color="rgba(100,100,100,0.3)"),
+                        name="95% CI",
+                    ),
+                    row=2,
+                    col=1,
+                )
+            fig.update_layout(template="plotly_dark", height=600, showlegend=True)
+            fig.update_xaxes(title_text="Lag", row=1, col=1)
+            fig.update_xaxes(title_text="Lag", row=2, col=1)
+            fig.update_yaxes(title_text="Autocorrelation", row=1, col=1)
+            fig.update_yaxes(title_text="Partial Autocorrelation", row=2, col=1)
             fig.show(renderer="browser")
         else:
             print("跳過 ACF 和 PACF 圖片生成")
@@ -222,13 +347,19 @@ class AutocorrelationTest(BaseStatAnalyser):
                 "- 嘗試其他特徵工程（如外部因子、非線性轉換）。\n"
                 "- 檢查資料品質或資料頻率是否合適。"
             )
-        console.print(Panel(suggestion, title="[bold #8f1511]🔬 統計分析 StatAnalyser[/bold #8f1511]", border_style="#dbac30"))
+        console.print(
+            Panel(
+                suggestion,
+                title="[bold #8f1511]🔬 統計分析 StatAnalyser[/bold #8f1511]",
+                border_style="#dbac30",
+            )
+        )
         console.print("\n")
 
         self.results = {
-            'success': True,
-            'acf_lags': acf_sig_lags,
-            'pacf_lags': pacf_sig_lags,
-            'has_autocorr': bool(acf_sig_lags or pacf_sig_lags)
+            "success": True,
+            "acf_lags": acf_sig_lags,
+            "pacf_lags": pacf_sig_lags,
+            "has_autocorr": bool(acf_sig_lags or pacf_sig_lags),
         }
         return self.results

@@ -85,11 +85,14 @@ flowchart TD
 - 參數設計與驗證最佳實踐
 - 緩存機制與雜湊算法設計
 """
+
+
 class IndicatorParams:
     """
     統一的指標參數容器
     用於封裝技術指標的參數、策略型態、交易參數等，便於回測流程中統一管理與擴展。
     """
+
     def __init__(self, indicator_type, **kwargs):
         self.indicator_type = indicator_type
         self.params = {}
@@ -97,52 +100,56 @@ class IndicatorParams:
         # 支援所有可能的參數
         for key, value in kwargs.items():
             setattr(self, key, value)
+
     def add_param(self, name: str, value, param_type: str = "numeric"):
         """
         添加參數到參數容器
-        
+
         Args:
             name (str): 參數名稱
             value: 參數值
             param_type (str): 參數類型，預設為 "numeric"
         """
         self.params[name] = {"value": value, "type": param_type}
+
     def set_trading_params(self, **kwargs):
         """
         設置交易參數
-        
+
         Args:
             **kwargs: 交易參數鍵值對
         """
         self.trading_params.update(kwargs)
+
     def get_param(self, name: str, default=None):
         """
         獲取參數值
-        
+
         Args:
             name (str): 參數名稱
             default: 預設值，當參數不存在時返回
-            
+
         Returns:
             參數值或預設值
         """
         if name in self.params:
             return self.params[name]["value"]
         return default
+
     def to_dict(self):
         """
         將參數轉換為字典格式
-        
+
         Returns:
             dict: 包含所有參數的字典
         """
         result = {
             "indicator_type": self.indicator_type,
             **{k: v["value"] for k, v in self.params.items()},
-            **self.trading_params
+            **self.trading_params,
         }
-        return result 
-    
+        return result
+
     def get_param_hash(self):
         """
         生成參數的雜湊值，用於快取鍵
@@ -150,15 +157,14 @@ class IndicatorParams:
         """
         import hashlib
         import json
-        
+
         # 收集所有參數
         param_dict = {
             "indicator_type": self.indicator_type,
             **{k: v["value"] for k, v in self.params.items()},
-            **self.trading_params
+            **self.trading_params,
         }
-        
+
         # 轉換為 JSON 字串並生成雜湊
         param_str = json.dumps(param_dict, sort_keys=True)
-        return hashlib.md5(param_str.encode()).hexdigest()[:16] 
-
+        return hashlib.md5(param_str.encode()).hexdigest()[:16]

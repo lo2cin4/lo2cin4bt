@@ -84,13 +84,12 @@ flowchart TD
 - 專案 README
 """
 
-import pandas as pd
-import numpy as np
 import logging
-import os
-from datetime import datetime
+
+import pandas as pd
 
 # 移除重複的logging設置，使用main.py中設置的logger
+
 
 class TradeRecorder_backtester:
     """記錄並驗證交易記錄。"""
@@ -125,7 +124,7 @@ class TradeRecorder_backtester:
     def record_trades(self):
         """
         記錄並驗證交易記錄
-        
+
         Returns:
             pd.DataFrame: 驗證後的交易記錄DataFrame，驗證失敗時返回空DataFrame
         """
@@ -146,7 +145,9 @@ class TradeRecorder_backtester:
             df["Trade_action"] = df["Trade_action"].fillna(0).astype(int)
 
             # 檢查缺失值（允許Holding_period與Trade_return不存在，不報錯）
-            missing_cols = [col for col in self.trade_record_schema if col not in df.columns]
+            missing_cols = [
+                col for col in self.trade_record_schema if col not in df.columns
+            ]
             allowed_missing = set(["Holding_period", "Trade_return"])
             real_missing = [col for col in missing_cols if col not in allowed_missing]
             if real_missing:
@@ -175,7 +176,9 @@ class TradeRecorder_backtester:
             # 驗證邏輯
             invalid_rows = df[df["Equity_value"] <= 0]
             if not invalid_rows.empty:
-                raise ValueError(f"發現 {len(invalid_rows)} 行 Equity_value 無效: {invalid_rows.index.tolist()}")
+                raise ValueError(
+                    f"發現 {len(invalid_rows)} 行 Equity_value 無效: {invalid_rows.index.tolist()}"
+                )
 
             # 日誌記錄
             self.logger.info(
@@ -185,12 +188,17 @@ class TradeRecorder_backtester:
 
             # 確保回傳的是 DataFrame 型態
             if not isinstance(df, pd.DataFrame):
-                self.logger.warning(f"trade_records 不是 DataFrame 型態，轉換為空 DataFrame，Backtest_id: {self.Backtest_id}", extra={"Backtest_id": self.Backtest_id})
+                self.logger.warning(
+                    f"trade_records 不是 DataFrame 型態，轉換為空 DataFrame，Backtest_id: {self.Backtest_id}",
+                    extra={"Backtest_id": self.Backtest_id},
+                )
                 return pd.DataFrame()
-            
+
             return df
 
         except Exception as e:
-            self.logger.error(f"交易記錄驗證失敗: {e}", extra={"Backtest_id": self.Backtest_id})
+            self.logger.error(
+                f"交易記錄驗證失敗: {e}", extra={"Backtest_id": self.Backtest_id}
+            )
             # 確保異常時也回傳 DataFrame 型態
             return pd.DataFrame()

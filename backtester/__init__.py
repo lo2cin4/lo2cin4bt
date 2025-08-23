@@ -42,12 +42,12 @@ flowchart TD
 - 其他模組如有依賴本模組，請於對應檔案頂部註解標明
 """
 
-from .DataImporter_backtester import DataImporter
 from .Base_backtester import BaseBacktester
+from .DataImporter_backtester import DataImporter
 from .Indicators_backtester import IndicatorsBacktester
-from .TradeSimulator_backtester import TradeSimulator_backtester
 from .TradeRecorder_backtester import TradeRecorder_backtester
 from .TradeRecordExporter_backtester import TradeRecordExporter_backtester
+from .TradeSimulator_backtester import TradeSimulator_backtester
 
 __all__ = [
     "DataImporter",

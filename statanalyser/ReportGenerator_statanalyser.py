@@ -60,11 +60,14 @@ flowchart TD
 - 詳細報表規範與欄位定義請參閱 README
 - 其他模組如有依賴本模組，請於對應檔案頂部註解標明
 """
-import pandas as pd
-import os
+
 import json
+import os
 from datetime import datetime
 from typing import Dict, List
+
+import pandas as pd
+
 
 class ReportGenerator:
     """報告生成與數據匯出模組"""
@@ -94,7 +97,9 @@ class ReportGenerator:
                 f.write(f"- {rec}\n")
         # print(f"報告已保存至: {report_path}")
 
-    def save_data(self, data: pd.DataFrame, format: str = "csv", filename: str = "processed_data") -> None:
+    def save_data(
+        self, data: pd.DataFrame, format: str = "csv", filename: str = "processed_data"
+    ) -> None:
         """匯出資料為指定格式"""
         file_path = os.path.join(self.output_dir, f"{filename}.{format}")
         if format == "csv":
@@ -111,55 +116,91 @@ class ReportGenerator:
     def generate_strategy_recommendations(self, results: Dict) -> List[str]:
         """基於所有模組結果生成策略建議"""
         rec = []
-        quantile_thresholds = {"優秀": (0.05, 0.95), "良好": (0.05, 0.95), "一般或弱": (0.10, 0.90)}
+        quantile_thresholds = {
+            "優秀": (0.05, 0.95),
+            "良好": (0.05, 0.95),
+            "一般或弱": (0.10, 0.90),
+        }
         zscore_thresholds = {"優秀": (-2.5, 2.5), "良好": (-2, 2), "一般或弱": (-1, 1)}
 
         # 提取各模組結果
-        corr_result = next((v for k, v in results.items() if k.startswith("CorrelationTest")), {})
-        stat_result = next((v for k, v in results.items() if k.startswith("StationarityTest")), {})
-        autocorr_result = next((v for k, v in results.items() if k.startswith("AutocorrelationTest")), {})
-        dist_result = next((v for k, v in results.items() if k.startswith("DistributionTest")), {})
-        seasonal_result = next((v for k, v in results.items() if k.startswith("SeasonalAnalysis")), {})
+        corr_result = next(
+            (v for k, v in results.items() if k.startswith("CorrelationTest")), {}
+        )
+        stat_result = next(
+            (v for k, v in results.items() if k.startswith("StationarityTest")), {}
+        )
+        autocorr_result = next(
+            (v for k, v in results.items() if k.startswith("AutocorrelationTest")), {}
+        )
+        dist_result = next(
+            (v for k, v in results.items() if k.startswith("DistributionTest")), {}
+        )
+        seasonal_result = next(
+            (v for k, v in results.items() if k.startswith("SeasonalAnalysis")), {}
+        )
 
         # 1. 相關性建議（CorrelationTest）
         if corr_result:
             corr_df = pd.DataFrame(corr_result.get("correlation_results", {})).T
-            best_spearman = corr_df['Spearman'].abs().max() if not corr_df.empty else 0
+            best_spearman = corr_df["Spearman"].abs().max() if not corr_df.empty else 0
             best_lag = corr_result.get("best_lag", 0)
-            spearman_p = corr_result.get("correlation_results", {}).get(best_lag, {}).get("Spearman_p", 1.0)
+            spearman_p = (
+                corr_result.get("correlation_results", {})
+                .get(best_lag, {})
+                .get("Spearman_p", 1.0)
+            )
 
             decay_rate = 0
             decay_status = "無法判斷"
             spearman_5 = 0
             corr_results = corr_result.get("correlation_results", {})
             if 0 in corr_results and 5 in corr_results:
-                spearman_0 = abs(corr_results[0]['Spearman'])
-                spearman_5 = abs(corr_results[5]['Spearman'])
-                decay_rate = (spearman_0 - spearman_5) / spearman_0 if spearman_0 > 0 else 0
+                spearman_0 = abs(corr_results[0]["Spearman"])
+                spearman_5 = abs(corr_results[5]["Spearman"])
+                decay_rate = (
+                    (spearman_0 - spearman_5) / spearman_0 if spearman_0 > 0 else 0
+                )
                 decay_status = "迅速衰減" if decay_rate > 0.5 else "緩慢衰減"
 
             if best_spearman > 0.7:
                 spearman_level = "優秀"
-                rec.append(f"因子預測能力{spearman_level}（Spearman={best_spearman:.4f} @ lag={best_lag}，p={spearman_p:.4f}） → 核心策略因子")
+                rec.append(
+                    f"因子預測能力{spearman_level}（Spearman={best_spearman:.4f} @ lag={best_lag}，p={spearman_p:.4f}） → 核心策略因子"
+                )
             elif best_spearman > 0.4:
                 spearman_level = "良好"
-                rec.append(f"因子預測能力{spearman_level}（Spearman={best_spearman:.4f} @ lag={best_lag}，p={spearman_p:.4f}） → 主要策略因子")
+                rec.append(
+                    f"因子預測能力{spearman_level}（Spearman={best_spearman:.4f} @ lag={best_lag}，p={spearman_p:.4f}） → 主要策略因子"
+                )
             else:
                 spearman_level = "一般或弱"
-                rec.append(f"因子預測能力{spearman_level}（Spearman={best_spearman:.4f} @ lag={best_lag}，p={spearman_p:.4f}） → 謹慎使用或更換因子")
-            rec.append(f"相關性{decay_status}（lag=5 |Spearman|={spearman_5:.4f}，衰減率={decay_rate:.2%}） → {'短期策略' if decay_status == '迅速衰減' else '中期策略'}")
+                rec.append(
+                    f"因子預測能力{spearman_level}（Spearman={best_spearman:.4f} @ lag={best_lag}，p={spearman_p:.4f}） → 謹慎使用或更換因子"
+                )
+            rec.append(
+                f"相關性{decay_status}（lag=5 |Spearman|={spearman_5:.4f}，衰減率={decay_rate:.2%}） → {'短期策略' if decay_status == '迅速衰減' else '中期策略'}"
+            )
         else:
             rec.append("無相關性分析結果")
 
         # 2. 平穩性建議（StationarityTest）
         if stat_result:
-            is_stationary = stat_result.get("predictor", {}).get("adf_stationary", False)
+            is_stationary = stat_result.get("predictor", {}).get(
+                "adf_stationary", False
+            )
             adf_p = stat_result.get("predictor", {}).get("adf_p", 1.0)
-            kpss_stationary = stat_result.get("predictor", {}).get("kpss_stationary", False)
+            kpss_stationary = stat_result.get("predictor", {}).get(
+                "kpss_stationary", False
+            )
             if is_stationary and kpss_stationary:
-                rec.append(f"因子平穩（ADF p={adf_p:.4f}，KPSS p>0.05） → 適合直接建模，無需差分")
+                rec.append(
+                    f"因子平穩（ADF p={adf_p:.4f}，KPSS p>0.05） → 適合直接建模，無需差分"
+                )
             else:
-                rec.append(f"因子非平穩（ADF p={adf_p:.4f}，KPSS p<=0.05） → 建議進行一階或二階差分，或使用動態分位數閾值")
+                rec.append(
+                    f"因子非平穩（ADF p={adf_p:.4f}，KPSS p<=0.05） → 建議進行一階或二階差分，或使用動態分位數閾值"
+                )
         else:
             rec.append("無平穩性分析結果")
 
@@ -171,7 +212,9 @@ class ReportGenerator:
             if has_autocorr:
                 p = max(pacf_lags[:5]) if pacf_lags else 0
                 q = max(acf_lags[:5]) if acf_lags else 0
-                rec.append(f"因子存在自相關（顯著 ACF 滯後：{acf_lags[:5]}，PACF 滯後：{pacf_lags[:5]}） → 建議使用 ARIMA(p={p}, q={q}) 模型")
+                rec.append(
+                    f"因子存在自相關（顯著 ACF 滯後：{acf_lags[:5]}，PACF 滯後：{pacf_lags[:5]}） → 建議使用 ARIMA(p={p}, q={q}) 模型"
+                )
             else:
                 rec.append("因子無顯著自相關 → 直接使用因子值建模，無需考慮歷史滯後")
         else:
@@ -188,11 +231,17 @@ class ReportGenerator:
                 skew_threshold = 1.0
                 kurt_threshold_upper = 3.5
                 if abs(skewness) > skew_threshold:
-                    rec.append(f"因子偏度高（{skewness:.2f}） → 建議對數轉換或分位數分析")
+                    rec.append(
+                        f"因子偏度高（{skewness:.2f}） → 建議對數轉換或分位數分析"
+                    )
                 if kurtosis > kurt_threshold_upper:
-                    rec.append(f"因子尖峰厚尾（峰度={kurtosis:.2f}） → 建議分位數策略，閾值範圍：[10%, 90%]")
+                    rec.append(
+                        f"因子尖峰厚尾（峰度={kurtosis:.2f}） → 建議分位數策略，閾值範圍：[10%, 90%]"
+                    )
                 else:
-                    rec.append("因子非正態分佈 → 建議使用分位數策略，閾值範圍：[10%, 90%]")
+                    rec.append(
+                        "因子非正態分佈 → 建議使用分位數策略，閾值範圍：[10%, 90%]"
+                    )
         else:
             rec.append("無分佈特性分析結果")
 
@@ -203,7 +252,9 @@ class ReportGenerator:
             strength = seasonal_result.get("strength", 0.0)
             if has_seasonal:
                 strength_level = "強烈" if strength > 0.3 else "中等"
-                rec.append(f"因子存在{strength_level}季節性（週期={period}天，強度={strength:.2f}） → 建議納入週期性策略，關注週期性交易時機")
+                rec.append(
+                    f"因子存在{strength_level}季節性（週期={period}天，強度={strength:.2f}） → 建議納入週期性策略，關注週期性交易時機"
+                )
             else:
                 rec.append("因子無顯著季節性 → 無需考慮週期性策略")
         else:

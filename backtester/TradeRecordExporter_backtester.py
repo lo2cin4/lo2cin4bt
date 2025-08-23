@@ -88,23 +88,24 @@ flowchart TD
 - 專案 README
 """
 
-import pandas as pd
-import numpy as np
+import json
 import logging
 import os
-import json
+from datetime import datetime
+
+import numpy as np
+import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
-from datetime import datetime
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
-from rich.console import Group
+from rich.table import Table
 from rich.text import Text
 
 # 移除重複的logging設置，使用main.py中設置的logger
 
 console = Console()
+
 
 class TradeRecordExporter_backtester:
     """導出交易記錄至 CSV 或 Parquet。"""
@@ -146,175 +147,198 @@ class TradeRecordExporter_backtester:
 
     def _get_strategy_name(self, params):
         """根據 entry/exit 參數產生 strategy 字串，格式為 entry1+entry2_exit1+exit2"""
+
         def param_to_str(param):
             # 支援dict或物件
             if isinstance(param, dict):
-                indicator_type = param.get('indicator_type', '')
-                if indicator_type == 'MA':
-                    strat_idx = param.get('strat_idx', '')
-                    ma_type = param.get('ma_type', '')
-                    mode = param.get('mode', 'single')
-                    if mode == 'double':
-                        short_period = param.get('shortMA_period', '')
-                        long_period = param.get('longMA_period', '')
+                indicator_type = param.get("indicator_type", "")
+                if indicator_type == "MA":
+                    strat_idx = param.get("strat_idx", "")
+                    ma_type = param.get("ma_type", "")
+                    mode = param.get("mode", "single")
+                    if mode == "double":
+                        short_period = param.get("shortMA_period", "")
+                        long_period = param.get("longMA_period", "")
                         return f"MA{strat_idx}_{ma_type}({short_period},{long_period})"
                     else:
-                        period = param.get('period', '')
+                        period = param.get("period", "")
                         # 對於 MA9-MA12，需要顯示連續日數 m
                         if strat_idx in [9, 10, 11, 12]:
-                            m = param.get('m', 2)
+                            m = param.get("m", 2)
                             return f"MA{strat_idx}_{ma_type}({period},{m})"
                         else:
                             return f"MA{strat_idx}_{ma_type}({period})"
-                elif indicator_type == 'BOLL':
-                    strat = param.get('strat', '')
-                    ma_length = param.get('ma_length', '')
-                    std_multiplier = param.get('std_multiplier', '')
+                elif indicator_type == "BOLL":
+                    strat = param.get("strat", "")
+                    ma_length = param.get("ma_length", "")
+                    std_multiplier = param.get("std_multiplier", "")
                     return f"BOLL{strat}_MA({ma_length})_SD({std_multiplier})"
-                elif indicator_type == 'HL':
-                    strat_idx = param.get('strat_idx', '')
-                    n_length = param.get('n_length', '')
-                    m_length = param.get('m_length', '')
+                elif indicator_type == "HL":
+                    strat_idx = param.get("strat_idx", "")
+                    n_length = param.get("n_length", "")
+                    m_length = param.get("m_length", "")
                     return f"HL{strat_idx}_N({n_length})_M({m_length})"
-                elif indicator_type == 'VALUE':
-                    strat_idx = param.get('strat_idx', '')
+                elif indicator_type == "VALUE":
+                    strat_idx = param.get("strat_idx", "")
                     if strat_idx in [1, 2, 3, 4]:
-                        n_length = param.get('n_length', '')
-                        m_value = param.get('m_value', '')
+                        n_length = param.get("n_length", "")
+                        m_value = param.get("m_value", "")
                         return f"VALUE{strat_idx}_N({n_length})_M({m_value})"
                     elif strat_idx in [5, 6]:
-                        m1_value = param.get('m1_value', '')
-                        m2_value = param.get('m2_value', '')
+                        m1_value = param.get("m1_value", "")
+                        m2_value = param.get("m2_value", "")
                         return f"VALUE{strat_idx}_M1({m1_value})_M2({m2_value})"
                     else:
                         return f"VALUE{strat_idx}"
 
-                elif indicator_type == 'PERC':
-                    window = param.get('window', '')
-                    strat_idx = param.get('strat_idx', 1)
+                elif indicator_type == "PERC":
+                    window = param.get("window", "")
+                    strat_idx = param.get("strat_idx", 1)
                     if strat_idx in [1, 2, 3, 4]:
-                        percentile = param.get('percentile', '')
+                        percentile = param.get("percentile", "")
                         return f"PERC{strat_idx}(W={window},P={percentile})"
                     elif strat_idx in [5, 6]:
-                        m1 = param.get('m1', '')
-                        m2 = param.get('m2', '')
+                        m1 = param.get("m1", "")
+                        m2 = param.get("m2", "")
                         return f"PERC{strat_idx}(W={window},M1={m1},M2={m2})"
                     else:
                         return f"PERC{strat_idx}(W={window})"
                 else:
                     return indicator_type
-            elif hasattr(param, 'indicator_type'):
-                indicator_type = getattr(param, 'indicator_type', '')
-                if indicator_type == 'MA':
-                    strat_idx = getattr(param, 'strat_idx', '')
-                    ma_type = getattr(param, 'ma_type', '')
-                    mode = getattr(param, 'mode', 'single')
-                    if mode == 'double':
-                        short_period = getattr(param, 'shortMA_period', '')
-                        long_period = getattr(param, 'longMA_period', '')
+            elif hasattr(param, "indicator_type"):
+                indicator_type = getattr(param, "indicator_type", "")
+                if indicator_type == "MA":
+                    strat_idx = getattr(param, "strat_idx", "")
+                    ma_type = getattr(param, "ma_type", "")
+                    mode = getattr(param, "mode", "single")
+                    if mode == "double":
+                        short_period = getattr(param, "shortMA_period", "")
+                        long_period = getattr(param, "longMA_period", "")
                         return f"MA{strat_idx}_{ma_type}({short_period},{long_period})"
                     else:
-                        period = getattr(param, 'period', '')
+                        period = getattr(param, "period", "")
                         # 對於 MA9-MA12，需要顯示連續日數 m
                         if strat_idx in [9, 10, 11, 12]:
-                            m = getattr(param, 'm', 2)
+                            m = getattr(param, "m", 2)
                             return f"MA{strat_idx}_{ma_type}({period},{m})"
                         else:
                             return f"MA{strat_idx}_{ma_type}({period})"
-                elif indicator_type == 'BOLL':
-                    strat = getattr(param, 'strat', '')
-                    ma_length = getattr(param, 'ma_length', '')
-                    std_multiplier = getattr(param, 'std_multiplier', '')
+                elif indicator_type == "BOLL":
+                    strat = getattr(param, "strat", "")
+                    ma_length = getattr(param, "ma_length", "")
+                    std_multiplier = getattr(param, "std_multiplier", "")
                     return f"BOLL{strat}_MA({ma_length})_SD({std_multiplier})"
-                elif indicator_type == 'HL':
-                    strat_idx = getattr(param, 'strat_idx', '')
-                    n_length = getattr(param, 'n_length', '')
-                    m_length = getattr(param, 'm_length', '')
+                elif indicator_type == "HL":
+                    strat_idx = getattr(param, "strat_idx", "")
+                    n_length = getattr(param, "n_length", "")
+                    m_length = getattr(param, "m_length", "")
                     return f"HL{strat_idx}({n_length},{m_length})"
-                elif indicator_type == 'VALUE':
-                    strat_idx = getattr(param, 'strat_idx', '')
+                elif indicator_type == "VALUE":
+                    strat_idx = getattr(param, "strat_idx", "")
                     if strat_idx in [1, 2, 3, 4]:
-                        n_length = getattr(param, 'n_length', '')
-                        m_value = getattr(param, 'm_value', '')
+                        n_length = getattr(param, "n_length", "")
+                        m_value = getattr(param, "m_value", "")
                         return f"VALUE{strat_idx}({n_length},{m_value})"
                     elif strat_idx in [5, 6]:
-                        m1_value = getattr(param, 'm1_value', '')
-                        m2_value = getattr(param, 'm2_value', '')
+                        m1_value = getattr(param, "m1_value", "")
+                        m2_value = getattr(param, "m2_value", "")
                         return f"VALUE{strat_idx}({m1_value},{m2_value})"
                     else:
                         return f"VALUE{strat_idx}"
 
-                elif indicator_type == 'PERC':
-                    window = getattr(param, 'window', '')
-                    strat_idx = getattr(param, 'strat_idx', 1)
+                elif indicator_type == "PERC":
+                    window = getattr(param, "window", "")
+                    strat_idx = getattr(param, "strat_idx", 1)
                     if strat_idx in [1, 2, 3, 4]:
-                        percentile = getattr(param, 'percentile', '')
+                        percentile = getattr(param, "percentile", "")
                         return f"PERC{strat_idx}(W={window},P={percentile})"
                     elif strat_idx in [5, 6]:
-                        m1 = getattr(param, 'm1', '')
-                        m2 = getattr(param, 'm2', '')
+                        m1 = getattr(param, "m1", "")
+                        m2 = getattr(param, "m2", "")
                         return f"PERC{strat_idx}(W={window},M1={m1},M2={m2})"
                     else:
                         return f"PERC{strat_idx}(W={window})"
                 else:
                     return indicator_type
             return str(param)
-        entry_str = '+'.join([param_to_str(p) for p in params.get('entry', [])])
-        exit_str = '+'.join([param_to_str(p) for p in params.get('exit', [])])
+
+        entry_str = "+".join([param_to_str(p) for p in params.get("entry", [])])
+        exit_str = "+".join([param_to_str(p) for p in params.get("exit", [])])
         return f"{entry_str}_{exit_str}" if entry_str or exit_str else "Unknown"
-
-
 
     def export_to_csv(self, backtest_id=None):
         """
         導出交易記錄至 CSV
-        
+
         Args:
             backtest_id (str, optional): 指定要導出的回測ID，如果為None則導出所有結果
-            
+
         Note:
             導出的CSV檔案會保存在 records/backtester/ 目錄下
         """
         try:
             if not self.results:
-                console.print(Panel("無回測結果可導出為CSV", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+                console.print(
+                    Panel(
+                        "無回測結果可導出為CSV",
+                        title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
+                        border_style="#dbac30",
+                    )
+                )
                 return
-            
+
             # 如果指定了backtest_id，只導出該回測結果
             if backtest_id:
-                results_to_export = [r for r in self.results if r.get("Backtest_id") == backtest_id]
+                results_to_export = [
+                    r for r in self.results if r.get("Backtest_id") == backtest_id
+                ]
                 if not results_to_export:
-                    console.print(Panel(f"找不到Backtest_id為 {backtest_id} 的回測結果", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+                    console.print(
+                        Panel(
+                            f"找不到Backtest_id為 {backtest_id} 的回測結果",
+                            title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
+                            border_style="#dbac30",
+                        )
+                    )
                     return
             else:
                 results_to_export = self.results
-            
+
             exported_count = 0
             msg_lines = []
             for result in results_to_export:
                 if result.get("error") is not None:
-                    msg_lines.append(f"跳過失敗的回測 {result['Backtest_id']}: {result['error']}")
+                    msg_lines.append(
+                        f"跳過失敗的回測 {result['Backtest_id']}: {result['error']}"
+                    )
                     continue
-                
-                if "records" not in result or not isinstance(result["records"], pd.DataFrame) or result["records"].empty or (result["records"]["Trade_action"] == 1).sum() == 0:
+
+                if (
+                    "records" not in result
+                    or not isinstance(result["records"], pd.DataFrame)
+                    or result["records"].empty
+                    or (result["records"]["Trade_action"] == 1).sum() == 0
+                ):
                     msg_lines.append(f"跳過無交易記錄的回測 {result['Backtest_id']}")
                     continue
-                
+
                 date_str = datetime.now().strftime("%Y%m%d")
                 Backtest_id = result["Backtest_id"]
                 params = result.get("params")
                 if params is None:
-                    msg_lines.append(f"result 無 params 欄位，跳過。result keys: {list(result.keys())}")
+                    msg_lines.append(
+                        f"result 無 params 欄位，跳過。result keys: {list(result.keys())}"
+                    )
                     continue
                 predictor = params.get("predictor", "unknown")
-                
+
                 # 生成策略名稱
                 strategy = self._get_strategy_name(params)
-                
+
                 # 生成文件名 - 移除重複的params_str，只使用strategy
                 filename = f"{date_str}_{self.frequency}_{strategy}_{predictor}_{Backtest_id[:8]}.csv"
                 filepath = os.path.join(self.output_dir, filename)
-                
+
                 # 導出CSV
                 # 新增 Backtest_id 欄位，確保主表格與 metadata 一一對應
                 # 優化：只在需要時才拷貝，避免不必要的記憶體使用
@@ -326,13 +350,19 @@ class TradeRecordExporter_backtester:
                 records_to_export.to_csv(filepath, index=False)
                 msg_lines.append(f"已導出: {filename}")
                 exported_count += 1
-            
+
             if exported_count == 0:
                 msg_lines.append("沒有成功導出任何CSV文件")
             else:
                 msg_lines.append(f"CSV導出完成，共導出 {exported_count} 個文件")
-            
-            console.print(Panel("\n".join(msg_lines), title="[bold #8f1511]💾 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+
+            console.print(
+                Panel(
+                    "\n".join(msg_lines),
+                    title="[bold #8f1511]💾 交易回測 Backtester[/bold #8f1511]",
+                    border_style="#dbac30",
+                )
+            )
         except Exception as e:
             self.logger.error(
                 f"CSV 導出失敗: {e}",
@@ -342,12 +372,13 @@ class TradeRecordExporter_backtester:
 
     def export_to_parquet(self, backtest_id=None):
         """導出交易記錄至 Parquet，包含 metadata。
-        
+
         Args:
             backtest_id: 指定要導出的回測ID，如果為None則導出所有結果
         """
         try:
             import uuid
+
             date_str = datetime.now().strftime("%Y%m%d")
             random_id = uuid.uuid4().hex[:8]
             filename = f"{date_str}_{random_id}_{self.Backtest_id}.parquet"
@@ -356,13 +387,15 @@ class TradeRecordExporter_backtester:
             metadata = {}
             # 如果指定了backtest_id，只處理該回測結果
             if backtest_id:
-                results_to_export = [r for r in self.results if r.get("Backtest_id") == backtest_id]
+                results_to_export = [
+                    r for r in self.results if r.get("Backtest_id") == backtest_id
+                ]
                 if not results_to_export:
                     print(f"找不到Backtest_id為 {backtest_id} 的回測結果")
                     return
             else:
                 results_to_export = self.results
-                
+
             if results_to_export:
                 batch_metadata = []
                 for result in results_to_export:
@@ -370,22 +403,32 @@ class TradeRecordExporter_backtester:
                         params = result.get("params")
                         if params is None:
                             continue
+
                         # entry/exit 參數完整記錄
                         def param_to_dict(param):
                             if isinstance(param, dict):
                                 return {k: str(v) for k, v in param.items()}
-                            elif hasattr(param, '__dict__'):
+                            elif hasattr(param, "__dict__"):
                                 return {k: str(v) for k, v in param.__dict__.items()}
                             else:
                                 return str(param)
-                        entry_details = [param_to_dict(p) for p in params.get("entry", [])]
-                        exit_details = [param_to_dict(p) for p in params.get("exit", [])]
+
+                        entry_details = [
+                            param_to_dict(p) for p in params.get("entry", [])
+                        ]
+                        exit_details = [
+                            param_to_dict(p) for p in params.get("exit", [])
+                        ]
                         meta = {
                             "Backtest_id": result["Backtest_id"],
                             "Frequency": self.frequency,
                             "Asset": (
-                                result.get("records", pd.DataFrame()).get("Trading_instrument", pd.Series()).iloc[0]
-                                if not result.get("records", pd.DataFrame()).empty and "Trading_instrument" in result.get("records", pd.DataFrame()).columns
+                                result.get("records", pd.DataFrame())
+                                .get("Trading_instrument", pd.Series())
+                                .iloc[0]
+                                if not result.get("records", pd.DataFrame()).empty
+                                and "Trading_instrument"
+                                in result.get("records", pd.DataFrame()).columns
                                 else "ALL"
                             ),
                             # strategy 欄位用 entry+exit 組合格式
@@ -407,11 +450,13 @@ class TradeRecordExporter_backtester:
                                 if self.data is not None
                                 else ""
                             ),
-                            "Backtest_date": date_str
+                            "Backtest_date": date_str,
                             # 不再寫入strategy_id
                         }
                         batch_metadata.append(meta)
-                metadata["batch_metadata"] = json.dumps(batch_metadata, ensure_ascii=False)
+                metadata["batch_metadata"] = json.dumps(
+                    batch_metadata, ensure_ascii=False
+                )
             else:
                 asset = (
                     self.trade_records["Trading_instrument"].iloc[0]
@@ -439,9 +484,7 @@ class TradeRecordExporter_backtester:
                         else ""
                     ),
                     "period": (
-                        self.trade_params.get("period", "")
-                        if self.trade_params
-                        else ""
+                        self.trade_params.get("period", "") if self.trade_params else ""
                     ),
                     "predictor": self.predictor or "",
                     "Transaction_cost": self.transaction_cost or 0.0,
@@ -449,14 +492,10 @@ class TradeRecordExporter_backtester:
                     "Trade_delay": self.trade_delay or 0,
                     "Trade_price": self.trade_price or "",
                     "Data_start_time": (
-                        str(self.data["Time"].min())
-                        if self.data is not None
-                        else ""
+                        str(self.data["Time"].min()) if self.data is not None else ""
                     ),
                     "Data_end_time": (
-                        str(self.data["Time"].max())
-                        if self.data is not None
-                        else ""
+                        str(self.data["Time"].max()) if self.data is not None else ""
                     ),
                     "Backtest_date": date_str,
                     "Backtest_id": self.Backtest_id,
@@ -481,7 +520,7 @@ class TradeRecordExporter_backtester:
                         # 直接使用原始數據，不進行拷貝
                         records_df = result["records"]
                         all_records.append(records_df)
-                
+
                 # 再次檢查並過濾，確保沒有空的 DataFrame 或全為 NA 的 DataFrame
                 filtered_records = []
                 for df in all_records:
@@ -494,19 +533,23 @@ class TradeRecordExporter_backtester:
                                 break
                         if has_valid_data:
                             # 清理 DataFrame：移除全為 NA 的列
-                            cleaned_df = df.dropna(axis=1, how='all')
+                            cleaned_df = df.dropna(axis=1, how="all")
                             if not cleaned_df.empty:
                                 filtered_records.append(cleaned_df)
-                
+
                 if filtered_records:
                     # 使用更安全的 concat 方式
                     try:
-                        combined_records = pd.concat(filtered_records, ignore_index=True, sort=False)
-                    except Exception as e:
+                        combined_records = pd.concat(
+                            filtered_records, ignore_index=True, sort=False
+                        )
+                    except Exception:
                         # 如果 concat 失敗，嘗試逐個合併
                         combined_records = filtered_records[0]
                         for df in filtered_records[1:]:
-                            combined_records = pd.concat([combined_records, df], ignore_index=True, sort=False)
+                            combined_records = pd.concat(
+                                [combined_records, df], ignore_index=True, sort=False
+                            )
                 else:
                     combined_records = pd.DataFrame()
             else:
@@ -515,7 +558,10 @@ class TradeRecordExporter_backtester:
             # 將 DataFrame 轉為 pyarrow.Table
             table = pa.Table.from_pandas(combined_records)
             # 將 metadata 轉為字節（pyarrow 要求）
-            metadata_bytes = {k: v.encode("utf-8") if isinstance(v, str) else str(v).encode("utf-8") for k, v in metadata.items()}
+            metadata_bytes = {
+                k: v.encode("utf-8") if isinstance(v, str) else str(v).encode("utf-8")
+                for k, v in metadata.items()
+            }
 
             # 合併 pandas schema 與自訂 metadata
             orig_meta = table.schema.metadata or {}
@@ -550,7 +596,7 @@ class TradeRecordExporter_backtester:
 
     def _display_full_summary(self):
         """顯示完整摘要表格（結果數量 ≤ 15）"""
-        
+
         table = Table(title="回測摘要", style="bold magenta")
         table.add_column("序號", style="cyan", no_wrap=True)
         table.add_column("回測ID", style="green", no_wrap=True)
@@ -559,44 +605,29 @@ class TradeRecordExporter_backtester:
 
         for i, result in enumerate(self.results, 1):
             if result.get("error") is not None:
-                table.add_row(
-                    str(i),
-                    result["Backtest_id"],
-                    "失敗",
-                    "❌ 失敗"
-                )
+                table.add_row(str(i), result["Backtest_id"], "失敗", "❌ 失敗")
                 continue
 
-            if "records" not in result or not isinstance(result["records"], pd.DataFrame) or result["records"].empty or (result["records"]["Trade_action"] == 1).sum() == 0:
+            if (
+                "records" not in result
+                or not isinstance(result["records"], pd.DataFrame)
+                or result["records"].empty
+                or (result["records"]["Trade_action"] == 1).sum() == 0
+            ):
                 params = result.get("params")
                 strategy = self._get_strategy_name(params) if params else "N/A"
-                table.add_row(
-                    str(i),
-                    result["Backtest_id"],
-                    strategy,
-                    "⚠️ 無交易"
-                )
+                table.add_row(str(i), result["Backtest_id"], strategy, "⚠️ 無交易")
                 continue
 
             params = result.get("params")
             if params is None:
-                table.add_row(
-                    str(i),
-                    result["Backtest_id"],
-                    "N/A",
-                    "❌ 失敗"
-                )
+                table.add_row(str(i), result["Backtest_id"], "N/A", "❌ 失敗")
                 continue
 
             # 生成策略名稱
             strategy = self._get_strategy_name(params)
 
-            table.add_row(
-                str(i),
-                result["Backtest_id"],
-                strategy,
-                "✅ 成功"
-            )
+            table.add_row(str(i), result["Backtest_id"], strategy, "✅ 成功")
 
         console.print(table)
         self._show_operation_menu()
@@ -610,37 +641,37 @@ class TradeRecordExporter_backtester:
         while True:
             start_idx = (page - 1) * page_size
             end_idx = min(start_idx + page_size, total_results)
-            
-            table = Table(title=f"回測結果 - 第 {page} 頁 (共 {total_pages} 頁)", style="bold magenta")
+
+            table = Table(
+                title=f"回測結果 - 第 {page} 頁 (共 {total_pages} 頁)",
+                style="bold magenta",
+            )
             table.add_column("序號", style="cyan", no_wrap=True)
             table.add_column("回測ID", style="green", no_wrap=True)
             table.add_column("策略", style="blue", no_wrap=True)
             table.add_column("狀態", style="yellow", no_wrap=True)
-            
+
             for i in range(start_idx, end_idx):
                 result = self.results[i]
                 # 嚴格判斷成功/無交易/失敗 - 檢查實際交易行為
                 is_success = (
-                    result.get("error") is None and
-                    "records" in result and
-                    isinstance(result["records"], pd.DataFrame) and
-                    not result["records"].empty and
-                    (result["records"]["Trade_action"] == 1).sum() > 0
+                    result.get("error") is None
+                    and "records" in result
+                    and isinstance(result["records"], pd.DataFrame)
+                    and not result["records"].empty
+                    and (result["records"]["Trade_action"] == 1).sum() > 0
                 )
                 is_no_trade = (
-                    result.get("error") is None and
-                    "records" in result and
-                    isinstance(result["records"], pd.DataFrame) and
-                    not result["records"].empty and
-                    (result["records"]["Trade_action"] == 1).sum() == 0
+                    result.get("error") is None
+                    and "records" in result
+                    and isinstance(result["records"], pd.DataFrame)
+                    and not result["records"].empty
+                    and (result["records"]["Trade_action"] == 1).sum() == 0
                 )
                 is_failed = result.get("error") is not None
                 if is_failed:
                     table.add_row(
-                        str(i + 1),
-                        result["Backtest_id"],
-                        "失敗",
-                        "[red]❌ 失敗[/red]"
+                        str(i + 1), result["Backtest_id"], "失敗", "[red]❌ 失敗[/red]"
                     )
                 elif is_no_trade:
                     params = result.get("params")
@@ -649,7 +680,7 @@ class TradeRecordExporter_backtester:
                         str(i + 1),
                         result["Backtest_id"],
                         strategy,
-                        "[yellow]⚠️ 無交易[/yellow]"
+                        "[yellow]⚠️ 無交易[/yellow]",
                     )
                 elif is_success:
                     params = result.get("params")
@@ -658,7 +689,7 @@ class TradeRecordExporter_backtester:
                         str(i + 1),
                         result["Backtest_id"],
                         strategy,
-                        "[green]✅ 成功[/green]"
+                        "[green]✅ 成功[/green]",
                     )
                 else:
                     # 其他異常情況也標示為失敗
@@ -666,23 +697,29 @@ class TradeRecordExporter_backtester:
                         str(i + 1),
                         result.get("Backtest_id", "N/A"),
                         "異常",
-                        "[red]❌ 失敗[/red]"
+                        "[red]❌ 失敗[/red]",
                     )
-            
+
             console.print(table)
-            
+
             # 分頁導航
             if total_pages > 1:
-                console.print(Panel("📄 分頁導航: [m] 下一頁(m) | [n] 上一頁(n) | [數字] 跳轉到指定頁 | [q] 進入操作選單(q)", title="[bold #8f1511]📄 👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+                console.print(
+                    Panel(
+                        "📄 分頁導航: [m] 下一頁(m) | [n] 上一頁(n) | [數字] 跳轉到指定頁 | [q] 進入操作選單(q)",
+                        title="[bold #8f1511]📄 👨‍💻 交易回測 Backtester[/bold #8f1511]",
+                        border_style="#dbac30",
+                    )
+                )
                 console.print("[bold #dbac30]請輸入導航指令: [/bold #dbac30]", end="")
                 nav = input().lower()
-                
-                if nav == 'q':
+
+                if nav == "q":
                     break
-                elif nav == 'm' and page < total_pages:
+                elif nav == "m" and page < total_pages:
                     page += 1
                     console.clear()
-                elif nav == 'n' and page > 1:
+                elif nav == "n" and page > 1:
                     page -= 1
                     console.clear()
                 elif nav.isdigit():
@@ -696,7 +733,7 @@ class TradeRecordExporter_backtester:
                     console.print("❌ 無效命令", style="red")
             else:
                 break
-        
+
         self._show_operation_menu()
 
     def _show_operation_menu(self):
@@ -707,8 +744,14 @@ class TradeRecordExporter_backtester:
 3. 導出所有回測結果為 CSV
 4. 導出特定回測結果為 CSV (輸入 Backtest_id)
 5. 結束交易回測，進入下一階段"""
-        
-        console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#dbac30"))
+
+        console.print(
+            Panel(
+                menu_text,
+                title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
+                border_style="#dbac30",
+            )
+        )
 
         while True:
             console.print("[bold #dbac30]請選擇操作: [/bold #dbac30]", end="")
@@ -721,7 +764,13 @@ class TradeRecordExporter_backtester:
 3. 導出所有回測結果為 CSV
 4. 導出特定回測結果為 CSV (輸入 Backtest_id)
 5. 結束交易回測，進入下一階段"""
-                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#dbac30"))
+                console.print(
+                    Panel(
+                        menu_text,
+                        title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
+                        border_style="#dbac30",
+                    )
+                )
             elif choice == "2":
                 self.display_failed_results()
                 # 重新顯示選單
@@ -730,7 +779,13 @@ class TradeRecordExporter_backtester:
 3. 導出所有回測結果為 CSV
 4. 導出特定回測結果為 CSV (輸入 Backtest_id)
 5. 結束交易回測，進入下一階段"""
-                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#8f1511"))
+                console.print(
+                    Panel(
+                        menu_text,
+                        title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
+                        border_style="#8f1511",
+                    )
+                )
             elif choice == "3":
                 self.export_to_csv()
                 console.print("✅ CSV 導出完成！", style="green")
@@ -740,25 +795,52 @@ class TradeRecordExporter_backtester:
 3. 導出所有回測結果為 CSV
 4. 導出特定回測結果為 CSV (輸入 Backtest_id)
 5. 結束交易回測，進入下一階段"""
-                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#dbac30"))
+                console.print(
+                    Panel(
+                        menu_text,
+                        title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
+                        border_style="#dbac30",
+                    )
+                )
             elif choice == "4":
                 while True:
-                    console.print("[bold #dbac30]請輸入Backtest ID（可用逗號分隔多個），或按Enter返回選單: [/bold #dbac30]", end="")
+                    console.print(
+                        "[bold #dbac30]請輸入Backtest ID（可用逗號分隔多個），或按Enter返回選單: [/bold #dbac30]",
+                        end="",
+                    )
                     backtest_id_input = input()
                     if not backtest_id_input:
                         # 直接返回選單
                         break
                     # 支援多個ID
-                    backtest_ids = [bid.strip() for bid in backtest_id_input.split(",") if bid.strip()]
-                    not_found = [bid for bid in backtest_ids if not any(r.get("Backtest_id") == bid for r in self.results)]
+                    backtest_ids = [
+                        bid.strip()
+                        for bid in backtest_id_input.split(",")
+                        if bid.strip()
+                    ]
+                    not_found = [
+                        bid
+                        for bid in backtest_ids
+                        if not any(r.get("Backtest_id") == bid for r in self.results)
+                    ]
                     if not backtest_ids:
                         continue
                     if not_found:
-                        console.print(Panel(f"找不到Backtest_id為 {', '.join(not_found)} 的回測結果", title=Text("👨‍💻交易回測 Backtester", style="bold #8f1511"), border_style="#8f1511"))
+                        console.print(
+                            Panel(
+                                f"找不到Backtest_id為 {', '.join(not_found)} 的回測結果",
+                                title=Text(
+                                    "👨‍💻交易回測 Backtester", style="bold #8f1511"
+                                ),
+                                border_style="#8f1511",
+                            )
+                        )
                         continue
                     for bid in backtest_ids:
                         self.export_to_csv(backtest_id=bid)
-                    console.print(f"✅ 已導出 {len(backtest_ids)} 個特定回測 CSV！", style="green")
+                    console.print(
+                        f"✅ 已導出 {len(backtest_ids)} 個特定回測 CSV！", style="green"
+                    )
                     break
                 # 重新顯示選單
                 menu_text = """1. 查看成功結果
@@ -766,7 +848,13 @@ class TradeRecordExporter_backtester:
 3. 導出所有回測結果為 CSV
 4. 導出特定回測結果為 CSV (輸入 Backtest_id)
 5. 結束交易回測，進入下一階段"""
-                console.print(Panel(menu_text, title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#dbac30"))
+                console.print(
+                    Panel(
+                        menu_text,
+                        title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
+                        border_style="#dbac30",
+                    )
+                )
             elif choice == "5":
                 console.print("結束交易回測，進入下一階段...", style="yellow")
                 break
@@ -778,7 +866,7 @@ class TradeRecordExporter_backtester:
         if not self.results:
             console.print(Panel("無回測結果可顯示", title="警告", style="yellow"))
             return
-        
+
         # 按策略分組
         strategy_groups = {}
         for result in self.results:
@@ -790,39 +878,55 @@ class TradeRecordExporter_backtester:
                 # 檢查是否有開倉交易（Trade_action == 1）
                 if len(records) == 0:
                     strategy = "無交易"
-                elif (records['Trade_action'] == 1).sum() == 0:
+                elif (records["Trade_action"] == 1).sum() == 0:
                     strategy = "無交易"
                 else:
                     params = result.get("params", {})
                     strategy = self._get_strategy_name(params)
-            
+
             if strategy not in strategy_groups:
                 strategy_groups[strategy] = []
             strategy_groups[strategy].append(result)
-        
+
         # 顯示策略列表
         console.print("\n=== 按策略分組 ===")
         for i, (strategy, results) in enumerate(strategy_groups.items(), 1):
             # 使用與VectorBacktestEngine相同的判斷邏輯
-            success_count = len([r for r in results if r.get("error") is None and 
-                               "records" in r and isinstance(r.get("records"), pd.DataFrame) and 
-                               not r.get("records").empty and (r.get("records")["Trade_action"] == 1).sum() > 0])
+            success_count = len(
+                [
+                    r
+                    for r in results
+                    if r.get("error") is None
+                    and "records" in r
+                    and isinstance(r.get("records"), pd.DataFrame)
+                    and not r.get("records").empty
+                    and (r.get("records")["Trade_action"] == 1).sum() > 0
+                ]
+            )
             total_count = len(results)
             console.print(f"{i}. {strategy}: {success_count}/{total_count} 成功")
-        
+
         # 選擇策略查看詳情
         while True:
-            console.print(Panel("⌨請選擇策略編號查看詳情", title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"), border_style="#dbac30"))
+            console.print(
+                Panel(
+                    "⌨請選擇策略編號查看詳情",
+                    title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
+                    border_style="#dbac30",
+                )
+            )
             choice = input(" 策略編號 (或按 Enter 返回選單): ")
             if not choice:
                 break
-            
+
             try:
                 choice_idx = int(choice) - 1
                 strategy_list = list(strategy_groups.keys())
                 if 0 <= choice_idx < len(strategy_list):
                     selected_strategy = strategy_list[choice_idx]
-                    self.display_strategy_details(selected_strategy, strategy_groups[selected_strategy])
+                    self.display_strategy_details(
+                        selected_strategy, strategy_groups[selected_strategy]
+                    )
                 else:
                     console.print("策略編號超出範圍", style="red")
             except ValueError:
@@ -831,13 +935,12 @@ class TradeRecordExporter_backtester:
     def display_strategy_details(self, strategy, results):
         """顯示特定策略的詳細結果。"""
         console.print(f"\n=== {strategy} 策略詳情 ===")
-        
+
         table = Table(title=f"{strategy} - 回測結果", style="bold magenta")
         table.add_column("序號", style="cyan", no_wrap=True)
         table.add_column("回測ID", style="green", no_wrap=True)
         table.add_column("狀態", style="yellow", no_wrap=True)
 
-        
         for i, result in enumerate(results, 1):
             # 使用與VectorBacktestEngine相同的判斷邏輯
             if result.get("error") is not None:
@@ -851,27 +954,31 @@ class TradeRecordExporter_backtester:
                     status = "⚠️ 無交易"
                     total_return = "N/A"
                     trade_count = "0"
-                elif (records['Trade_action'] == 1).sum() == 0:
+                elif (records["Trade_action"] == 1).sum() == 0:
                     status = "⚠️ 無交易"
                     total_return = "N/A"
                     trade_count = "0"
                 else:
                     status = "✅ 成功"
-                    total_return = f"{result.get('total_return', 0):.2%}" if result.get('total_return') is not None else "N/A"
-                    trade_count = str(result.get('total_trades', 0))
-            
+                    total_return = (
+                        f"{result.get('total_return', 0):.2%}"
+                        if result.get("total_return") is not None
+                        else "N/A"
+                    )
+                    trade_count = str(result.get("total_trades", 0))
+
             params = result.get("params", {})
             predictor = params.get("predictor", "N/A")
-            
+
             table.add_row(
                 str(i),
                 result["Backtest_id"][:8] + "...",
                 predictor,
                 status,
                 total_return,
-                trade_count
+                trade_count,
             )
-        
+
         console.print(table)
         # console.print(Panel("⌨️ 按 Enter 回到選單", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
         console.print("[bold #dbac30]按 Enter 返回選單: [/bold #dbac30]", end="")
@@ -881,31 +988,38 @@ class TradeRecordExporter_backtester:
         """顯示成功的回測結果"""
         # 使用與VectorBacktestEngine相同的判斷邏輯
         # 成功：無錯誤且有實際開倉交易
-        successful_results = [r for r in self.results if r.get("error") is None and 
-                           "records" in r and isinstance(r.get("records"), pd.DataFrame) and 
-                           not r.get("records").empty and (r.get("records")["Trade_action"] == 1).sum() > 0]
-        
+        successful_results = [
+            r
+            for r in self.results
+            if r.get("error") is None
+            and "records" in r
+            and isinstance(r.get("records"), pd.DataFrame)
+            and not r.get("records").empty
+            and (r.get("records")["Trade_action"] == 1).sum() > 0
+        ]
+
         if not successful_results:
-            console.print(Panel("成功結果：沒有", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+            console.print(
+                Panel(
+                    "成功結果：沒有",
+                    title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
+                    border_style="#dbac30",
+                )
+            )
             return
-        
+
         table = Table(title="成功回測結果", style="bold green")
         table.add_column("序號", style="cyan", no_wrap=True)
         table.add_column("回測ID", style="green", no_wrap=True)
         table.add_column("策略", style="blue", no_wrap=True)
         table.add_column("狀態", style="yellow", no_wrap=True)
-        
+
         for i, result in enumerate(successful_results, 1):
             params = result.get("params")
             strategy = self._get_strategy_name(params) if params else "N/A"
-            
-            table.add_row(
-                str(i),
-                result["Backtest_id"],
-                strategy,
-                "✅ 成功"
-            )
-        
+
+            table.add_row(str(i), result["Backtest_id"], strategy, "✅ 成功")
+
         console.print(table)
 
     def display_failed_results(self):
@@ -913,56 +1027,68 @@ class TradeRecordExporter_backtester:
         # 使用與VectorBacktestEngine相同的判斷邏輯
         # 失敗：有錯誤
         failed_results = [r for r in self.results if r.get("error") is not None]
-        
+
         if not failed_results:
-            console.print(Panel("失敗結果：沒有", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+            console.print(
+                Panel(
+                    "失敗結果：沒有",
+                    title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
+                    border_style="#dbac30",
+                )
+            )
             return
-        
+
         table = Table(title="失敗回測結果", style="bold red")
         table.add_column("序號", style="cyan", no_wrap=True)
         table.add_column("回測ID", style="green", no_wrap=True)
         table.add_column("策略", style="blue", no_wrap=True)
         table.add_column("狀態", style="yellow", no_wrap=True)
-        
+
         for i, result in enumerate(failed_results, 1):
             params = result.get("params")
             strategy = self._get_strategy_name(params) if params else "N/A"
-            
+
             status = "❌ 失敗"
-            error_msg = result.get("error", "未知錯誤")
-            
-            table.add_row(
-                str(i),
-                result["Backtest_id"],
-                strategy,
-                status
-            )
-        
+            result.get("error", "未知錯誤")
+
+            table.add_row(str(i), result["Backtest_id"], strategy, status)
+
         console.print(table)
 
     def debug_trade_actions(self):
         """調試方法：檢查Trade_action的實際值分布"""
-        console.print(Panel("🔍 調試：Trade_action值分布分析", title="[bold #dbac30]👨‍💻 交易回測 Backtester[/bold #dbac30]", border_style="#dbac30"))
-        
+        console.print(
+            Panel(
+                "🔍 調試：Trade_action值分布分析",
+                title="[bold #dbac30]👨‍💻 交易回測 Backtester[/bold #dbac30]",
+                border_style="#dbac30",
+            )
+        )
+
         # 統計所有Trade_action值的分布
         all_trade_actions = []
         for result in self.results:
-            if "error" not in result and "records" in result and isinstance(result["records"], pd.DataFrame) and not result["records"].empty:
+            if (
+                "error" not in result
+                and "records" in result
+                and isinstance(result["records"], pd.DataFrame)
+                and not result["records"].empty
+            ):
                 trade_actions = result["records"]["Trade_action"].values
                 all_trade_actions.extend(trade_actions)
-        
+
         if all_trade_actions:
             unique_values, counts = np.unique(all_trade_actions, return_counts=True)
             console.print(f"📊 Trade_action值分布：")
             for value, count in zip(unique_values, counts):
                 percentage = count / len(all_trade_actions) * 100
                 console.print(f"   {value}: {count} 次 ({percentage:.1f}%)")
-            
+
             # 檢查是否有NaN值
             nan_count = sum(1 for x in all_trade_actions if pd.isna(x))
             if nan_count > 0:
                 console.print(f"⚠️  發現 {nan_count} 個NaN值")
-            
+
             # 檢查是否有非預期值
             expected_values = {0, 1, 4}
             unexpected_values = set(all_trade_actions) - expected_values
@@ -970,15 +1096,22 @@ class TradeRecordExporter_backtester:
                 console.print(f"❌ 發現非預期值：{unexpected_values}")
         else:
             console.print("❌ 沒有找到有效的交易記錄")
-        
+
         # 檢查每個回測的Trade_action分布
         console.print(f"\n📊 各回測Trade_action分布：")
         for i, result in enumerate(self.results[:5]):  # 只顯示前5個
-            if "error" not in result and "records" in result and isinstance(result["records"], pd.DataFrame) and not result["records"].empty:
+            if (
+                "error" not in result
+                and "records" in result
+                and isinstance(result["records"], pd.DataFrame)
+                and not result["records"].empty
+            ):
                 trade_actions = result["records"]["Trade_action"].values
                 unique_values, counts = np.unique(trade_actions, return_counts=True)
-                console.print(f"  回測 {i+1} ({result.get('Backtest_id', 'N/A')}): {dict(zip(unique_values, counts))}")
-        
+                console.print(
+                    f"  回測 {i+1} ({result.get('Backtest_id', 'N/A')}): {dict(zip(unique_values, counts))}"
+                )
+
         console.print("\n[bold #dbac30]按 Enter 繼續: [/bold #dbac30]", end="")
         input()
 
@@ -993,30 +1126,31 @@ class TradeRecordExporter_backtester:
                 # 檢查是否有開倉交易（Trade_action == 1）
                 if len(records) == 0:
                     no_trade_results.append(r)
-                elif (records['Trade_action'] == 1).sum() == 0:
+                elif (records["Trade_action"] == 1).sum() == 0:
                     no_trade_results.append(r)
-        
+
         if not no_trade_results:
-            console.print(Panel("無交易結果：沒有", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+            console.print(
+                Panel(
+                    "無交易結果：沒有",
+                    title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
+                    border_style="#dbac30",
+                )
+            )
             return
-        
+
         table = Table(title="無交易回測結果", style="bold yellow")
         table.add_column("序號", style="cyan", no_wrap=True)
         table.add_column("回測ID", style="green", no_wrap=True)
         table.add_column("策略", style="blue", no_wrap=True)
         table.add_column("狀態", style="yellow", no_wrap=True)
-        
+
         for i, result in enumerate(no_trade_results, 1):
             params = result.get("params")
             strategy = self._get_strategy_name(params) if params else "N/A"
-            
+
             status = "⚠️ 無交易"
-            
-            table.add_row(
-                str(i),
-                result["Backtest_id"],
-                strategy,
-                status
-            )
-        
+
+            table.add_row(str(i), result["Backtest_id"], strategy, status)
+
         console.print(table)

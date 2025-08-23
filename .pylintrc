@@ -1,0 +1,68 @@
+[MASTER]
+# Specify a score threshold to be exceeded before program exits with error.
+fail-under=7.0
+
+# Add files or directories to the blacklist. They should be base names, not paths.
+ignore=.git,__pycache__,.venv,venv,build,dist
+
+# Python code to execute, usually for sys.path manipulation such as
+# pygtk.require().
+init-hook='import sys; sys.path.append(".")'
+
+[MESSAGES CONTROL]
+# Disable specific messages
+disable=
+    C0103,  # Module name doesn't conform to snake_case naming style
+    E0401,  # Unable to import (for external packages)
+    R0903,  # Too few public methods
+    C0301,  # Line too long (handled by black)
+    W0718,  # Catching too general exception
+    R0912,  # Too many branches
+    R0915,  # Too many statements
+
+[IMPORTS]
+# List of modules that should be considered as standard library.
+known-standard-library=dataclasses,typing,enum
+
+# Force import order to be compatible with isort
+known-first-party=dataloader,backtester,metricstracker,plotter,statanalyser
+
+[FORMAT]
+# Maximum number of characters on a single line.
+max-line-length=88
+
+[DESIGN]
+# Maximum number of arguments for function / method
+max-args=10
+
+# Maximum number of attributes for a class (see R0902).
+max-attributes=15
+
+# Maximum number of boolean expressions in a if statement
+max-bool-expr=5
+
+# Maximum number of branch for function / method body
+max-branches=15
+
+# Maximum number of locals for function / method body
+max-locals=20
+
+# Maximum number of parents for a class (see R0901).
+max-parents=10
+
+# Maximum number of public methods for a class (see R0904).
+max-public-methods=25
+
+# Maximum number of return / yield for function / method body
+max-returns=10
+
+# Maximum number of statements in function / method body
+max-statements=60
+
+# Minimum number of public methods for a class (see R0903).
+min-public-methods=1
+
+[EXCEPTIONS]
+# Exceptions that will emit a warning when being caught. Defaults to
+# "BaseException, Exception".
+overgeneral-exceptions=BaseException,Exception

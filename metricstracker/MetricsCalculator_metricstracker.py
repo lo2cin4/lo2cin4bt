@@ -59,132 +59,132 @@ flowchart TD
 - 詳細績效指標定義請參閱 README
 - 其他模組如有依賴本模組，請於對應檔案頂部註解標明
 """
-import pandas as pd
+
 import numpy as np
-import pyarrow as pa
-import pyarrow.parquet as pq
-import os
-import json
+import pandas as pd
+
 
 class MetricsCalculatorMetricTracker:
     def __init__(self, df, time_unit, risk_free_rate):
         self.df = df.copy()
         self.time_unit = time_unit
         self.risk_free_rate = risk_free_rate
-        self.daily_returns = self.df['Return']  # Return 已是小數
+        self.daily_returns = self.df["Return"]  # Return 已是小數
         # 自動偵測年數
-        if 'Time' in self.df.columns:
-            t0 = pd.to_datetime(self.df['Time'].iloc[0])
-            t1 = pd.to_datetime(self.df['Time'].iloc[-1])
+        if "Time" in self.df.columns:
+            t0 = pd.to_datetime(self.df["Time"].iloc[0])
+            t1 = pd.to_datetime(self.df["Time"].iloc[-1])
             self.years = (t1 - t0).days / self.time_unit
             if self.years <= 0:
                 self.years = 1.0
         else:
             self.years = 1.0
         ##print(f"[Metrics] 自動偵測回測年數: {self.years:.3f} 年")
-    
-    def _get_data_source(self, source_type='strategy'):
+
+    def _get_data_source(self, source_type="strategy"):
         """獲取數據源（策略或BAH）"""
-        if source_type == 'bah':
+        if source_type == "bah":
             return {
-                'equity': self.df.get('BAH_Equity', self.df['Equity_value']),
-                'returns': self.df.get('BAH_Return', self.df['Return']),
-                'drawdown': self.df.get('BAH_Drawdown', None)
+                "equity": self.df.get("BAH_Equity", self.df["Equity_value"]),
+                "returns": self.df.get("BAH_Return", self.df["Return"]),
+                "drawdown": self.df.get("BAH_Drawdown", None),
             }
         else:
             return {
-                'equity': self.df['Equity_value'],
-                'returns': self.df['Return'],
-                'drawdown': None
+                "equity": self.df["Equity_value"],
+                "returns": self.df["Return"],
+                "drawdown": None,
             }
-    
-    def _calculate_total_return(self, source_type='strategy'):
+
+    def _calculate_total_return(self, source_type="strategy"):
         """總回報率計算"""
         data = self._get_data_source(source_type)
-        equity = data['equity']
+        equity = data["equity"]
         return equity.iloc[-1] / equity.iloc[0] - 1
-    
-    def _calculate_annualized_return(self, source_type='strategy'):
+
+    def _calculate_annualized_return(self, source_type="strategy"):
         """年化回報率計算"""
         tr = self._calculate_total_return(source_type)
         return self._safe_power(1 + tr, 1 / self.years) - 1
-    
-    def _calculate_cagr(self, source_type='strategy'):
+
+    def _calculate_cagr(self, source_type="strategy"):
         """CAGR計算"""
         data = self._get_data_source(source_type)
-        equity = data['equity']
+        equity = data["equity"]
         return self._safe_power(equity.iloc[-1] / equity.iloc[0], 1 / self.years) - 1
-    
-    def _calculate_std(self, source_type='strategy'):
+
+    def _calculate_std(self, source_type="strategy"):
         """標準差計算"""
         data = self._get_data_source(source_type)
-        returns = data['returns']
+        returns = data["returns"]
         return np.std(returns, ddof=1)
-    
-    def _calculate_annualized_std(self, source_type='strategy'):
+
+    def _calculate_annualized_std(self, source_type="strategy"):
         """年化標準差計算"""
         std = self._calculate_std(source_type)
         return std * self._safe_sqrt(self.time_unit)
-    
-    def _calculate_downside_risk(self, source_type='strategy', target=0):
+
+    def _calculate_downside_risk(self, source_type="strategy", target=0):
         """下行風險計算"""
         data = self._get_data_source(source_type)
-        returns = data['returns']
+        returns = data["returns"]
         downside = returns[returns < target]
         if len(downside) == 0:
             return 0.0
         return self._safe_sqrt(np.mean((downside - target) ** 2))
-    
-    def _calculate_annualized_downside_risk(self, source_type='strategy', target=0):
+
+    def _calculate_annualized_downside_risk(self, source_type="strategy", target=0):
         """年化下行風險計算"""
         downside = self._calculate_downside_risk(source_type, target)
         return downside * self._safe_sqrt(self.time_unit)
-    
-    def _calculate_max_drawdown(self, source_type='strategy'):
+
+    def _calculate_max_drawdown(self, source_type="strategy"):
         """最大回撤計算"""
         data = self._get_data_source(source_type)
-        if source_type == 'bah' and data['drawdown'] is not None:
-            return data['drawdown'].min()
-        
-        equity = data['equity']
+        if source_type == "bah" and data["drawdown"] is not None:
+            return data["drawdown"].min()
+
+        equity = data["equity"]
         roll_max = equity.cummax()
         drawdown = (equity - roll_max) / roll_max
         return drawdown.min()
-    
-    def _calculate_recovery_factor(self, source_type='strategy'):
+
+    def _calculate_recovery_factor(self, source_type="strategy"):
         """恢復因子計算"""
         tr = self._calculate_total_return(source_type)
         mdd = abs(self._calculate_max_drawdown(source_type))
         if mdd == 0:
             return np.nan
         return self._safe_division(tr, mdd)
-    
-    def _calculate_sharpe(self, source_type='strategy'):
+
+    def _calculate_sharpe(self, source_type="strategy"):
         """夏普比率計算"""
         data = self._get_data_source(source_type)
-        returns = data['returns']
+        returns = data["returns"]
         mean = returns.mean()
         std = returns.std(ddof=1)
         rf = self.risk_free_rate / self.time_unit
         if std == 0:
             return np.nan
         return self._safe_division(mean - rf, std) * self._safe_sqrt(self.time_unit)
-    
-    def _calculate_sortino(self, source_type='strategy'):
+
+    def _calculate_sortino(self, source_type="strategy"):
         """索提諾比率計算"""
         data = self._get_data_source(source_type)
-        returns = data['returns']
+        returns = data["returns"]
         mean = returns.mean()
         downside = self._calculate_downside_risk(source_type)
         rf = self.risk_free_rate / self.time_unit
         if downside == 0:
             return np.nan
-        return self._safe_division(mean - rf, downside) * self._safe_sqrt(self.time_unit)
-    
-    def _calculate_calmar(self, source_type='strategy'):
+        return self._safe_division(mean - rf, downside) * self._safe_sqrt(
+            self.time_unit
+        )
+
+    def _calculate_calmar(self, source_type="strategy"):
         """卡爾馬比率計算"""
         ann = self._calculate_annualized_return(source_type)
-        rf_year = self.risk_free_rate 
+        rf_year = self.risk_free_rate
         mdd = abs(self._calculate_max_drawdown(source_type))
         if mdd == 0:
             return np.nan
@@ -192,39 +192,39 @@ class MetricsCalculatorMetricTracker:
 
     def total_return(self):
         # 總回報率 = (最終淨值 / 初始淨值 - 1)，小數值
-        return self._calculate_total_return('strategy')
+        return self._calculate_total_return("strategy")
 
     def annualized_return(self):
         # 年化回報率 = [(1 + 總回報率)^(1 / 年數) - 1]，小數值
-        return self._calculate_annualized_return('strategy')
+        return self._calculate_annualized_return("strategy")
 
     def cagr(self):
         # CAGR = [(最終淨值 / 初始淨值)^(1 / 年數) - 1]，小數值
-        return self._calculate_cagr('strategy')
+        return self._calculate_cagr("strategy")
 
     def std(self):
         # 標準差（小數值）
-        return self._calculate_std('strategy')
+        return self._calculate_std("strategy")
 
     def annualized_std(self):
         # 年化標準差（小數值）
-        return self._calculate_annualized_std('strategy')
+        return self._calculate_annualized_std("strategy")
 
     def downside_risk(self, target=0):
         # 下行風險（小數值）
-        return self._calculate_downside_risk('strategy', target)
+        return self._calculate_downside_risk("strategy", target)
 
     def annualized_downside_risk(self, target=0):
         # 年化下行風險（小數值）
-        return self._calculate_annualized_downside_risk('strategy', target)
+        return self._calculate_annualized_downside_risk("strategy", target)
 
     def max_drawdown(self):
         # 最大回撤（小數值）
-        return self._calculate_max_drawdown('strategy')
+        return self._calculate_max_drawdown("strategy")
 
     def average_drawdown(self):
         # 平均回撤（小數值）
-        equity = self.df['Equity_value']
+        equity = self.df["Equity_value"]
         roll_max = equity.cummax()
         drawdown = (equity - roll_max) / roll_max
         dd = drawdown[drawdown < 0]
@@ -253,7 +253,7 @@ class MetricsCalculatorMetricTracker:
 
     def recovery_factor(self):
         # 恢復因子 = 總回報率 / abs(最大回撤)
-        return self._calculate_recovery_factor('strategy')
+        return self._calculate_recovery_factor("strategy")
 
     """
     def cov(self):
@@ -269,39 +269,39 @@ class MetricsCalculatorMetricTracker:
     """
 
     def bah_total_return(self):
-        return self._calculate_total_return('bah')
+        return self._calculate_total_return("bah")
 
     def bah_annualized_return(self):
-        return self._calculate_annualized_return('bah')
+        return self._calculate_annualized_return("bah")
 
     def bah_cagr(self):
-        return self._calculate_cagr('bah')
+        return self._calculate_cagr("bah")
 
     def bah_std(self):
-        return self._calculate_std('bah')
+        return self._calculate_std("bah")
 
     def bah_annualized_std(self):
-        return self._calculate_annualized_std('bah')
+        return self._calculate_annualized_std("bah")
 
     def bah_downside_risk(self, target=0):
-        return self._calculate_downside_risk('bah', target)
+        return self._calculate_downside_risk("bah", target)
 
     def bah_annualized_downside_risk(self, target=0):
-        return self._calculate_annualized_downside_risk('bah', target)
+        return self._calculate_annualized_downside_risk("bah", target)
 
     def bah_max_drawdown(self):
-        if 'BAH_Drawdown' in self.df.columns:
-            return self.df['BAH_Drawdown'].min()
-        bah_equity = self.df['BAH_Equity']
+        if "BAH_Drawdown" in self.df.columns:
+            return self.df["BAH_Drawdown"].min()
+        bah_equity = self.df["BAH_Equity"]
         roll_max = bah_equity.cummax()
         drawdown = (bah_equity - roll_max) / roll_max
         return drawdown.min()
 
     def bah_average_drawdown(self):
-        if 'BAH_Drawdown' in self.df.columns:
-            dd = self.df['BAH_Drawdown'][self.df['BAH_Drawdown'] < 0]
+        if "BAH_Drawdown" in self.df.columns:
+            dd = self.df["BAH_Drawdown"][self.df["BAH_Drawdown"] < 0]
         else:
-            bah_equity = self.df['BAH_Equity']
+            bah_equity = self.df["BAH_Equity"]
             roll_max = bah_equity.cummax()
             dd = (bah_equity - roll_max) / roll_max
             dd = dd[dd < 0]
@@ -310,38 +310,38 @@ class MetricsCalculatorMetricTracker:
         return dd.mean()
 
     def bah_recovery_factor(self):
-        return self._calculate_recovery_factor('bah')
+        return self._calculate_recovery_factor("bah")
 
     def bah_cov(self):
-        mu = self.df['BAH_Return'].mean()
-        sigma = self.df['BAH_Return'].std(ddof=1)
+        mu = self.df["BAH_Return"].mean()
+        sigma = self.df["BAH_Return"].std(ddof=1)
         if mu == 0:
             return np.nan
         return self._safe_division(sigma, mu)
 
     def bah_sharpe(self):
-        return self._calculate_sharpe('bah')
+        return self._calculate_sharpe("bah")
 
     def bah_sortino(self):
-        return self._calculate_sortino('bah')
+        return self._calculate_sortino("bah")
 
     def bah_calmar(self):
-        return self._calculate_calmar('bah')
+        return self._calculate_calmar("bah")
 
     def sharpe(self):
-        return self._calculate_sharpe('strategy')
+        return self._calculate_sharpe("strategy")
 
     def sortino(self):
-        return self._calculate_sortino('strategy')
+        return self._calculate_sortino("strategy")
 
     def calmar(self):
-        return self._calculate_calmar('strategy')
+        return self._calculate_calmar("strategy")
 
     def information_ratio(self):
         """信息比率 (Information Ratio)：衡量策略相對 Buy & Hold 的超額報酬穩定性"""
-        if 'Return' not in self.df.columns or 'BAH_Return' not in self.df.columns:
+        if "Return" not in self.df.columns or "BAH_Return" not in self.df.columns:
             return None
-        diff = self.df['Return'] - self.df['BAH_Return']
+        diff = self.df["Return"] - self.df["BAH_Return"]
         mean_excess = diff.mean()
         tracking_error = diff.std(ddof=1)
         if tracking_error == 0:
@@ -350,10 +350,10 @@ class MetricsCalculatorMetricTracker:
 
     def beta(self):
         """Beta：衡量策略與市場（B&H）的相關性和系統性風險敞口"""
-        if 'Return' not in self.df.columns or 'BAH_Return' not in self.df.columns:
+        if "Return" not in self.df.columns or "BAH_Return" not in self.df.columns:
             return None
-        x = self.df['Return']
-        y = self.df['BAH_Return']
+        x = self.df["Return"]
+        y = self.df["BAH_Return"]
         cov = np.cov(x, y, ddof=1)[0, 1]
         var = np.var(y, ddof=1)
         if var == 0:
@@ -362,55 +362,62 @@ class MetricsCalculatorMetricTracker:
 
     def alpha(self):
         """Alpha：策略相對市場的超額回報，基於CAPM模型"""
-        if 'Return' not in self.df.columns or 'BAH_Return' not in self.df.columns:
+        if "Return" not in self.df.columns or "BAH_Return" not in self.df.columns:
             return None
-        rf = self.risk_free_rate / self.time_unit if hasattr(self, 'risk_free_rate') and hasattr(self, 'time_unit') else 0
+        rf = (
+            self.risk_free_rate / self.time_unit
+            if hasattr(self, "risk_free_rate") and hasattr(self, "time_unit")
+            else 0
+        )
         beta = self.beta()
-        mean_return = self.df['Return'].mean()
-        mean_bah = self.df['BAH_Return'].mean()
+        mean_return = self.df["Return"].mean()
+        mean_bah = self.df["BAH_Return"].mean()
         if beta is None:
             return None
         return mean_return - (rf + beta * (mean_bah - rf))
 
     def trade_count(self):
         """交易次數 (Trade_count)：只計算開倉次數 (Trade_action == 1)"""
-        if 'Trade_action' not in self.df.columns:
+        if "Trade_action" not in self.df.columns:
             return None
-        return int((self.df['Trade_action'] == 1).sum())
+        return int((self.df["Trade_action"] == 1).sum())
 
     def win_rate(self):
         """勝率 (Win_rate)：盈利交易佔總平倉交易的比例"""
-        if 'Trade_action' not in self.df.columns or 'Trade_return' not in self.df.columns:
+        if (
+            "Trade_action" not in self.df.columns
+            or "Trade_return" not in self.df.columns
+        ):
             return None
-        closed = self.df[self.df['Trade_action'] == 4]
+        closed = self.df[self.df["Trade_action"] == 4]
         if len(closed) == 0:
             return None
-        wins = (closed['Trade_return'] > 0).sum()
+        wins = (closed["Trade_return"] > 0).sum()
         return wins / len(closed)
 
     def profit_factor(self):
         """盈虧比 (Profit_factor)：總盈利除以總虧損"""
-        if 'Trade_return' not in self.df.columns:
+        if "Trade_return" not in self.df.columns:
             return None
-        profits = self.df['Trade_return'][self.df['Trade_return'] > 0].sum()
-        losses = self.df['Trade_return'][self.df['Trade_return'] < 0].sum()
+        profits = self.df["Trade_return"][self.df["Trade_return"] > 0].sum()
+        losses = self.df["Trade_return"][self.df["Trade_return"] < 0].sum()
         if losses == 0:
             return None
         return self._safe_division(profits, abs(losses))
 
     def avg_trade_return(self):
         """平均交易回報 (Avg_trade_return)：每筆交易的平均收益"""
-        if 'Trade_return' not in self.df.columns:
+        if "Trade_return" not in self.df.columns:
             return None
-        return self.df['Trade_return'].mean()
+        return self.df["Trade_return"].mean()
 
     # expectancy 方法與相關調用已刪除
 
     def max_consecutive_losses(self):
         """最大連續虧損 (Max_consecutive_losses)：連續虧損交易的最大次數"""
-        if 'Trade_return' not in self.df.columns:
+        if "Trade_return" not in self.df.columns:
             return None
-        trade_returns = self.df['Trade_return'].dropna()
+        trade_returns = self.df["Trade_return"].dropna()
         max_count = count = 0
         for r in trade_returns:
             if r < 0:
@@ -422,66 +429,68 @@ class MetricsCalculatorMetricTracker:
 
     def exposure_time(self):
         """持倉時間比例 (Exposure_time)：持倉時間佔總時間的比例"""
-        if 'Position_size' not in self.df.columns:
+        if "Position_size" not in self.df.columns:
             return None
-        return (self.df['Position_size'] != 0).sum() / len(self.df['Position_size']) * 100
+        return (
+            (self.df["Position_size"] != 0).sum() / len(self.df["Position_size"]) * 100
+        )
 
     def max_holding_period_ratio(self):
         """最長持倉時間比例 (Max_holding_period_ratio)：單次持倉時間的最長持續時間佔總回測時間的比例"""
-        if 'Position_size' not in self.df.columns:
+        if "Position_size" not in self.df.columns:
             return None
         max_period = period = 0
-        for p in self.df['Position_size']:
+        for p in self.df["Position_size"]:
             if p != 0:
                 period += 1
                 max_period = max(max_period, period)
             else:
                 period = 0
-        if len(self.df['Position_size']) == 0:
+        if len(self.df["Position_size"]) == 0:
             return None
-        return max_period / len(self.df['Position_size'])
+        return max_period / len(self.df["Position_size"])
 
     def calc_strategy_metrics(self):
         return {
-            'Total_return': self.total_return(),
-            'Annualized_return (CAGR)': self.annualized_return(),
-            'Std': self.std(),
-            'Annualized_std': self.annualized_std(),
-            'Downside_risk': self.downside_risk(),
-            'Annualized_downside_risk': self.annualized_downside_risk(),
-            'Max_drawdown': self.max_drawdown(),
-            'Average_drawdown': self.average_drawdown(),
-            'Recovery_factor': self.recovery_factor(),
-            'Sharpe': self.sharpe(),
-            'Sortino': self.sortino(),
-            'Calmar': self.calmar(),
-            'Information_ratio': self.information_ratio(),
-            'Alpha': self.alpha(),
-            'Beta': self.beta(),
-            'Trade_count': self.trade_count(),
-            'Win_rate': self.win_rate(),
-            'Profit_factor': self.profit_factor(),
-            'Avg_trade_return': self.avg_trade_return(),
-            'Max_consecutive_losses': self.max_consecutive_losses(),
-            'Exposure_time': self.exposure_time(),
-            'Max_holding_period_ratio': self.max_holding_period_ratio(),
+            "Total_return": self.total_return(),
+            "Annualized_return (CAGR)": self.annualized_return(),
+            "Std": self.std(),
+            "Annualized_std": self.annualized_std(),
+            "Downside_risk": self.downside_risk(),
+            "Annualized_downside_risk": self.annualized_downside_risk(),
+            "Max_drawdown": self.max_drawdown(),
+            "Average_drawdown": self.average_drawdown(),
+            "Recovery_factor": self.recovery_factor(),
+            "Sharpe": self.sharpe(),
+            "Sortino": self.sortino(),
+            "Calmar": self.calmar(),
+            "Information_ratio": self.information_ratio(),
+            "Alpha": self.alpha(),
+            "Beta": self.beta(),
+            "Trade_count": self.trade_count(),
+            "Win_rate": self.win_rate(),
+            "Profit_factor": self.profit_factor(),
+            "Avg_trade_return": self.avg_trade_return(),
+            "Max_consecutive_losses": self.max_consecutive_losses(),
+            "Exposure_time": self.exposure_time(),
+            "Max_holding_period_ratio": self.max_holding_period_ratio(),
         }
 
     def calc_bah_metrics(self):
         return {
-            'BAH_Total_return': self.bah_total_return(),
-            'BAH_Annualized_return (CAGR)': self.bah_annualized_return(),
-            'BAH_Std': self.bah_std(),
-            'BAH_Annualized_std': self.bah_annualized_std(),
-            'BAH_Downside_risk': self.bah_downside_risk(),
-            'BAH_Annualized_downside_risk': self.bah_annualized_downside_risk(),
-            'BAH_Max_drawdown': self.bah_max_drawdown(),
-            'BAH_Average_drawdown': self.bah_average_drawdown(),
-            'BAH_Recovery_factor': self.bah_recovery_factor(),
+            "BAH_Total_return": self.bah_total_return(),
+            "BAH_Annualized_return (CAGR)": self.bah_annualized_return(),
+            "BAH_Std": self.bah_std(),
+            "BAH_Annualized_std": self.bah_annualized_std(),
+            "BAH_Downside_risk": self.bah_downside_risk(),
+            "BAH_Annualized_downside_risk": self.bah_annualized_downside_risk(),
+            "BAH_Max_drawdown": self.bah_max_drawdown(),
+            "BAH_Average_drawdown": self.bah_average_drawdown(),
+            "BAH_Recovery_factor": self.bah_recovery_factor(),
             # 'BAH_Cov': self.bah_cov(),
-            'BAH_Sharpe': self.bah_sharpe(),
-            'BAH_Sortino': self.bah_sortino(),
-            'BAH_Calmar': self.bah_calmar(),
+            "BAH_Sharpe": self.bah_sharpe(),
+            "BAH_Sortino": self.bah_sortino(),
+            "BAH_Calmar": self.bah_calmar(),
         }
 
     def _safe_power(self, base, exponent, fallback=0.0):
@@ -507,15 +516,15 @@ class MetricsCalculatorMetricTracker:
                 return 1.0
             if np.isinf(exponent) and base != 1:
                 return fallback
-            
+
             # 特殊情況：當 base 接近 0 且 exponent 很大時，直接返回 0
             if abs(base) < 1e-10 and abs(exponent) > 100:
                 return 0.0
-            
+
             # 特殊情況：當 base 接近 1 且 exponent 很大時，直接返回 1
             if abs(base - 1) < 1e-10:
                 return 1.0
-            
+
             # 如果所有檢查都通過，才進行冪運算
             if base > 0:  # 只對正數進行冪運算
                 result = np.power(base, exponent)
@@ -524,10 +533,10 @@ class MetricsCalculatorMetricTracker:
                 return result
             else:
                 return fallback
-                
+
         except (ValueError, OverflowError):
             return fallback
-    
+
     def _safe_sqrt(self, value, fallback=0.0):
         """
         安全的平方根運算
@@ -541,7 +550,7 @@ class MetricsCalculatorMetricTracker:
             return result
         except (ValueError, RuntimeWarning):
             return fallback
-    
+
     def _safe_division(self, numerator, denominator, fallback=0.0):
         """
         安全的除法運算

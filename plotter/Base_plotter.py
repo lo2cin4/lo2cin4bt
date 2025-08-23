@@ -66,60 +66,66 @@ flowchart TD
 - DashboardGenerator 的界面生成與 CallbackHandler 的回調處理邏輯請參考對應模組
 """
 
-import os
 import logging
-from typing import Dict, Any, Optional, List
+import os
+from abc import ABC
+from typing import Any, Dict, Optional
+
 import pandas as pd
-from abc import ABC, abstractmethod
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
+
 class BasePlotter(ABC):
     """
     可視化平台基底類
-    
+
     負責協調數據載入、界面生成、回調處理等各個子模組，
     提供標準化的可視化平台介面。
     """
-    
-    def __init__(self, data_path: Optional[str] = None, logger: Optional[logging.Logger] = None):
+
+    def __init__(
+        self, data_path: Optional[str] = None, logger: Optional[logging.Logger] = None
+    ):
         """
         初始化可視化平台
-        
+
         Args:
             data_path: metricstracker 產生的 parquet 檔案路徑，預設為 records/metricstracker
             logger: 日誌記錄器，預設為 None
         """
-        self.data_path = data_path or os.path.join(os.path.dirname(os.path.dirname(__file__)), 'records', 'metricstracker')
+        self.data_path = data_path or os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), "records", "metricstracker"
+        )
         self.logger = logger or logging.getLogger(__name__)
         self.data = None
         self.app = None
         self.callback_handler = None
-        
+
         # 初始化子模組
         self._init_components()
-        
+
     def _init_components(self):
         """初始化各個子模組"""
         try:
-            from .DataImporter_plotter import DataImporterPlotter
-            from .DashboardGenerator_plotter import DashboardGenerator
             from .CallbackHandler_plotter import CallbackHandler
-            
+            from .DashboardGenerator_plotter import DashboardGenerator
+            from .DataImporter_plotter import DataImporterPlotter
+
             self.data_importer = DataImporterPlotter(self.data_path, self.logger)
             self.dashboard_generator = DashboardGenerator(self.logger)
             self.callback_handler = CallbackHandler(self.logger)
-            
+
             self.logger.info("plotter 子模組初始化完成")
         except ImportError as e:
             self.logger.error(f"plotter 子模組導入失敗: {e}")
             raise
-    
+
     def load_data(self) -> Dict[str, Any]:
         """
         載入和解析 metricstracker 產生的 parquet 檔案
-        
+
         Returns:
             Dict[str, Any]: 解析後的數據字典，包含：
                 - 'dataframes': 各個參數組合的 DataFrame
@@ -130,23 +136,25 @@ class BasePlotter(ABC):
         try:
             self.logger.info("開始載入 metricstracker 數據")
             self.data = self.data_importer.load_and_parse_data()
-            self.logger.info(f"數據載入完成，共 {len(self.data.get('dataframes', {}))} 個參數組合")
+            self.logger.info(
+                f"數據載入完成，共 {len(self.data.get('dataframes', {}))} 個參數組合"
+            )
             return self.data
         except Exception as e:
             self.logger.error(f"數據載入失敗: {e}")
             raise
-    
+
     def generate_dashboard(self) -> Any:
         """
         生成 Dash 應用界面
-        
+
         Returns:
             Any: Dash 應用實例
         """
         try:
             if self.data is None:
                 self.load_data()
-            
+
             self.logger.info("開始生成 Dash 界面")
             self.app = self.dashboard_generator.create_app(self.data)
             self.logger.info("Dash 界面生成完成")
@@ -154,36 +162,37 @@ class BasePlotter(ABC):
         except Exception as e:
             self.logger.error(f"Dash 界面生成失敗: {e}")
             raise
-    
+
     def setup_callbacks(self):
         """設置 Dash 回調函數"""
         try:
             if self.app is None:
                 self.generate_dashboard()
-            
+
             self.logger.info("開始設置回調函數")
-            
+
             # 設置主要的回調函數（資金曲線組合圖相關）
             self.callback_handler.setup_callbacks(self.app, self.data)
-            
+
             # 設置參數高原的回調函數
             from .ParameterPlateau_plotter import ParameterPlateauPlotter
+
             plateau_plotter = ParameterPlateauPlotter()
-            
+
             # 傳遞DataImporterPlotter實例以使用緩存
             plateau_plotter.data_importer = self.data_importer
-            
+
             plateau_plotter.register_callbacks(self.app, self.data)
-            
+
             self.logger.info("回調函數設置完成")
         except Exception as e:
             self.logger.error(f"回調函數設置失敗: {e}")
             raise
-    
-    def run(self, host: str = '127.0.0.1', port: int = 8050, debug: bool = False):
+
+    def run(self, host: str = "127.0.0.1", port: int = 8050, debug: bool = False):
         """
         運行可視化平台
-        
+
         Args:
             host: 主機地址，預設為 127.0.0.1
             port: 端口號，預設為 8050
@@ -195,10 +204,10 @@ class BasePlotter(ABC):
                 self.generate_dashboard()
             # 強制每次都setup_callbacks，確保callback註冊
             self.setup_callbacks()
-            
+
             self.logger.info(f"啟動可視化平台於 http://{host}:{port}")
             console = Console()
-            
+
             # 第二步：生成可視化介面[自動] - 步驟說明
             step_content = (
                 "🟢 選擇要載入的檔案\n"
@@ -213,19 +222,27 @@ class BasePlotter(ABC):
                 "• 支援多策略比較、績效分析\n"
                 "• 按 Ctrl+C 可停止服務"
             )
-            console.print(Panel(step_content, title=Text("👁️ 可視化 Plotter 步驟：生成可視化介面", style="bold #dbac30"), border_style="#dbac30"))
-            
+            console.print(
+                Panel(
+                    step_content,
+                    title=Text(
+                        "👁️ 可視化 Plotter 步驟：生成可視化介面", style="bold #dbac30"
+                    ),
+                    border_style="#dbac30",
+                )
+            )
+
             # 啟動 Dash 應用
             self.app.run(host=host, port=port, debug=debug)
-            
+
         except Exception as e:
             self.logger.error(f"可視化平台啟動失敗: {e}")
             raise
-    
+
     def get_data_summary(self) -> Dict[str, Any]:
         """
         獲取數據摘要信息
-        
+
         Returns:
             Dict[str, Any]: 數據摘要，包含：
                 - 'total_combinations': 總參數組合數
@@ -235,90 +252,104 @@ class BasePlotter(ABC):
         """
         if self.data is None:
             self.load_data()
-        
+
         summary = {
-            'total_combinations': len(self.data.get('dataframes', {})),
-            'parameters': list(self.data.get('parameters', {}).keys()) if self.data.get('parameters') else [],
-            'date_range': self._get_date_range(),
-            'file_info': self._get_file_info()
+            "total_combinations": len(self.data.get("dataframes", {})),
+            "parameters": (
+                list(self.data.get("parameters", {}).keys())
+                if self.data.get("parameters")
+                else []
+            ),
+            "date_range": self._get_date_range(),
+            "file_info": self._get_file_info(),
         }
-        
+
         return summary
-    
+
     def _get_date_range(self) -> Dict[str, str]:
         """獲取數據的日期範圍"""
         try:
-            if not self.data or not self.data.get('dataframes'):
-                return {'start': '', 'end': ''}
-            
+            if not self.data or not self.data.get("dataframes"):
+                return {"start": "", "end": ""}
+
             # 從第一個 DataFrame 獲取日期範圍
-            first_df = list(self.data['dataframes'].values())[0]
-            if 'Time' in first_df.columns:
-                start_date = first_df['Time'].min()
-                end_date = first_df['Time'].max()
+            first_df = list(self.data["dataframes"].values())[0]
+            if "Time" in first_df.columns:
+                start_date = first_df["Time"].min()
+                end_date = first_df["Time"].max()
                 return {
-                    'start': start_date.strftime('%Y-%m-%d') if hasattr(start_date, 'strftime') else str(start_date),
-                    'end': end_date.strftime('%Y-%m-%d') if hasattr(end_date, 'strftime') else str(end_date)
+                    "start": (
+                        start_date.strftime("%Y-%m-%d")
+                        if hasattr(start_date, "strftime")
+                        else str(start_date)
+                    ),
+                    "end": (
+                        end_date.strftime("%Y-%m-%d")
+                        if hasattr(end_date, "strftime")
+                        else str(end_date)
+                    ),
                 }
-            return {'start': '', 'end': ''}
+            return {"start": "", "end": ""}
         except Exception as e:
             self.logger.warning(f"獲取日期範圍失敗: {e}")
-            return {'start': '', 'end': ''}
-    
+            return {"start": "", "end": ""}
+
     def _get_file_info(self) -> Dict[str, Any]:
         """獲取檔案信息"""
         try:
-            if not self.data or not self.data.get('file_paths'):
+            if not self.data or not self.data.get("file_paths"):
                 return {}
-            
+
             file_info = {}
-            for param_key, file_path in self.data['file_paths'].items():
+            for param_key, file_path in self.data["file_paths"].items():
                 if os.path.exists(file_path):
                     stat = os.stat(file_path)
                     file_info[param_key] = {
-                        'path': file_path,
-                        'size': stat.st_size,
-                        'modified': pd.Timestamp(stat.st_mtime, unit='s').strftime('%Y-%m-%d %H:%M:%S')
+                        "path": file_path,
+                        "size": stat.st_size,
+                        "modified": pd.Timestamp(stat.st_mtime, unit="s").strftime(
+                            "%Y-%m-%d %H:%M:%S"
+                        ),
                     }
-            
+
             return file_info
         except Exception as e:
             self.logger.warning(f"獲取檔案信息失敗: {e}")
             return {}
-    
+
     def validate_data(self) -> bool:
         """
         驗證數據格式和完整性
-        
+
         Returns:
             bool: 數據是否有效
         """
         try:
             if self.data is None:
                 return False
-            
+
             # 檢查必要的數據結構
-            required_keys = ['dataframes', 'parameters', 'metrics', 'equity_curves']
+            required_keys = ["dataframes", "parameters", "metrics", "equity_curves"]
             for key in required_keys:
                 if key not in self.data:
                     self.logger.warning(f"缺少必要數據鍵: {key}")
                     return False
-            
+
             # 檢查數據是否為空
-            if not self.data.get('dataframes'):
+            if not self.data.get("dataframes"):
                 self.logger.warning("數據框架為空")
                 return False
-            
+
             return True
-            
+
         except Exception as e:
             self.logger.error(f"數據驗證失敗: {e}")
             return False
-    
-    def export_data(self, output_path: str, format: str = 'csv'):
+
+    def export_data(self, output_path: str, format: str = "csv"):
         """
         導出處理後的數據
-        
+
         Args:
             output_path: 輸出路徑
             format: 輸出格式，支援 'csv', 'parquet', 'json'
@@ -326,25 +357,26 @@ class BasePlotter(ABC):
         try:
             if self.data is None:
                 self.load_data()
-            
-            if format == 'csv':
-                for param_key, df in self.data.get('dataframes', {}).items():
+
+            if format == "csv":
+                for param_key, df in self.data.get("dataframes", {}).items():
                     file_path = os.path.join(output_path, f"{param_key}.csv")
                     df.to_csv(file_path, index=False)
-            elif format == 'parquet':
-                for param_key, df in self.data.get('dataframes', {}).items():
+            elif format == "parquet":
+                for param_key, df in self.data.get("dataframes", {}).items():
                     file_path = os.path.join(output_path, f"{param_key}.parquet")
                     df.to_parquet(file_path, index=False)
-            elif format == 'json':
+            elif format == "json":
                 import json
+
                 summary = self.get_data_summary()
                 file_path = os.path.join(output_path, "data_summary.json")
-                with open(file_path, 'w', encoding='utf-8') as f:
+                with open(file_path, "w", encoding="utf-8") as f:
                     json.dump(summary, f, ensure_ascii=False, indent=2)
             else:
                 raise ValueError(f"不支援的輸出格式: {format}")
-            
+
             self.logger.info(f"數據導出完成: {output_path}")
         except Exception as e:
             self.logger.error(f"數據導出失敗: {e}")
-            raise 
+            raise

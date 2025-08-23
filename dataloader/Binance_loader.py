@@ -47,82 +47,139 @@ flowchart TD
 - Base_loader.py、DataValidator、ReturnCalculator
 - 專案 README
 """
-import pandas as pd
-import numpy as np
-from binance.client import Client
+
 from datetime import datetime
+
+import numpy as np
+import pandas as pd
+from binance.client import Client
 from rich.console import Console
 from rich.panel import Panel
+
 console = Console()
 
 
 class BinanceLoader:
     def load(self):
         """從 Binance API 載入數據"""
-        console.print("[bold #dbac30]請輸入交易對（例如 BTCUSDT，預設 BTCUSDT）：[/bold #dbac30]")
+        console.print(
+            "[bold #dbac30]請輸入交易對（例如 BTCUSDT，預設 BTCUSDT）：[/bold #dbac30]"
+        )
         symbol = input().strip() or "BTCUSDT"
-        console.print("[bold #dbac30]輸入價格數據的周期 (例如 1d 代替日線，1h 代表 1小時線，預設 1d)：[/bold #dbac30]")
+        console.print(
+            "[bold #dbac30]輸入價格數據的周期 (例如 1d 代替日線，1h 代表 1小時線，預設 1d)：[/bold #dbac30]"
+        )
         interval = input().strip() or "1d"
-        
+
         # 預設開始日期為 2020-01-01，結束日期為運行當日
         default_start = "2020-01-01"
         default_end = datetime.now().strftime("%Y-%m-%d")
-        
-        console.print(f"[bold #dbac30]請輸入開始日期（例如 2023-01-01，預設 {default_start}）：[/bold #dbac30]")
+
+        console.print(
+            f"[bold #dbac30]請輸入開始日期（例如 2023-01-01，預設 {default_start}）：[/bold #dbac30]"
+        )
         start_date = input().strip() or default_start
-        console.print(f"[bold #dbac30]請輸入結束日期（例如 2023-12-31，預設 {default_end}）：[/bold #dbac30]")
+        console.print(
+            f"[bold #dbac30]請輸入結束日期（例如 2023-12-31，預設 {default_end}）：[/bold #dbac30]"
+        )
         end_date = input().strip() or default_end
 
         try:
             # 使用無憑證的 Client
             client = Client()
-            klines = client.get_historical_klines(symbol, interval, start_date, end_date)
+            klines = client.get_historical_klines(
+                symbol, interval, start_date, end_date
+            )
             if not klines:
-                console.print(Panel(f"❌ 無法獲取 '{symbol}' 的數據", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
+                console.print(
+                    Panel(
+                        f"❌ 無法獲取 '{symbol}' 的數據",
+                        title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+                        border_style="#8f1511",
+                    )
+                )
                 return None, interval
 
             # 轉換為 DataFrame
-            data = pd.DataFrame(klines, columns=[
-                'timestamp', 'open', 'high', 'low', 'close', 'volume',
-                'close_time', 'quote_asset_volume', 'number_of_trades',
-                'taker_buy_base_asset_volume', 'taker_buy_quote_asset_volume', 'ignore'
-            ])
-            
+            data = pd.DataFrame(
+                klines,
+                columns=[
+                    "timestamp",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "volume",
+                    "close_time",
+                    "quote_asset_volume",
+                    "number_of_trades",
+                    "taker_buy_base_asset_volume",
+                    "taker_buy_quote_asset_volume",
+                    "ignore",
+                ],
+            )
+
             # 重命名欄位為標準格式
-            data = data.rename(columns={
-                'timestamp': 'Time',
-                'open': 'Open',
-                'high': 'High',
-                'low': 'Low',
-                'close': 'Close',
-                'volume': 'Volume'
-            })
-            
+            data = data.rename(
+                columns={
+                    "timestamp": "Time",
+                    "open": "Open",
+                    "high": "High",
+                    "low": "Low",
+                    "close": "Close",
+                    "volume": "Volume",
+                }
+            )
+
             # 轉換時間格式
-            data['Time'] = pd.to_datetime(data['Time'], unit='ms')
-            
+            data["Time"] = pd.to_datetime(data["Time"], unit="ms")
+
             # 選擇需要的欄位
-            data = data[['Time', 'Open', 'High', 'Low', 'Close', 'Volume']]
-            
+            data = data[["Time", "Open", "High", "Low", "Close", "Volume"]]
+
             # 轉換為數值類型
-            data[['Open', 'High', 'Low', 'Close', 'Volume']] = data[['Open', 'High', 'Low', 'Close', 'Volume']].astype(float)
+            data[["Open", "High", "Low", "Close", "Volume"]] = data[
+                ["Open", "High", "Low", "Close", "Volume"]
+            ].astype(float)
 
             # 計算收益率
-            data['open_return'] = data['Open'].pct_change().fillna(0)
-            data['close_return'] = data['Close'].pct_change().fillna(0)
-            data['open_logreturn'] = np.log(data['Open'] / data['Open'].shift(1)).fillna(0)
-            data['close_logreturn'] = np.log(data['Close'] / data['Close'].shift(1)).fillna(0)
+            data["open_return"] = data["Open"].pct_change().fillna(0)
+            data["close_return"] = data["Close"].pct_change().fillna(0)
+            data["open_logreturn"] = np.log(
+                data["Open"] / data["Open"].shift(1)
+            ).fillna(0)
+            data["close_logreturn"] = np.log(
+                data["Close"] / data["Close"].shift(1)
+            ).fillna(0)
 
             # 檢查缺失值
             # 缺失值比例 Panel
             missing_msgs = []
-            for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
+            for col in ["Open", "High", "Low", "Close", "Volume"]:
                 missing_ratio = data[col].isna().mean()
                 missing_msgs.append(f"{col} 缺失值比例：{missing_ratio:.2%}")
-            console.print(Panel("\n".join(missing_msgs), title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#dbac30"))
+            console.print(
+                Panel(
+                    "\n".join(missing_msgs),
+                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+                    border_style="#dbac30",
+                )
+            )
 
-            console.print(Panel(f"從 Binance 載入 '{symbol}' 成功，行數：{len(data)}\n已計算收益率：open_return, close_return, open_logreturn, close_logreturn", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#dbac30"))
+            console.print(
+                Panel(
+                    f"從 Binance 載入 '{symbol}' 成功，行數：{len(data)}\n已計算收益率：open_return, close_return, open_logreturn, close_logreturn",
+                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+                    border_style="#dbac30",
+                )
+            )
             return data, interval
         except Exception as e:
-            console.print(Panel(f"❌ {e}", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
+            console.print(
+                Panel(
+                    f"❌ {e}",
+                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+                    border_style="#8f1511",
+                )
+            )
             return None, interval

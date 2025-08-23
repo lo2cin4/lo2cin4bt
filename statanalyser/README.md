@@ -46,42 +46,49 @@ statanalyser/
 ## 核心模組功能（Core Components）
 
 ### 1. Base_statanalyser.py
+
 - **功能**：定義統計分析器的標準介面與繼承規範
 - **主要處理**：規範 analyze、get_results 等方法，所有子類必須實作
 - **輸入**：標準化 DataFrame、欄位名稱
 - **輸出**：分析結果 dict
 
 ### 2. CorrelationTest_statanalyser.py
+
 - **功能**：計算因子與收益率的相關性（Pearson、Spearman、Chatterjee）
 - **主要處理**：支援多種滯後期、相關性衰減分析
 - **輸入**：DataFrame、因子欄、收益率欄
 - **輸出**：相關性指標 dict
 
 ### 3. StationarityTest_statanalyser.py
+
 - **功能**：檢定因子與收益率的穩定性（ADF、KPSS）
 - **主要處理**：自動判斷平穩/非平穩，給出建議
 - **輸入**：DataFrame、欄位名稱
 - **輸出**：穩定性檢定結果 dict
 
 ### 4. AutocorrelationTest_statanalyser.py
+
 - **功能**：自相關分析（ACF/PACF），可選圖形化
 - **主要處理**：自動判斷顯著自相關滯後期，建議 ARIMA(p,q) 模型
 - **輸入**：DataFrame、欄位名稱
 - **輸出**：自相關指標 dict
 
 ### 5. DistributionTest_statanalyser.py
+
 - **功能**：分布檢定（常態性、偏度、峰度）
 - **主要處理**：自動判斷是否適合 Z-Score、分位數等分析
 - **輸入**：DataFrame、欄位名稱
 - **輸出**：分布特徵 dict
 
 ### 6. SeasonalAnalysis_statanalyser.py
+
 - **功能**：季節性/週期性分析
 - **主要處理**：自動偵測週期、強度，建議是否納入週期性策略
 - **輸入**：DataFrame、欄位名稱
 - **輸出**：週期性特徵 dict
 
 ### 7. ReportGenerator_statanalyser.py
+
 - **功能**：自動彙整所有分析結果，產生標準化報告（txt/csv/excel）
 - **主要處理**：自動產生策略建議、保存分析數據
 - **輸入**：分析結果 dict
@@ -170,4 +177,4 @@ result = test.analyze()
 
 ---
 
-如需擴充新分析方法、報告格式或有特殊需求，請先參考本 README 並同步更新相關註解與文件。 
+如需擴充新分析方法、報告格式或有特殊需求，請先參考本 README 並同步更新相關註解與文件。

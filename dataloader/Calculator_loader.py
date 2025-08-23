@@ -45,12 +45,14 @@ flowchart TD
 - Base_loader.py、DataValidator、Predictor_loader
 - 專案 README
 """
-import pandas as pd
+
 import numpy as np
 from numba import jit
 from rich.console import Console
 from rich.panel import Panel
+
 console = Console()
+
 
 class ReturnCalculator:
     def __init__(self, data):
@@ -61,16 +63,22 @@ class ReturnCalculator:
         # 同時允許 'Open'/'Close' 或 'open'/'close' 欄位
         open_col = None
         close_col = None
-        for cand in ['Open', 'open']:
+        for cand in ["Open", "open"]:
             if cand in self.data.columns:
                 open_col = cand
                 break
-        for cand in ['Close', 'close']:
+        for cand in ["Close", "close"]:
             if cand in self.data.columns:
                 close_col = cand
                 break
         if open_col is None or close_col is None:
-            console.print(Panel("❌ 錯誤：缺少 open/Open 或 close/Close 欄位，無法計算收益率", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#8f1511"))
+            console.print(
+                Panel(
+                    "❌ 錯誤：缺少 open/Open 或 close/Close 欄位，無法計算收益率",
+                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+                    border_style="#8f1511",
+                )
+            )
             return self.data
 
         # 使用 numpy 向量化計算
@@ -78,13 +86,19 @@ class ReturnCalculator:
         close_prices = self.data[close_col].to_numpy()
 
         # 計算簡單收益率
-        self.data['open_return'] = self._calc_simple_return(open_prices)
-        self.data['close_return'] = self._calc_simple_return(close_prices)
+        self.data["open_return"] = self._calc_simple_return(open_prices)
+        self.data["close_return"] = self._calc_simple_return(close_prices)
 
         # 計算對數收益率
-        self.data['open_logreturn'] = self._calc_log_return(open_prices)
-        self.data['close_logreturn'] = self._calc_log_return(close_prices)
-        console.print(Panel("已計算收益率：open_return, close_return, open_logreturn, close_logreturn", title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]", border_style="#dbac30"))
+        self.data["open_logreturn"] = self._calc_log_return(open_prices)
+        self.data["close_logreturn"] = self._calc_log_return(close_prices)
+        console.print(
+            Panel(
+                "已計算收益率：open_return, close_return, open_logreturn, close_logreturn",
+                title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+                border_style="#dbac30",
+            )
+        )
         return self.data
 
     @staticmethod
@@ -93,8 +107,8 @@ class ReturnCalculator:
         """使用 numba 加速簡單收益率計算"""
         returns = np.zeros(len(prices))
         for i in range(1, len(prices)):
-            if prices[i-1] != 0:
-                returns[i] = (prices[i] - prices[i-1]) / prices[i-1]
+            if prices[i - 1] != 0:
+                returns[i] = (prices[i] - prices[i - 1]) / prices[i - 1]
         return returns
 
     @staticmethod
@@ -103,7 +117,6 @@ class ReturnCalculator:
         """使用 numba 加速對數收益率計算"""
         returns = np.zeros(len(prices))
         for i in range(1, len(prices)):
-            if prices[i] > 0 and prices[i-1] > 0:
-                returns[i] = np.log(prices[i] / prices[i-1])
+            if prices[i] > 0 and prices[i - 1] > 0:
+                returns[i] = np.log(prices[i] / prices[i - 1])
         return returns
-
