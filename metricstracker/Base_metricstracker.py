@@ -206,7 +206,7 @@ class BaseMetricTracker:
     def _get_analysis_params(self):
         """獲取分析參數"""
         console.print(
-            f"[bold #dbac30]請輸入年化時間單位（如日線股票252，日線幣365，預設為365）：[/bold #dbac30]"
+            f"[bold #dbac30]請輸入年化時間單位（如日線股票252，日線幣365，留空預設為365）：[/bold #dbac30]"
         )
         time_unit = input().strip()
         if time_unit == "":
@@ -215,11 +215,11 @@ class BaseMetricTracker:
             time_unit = int(time_unit)
 
         console.print(
-            f"[bold #dbac30]請輸入無風險利率（%）（輸入n代表n% ，預設為2）：[/bold #dbac30]"
+            f"[bold #dbac30]請輸入無風險利率（%）（輸入n代表n% ，留空預設為4）：[/bold #dbac30]"
         )
         risk_free_rate = input().strip()
         if risk_free_rate == "":
-            risk_free_rate = 2.0 / 100
+            risk_free_rate = 4.0 / 100
         else:
             risk_free_rate = float(risk_free_rate) / 100
 
