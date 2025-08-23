@@ -55,6 +55,7 @@ from datetime import datetime, timedelta
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
+from dataloader.Calculator_loader import ReturnCalculator
 
 console = Console()
 
@@ -208,24 +209,9 @@ class CoinbaseLoader:
             numeric_columns = ["Open", "High", "Low", "Close", "Volume"]
             data[numeric_columns] = data[numeric_columns].astype(float)
 
-            # 計算收益率
-            data["open_return"] = data["Open"].pct_change().fillna(0)
-            data["close_return"] = data["Close"].pct_change().fillna(0)
-            data["open_logreturn"] = np.log(
-                data["Open"] / data["Open"].shift(1)
-            ).fillna(0)
-            data["close_logreturn"] = np.log(
-                data["Close"] / data["Close"].shift(1)
-            ).fillna(0)
-
-            # 處理無限值
-            for col in [
-                "open_return",
-                "close_return",
-                "open_logreturn",
-                "close_logreturn",
-            ]:
-                data[col] = data[col].replace([np.inf, -np.inf], 0)
+            # 使用 ReturnCalculator 計算收益率
+            calculator = ReturnCalculator(data)
+            data = calculator.calculate_returns()
 
             # 檢查缺失值
             missing_msgs = []
@@ -243,8 +229,7 @@ class CoinbaseLoader:
 
             console.print(
                 Panel(
-                    f"從 Coinbase 載入 '{symbol}' 成功，行數：{len(data)}\n"
-                    f"已計算收益率：open_return, close_return, open_logreturn, close_logreturn",
+                    f"從 Coinbase 載入 '{symbol}' 成功，行數：{len(data)}",
                     title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
                     border_style="#dbac30",
                 )
