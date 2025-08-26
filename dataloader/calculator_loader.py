@@ -1,5 +1,5 @@
 """
-Calculator_loader.py
+calculator_loader.py
 
 【功能說明】
 ------------------------------------------------------------
@@ -12,7 +12,7 @@ Calculator_loader.py
 
 ```mermaid
 flowchart TD
-    A[DataLoader/DataImporter/BacktestEngine] -->|調用| B(Calculator_loader)
+    A[DataLoader/DataImporter/BacktestEngine] -->|調用| B(calculator_loader)
     B -->|計算/衍生欄位| C[數據DataFrame]
     C -->|傳遞| D[Predictor/Validator/BacktestEngine]
 ```
@@ -47,6 +47,7 @@ flowchart TD
 """
 
 import numpy as np
+import pandas as pd
 from numba import jit
 from rich.console import Console
 from rich.panel import Panel
@@ -55,10 +56,10 @@ console = Console()
 
 
 class ReturnCalculator:
-    def __init__(self, data):
+    def __init__(self, data: pd.DataFrame) -> None:
         self.data = data.copy()
 
-    def calculate_returns(self):
+    def calculate_returns(self) -> pd.DataFrame:
         """計算 open_return, close_return, open_logreturn, close_logreturn"""
         # 同時允許 'Open'/'Close' 或 'open'/'close' 欄位
         open_col = None
@@ -103,7 +104,7 @@ class ReturnCalculator:
 
     @staticmethod
     @jit(nopython=True)
-    def _calc_simple_return(prices):
+    def _calc_simple_return(prices: np.ndarray) -> np.ndarray:
         """使用 numba 加速簡單收益率計算"""
         returns = np.zeros(len(prices))
         for i in range(1, len(prices)):
@@ -113,7 +114,7 @@ class ReturnCalculator:
 
     @staticmethod
     @jit(nopython=True)
-    def _calc_log_return(prices):
+    def _calc_log_return(prices: np.ndarray) -> np.ndarray:
         """使用 numba 加速對數收益率計算"""
         returns = np.zeros(len(prices))
         for i in range(1, len(prices)):
