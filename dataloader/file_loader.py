@@ -49,8 +49,8 @@ flowchart TD
 
 import glob  # 用於檢測目錄內的文件
 import os  # 用於檢查文件是否存在（os.path.exists）
+from typing import List, Optional, Tuple
 
-import openpyxl  # 用於支持 Excel 文件讀取（pd.read_excel 的引擎）
 import pandas as pd  # 用於讀取 Excel/CSV 文件、數據處理（如重命名欄位、填充缺失值）
 from rich.console import Console
 from rich.panel import Panel
@@ -62,7 +62,7 @@ console = Console()
 
 
 class FileLoader:
-    def load(self):
+    def load(self) -> Tuple[Optional[pd.DataFrame], str]:
         """從 Excel 或 CSV 文件載入數據
         使用模組:
             - pandas (pd): 讀取 Excel/CSV 文件（read_excel, read_csv），數據處理
@@ -168,7 +168,7 @@ class FileLoader:
                     )
                 )
 
-    def _get_available_files(self, directory):
+    def _get_available_files(self, directory: str) -> List[str]:
         """檢測目錄內可用的 xlsx 和 csv 文件
         參數:
             directory: str - 要檢測的目錄路徑
@@ -183,7 +183,9 @@ class FileLoader:
 
         return xlsx_files + csv_files
 
-    def _select_from_directory(self, available_files, import_dir):
+    def _select_from_directory(
+        self, available_files: List[str], import_dir: str
+    ) -> Optional[str]:
         """從預設目錄中選擇文件
         參數:
             available_files: list - 可用文件列表
@@ -256,7 +258,7 @@ class FileLoader:
                     )
                 )
 
-    def _input_file_path(self):
+    def _input_file_path(self) -> Optional[str]:
         """要求用戶輸入完整文件路徑
         返回: str - 文件路徑或 None
         """
@@ -275,7 +277,7 @@ class FileLoader:
             return None
         return file_name
 
-    def _standardize_columns(self, data):
+    def _standardize_columns(self, data: pd.DataFrame) -> pd.DataFrame:
         """將數據欄位標準化為 Time, Open, High, Low, Close, Volume
         使用模組:
             - pandas (pd): 欄位重命名（rename）、缺失值填充（pd.NA）、數據處理
