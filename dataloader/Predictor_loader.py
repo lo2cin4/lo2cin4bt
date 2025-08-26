@@ -57,7 +57,7 @@ flowchart TD
 【參考】
 ------------------------------------------------------------
 - pandas 官方文件
-- base_loader.py、DataValidator、Calculator_loader
+- base_loader.py、DataValidator、calculator_loader
 - 專案 README
 """
 

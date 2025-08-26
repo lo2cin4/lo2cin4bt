@@ -29,7 +29,7 @@ dataloader/
 ├── Coinbase_loader.py        # Coinbase API 數據載入
 ├── Yfinance_loader.py        # Yahoo Finance 數據載入
 ├── File_loader.py            # 本地 Excel/CSV 數據載入
-├── Calculator_loader.py      # 技術指標/衍生欄位計算
+├── calculator_loader.py      # 技術指標/衍生欄位計算
 ├── Predictor_loader.py       # 預測因子/特徵工程處理
 ├── Validator_loader.py       # 數據驗證與清洗
 ├── DataExporter_loader.py    # 數據導出（CSV/Excel/JSON）
@@ -41,7 +41,7 @@ dataloader/
 - **Coinbase_loader.py**：連接 Coinbase API，下載多頻率行情數據
 - **Yfinance_loader.py**：連接 Yahoo Finance API，下載行情數據
 - **File_loader.py**：讀取本地 Excel/CSV，欄位標準化
-- **Calculator_loader.py**：批次計算技術指標、收益率等衍生欄位
+- **calculator_loader.py**：批次計算技術指標、收益率等衍生欄位
 - **Predictor_loader.py**：載入、對齊、合併外部預測因子，支援特徵工程
 - **Validator_loader.py**：多層次數據驗證、型態與缺失值處理
 - **DataExporter_loader.py**：將處理後數據導出為多種格式
@@ -64,7 +64,7 @@ dataloader/
 - **輸入**：API 參數或檔案路徑
 - **輸出**：標準化 DataFrame
 
-### 3. Calculator_loader.py
+### 3. calculator_loader.py
 
 - **功能**：批次計算技術指標（如移動平均、收益率等）
 - **主要處理**：自動新增 open_return、close_return、logreturn 等欄位
@@ -100,7 +100,7 @@ dataloader/
 flowchart TD
     A[File/Binance/Coinbase/Yahoo] -->|行情數據| B[base_loader]
     B -->|標準化| C[Validator_loader]
-    C -->|清洗| D[Calculator_loader]
+    C -->|清洗| D[calculator_loader]
     D -->|技術指標| E[Predictor_loader]
     E -->|合併因子| F[Validator_loader]
     F -->|最終清洗| G[DataExporter_loader]
