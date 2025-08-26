@@ -1,5 +1,5 @@
 """
-Binance_loader.py
+binance_loader.py
 
 【功能說明】
 ------------------------------------------------------------
@@ -12,7 +12,7 @@ Binance_loader.py
 
 ```mermaid
 flowchart TD
-    A[DataLoader/DataImporter] -->|選擇 Binance| B(Binance_loader)
+    A[DataLoader/DataImporter] -->|選擇 Binance| B(binance_loader)
     B -->|下載數據| C[DataValidator]
     C -->|驗證清洗| D[ReturnCalculator]
     D -->|計算收益率| E[BacktestEngine/下游模組]
@@ -21,7 +21,7 @@ flowchart TD
 【維護與擴充重點】
 ------------------------------------------------------------
 - 新增/修改 API 參數、欄位、頻率時，請同步更新頂部註解與下游流程
-- 若 Binance API 介面有變動，需同步更新本檔案與 Base_loader
+- 若 Binance API 介面有變動，需同步更新本檔案與 base_loader
 - 欄位標準化、收益率計算邏輯如有調整，請同步通知協作者
 
 【常見易錯點】
@@ -39,28 +39,30 @@ flowchart TD
 【與其他模組的關聯】
 ------------------------------------------------------------
 - 由 DataLoader/DataImporter 調用，數據傳遞給 DataValidator、ReturnCalculator、BacktestEngine
-- 需與 Base_loader 介面保持一致
+- 需與 base_loader 介面保持一致
 
 【參考】
 ------------------------------------------------------------
 - Binance API 官方文件
-- Base_loader.py、DataValidator、ReturnCalculator
+- base_loader.py、DataValidator、ReturnCalculator
 - 專案 README
 """
 
 from datetime import datetime
+from typing import Optional, Tuple
 
-import numpy as np
 import pandas as pd
 from binance.client import Client
 from rich.console import Console
 from rich.panel import Panel
 
+from .calculator_loader import ReturnCalculator
+
 console = Console()
 
 
 class BinanceLoader:
-    def load(self):
+    def load(self) -> Tuple[Optional[pd.DataFrame], str]:
         """從 Binance API 載入數據"""
         console.print(
             "[bold #dbac30]請輸入交易對（例如 BTCUSDT，預設 BTCUSDT）：[/bold #dbac30]"
@@ -142,15 +144,9 @@ class BinanceLoader:
                 ["Open", "High", "Low", "Close", "Volume"]
             ].astype(float)
 
-            # 計算收益率
-            data["open_return"] = data["Open"].pct_change().fillna(0)
-            data["close_return"] = data["Close"].pct_change().fillna(0)
-            data["open_logreturn"] = np.log(
-                data["Open"] / data["Open"].shift(1)
-            ).fillna(0)
-            data["close_logreturn"] = np.log(
-                data["Close"] / data["Close"].shift(1)
-            ).fillna(0)
+            # 使用 ReturnCalculator 計算收益率
+            calculator = ReturnCalculator(data)
+            data = calculator.calculate_returns()
 
             # 檢查缺失值
             # 缺失值比例 Panel
@@ -168,16 +164,16 @@ class BinanceLoader:
 
             console.print(
                 Panel(
-                    f"從 Binance 載入 '{symbol}' 成功，行數：{len(data)}\n已計算收益率：open_return, close_return, open_logreturn, close_logreturn",
+                    f"從 Binance 載入 '{symbol}' 成功，行數：{len(data)}",
                     title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
                     border_style="#dbac30",
                 )
             )
             return data, interval
-        except Exception as e:
+        except Exception as err:  # pylint: disable=broad-exception-caught
             console.print(
                 Panel(
-                    f"❌ {e}",
+                    f"❌ {err}",
                     title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
                     border_style="#8f1511",
                 )

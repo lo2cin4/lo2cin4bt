@@ -136,8 +136,8 @@ flowchart TD
 ## 疑難排解（持續更新）
 
 1. 數據欄位缺失/型態錯誤 22/07/2025
-問題詳情：請先用 dataloader/Validator_loader 處理。
-解決方法：執行 dataloader/Validator_loader.py。
+問題詳情：請先用 dataloader/validator_loader 處理。
+解決方法：執行 dataloader/validator_loader.py。
 
 2. 分析失敗/報錯 22/07/2025
 問題詳情：請確認數據長度、型態、欄位名稱正確。
