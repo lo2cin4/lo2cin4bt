@@ -28,7 +28,7 @@ dataloader/
 ├── binance_loader.py         # Binance API 數據載入
 ├── coinbase_loader.py        # Coinbase API 數據載入
 ├── Yfinance_loader.py        # Yahoo Finance 數據載入
-├── File_loader.py            # 本地 Excel/CSV 數據載入
+├── file_loader.py            # 本地 Excel/CSV 數據載入
 ├── calculator_loader.py      # 技術指標/衍生欄位計算
 ├── Predictor_loader.py       # 預測因子/特徵工程處理
 ├── Validator_loader.py       # 數據驗證與清洗
@@ -40,7 +40,7 @@ dataloader/
 - **binance_loader.py**：連接 Binance API，下載多頻率行情數據
 - **coinbase_loader.py**：連接 Coinbase API，下載多頻率行情數據
 - **Yfinance_loader.py**：連接 Yahoo Finance API，下載行情數據
-- **File_loader.py**：讀取本地 Excel/CSV，欄位標準化
+- **file_loader.py**：讀取本地 Excel/CSV，欄位標準化
 - **calculator_loader.py**：批次計算技術指標、收益率等衍生欄位
 - **Predictor_loader.py**：載入、對齊、合併外部預測因子，支援特徵工程
 - **Validator_loader.py**：多層次數據驗證、型態與缺失值處理
@@ -57,7 +57,7 @@ dataloader/
 - **輸入**：數據來源參數
 - **輸出**：標準化 DataFrame
 
-### 2. binance_loader.py / coinbase_loader.py / Yfinance_loader.py / File_loader.py
+### 2. binance_loader.py / coinbase_loader.py / Yfinance_loader.py / file_loader.py
 
 - **功能**：分別對接 Binance API、Coinbase API、Yahoo Finance API、本地檔案，下載並標準化行情數據
 - **主要處理**：互動式輸入參數、欄位標準化、缺失值處理
