@@ -24,7 +24,7 @@
 ```plaintext
 dataloader/
 ├── __init__.py
-├── Base_loader.py            # 數據載入基底類，定義統一介面
+├── base_loader.py            # 數據載入基底類，定義統一介面
 ├── Binance_loader.py         # Binance API 數據載入
 ├── Coinbase_loader.py        # Coinbase API 數據載入
 ├── Yfinance_loader.py        # Yahoo Finance 數據載入
@@ -36,7 +36,7 @@ dataloader/
 ├── README.md                 # 本文件
 ```
 
-- **Base_loader.py**：定義所有數據來源載入器的抽象基底類與介面規範
+- **base_loader.py**：定義所有數據來源載入器的抽象基底類與介面規範
 - **Binance_loader.py**：連接 Binance API，下載多頻率行情數據
 - **Coinbase_loader.py**：連接 Coinbase API，下載多頻率行情數據
 - **Yfinance_loader.py**：連接 Yahoo Finance API，下載行情數據
@@ -50,7 +50,7 @@ dataloader/
 
 ## 核心模組功能（Core Components）
 
-### 1. Base_loader.py
+### 1. base_loader.py
 
 - **功能**：定義數據載入器的標準介面與繼承規範
 - **主要處理**：規範 load_data、validate_data 等方法，所有子類必須實作
@@ -98,7 +98,7 @@ dataloader/
 
 ```mermaid
 flowchart TD
-    A[File/Binance/Coinbase/Yahoo] -->|行情數據| B[Base_loader]
+    A[File/Binance/Coinbase/Yahoo] -->|行情數據| B[base_loader]
     B -->|標準化| C[Validator_loader]
     C -->|清洗| D[Calculator_loader]
     D -->|技術指標| E[Predictor_loader]
@@ -125,7 +125,7 @@ flowchart TD
 
 ## 維護重點（Maintenance Notes）
 
-- 新增/修改數據來源、欄位、格式時，**務必同步更新 Base_loader 及所有依賴子類**
+- 新增/修改數據來源、欄位、格式時，**務必同步更新 base_loader 及所有依賴子類**
 - 所有互動式 input() 需有預設值與錯誤提示，避免 crash
 - 欄位名稱、型態、時間格式需全模組統一（如 'Time', 'Open', 'Close' 等）
 - 每次擴充功能、格式、驗證規則時，請同步更新本 README 與頂部註解
@@ -134,7 +134,7 @@ flowchart TD
 ## 範例流程（Example Workflow）
 
 ```python
-from dataloader.Base_loader import DataLoader
+from dataloader.base_loader import DataLoader
 
 dataloader = DataLoader()
 data = dataloader.load_data()  # 互動式選擇來源、驗證、合併、導出

@@ -43,7 +43,7 @@ flowchart TD
 - 其他模組如有依賴本模組，請於對應檔案頂部註解標明
 """
 
-from .Base_loader import DataLoader
+from .base_loader import DataLoader
 from .Coinbase_loader import CoinbaseLoader
 from .DataExporter_loader import DataExporter
 from .Predictor_loader import PredictorLoader

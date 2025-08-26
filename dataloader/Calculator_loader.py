@@ -42,7 +42,7 @@ flowchart TD
 【參考】
 ------------------------------------------------------------
 - numpy、numba 官方文件
-- Base_loader.py、DataValidator、Predictor_loader
+- base_loader.py、DataValidator、Predictor_loader
 - 專案 README
 """
 

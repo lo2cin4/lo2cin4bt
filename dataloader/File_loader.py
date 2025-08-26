@@ -21,7 +21,7 @@ flowchart TD
 【維護與擴充重點】
 ------------------------------------------------------------
 - 新增/修改支援格式、欄位時，請同步更新頂部註解與下游流程
-- 若欄位標準化邏輯有變動，需同步更新本檔案與 Base_loader
+- 若欄位標準化邏輯有變動，需同步更新本檔案與 base_loader
 - 檔案格式、欄位結構如有調整，請同步通知協作者
 
 【常見易錯點】
@@ -39,11 +39,11 @@ flowchart TD
 【與其他模組的關聯】
 ------------------------------------------------------------
 - 由 DataLoader/DataImporter 調用，數據傳遞給 DataValidator、ReturnCalculator、BacktestEngine
-- 需與 Base_loader 介面保持一致
+- 需與 base_loader 介面保持一致
 
 【參考】
 ------------------------------------------------------------
-- Base_loader.py、DataValidator、ReturnCalculator
+- base_loader.py、DataValidator、ReturnCalculator
 - 專案 README
 """
 

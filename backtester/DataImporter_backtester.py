@@ -17,7 +17,7 @@ DataImporter_backtester.py
 ```mermaid
 flowchart TD
     A[BaseBacktester] -->|調用| B[DataImporter]
-    B -->|載入數據| C[dataloader.Base_loader]
+    B -->|載入數據| C[dataloader.base_loader]
     C -->|原始數據| D[標準化處理]
     D -->|頻率檢測| E[detect_frequency]
     D -->|格式驗證| F[數據驗證]
@@ -64,7 +64,7 @@ flowchart TD
 ------------------------------------------------------------
 - 由 BaseBacktester 調用，數據傳遞給 BacktestEngine
 - 需與 BacktestEngine 的數據結構保持一致
-- 依賴 dataloader.Base_loader 進行實際數據載入
+- 依賴 dataloader.base_loader 進行實際數據載入
 - 與 TradeRecordExporter 配合記錄數據來源信息
 
 【版本與變更記錄】
@@ -91,10 +91,10 @@ import numpy as np
 import pandas as pd
 
 try:
-    from dataloader.Base_loader import DataLoader
+    from dataloader.base_loader import DataLoader
 except ImportError as e:
     logging.error(f"無法導入 DataLoader: {str(e)}")
-    raise ImportError("請確認 dataloader.Base_loader 模組存在並可導入。")
+    raise ImportError("請確認 dataloader.base_loader 模組存在並可導入。")
 
 # 設置日誌
 log_dir = os.path.join(
