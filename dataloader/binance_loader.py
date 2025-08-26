@@ -56,7 +56,7 @@ from binance.client import Client
 from rich.console import Console
 from rich.panel import Panel
 
-from .Calculator_loader import ReturnCalculator
+from .calculator_loader import ReturnCalculator
 
 console = Console()
 
