@@ -1,5 +1,5 @@
 """
-Validator_loader.py
+validator_loader.py
 
 【功能說明】
 ------------------------------------------------------------
@@ -12,7 +12,7 @@ Validator_loader.py
 
 ```mermaid
 flowchart TD
-    A[DataLoader/DataImporter/BacktestEngine] -->|調用| B(Validator_loader)
+    A[DataLoader/DataImporter/BacktestEngine] -->|調用| B(validator_loader)
     B -->|驗證/清洗| C[數據DataFrame]
     C -->|傳遞| D[Calculator/Predictor/BacktestEngine]
 ```

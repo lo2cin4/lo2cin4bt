@@ -69,7 +69,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
-from dataloader.Validator_loader import print_dataframe_table
+from dataloader.validator_loader import print_dataframe_table
 
 # 自定義模組：從各種數據源載入數據
 from .binance_loader import BinanceLoader  # Binance API
@@ -78,7 +78,7 @@ from .coinbase_loader import CoinbaseLoader  # Coinbase API
 from .data_exporter_loader import DataExporter  # 數據導出
 from .file_loader import FileLoader  # Excel/CSV 文件
 from .predictor_loader import PredictorLoader  # 預測因子
-from .Validator_loader import DataValidator  # 數據驗證
+from .validator_loader import DataValidator  # 數據驗證
 from .Yfinance_loader import YahooFinanceLoader  # Yahoo Finance
 
 console = Console()

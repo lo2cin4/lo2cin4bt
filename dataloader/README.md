@@ -31,7 +31,7 @@ dataloader/
 ├── file_loader.py            # 本地 Excel/CSV 數據載入
 ├── calculator_loader.py      # 技術指標/衍生欄位計算
 ├── predictor_loader.py       # 預測因子/特徵工程處理
-├── Validator_loader.py       # 數據驗證與清洗
+├── validator_loader.py       # 數據驗證與清洗
 ├── data_exporter_loader.py    # 數據導出（CSV/Excel/JSON）
 ├── README.md                 # 本文件
 ```
@@ -43,7 +43,7 @@ dataloader/
 - **file_loader.py**：讀取本地 Excel/CSV，欄位標準化
 - **calculator_loader.py**：批次計算技術指標、收益率等衍生欄位
 - **predictor_loader.py**：載入、對齊、合併外部預測因子，支援特徵工程
-- **Validator_loader.py**：多層次數據驗證、型態與缺失值處理
+- **validator_loader.py**：多層次數據驗證、型態與缺失值處理
 - **data_exporter_loader.py**：將處理後數據導出為多種格式
 
 ---
@@ -78,7 +78,7 @@ dataloader/
 - **輸入**：預測因子檔案、行情 DataFrame
 - **輸出**：合併後 DataFrame
 
-### 5. Validator_loader.py
+### 5. validator_loader.py
 
 - **功能**：多層次數據驗證與清洗
 - **主要處理**：欄位完整性、型態、缺失值、時間序列一致性
@@ -99,10 +99,10 @@ dataloader/
 ```mermaid
 flowchart TD
     A[File/Binance/Coinbase/Yahoo] -->|行情數據| B[base_loader]
-    B -->|標準化| C[Validator_loader]
+    B -->|標準化| C[validator_loader]
     C -->|清洗| D[calculator_loader]
     D -->|技術指標| E[predictor_loader]
-    E -->|合併因子| F[Validator_loader]
+    E -->|合併因子| F[validator_loader]
     F -->|最終清洗| G[data_exporter_loader]
     G -->|導出| H[CSV/Excel/JSON]
 ```
@@ -164,8 +164,8 @@ data = dataloader.load_data()  # 互動式選擇來源、驗證、合併、導�
 解決方法：請依官方文件與本 README 設定。
 
 2. 欄位缺失/型態錯誤 22/07/2025
-問題詳情：請使用 Validator_loader 進行自動檢查與補全。
-解決方法：執行 dataloader/Validator_loader.py。
+問題詳情：請使用 validator_loader 進行自動檢查與補全。
+解決方法：執行 dataloader/validator_loader.py。
 
 3. 預測因子合併失敗 22/07/2025
 問題詳情：請確認時間欄位格式一致，並檢查缺失值。

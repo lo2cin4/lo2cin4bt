@@ -286,7 +286,7 @@ class PredictorLoader:
     def _clean_and_merge_data(self, data: pd.DataFrame) -> Optional[pd.DataFrame]:
         """清洗並合併數據"""
         # 清洗數據
-        from .Validator_loader import DataValidator
+        from .validator_loader import DataValidator
 
         validator = DataValidator(data)
         cleaned_data = validator.validate_and_clean()

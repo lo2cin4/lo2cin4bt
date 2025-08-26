@@ -57,7 +57,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 console = Console()
-from dataloader.Validator_loader import print_dataframe_table
+from dataloader.validator_loader import print_dataframe_table
 
 
 class YahooFinanceLoader:
