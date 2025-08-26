@@ -92,6 +92,7 @@ import json
 import logging
 import os
 from datetime import datetime
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -112,18 +113,18 @@ class TradeRecordExporter_backtester:
 
     def __init__(
         self,
-        trade_records,
-        frequency,
-        trade_params=None,
-        predictor=None,
-        Backtest_id="",
-        results=None,
-        transaction_cost=None,
-        slippage=None,
-        trade_delay=None,
-        trade_price=None,
-        data=None,
-    ):
+        trade_records: pd.DataFrame,
+        frequency: str,
+        trade_params: Optional[dict] = None,
+        predictor: Optional[str] = None,
+        Backtest_id: str = "",
+        results: Optional[List[dict]] = None,
+        transaction_cost: Optional[float] = None,
+        slippage: Optional[float] = None,
+        trade_delay: Optional[int] = None,
+        trade_price: Optional[str] = None,
+        data: Optional[pd.DataFrame] = None,
+    ) -> None:
         self.trade_records = trade_records
         self.frequency = frequency
         self.trade_params = trade_params
@@ -138,17 +139,16 @@ class TradeRecordExporter_backtester:
         self.logger = logging.getLogger(self.__class__.__name__)
 
         self.output_dir = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-            "lo2cin4bt",
+            os.path.dirname(os.path.dirname(__file__)),
             "records",
             "backtester",
         )
         os.makedirs(self.output_dir, exist_ok=True)
 
-    def _get_strategy_name(self, params):
+    def _get_strategy_name(self, params: Optional[dict]) -> str:  # noqa: C901
         """根據 entry/exit 參數產生 strategy 字串，格式為 entry1+entry2_exit1+exit2"""
 
-        def param_to_str(param):
+        def param_to_str(param: Union[dict, object, str, int, float, None]) -> str:
             # 支援dict或物件
             if isinstance(param, dict):
                 indicator_type = param.get("indicator_type", "")
@@ -204,7 +204,7 @@ class TradeRecordExporter_backtester:
                     else:
                         return f"PERC{strat_idx}(W={window})"
                 else:
-                    return indicator_type
+                    return str(indicator_type or "unknown")
             elif hasattr(param, "indicator_type"):
                 indicator_type = getattr(param, "indicator_type", "")
                 if indicator_type == "MA":
@@ -259,14 +259,21 @@ class TradeRecordExporter_backtester:
                     else:
                         return f"PERC{strat_idx}(W={window})"
                 else:
-                    return indicator_type
-            return str(param)
+                    return str(indicator_type or "unknown")
+            # 確保返回字符串類型
+            try:
+                return str(param)
+            except (TypeError, ValueError):
+                return "unknown"
+
+        if params is None:
+            return "Unknown"
 
         entry_str = "+".join([param_to_str(p) for p in params.get("entry", [])])
         exit_str = "+".join([param_to_str(p) for p in params.get("exit", [])])
         return f"{entry_str}_{exit_str}" if entry_str or exit_str else "Unknown"
 
-    def export_to_csv(self, backtest_id=None):
+    def export_to_csv(self, backtest_id: Optional[str] = None) -> None:  # noqa: C901
         """
         導出交易記錄至 CSV
 
@@ -370,207 +377,240 @@ class TradeRecordExporter_backtester:
             )
             raise
 
-    def export_to_parquet(self, backtest_id=None):
+    def _create_parquet_filename(self) -> tuple[str, str]:
+        """創建 Parquet 文件名和路徑"""
+        import uuid
+
+        date_str = datetime.now().strftime("%Y%m%d")
+        random_id = uuid.uuid4().hex[:8]
+        filename = f"{date_str}_{random_id}_{self.Backtest_id}.parquet"
+        filepath = os.path.join(self.output_dir, filename)
+        return filename, filepath
+
+    def _get_results_to_export(self, backtest_id: Optional[str] = None) -> List[dict]:
+        """獲取要導出的回測結果"""
+        if backtest_id:
+            results_to_export = [
+                r for r in self.results if r.get("Backtest_id") == backtest_id
+            ]
+            if not results_to_export:
+                print(f"找不到Backtest_id為 {backtest_id} 的回測結果")
+                return []
+            return results_to_export
+        else:
+            return self.results
+
+    def _create_batch_metadata(
+        self, results_to_export: List[dict], date_str: str
+    ) -> dict:
+        """創建批次元數據"""
+        batch_metadata = []
+        for result in results_to_export:
+            if "Backtest_id" not in result:
+                continue
+
+            params = result.get("params")
+            if params is None:
+                continue
+
+            # entry/exit 參數完整記錄
+            def param_to_dict(param: Union[dict, Any]) -> dict:
+                if isinstance(param, dict):
+                    return {k: str(v) for k, v in param.items()}
+                elif hasattr(param, "__dict__"):
+                    return {k: str(v) for k, v in param.__dict__.items()}
+                else:
+                    # 對於非dict/object類型，創建一個包含值的字典
+                    return {"value": str(param)}
+
+            entry_details = [param_to_dict(p) for p in params.get("entry", [])]
+            exit_details = [param_to_dict(p) for p in params.get("exit", [])]
+
+            meta = {
+                "Backtest_id": result["Backtest_id"],
+                "Frequency": self.frequency,
+                "Asset": (
+                    result.get("records", pd.DataFrame())
+                    .get("Trading_instrument", pd.Series())
+                    .iloc[0]
+                    if not result.get("records", pd.DataFrame()).empty
+                    and "Trading_instrument"
+                    in result.get("records", pd.DataFrame()).columns
+                    else "ALL"
+                ),
+                "Strategy": self._get_strategy_name(params),
+                "Predictor": params.get("predictor", ""),
+                "Entry_params": entry_details,
+                "Exit_params": exit_details,
+                "Transaction_cost": str(float(self.transaction_cost or 0.0)),
+                "Slippage_cost": str(float(self.slippage or 0.0)),
+                "Trade_delay": str(int(self.trade_delay or 0)),
+                "Trade_price": self.trade_price or "",
+                "Data_start_time": (
+                    str(self.data["Time"].min()) if self.data is not None else ""
+                ),
+                "Data_end_time": (
+                    str(self.data["Time"].max()) if self.data is not None else ""
+                ),
+                "Backtest_date": date_str,
+            }
+            batch_metadata.append(meta)
+
+        return {"batch_metadata": json.dumps(batch_metadata, ensure_ascii=False)}
+
+    def _create_single_metadata(self, date_str: str) -> dict:
+        """創建單一元數據（當沒有 results_to_export 時）"""
+        asset = (
+            self.trade_records["Trading_instrument"].iloc[0]
+            if "Trading_instrument" in self.trade_records.columns
+            else "Unknown"
+        )
+        strategy = self._get_strategy_name(self.trade_params)
+
+        return {
+            "Frequency": self.frequency,
+            "Asset": asset,
+            "Strategy": strategy,
+            "ma_type": (
+                self.trade_params.get("ma_type", "") if self.trade_params else ""
+            ),
+            "short_period": (
+                self.trade_params.get("short_period", "") if self.trade_params else ""
+            ),
+            "long_period": (
+                self.trade_params.get("long_period", "") if self.trade_params else ""
+            ),
+            "period": (
+                self.trade_params.get("period", "") if self.trade_params else ""
+            ),
+            "predictor": self.predictor or "",
+            "Transaction_cost": str(float(self.transaction_cost or 0.0)),
+            "Slippage_cost": str(float(self.slippage or 0.0)),
+            "Trade_delay": str(int(self.trade_delay or 0)),
+            "Trade_price": self.trade_price or "",
+            "Data_start_time": (
+                str(self.data["Time"].min()) if self.data is not None else ""
+            ),
+            "Data_end_time": (
+                str(self.data["Time"].max()) if self.data is not None else ""
+            ),
+            "Backtest_date": date_str,
+            "Backtest_id": self.Backtest_id,
+            "shortMA_period": (
+                self.trade_params.get("shortMA_period", "") if self.trade_params else ""
+            ),
+            "longMA_period": (
+                self.trade_params.get("longMA_period", "") if self.trade_params else ""
+            ),
+        }
+
+    def _filter_valid_records(
+        self, all_records: List[pd.DataFrame]
+    ) -> List[pd.DataFrame]:
+        """過濾和清理記錄"""
+        filtered_records = []
+        for df in all_records:
+            if not df.empty and len(df.columns) > 0:
+                has_valid_data = False
+                for col in df.columns:
+                    if not df[col].isna().all():
+                        has_valid_data = True
+                        break
+                if has_valid_data:
+                    cleaned_df = df.dropna(axis=1, how="all")
+                    if not cleaned_df.empty:
+                        filtered_records.append(cleaned_df)
+        return filtered_records
+
+    def _concat_records_safely(
+        self, filtered_records: List[pd.DataFrame]
+    ) -> pd.DataFrame:
+        """安全地合併記錄"""
+        if not filtered_records:
+            return pd.DataFrame()
+
+        try:
+            combined_records = pd.concat(
+                filtered_records, ignore_index=True, sort=False
+            )
+        except Exception:
+            combined_records = filtered_records[0]
+            for df in filtered_records[1:]:
+                combined_records = pd.concat(
+                    [combined_records, df], ignore_index=True, sort=False
+                )
+        return combined_records
+
+    def _combine_records(self, results_to_export: List[dict]) -> pd.DataFrame:
+        """合併所有回測結果的交易記錄"""
+        all_records = []
+        if results_to_export:
+            for result in results_to_export:
+                if "records" in result and not result["records"].empty:
+                    records_df = result["records"]
+                    all_records.append(records_df)
+
+            # 過濾和清理記錄
+            filtered_records = self._filter_valid_records(all_records)
+
+            # 安全合併
+            combined_records = self._concat_records_safely(filtered_records)
+        else:
+            combined_records = self.trade_records
+
+        return combined_records
+
+    def _save_parquet_file(
+        self, combined_records: pd.DataFrame, metadata: dict, filepath: str
+    ) -> None:
+        """保存 Parquet 文件"""
+        # 將 DataFrame 轉為 pyarrow.Table
+        table = pa.Table.from_pandas(combined_records)
+
+        # 將 metadata 轉為字節（pyarrow 要求）
+        metadata_bytes = {
+            k: v.encode("utf-8") if isinstance(v, str) else str(v).encode("utf-8")
+            for k, v in metadata.items()
+        }
+
+        # 合併 pandas schema 與自訂 metadata
+        orig_meta = table.schema.metadata or {}
+        all_meta = dict(orig_meta)
+        all_meta.update(metadata_bytes)
+        table = table.replace_schema_metadata(all_meta)
+
+        # 儲存 Parquet
+        pq.write_table(table, filepath)
+
+    def export_to_parquet(self, backtest_id: Optional[str] = None) -> None:
         """導出交易記錄至 Parquet，包含 metadata。
 
         Args:
             backtest_id: 指定要導出的回測ID，如果為None則導出所有結果
         """
         try:
-            import uuid
+            # 創建文件名和路徑
+            filename, filepath = self._create_parquet_filename()
+
+            # 獲取要導出的結果
+            results_to_export = self._get_results_to_export(backtest_id)
+            if not results_to_export and backtest_id:
+                return
 
             date_str = datetime.now().strftime("%Y%m%d")
-            random_id = uuid.uuid4().hex[:8]
-            filename = f"{date_str}_{random_id}_{self.Backtest_id}.parquet"
-            filepath = os.path.join(self.output_dir, filename)
 
-            metadata = {}
-            # 如果指定了backtest_id，只處理該回測結果
-            if backtest_id:
-                results_to_export = [
-                    r for r in self.results if r.get("Backtest_id") == backtest_id
-                ]
-                if not results_to_export:
-                    print(f"找不到Backtest_id為 {backtest_id} 的回測結果")
-                    return
-            else:
-                results_to_export = self.results
-
+            # 創建元數據
             if results_to_export:
-                batch_metadata = []
-                for result in results_to_export:
-                    if "Backtest_id" in result:
-                        params = result.get("params")
-                        if params is None:
-                            continue
-
-                        # entry/exit 參數完整記錄
-                        def param_to_dict(param):
-                            if isinstance(param, dict):
-                                return {k: str(v) for k, v in param.items()}
-                            elif hasattr(param, "__dict__"):
-                                return {k: str(v) for k, v in param.__dict__.items()}
-                            else:
-                                return str(param)
-
-                        entry_details = [
-                            param_to_dict(p) for p in params.get("entry", [])
-                        ]
-                        exit_details = [
-                            param_to_dict(p) for p in params.get("exit", [])
-                        ]
-                        meta = {
-                            "Backtest_id": result["Backtest_id"],
-                            "Frequency": self.frequency,
-                            "Asset": (
-                                result.get("records", pd.DataFrame())
-                                .get("Trading_instrument", pd.Series())
-                                .iloc[0]
-                                if not result.get("records", pd.DataFrame()).empty
-                                and "Trading_instrument"
-                                in result.get("records", pd.DataFrame()).columns
-                                else "ALL"
-                            ),
-                            # strategy 欄位用 entry+exit 組合格式
-                            "Strategy": self._get_strategy_name(params),
-                            "Predictor": params.get("predictor", ""),
-                            "Entry_params": entry_details,
-                            "Exit_params": exit_details,
-                            "Transaction_cost": self.transaction_cost or 0.0,
-                            "Slippage_cost": self.slippage or 0.0,
-                            "Trade_delay": self.trade_delay or 0,
-                            "Trade_price": self.trade_price or "",
-                            "Data_start_time": (
-                                str(self.data["Time"].min())
-                                if self.data is not None
-                                else ""
-                            ),
-                            "Data_end_time": (
-                                str(self.data["Time"].max())
-                                if self.data is not None
-                                else ""
-                            ),
-                            "Backtest_date": date_str,
-                            # 不再寫入strategy_id
-                        }
-                        batch_metadata.append(meta)
-                metadata["batch_metadata"] = json.dumps(
-                    batch_metadata, ensure_ascii=False
-                )
+                metadata = self._create_batch_metadata(results_to_export, date_str)
             else:
-                asset = (
-                    self.trade_records["Trading_instrument"].iloc[0]
-                    if "Trading_instrument" in self.trade_records.columns
-                    else "Unknown"
-                )
-                strategy = self._get_strategy_name(self.trade_params)
-                metadata = {
-                    "Frequency": self.frequency,
-                    "Asset": asset,
-                    "Strategy": strategy,
-                    "ma_type": (
-                        self.trade_params.get("ma_type", "")
-                        if self.trade_params
-                        else ""
-                    ),
-                    "short_period": (
-                        self.trade_params.get("short_period", "")
-                        if self.trade_params
-                        else ""
-                    ),
-                    "long_period": (
-                        self.trade_params.get("long_period", "")
-                        if self.trade_params
-                        else ""
-                    ),
-                    "period": (
-                        self.trade_params.get("period", "") if self.trade_params else ""
-                    ),
-                    "predictor": self.predictor or "",
-                    "Transaction_cost": self.transaction_cost or 0.0,
-                    "Slippage_cost": self.slippage or 0.0,
-                    "Trade_delay": self.trade_delay or 0,
-                    "Trade_price": self.trade_price or "",
-                    "Data_start_time": (
-                        str(self.data["Time"].min()) if self.data is not None else ""
-                    ),
-                    "Data_end_time": (
-                        str(self.data["Time"].max()) if self.data is not None else ""
-                    ),
-                    "Backtest_date": date_str,
-                    "Backtest_id": self.Backtest_id,
-                    "shortMA_period": (
-                        self.trade_params.get("shortMA_period", "")
-                        if self.trade_params
-                        else ""
-                    ),
-                    "longMA_period": (
-                        self.trade_params.get("longMA_period", "")
-                        if self.trade_params
-                        else ""
-                    ),
-                }
+                metadata = self._create_single_metadata(date_str)
 
-            # 合併所有回測結果的交易記錄
-            all_records = []
-            if results_to_export:
-                for result in results_to_export:
-                    # 優化：避免不必要的數據拷貝
-                    if "records" in result and not result["records"].empty:
-                        # 直接使用原始數據，不進行拷貝
-                        records_df = result["records"]
-                        all_records.append(records_df)
+            # 合併記錄
+            combined_records = self._combine_records(results_to_export)
 
-                # 再次檢查並過濾，確保沒有空的 DataFrame 或全為 NA 的 DataFrame
-                filtered_records = []
-                for df in all_records:
-                    if not df.empty and len(df.columns) > 0:
-                        # 檢查是否有至少一列包含非 NA 值
-                        has_valid_data = False
-                        for col in df.columns:
-                            if not df[col].isna().all():
-                                has_valid_data = True
-                                break
-                        if has_valid_data:
-                            # 清理 DataFrame：移除全為 NA 的列
-                            cleaned_df = df.dropna(axis=1, how="all")
-                            if not cleaned_df.empty:
-                                filtered_records.append(cleaned_df)
+            # 保存文件
+            self._save_parquet_file(combined_records, metadata, filepath)
 
-                if filtered_records:
-                    # 使用更安全的 concat 方式
-                    try:
-                        combined_records = pd.concat(
-                            filtered_records, ignore_index=True, sort=False
-                        )
-                    except Exception:
-                        # 如果 concat 失敗，嘗試逐個合併
-                        combined_records = filtered_records[0]
-                        for df in filtered_records[1:]:
-                            combined_records = pd.concat(
-                                [combined_records, df], ignore_index=True, sort=False
-                            )
-                else:
-                    combined_records = pd.DataFrame()
-            else:
-                combined_records = self.trade_records
-
-            # 將 DataFrame 轉為 pyarrow.Table
-            table = pa.Table.from_pandas(combined_records)
-            # 將 metadata 轉為字節（pyarrow 要求）
-            metadata_bytes = {
-                k: v.encode("utf-8") if isinstance(v, str) else str(v).encode("utf-8")
-                for k, v in metadata.items()
-            }
-
-            # 合併 pandas schema 與自訂 metadata
-            orig_meta = table.schema.metadata or {}
-            all_meta = dict(orig_meta)
-            all_meta.update(metadata_bytes)
-            table = table.replace_schema_metadata(all_meta)
-
-            # 儲存 Parquet
-            pq.write_table(table, filepath)
             self.logger.info(
                 f"交易記錄已導出至 Parquet: {filepath}",
                 extra={"Backtest_id": self.Backtest_id},
@@ -582,7 +622,7 @@ class TradeRecordExporter_backtester:
             )
             raise
 
-    def display_backtest_summary(self):
+    def display_backtest_summary(self) -> None:
         """顯示回測摘要，包含預覽表格和操作選項。"""
         if not self.results:
             console.print(Panel("無回測結果可顯示摘要", title="警告", style="yellow"))
@@ -594,7 +634,7 @@ class TradeRecordExporter_backtester:
         else:
             self._display_full_summary()
 
-    def _display_full_summary(self):
+    def _display_full_summary(self) -> None:
         """顯示完整摘要表格（結果數量 ≤ 15）"""
 
         table = Table(title="回測摘要", style="bold magenta")
@@ -632,7 +672,7 @@ class TradeRecordExporter_backtester:
         console.print(table)
         self._show_operation_menu()
 
-    def _display_paginated_summary(self):
+    def _display_paginated_summary(self) -> None:  # noqa: C901
         """分頁顯示摘要表格（結果數量 > 15）"""
         page_size = 15
         total_results = len(self.results)
@@ -736,7 +776,7 @@ class TradeRecordExporter_backtester:
 
         self._show_operation_menu()
 
-    def _show_operation_menu(self):
+    def _show_operation_menu(self) -> None:  # noqa: C901
         """顯示操作選單"""
         # 提供操作選項
         menu_text = """1. 查看成功結果
@@ -861,22 +901,23 @@ class TradeRecordExporter_backtester:
             else:
                 console.print("無效選擇，請重新輸入。", style="red")
 
-    def display_results_by_strategy(self):
+    def display_results_by_strategy(self) -> None:  # noqa: C901
         """按策略分組顯示結果。"""
         if not self.results:
             console.print(Panel("無回測結果可顯示", title="警告", style="yellow"))
             return
 
         # 按策略分組
-        strategy_groups = {}
+        strategy_groups: Dict[str, List[dict]] = {}
         for result in self.results:
             # 使用與VectorBacktestEngine相同的判斷邏輯
             if result.get("error") is not None:
                 strategy = "失敗"
             else:
-                records = result.get("records", pd.DataFrame())
-                # 檢查是否有開倉交易（Trade_action == 1）
-                if len(records) == 0:
+                records = result.get("records")
+                if records is None or not isinstance(records, pd.DataFrame):
+                    strategy = "無交易"
+                elif len(records) == 0:
                     strategy = "無交易"
                 elif (records["Trade_action"] == 1).sum() == 0:
                     strategy = "無交易"
@@ -892,17 +933,18 @@ class TradeRecordExporter_backtester:
         console.print("\n=== 按策略分組 ===")
         for i, (strategy, results) in enumerate(strategy_groups.items(), 1):
             # 使用與VectorBacktestEngine相同的判斷邏輯
-            success_count = len(
-                [
-                    r
-                    for r in results
-                    if r.get("error") is None
-                    and "records" in r
-                    and isinstance(r.get("records"), pd.DataFrame)
-                    and not r.get("records").empty
-                    and (r.get("records")["Trade_action"] == 1).sum() > 0
-                ]
-            )
+            success_count = 0
+            for r in results:
+                if r.get("error") is None:
+                    records = r.get("records")
+                    if (
+                        records is not None
+                        and isinstance(records, pd.DataFrame)
+                        and not records.empty
+                        and (records["Trade_action"] == 1).sum() > 0
+                    ):
+                        success_count += 1
+
             total_count = len(results)
             console.print(f"{i}. {strategy}: {success_count}/{total_count} 成功")
 
@@ -932,14 +974,17 @@ class TradeRecordExporter_backtester:
             except ValueError:
                 console.print("請輸入有效的數字", style="red")
 
-    def display_strategy_details(self, strategy, results):
+    def display_strategy_details(self, strategy: str, results: List[dict]) -> None:
         """顯示特定策略的詳細結果。"""
         console.print(f"\n=== {strategy} 策略詳情 ===")
 
         table = Table(title=f"{strategy} - 回測結果", style="bold magenta")
         table.add_column("序號", style="cyan", no_wrap=True)
         table.add_column("回測ID", style="green", no_wrap=True)
+        table.add_column("預測因子", style="blue", no_wrap=True)
         table.add_column("狀態", style="yellow", no_wrap=True)
+        table.add_column("總回報", style="cyan", no_wrap=True)
+        table.add_column("交易次數", style="green", no_wrap=True)
 
         for i, result in enumerate(results, 1):
             # 使用與VectorBacktestEngine相同的判斷邏輯
@@ -948,9 +993,12 @@ class TradeRecordExporter_backtester:
                 total_return = "N/A"
                 trade_count = "N/A"
             else:
-                records = result.get("records", pd.DataFrame())
-                # 檢查是否有開倉交易（Trade_action == 1）
-                if len(records) == 0:
+                records = result.get("records")
+                if records is None or not isinstance(records, pd.DataFrame):
+                    status = "⚠️ 無交易"
+                    total_return = "N/A"
+                    trade_count = "0"
+                elif len(records) == 0:
                     status = "⚠️ 無交易"
                     total_return = "N/A"
                     trade_count = "0"
@@ -980,23 +1028,27 @@ class TradeRecordExporter_backtester:
             )
 
         console.print(table)
-        # console.print(Panel("⌨️ 按 Enter 回到選單", title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]", border_style="#dbac30"))
+        # console.print(Panel("⌨️ 按 Enter 回到選單",
+        #                     title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
+        #                     border_style="#dbac30"))
         console.print("[bold #dbac30]按 Enter 返回選單: [/bold #dbac30]", end="")
         input()
 
-    def display_successful_results(self):
+    def display_successful_results(self) -> None:
         """顯示成功的回測結果"""
         # 使用與VectorBacktestEngine相同的判斷邏輯
         # 成功：無錯誤且有實際開倉交易
-        successful_results = [
-            r
-            for r in self.results
-            if r.get("error") is None
-            and "records" in r
-            and isinstance(r.get("records"), pd.DataFrame)
-            and not r.get("records").empty
-            and (r.get("records")["Trade_action"] == 1).sum() > 0
-        ]
+        successful_results = []
+        for r in self.results:
+            if r.get("error") is None:
+                records = r.get("records")
+                if (
+                    records is not None
+                    and isinstance(records, pd.DataFrame)
+                    and not records.empty
+                    and (records["Trade_action"] == 1).sum() > 0
+                ):
+                    successful_results.append(r)
 
         if not successful_results:
             console.print(
@@ -1022,7 +1074,7 @@ class TradeRecordExporter_backtester:
 
         console.print(table)
 
-    def display_failed_results(self):
+    def display_failed_results(self) -> None:
         """顯示失敗的回測結果"""
         # 使用與VectorBacktestEngine相同的判斷邏輯
         # 失敗：有錯誤
@@ -1049,13 +1101,15 @@ class TradeRecordExporter_backtester:
             strategy = self._get_strategy_name(params) if params else "N/A"
 
             status = "❌ 失敗"
-            result.get("error", "未知錯誤")
+            # 可以選擇是否顯示錯誤信息
+            # error_msg = result.get("error", "未知錯誤")
+            # console.print(f"錯誤詳情: {error_msg}")
 
             table.add_row(str(i), result["Backtest_id"], strategy, status)
 
         console.print(table)
 
-    def debug_trade_actions(self):
+    def debug_trade_actions(self) -> None:
         """調試方法：檢查Trade_action的實際值分布"""
         console.print(
             Panel(
@@ -1079,7 +1133,7 @@ class TradeRecordExporter_backtester:
 
         if all_trade_actions:
             unique_values, counts = np.unique(all_trade_actions, return_counts=True)
-            console.print(f"📊 Trade_action值分布：")
+            console.print("📊 Trade_action值分布：")
             for value, count in zip(unique_values, counts):
                 percentage = count / len(all_trade_actions) * 100
                 console.print(f"   {value}: {count} 次 ({percentage:.1f}%)")
@@ -1098,7 +1152,7 @@ class TradeRecordExporter_backtester:
             console.print("❌ 沒有找到有效的交易記錄")
 
         # 檢查每個回測的Trade_action分布
-        console.print(f"\n📊 各回測Trade_action分布：")
+        console.print("\n📊 各回測Trade_action分布：")
         for i, result in enumerate(self.results[:5]):  # 只顯示前5個
             if (
                 "error" not in result
@@ -1109,20 +1163,22 @@ class TradeRecordExporter_backtester:
                 trade_actions = result["records"]["Trade_action"].values
                 unique_values, counts = np.unique(trade_actions, return_counts=True)
                 console.print(
-                    f"  回測 {i+1} ({result.get('Backtest_id', 'N/A')}): {dict(zip(unique_values, counts))}"
+                    f"  回測 {i + 1} ({result.get('Backtest_id', 'N/A')}): {dict(zip(unique_values, counts))}"
                 )
 
         console.print("\n[bold #dbac30]按 Enter 繼續: [/bold #dbac30]", end="")
         input()
 
-    def display_no_trade_results(self):
+    def display_no_trade_results(self) -> None:
         """顯示無交易的回測結果"""
         # 使用與VectorBacktestEngine相同的判斷邏輯
         # 無交易：沒有錯誤但沒有開倉交易的回測
         no_trade_results = []
         for r in self.results:
             if r.get("error") is None:
-                records = r.get("records", pd.DataFrame())
+                records = r.get("records")
+                if records is None or not isinstance(records, pd.DataFrame):
+                    continue
                 # 檢查是否有開倉交易（Trade_action == 1）
                 if len(records) == 0:
                     no_trade_results.append(r)

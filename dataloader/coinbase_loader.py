@@ -57,7 +57,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
-from .Calculator_loader import ReturnCalculator
+from .calculator_loader import ReturnCalculator
 
 console = Console()
 

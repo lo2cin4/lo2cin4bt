@@ -85,7 +85,7 @@ flowchart TD
 """
 
 import logging
-import os
+from typing import Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -96,12 +96,7 @@ except ImportError as e:
     logging.error(f"無法導入 DataLoader: {str(e)}")
     raise ImportError("請確認 dataloader.base_loader 模組存在並可導入。")
 
-# 設置日誌
-log_dir = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "lo2cin4bt", "logs"
-)
-os.makedirs(log_dir, exist_ok=True)
-log_file = os.path.join(log_dir, "backtest_errors.log")
+# 移除硬編碼的日誌路徑設置，使用 main.py 中的日誌配置
 
 
 class DataImporter:
@@ -118,12 +113,90 @@ class DataImporter:
         >>> print(f"Frequency: {freq}")
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.data: pd.DataFrame | None = None
-        self.frequency = None
+        self.frequency: str | None = None
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    def load_and_standardize_data(self, Backtest_id="unknown"):
+    def _load_data_from_loader(self) -> Union[pd.DataFrame, str]:
+        """從 DataLoader 載入數據"""
+        loader = DataLoader()
+        result = loader.load_data()
+        if isinstance(result, str) and result == "__SKIP_STATANALYSER__":
+            self.data = loader.data
+            self.frequency = loader.frequency
+            return "__SKIP_STATANALYSER__"
+        else:
+            self.data = result
+            self.frequency = loader.frequency
+            return result
+
+    def _validate_data(self) -> None:
+        """驗證數據的有效性"""
+        if self.data is None or (
+            isinstance(self.data, pd.DataFrame) and self.data.empty
+        ):
+            raise ValueError("數據載入失敗或數據為空")
+
+    def _validate_required_columns(self) -> None:
+        """驗證必要欄位是否存在"""
+        if self.data is None:
+            raise ValueError("數據未載入，無法驗證欄位")
+
+        required_cols = ["time", "open", "high", "low", "close", "volume"]
+        missing_cols = [
+            col
+            for col in required_cols
+            if col.lower() not in [c.lower() for c in self.data.columns]
+        ]
+        if missing_cols:
+            raise ValueError(f"缺少必要欄位: {missing_cols}")
+
+    def _standardize_column_names(self) -> None:
+        """標準化欄位名稱"""
+        if self.data is None:
+            raise ValueError("數據未載入，無法標準化欄位名稱")
+
+        column_mapping = {}
+        new_columns = []
+
+        for col in self.data.columns:
+            col_lower = col.lower()
+            if col_lower == "time":
+                column_mapping[col] = "Time"
+                new_columns.append("Time")
+            elif col_lower == "open":
+                column_mapping[col] = "Open"
+                new_columns.append("Open")
+            elif col_lower == "high":
+                column_mapping[col] = "High"
+                new_columns.append("High")
+            elif col_lower == "low":
+                column_mapping[col] = "Low"
+                new_columns.append("Low")
+            elif col_lower == "close":
+                column_mapping[col] = "Close"
+                new_columns.append("Close")
+            elif col_lower == "volume":
+                column_mapping[col] = "Volume"
+                new_columns.append("Volume")
+            else:
+                # 保留預測因子欄位的原始大小寫
+                new_columns.append(col)
+
+        # 應用欄位重命名
+        self.data = self.data.rename(columns=column_mapping)
+
+    def _process_time_column(self) -> None:
+        """處理時間欄位"""
+        if self.data is not None:
+            self.data["Time"] = pd.to_datetime(self.data["Time"])
+            if self.data["Time"].duplicated().any():
+                raise ValueError("Time 欄位包含重複值")
+
+    def load_and_standardize_data(
+        self, Backtest_id: str = "unknown"
+    ) -> Union[Tuple[pd.DataFrame, str], Tuple[str, str]]:
         """載入並標準化數據，自動檢測頻率。
 
         Args:
@@ -137,72 +210,23 @@ class DataImporter:
             ImportError: DataLoader 模組無法導入。
         """
         try:
-            loader = DataLoader()
-            result = loader.load_data()
-            if isinstance(result, str) and result == "__SKIP_STATANALYSER__":
-                self.data = loader.data
-                self.frequency = loader.frequency
-                return "__SKIP_STATANALYSER__", self.frequency
-            else:
-                self.data = result
-                self.frequency = loader.frequency
+            # 載入數據
+            result = self._load_data_from_loader()
+            if result == "__SKIP_STATANALYSER__":
+                return "__SKIP_STATANALYSER__", str(self.frequency or "unknown")
 
-            if self.data is None or (
-                isinstance(self.data, pd.DataFrame) and self.data.empty
-            ):
-                raise ValueError("數據載入失敗或數據為空")
+            # 驗證數據
+            self._validate_data()
+            self._validate_required_columns()
 
-            # 確保必要欄位
-            required_cols = ["time", "open", "high", "low", "close", "volume"]
-            missing_cols = [
-                col
-                for col in required_cols
-                if col.lower() not in [c.lower() for c in self.data.columns]
-            ]
-            if missing_cols:
-                raise ValueError(f"缺少必要欄位: {missing_cols}")
-
-            # 標準化欄位名稱（只對價格欄位進行標準化，保留預測因子的原始大小寫）
-            column_mapping = {}
-            new_columns = []
-
-            for col in self.data.columns:
-                col_lower = col.lower()
-                if col_lower == "time":
-                    column_mapping[col] = "Time"
-                    new_columns.append("Time")
-                elif col_lower == "open":
-                    column_mapping[col] = "Open"
-                    new_columns.append("Open")
-                elif col_lower == "high":
-                    column_mapping[col] = "High"
-                    new_columns.append("High")
-                elif col_lower == "low":
-                    column_mapping[col] = "Low"
-                    new_columns.append("Low")
-                elif col_lower == "close":
-                    column_mapping[col] = "Close"
-                    new_columns.append("Close")
-                elif col_lower == "volume":
-                    column_mapping[col] = "Volume"
-                    new_columns.append("Volume")
-                else:
-                    # 保留預測因子欄位的原始大小寫
-                    new_columns.append(col)
-
-            # 應用欄位重命名
-            self.data = self.data.rename(columns=column_mapping)
-
-            # 確保 Time 為 datetime64
-            if self.data is not None:
-                self.data["Time"] = pd.to_datetime(self.data["Time"])
-                if self.data["Time"].duplicated().any():
-                    raise ValueError("Time 欄位包含重複值")
+            # 標準化處理
+            self._standardize_column_names()
+            self._process_time_column()
 
             # 檢測頻率
             self.frequency = self._detect_frequency()
 
-            return self.data, self.frequency
+            return self.data, str(self.frequency or "unknown")
 
         except Exception as e:
             self.logger.error(
@@ -210,7 +234,7 @@ class DataImporter:
             )
             raise
 
-    def _detect_frequency(self):
+    def _detect_frequency(self) -> str:
         """
         自動檢測數據頻率，支援非標準頻率
 
