@@ -228,6 +228,13 @@ lo2cin4bt/
 ### 目前已完成
 
 <details>
+<summary>📅 2025-08-27 </summary>
+
+- 修正了回測後程序無法讀取 Parquet file 的 Bug
+
+</details>
+
+<details>
 <summary>📅 2025-08-22 </summary>
 
 - 【重榜】增加了 (高點、低點) HL、 (數值) VALUE 指標
