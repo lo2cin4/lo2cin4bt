@@ -48,8 +48,7 @@ flowchart TD
 
 import os  # 用於檔案路徑操作（本例中未直接使用，但可能用於後續擴展）
 
-import openpyxl  # 用於 Excel 文件寫入（to_excel 方法需要）
-import pandas as pd  # 用於數據處理和導出為 CSV、JSON、XLSX
+import pandas as pd
 from rich.console import Console
 from rich.panel import Panel
 
@@ -57,7 +56,7 @@ console = Console()
 
 
 class DataExporter:
-    def __init__(self, data):
+    def __init__(self, data: pd.DataFrame) -> None:
         """初始化 DataExporter，接受最終數據
         參數:
             data: pandas.DataFrame - 要導出的數據
@@ -65,7 +64,7 @@ class DataExporter:
         """
         self.data = data  # 將傳入的 pandas DataFrame 存儲為實例變量
 
-    def export(self):
+    def export(self) -> None:
         """交互式導出數據為 JSON, CSV 或 XLSX，統一導出到 records 目錄"""
         try:
             console.print("[bold #dbac30]請選擇導出格式：[/bold #dbac30]")
