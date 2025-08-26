@@ -45,7 +45,7 @@ flowchart TD
 
 from .base_loader import DataLoader
 from .coinbase_loader import CoinbaseLoader
-from .DataExporter_loader import DataExporter
+from .data_exporter_loader import DataExporter
 from .Predictor_loader import PredictorLoader
 
 __all__ = ["DataLoader", "PredictorLoader", "DataExporter", "CoinbaseLoader"]
