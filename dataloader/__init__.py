@@ -44,7 +44,7 @@ flowchart TD
 """
 
 from .base_loader import DataLoader
-from .Coinbase_loader import CoinbaseLoader
+from .coinbase_loader import CoinbaseLoader
 from .DataExporter_loader import DataExporter
 from .Predictor_loader import PredictorLoader
 

@@ -1,5 +1,5 @@
 """
-Coinbase_loader.py
+coinbase_loader.py
 
 【功能說明】
 ------------------------------------------------------------
@@ -12,7 +12,7 @@ Coinbase_loader.py
 
 ```mermaid
 flowchart TD
-    A[DataLoader/DataImporter] -->|選擇 Coinbase| B(Coinbase_loader)
+    A[DataLoader/DataImporter] -->|選擇 Coinbase| B(coinbase_loader)
     B -->|下載數據| C[DataValidator]
     C -->|驗證清洗| D[ReturnCalculator]
     D -->|計算收益率| E[BacktestEngine/下游模組]
