@@ -7,12 +7,12 @@ base_loader.py
 
 【流程與數據流】
 ------------------------------------------------------------
-- 由各數據來源子類（Binance_loader、File_loader、Yfinance_loader）繼承
+- 由各數據來源子類（binance_loader、File_loader、Yfinance_loader）繼承
 - 提供標準化數據載入、驗證、轉換流程，數據傳遞給 DataImporter/BacktestEngine
 
 ```mermaid
 flowchart TD
-    A[base_loader] -->|繼承| B[Binance_loader/File_loader/Yfinance_loader]
+    A[base_loader] -->|繼承| B[binance_loader/File_loader/Yfinance_loader]
     B -->|載入數據| C[DataImporter/BacktestEngine]
 ```
 
@@ -72,7 +72,7 @@ from rich.text import Text
 from dataloader.Validator_loader import print_dataframe_table
 
 # 自定義模組：從各種數據源載入數據
-from .Binance_loader import BinanceLoader  # Binance API
+from .binance_loader import BinanceLoader  # Binance API
 from .Calculator_loader import ReturnCalculator  # 收益率計算
 from .Coinbase_loader import CoinbaseLoader  # Coinbase API
 from .DataExporter_loader import DataExporter  # 數據導出
