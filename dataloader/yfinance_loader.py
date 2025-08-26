@@ -1,5 +1,5 @@
 """
-Yfinance_loader.py
+yfinance_loader.py
 
 【功能說明】
 ------------------------------------------------------------
@@ -12,7 +12,7 @@ Yfinance_loader.py
 
 ```mermaid
 flowchart TD
-    A[DataLoader/DataImporter] -->|選擇 Yahoo Finance| B(Yfinance_loader)
+    A[DataLoader/DataImporter] -->|選擇 Yahoo Finance| B(yfinance_loader)
     B -->|下載數據| C[DataValidator]
     C -->|驗證清洗| D[ReturnCalculator]
     D -->|計算收益率| E[BacktestEngine/下游模組]
@@ -55,9 +55,9 @@ import pandas as pd
 import yfinance as yf
 from rich.console import Console
 from rich.panel import Panel
+from dataloader.validator_loader import print_dataframe_table
 
 console = Console()
-from dataloader.validator_loader import print_dataframe_table
 
 
 class YahooFinanceLoader:
