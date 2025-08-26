@@ -46,6 +46,8 @@ flowchart TD
 - 專案 README
 """
 
+from typing import Optional
+
 import pandas as pd
 from rich.console import Console
 from rich.panel import Panel
@@ -54,7 +56,7 @@ from rich.table import Table
 console = Console()
 
 
-def print_dataframe_table(df, title=None):
+def print_dataframe_table(df: pd.DataFrame, title: Optional[str] = None) -> None:
     table = Table(title=title, show_lines=True, border_style="#dbac30")
     for col in df.columns:
         table.add_column(str(col), style="bold white")
@@ -73,10 +75,10 @@ def print_dataframe_table(df, title=None):
 
 
 class DataValidator:
-    def __init__(self, data):
+    def __init__(self, data: pd.DataFrame) -> None:
         self.data = data.copy()
 
-    def validate_and_clean(self):
+    def validate_and_clean(self) -> pd.DataFrame:
         """驗證和清洗數據，支援動態欄位"""
         if "Time" not in self.data.columns:
             console.print(
@@ -105,7 +107,7 @@ class DataValidator:
         self._handle_time_index()
         return self.data
 
-    def _handle_missing_values(self, col):
+    def _handle_missing_values(self, col: str) -> None:
         """處理缺失值，根據用戶選擇填充"""
         console.print(
             Panel(
@@ -182,7 +184,7 @@ class DataValidator:
             )
             self.data[col] = self.data[col].fillna(0)
 
-    def _handle_time_index(self):
+    def _handle_time_index(self) -> None:
         """處理時間索引，確保格式正確，但保留 Time 欄位"""
         try:
             self.data["Time"] = pd.to_datetime(self.data["Time"], errors="coerce")
