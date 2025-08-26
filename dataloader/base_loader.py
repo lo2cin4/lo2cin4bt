@@ -1,5 +1,5 @@
 """
-Base_loader.py
+base_loader.py
 
 【功能說明】
 ------------------------------------------------------------
@@ -12,7 +12,7 @@ Base_loader.py
 
 ```mermaid
 flowchart TD
-    A[Base_loader] -->|繼承| B[Binance_loader/File_loader/Yfinance_loader]
+    A[base_loader] -->|繼承| B[Binance_loader/File_loader/Yfinance_loader]
     B -->|載入數據| C[DataImporter/BacktestEngine]
 ```
 
