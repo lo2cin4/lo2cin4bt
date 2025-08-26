@@ -1,5 +1,5 @@
 """
-Predictor_loader.py
+predictor_loader.py
 
 【功能說明】
 ------------------------------------------------------------
@@ -12,7 +12,7 @@ Predictor_loader.py
 
 ```mermaid
 flowchart TD
-    A[DataLoader/DataImporter/BacktestEngine] -->|調用| B(Predictor_loader)
+    A[DataLoader/DataImporter/BacktestEngine] -->|調用| B(predictor_loader)
     B -->|特徵/預測欄位| C[數據DataFrame]
     C -->|傳遞| D[Calculator/Validator/BacktestEngine]
 ```

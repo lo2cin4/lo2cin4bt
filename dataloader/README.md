@@ -30,7 +30,7 @@ dataloader/
 ├── Yfinance_loader.py        # Yahoo Finance 數據載入
 ├── file_loader.py            # 本地 Excel/CSV 數據載入
 ├── calculator_loader.py      # 技術指標/衍生欄位計算
-├── Predictor_loader.py       # 預測因子/特徵工程處理
+├── predictor_loader.py       # 預測因子/特徵工程處理
 ├── Validator_loader.py       # 數據驗證與清洗
 ├── data_exporter_loader.py    # 數據導出（CSV/Excel/JSON）
 ├── README.md                 # 本文件
@@ -42,7 +42,7 @@ dataloader/
 - **Yfinance_loader.py**：連接 Yahoo Finance API，下載行情數據
 - **file_loader.py**：讀取本地 Excel/CSV，欄位標準化
 - **calculator_loader.py**：批次計算技術指標、收益率等衍生欄位
-- **Predictor_loader.py**：載入、對齊、合併外部預測因子，支援特徵工程
+- **predictor_loader.py**：載入、對齊、合併外部預測因子，支援特徵工程
 - **Validator_loader.py**：多層次數據驗證、型態與缺失值處理
 - **data_exporter_loader.py**：將處理後數據導出為多種格式
 
@@ -71,7 +71,7 @@ dataloader/
 - **輸入**：行情 DataFrame
 - **輸出**：含衍生欄位的 DataFrame
 
-### 4. Predictor_loader.py
+### 4. predictor_loader.py
 
 - **功能**：載入、對齊、合併外部預測因子，支援特徵工程
 - **主要處理**：自動辨識時間欄位、合併對齊、差分處理
@@ -101,7 +101,7 @@ flowchart TD
     A[File/Binance/Coinbase/Yahoo] -->|行情數據| B[base_loader]
     B -->|標準化| C[Validator_loader]
     C -->|清洗| D[calculator_loader]
-    D -->|技術指標| E[Predictor_loader]
+    D -->|技術指標| E[predictor_loader]
     E -->|合併因子| F[Validator_loader]
     F -->|最終清洗| G[data_exporter_loader]
     G -->|導出| H[CSV/Excel/JSON]

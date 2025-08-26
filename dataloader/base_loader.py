@@ -77,7 +77,7 @@ from .calculator_loader import ReturnCalculator  # 收益率計算
 from .coinbase_loader import CoinbaseLoader  # Coinbase API
 from .data_exporter_loader import DataExporter  # 數據導出
 from .file_loader import FileLoader  # Excel/CSV 文件
-from .Predictor_loader import PredictorLoader  # 預測因子
+from .predictor_loader import PredictorLoader  # 預測因子
 from .Validator_loader import DataValidator  # 數據驗證
 from .Yfinance_loader import YahooFinanceLoader  # Yahoo Finance
 
