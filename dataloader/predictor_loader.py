@@ -61,6 +61,9 @@ flowchart TD
 - 專案 README
 """
 
+from typing import List, Optional, Tuple, Union
+
+import pandas as pd
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -69,11 +72,11 @@ console = Console()
 
 
 class PredictorLoader:
-    def __init__(self, price_data):
+    def __init__(self, price_data: pd.DataFrame) -> None:
         """初始化 PredictorLoader，必須提供價格數據"""
         self.price_data = price_data
 
-    def load(self):
+    def load(self) -> Optional[Union[pd.DataFrame, str]]:
         """載入預測因子數據，與價格數據對齊並合併"""
         try:
             import glob
@@ -194,7 +197,10 @@ class PredictorLoader:
                 if data["Time"].isna().sum() > 0:
                     console.print(
                         Panel(
-                            f"⚠️ {data['Time'].isna().sum()} 個時間值無效，將移除\n以下是檔案的前幾行數據：\n{data.head()}\n建議：請檢查 '{file_path}' 的 'Time' 欄，確保日期格式為 YYYY-MM-DD（如 2023-01-01）或其他一致格式",
+                            f"⚠️ {data['Time'].isna().sum()} 個時間值無效，將移除\n"
+                            f"以下是檔案的前幾行數據：\n{data.head()}\n"
+                            f"建議：請檢查 '{file_path}' 的 'Time' 欄，"
+                            f"確保日期格式為 YYYY-MM-DD（如 2023-01-01）或其他一致格式",
                             title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
                             border_style="#8f1511",
                         )
@@ -203,7 +209,10 @@ class PredictorLoader:
             except Exception as e:
                 console.print(
                     Panel(
-                        f"❌ 時間格式轉換失敗：{e}\n以下是檔案的前幾行數據：\n{data.head()}\n建議：請檢查 '{file_path}' 的 'Time' 欄，確保日期格式為 YYYY-MM-DD（如 2023-01-01）或其他一致格式",
+                        f"❌ 時間格式轉換失敗：{e}\n"
+                        f"以下是檔案的前幾行數據：\n{data.head()}\n"
+                        f"建議：請檢查 '{file_path}' 的 'Time' 欄，"
+                        f"確保日期格式為 YYYY-MM-DD（如 2023-01-01）或其他一致格式",
                         title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
                         border_style="#8f1511",
                     )
@@ -249,14 +258,14 @@ class PredictorLoader:
             )
             return None
 
-    def get_diff_options(self, series):
+    def get_diff_options(self, series: pd.Series) -> List[str]:
         """獲取差分選項"""
         if (series == 0).any():
             return ["sub"]  # 只能減數差分
         else:
             return ["sub", "div"]  # 兩種都可
 
-    def apply_diff(self, series, diff_type):
+    def apply_diff(self, series: pd.Series, diff_type: str) -> pd.Series:
         """應用差分"""
         if diff_type == "sub":
             diff = series.diff()
@@ -266,7 +275,9 @@ class PredictorLoader:
             raise ValueError("未知差分方式")
         return diff
 
-    def process_difference(self, data, predictor_col):
+    def process_difference(
+        self, data: pd.DataFrame, predictor_col: str
+    ) -> Tuple[pd.DataFrame, List[str], pd.Series]:
         """
         處理預測因子的差分選項 - 自動判斷並執行差分
 
@@ -322,7 +333,10 @@ class PredictorLoader:
             diff_col_map[diff_col_name_sub] = diff_series_sub
             diff_col_map[diff_col_name_div] = diff_series_div
             used_series = diff_series_sub
-            diff_msg = f"已產生減數差分欄位 {diff_col_name_sub} 和除數差分欄位 {diff_col_name_div}\n差分處理完成，新增欄位：{[col for col in diff_cols if col != predictor_col]}"
+            diff_msg = (
+                f"已產生減數差分欄位 {diff_col_name_sub} 和除數差分欄位 {diff_col_name_div}\n"
+                f"差分處理完成，新增欄位：{[col for col in diff_cols if col != predictor_col]}"
+            )
             console.print(
                 Panel(
                     diff_msg,
@@ -365,7 +379,7 @@ class PredictorLoader:
         )
         return df, diff_cols, used_series
 
-    def _identify_time_col(self, columns, file_path):
+    def _identify_time_col(self, columns: pd.Index, file_path: str) -> Optional[str]:
         """識別時間欄位，若自動識別失敗則詢問用戶"""
         time_candidates = ["time", "date", "timestamp", "Date", "Time", "Timestamp"]
         for col in columns:
@@ -402,7 +416,7 @@ class PredictorLoader:
                 )
             )
 
-    def _align_and_merge(self, predictor_data):
+    def _align_and_merge(self, predictor_data: pd.DataFrame) -> Optional[pd.DataFrame]:
         """與價格數據進行時間對齊並合併"""
         try:
             # 確保價格數據的 Time 為索引
