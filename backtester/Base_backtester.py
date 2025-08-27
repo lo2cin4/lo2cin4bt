@@ -697,8 +697,8 @@ class BaseBacktester:
                             (
                                 alias,
                                 "percentile_range",
-                                f"{alias}百分位 (可輸入單一值 或 開始值:結束值:間隔，留空預設 80:100:10)",
-                                "80:100:10",
+                                f"{alias}百分位 (可輸入單一值 或 開始值:結束值:間隔，留空預設 90:100:10)",
+                                "90:100:10",
                             )
                         )
                     elif alias in ["PERC2", "PERC3"]:
