@@ -104,20 +104,12 @@ import logging
 import numpy as np
 import pandas as pd
 
-# 優化：嘗試導入 Numba 進行 JIT 編譯加速
-try:
-    from numba import njit
-
-    NUMBA_AVAILABLE = True
-except ImportError:
-    NUMBA_AVAILABLE = False
-    print("Numba 未安裝，將使用標準 Python 計算。建議安裝 numba 以獲得更好的性能。")
+# 導入 Numba 進行 JIT 編譯加速
+from numba import njit
 
 # 核心算法：向量化 Numba 實現
-if NUMBA_AVAILABLE:
-
-    @njit(fastmath=True, cache=True)
-    def _vectorized_trade_simulation_njit(
+@njit(fastmath=True, cache=True)
+def _vectorized_trade_simulation_njit(
         entry_signals,
         exit_signals,
         close_prices,
@@ -164,10 +156,10 @@ if NUMBA_AVAILABLE:
                         current_close = close_prices[t]
                         ret = (current_close - prev_close) / prev_close * current_state
                     else:  # trade_price == 'open'
-                        # Open 交易：使用前一日收盤價到當日開盤價的收益率
-                        prev_close = close_prices[t - 1]
+                        # Open 交易：使用前一日開盤價到當日開盤價的收益率
+                        prev_open = open_prices[t - 1]
                         current_open = open_prices[t]
-                        ret = (current_open - prev_close) / prev_close * current_state
+                        ret = (current_open - prev_open) / prev_open * current_state
 
                     equity *= 1.0 + ret
                     returns[t, s] = ret
@@ -330,27 +322,19 @@ class TradeSimulator_backtester:
         Returns:
             dict: 包含向量化交易結果
         """
-        if NUMBA_AVAILABLE:
-            # 使用 Numba 加速的向量化交易模擬
-            positions, returns, trade_actions, equity_values = (
-                _vectorized_trade_simulation_njit(
-                    entry_signals_matrix,
-                    exit_signals_matrix,
-                    self.data["Close"].values.astype(np.float64),
-                    self.data["Open"].values.astype(np.float64),
-                    trading_params.get("transaction_cost", 0.001),
-                    trading_params.get("slippage", 0.0005),
-                    trading_params.get("trade_price", "close"),
-                    trading_params.get("trade_delay", 0),
-                )
+        # 使用 Numba 加速的向量化交易模擬
+        positions, returns, trade_actions, equity_values = (
+            _vectorized_trade_simulation_njit(
+                entry_signals_matrix,
+                exit_signals_matrix,
+                self.data["Close"].values.astype(np.float64),
+                self.data["Open"].values.astype(np.float64),
+                trading_params.get("transaction_cost", 0.001),
+                trading_params.get("slippage", 0.0005),
+                trading_params.get("trade_price", "close"),
+                trading_params.get("trade_delay", 0),
             )
-        else:
-            # 備用實現
-            positions, returns, trade_actions, equity_values = (
-                self._fallback_vectorized_simulation(
-                    entry_signals_matrix, exit_signals_matrix, trading_params
-                )
-            )
+        )
 
         return {
             "positions": positions,
@@ -359,89 +343,7 @@ class TradeSimulator_backtester:
             "equity_values": equity_values,
         }
 
-    def _fallback_vectorized_simulation(
-        self, entry_signals_matrix, exit_signals_matrix, trading_params
-    ):
-        """備用向量化交易模擬實現"""
-        n_time, n_strategies = entry_signals_matrix.shape
-        positions = np.zeros((n_time, n_strategies))
-        returns = np.zeros((n_time, n_strategies))
-        trade_actions = np.zeros((n_time, n_strategies))
-        equity_values = np.zeros((n_time, n_strategies))
 
-        transaction_cost = trading_params.get("transaction_cost", 0.001)
-        slippage = trading_params.get("slippage", 0.0005)
-        trade_price = trading_params.get("trade_price", "close")
-        trade_delay = trading_params.get("trade_delay", 0)
-
-        close_prices = self.data["Close"].values
-        open_prices = self.data["Open"].values
-
-        for s in range(n_strategies):
-            position = 0.0
-            equity = 1.0  # 初始權益
-
-            for t in range(n_time):
-                # 計算信號索引（考慮交易延遲）
-                signal_index = t - trade_delay
-                entry_sig = (
-                    entry_signals_matrix[signal_index, s]
-                    if 0 <= signal_index < n_time
-                    else 0.0
-                )
-                exit_sig = (
-                    exit_signals_matrix[signal_index, s]
-                    if 0 <= signal_index < n_time
-                    else 0.0
-                )
-
-                # 計算收益率（修正邏輯）
-                if t > 0 and position != 0.0:
-                    if trade_price == "close":
-                        # Close 交易：使用前一日收盤價到當日收盤價的收益率
-                        prev_close = close_prices[t - 1]
-                        current_close = close_prices[t]
-                        ret = (current_close - prev_close) / prev_close * position
-                    else:  # trade_price == 'open'
-                        # Open 交易：使用前一日收盤價到當日開盤價的收益率
-                        prev_close = close_prices[t - 1]
-                        current_open = open_prices[t]
-                        ret = (current_open - prev_close) / prev_close * position
-
-                    equity *= 1.0 + ret
-                    returns[t, s] = ret
-                else:
-                    returns[t, s] = 0.0
-
-                # 交易邏輯
-                if position == 0.0:
-                    if entry_sig == 1.0:  # 開多倉
-                        position = 1.0
-                        trade_actions[t, s] = 1
-                        # 扣除滑點與手續費
-                        equity *= (1.0 - slippage) * (1.0 - transaction_cost)
-                    elif entry_sig == -1.0:  # 開空倉
-                        position = -1.0
-                        trade_actions[t, s] = 1
-                        # 扣除滑點與手續費
-                        equity *= (1.0 - slippage) * (1.0 - transaction_cost)
-                elif position > 0.0:  # 持多倉
-                    if exit_sig == -1.0:  # 平多倉
-                        position = 0.0
-                        trade_actions[t, s] = 4
-                        # 扣除滑點與手續費
-                        equity *= (1.0 - slippage) * (1.0 - transaction_cost)
-                elif position < 0.0:  # 持空倉
-                    if exit_sig == 1.0:  # 平空倉
-                        position = 0.0
-                        trade_actions[t, s] = 4
-                        # 扣除滑點與手續費
-                        equity *= (1.0 - slippage) * (1.0 - transaction_cost)
-
-                positions[t, s] = position
-                equity_values[t, s] = equity * 100.0  # 轉換為百分比
-
-        return positions, returns, trade_actions, equity_values
 
     def generate_single_result(
         self,
@@ -490,13 +392,17 @@ class TradeSimulator_backtester:
             slippage_cost = 0.0
             holding_period = None
             trade_return = None
+            
+            # 根據trade_price設置當前時間點的價格（無論是否有交易動作）
+            trade_price = trading_params.get("trade_price", "close")
+            current_price = row["Open"] if trade_price == "open" else row["Close"]
 
             if trade_actions[i] == 1:  # 開倉
                 if position[i] > 0:
                     position_type = "new_long"
                 else:
                     position_type = "new_short"
-                open_position_price = row["Close"]
+                open_position_price = current_price
                 open_time = time_index
                 # 生成新的交易組ID
                 trade_group_id = f"T{str(uuid.uuid4())[:8]}"
@@ -509,7 +415,7 @@ class TradeSimulator_backtester:
                 slippage_cost = trading_params.get("slippage", 0.0005)
                 holding_period_count = 0
             elif trade_actions[i] == 4:  # 平倉
-                close_position_price = row["Close"]
+                close_position_price = current_price
                 close_time = time_index
                 # 補上平倉時的 Position_type
                 if i > 0:
