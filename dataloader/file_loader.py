@@ -233,13 +233,10 @@ class FileLoader(AbstractDataLoader):
                 )
                 return selected_file
 
-            self.console.print(
-                "[bold #dbac30]請選擇文件編號（1-{}，預設1）：[/bold #dbac30]".format(
-                    len(available_files)
-                )
-            )
             try:
-                choice_input = input().strip()
+                choice_input = self.get_user_input(
+                    f"請選擇文件編號（1-{len(available_files)}，預設1）", "1"
+                ).strip()
                 choice = int(choice_input) if choice_input else 1
                 if 1 <= choice <= len(available_files):
                     selected_file = available_files[choice - 1]
@@ -254,10 +251,10 @@ class FileLoader(AbstractDataLoader):
         """要求用戶輸入完整文件路徑
         返回: str - 文件路徑或 None
         """
-        self.console.print(
-            "[bold #dbac30]請輸入文件名稱（例如 D:/Python/data.xlsx 或 D:/Python/data.csv，按Enter跳過）：[/bold #dbac30]"
-        )
-        file_name = input().strip()
+        file_name = self.get_user_input(
+            "請輸入文件名稱（例如 D:/Python/data.xlsx 或 D:/Python/data.csv，按Enter跳過）",
+            "",
+        ).strip()
         if not file_name:
             self.show_info("跳過文件路徑輸入")
             return None
@@ -280,10 +277,11 @@ class FileLoader(AbstractDataLoader):
 
         # 處理 volume 欄位（可選）
         if "Volume" not in data.columns:  # 使用 pandas 的 columns 屬性檢查
-            self.console.print(
-                "[bold #dbac30]數據缺少 Volume 欄位，是否填充內容？(y/n)：[/bold #dbac30]"
-            )
-            choice = input().strip().lower()  # 標準 Python 輸入
+            choice = (
+                self.get_user_input("數據缺少 Volume 欄位，是否填充內容？(y/n)", None)
+                .strip()
+                .lower()
+            )  # 標準 Python 輸入
             if choice == "y":
                 data["Volume"] = pd.NA  # 使用 pandas 的 pd.NA 填充
             else:

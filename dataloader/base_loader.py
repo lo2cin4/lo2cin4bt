@@ -126,15 +126,25 @@ class AbstractDataLoader(ABC):
         )
 
     def get_user_input(self, prompt: str, default: Optional[str] = None) -> str:
-        """Get user input with optional default value"""
-        if default:
-            self.console.print(
-                f"[bold #dbac30]{prompt}（預設 {default}）：[/bold #dbac30]"
-            )
-            return input().strip() or default
-        else:
-            self.console.print(f"[bold #dbac30]{prompt}：[/bold #dbac30]")
-            return input().strip()
+        """Get user input with optional default value
+
+        Args:
+            prompt: The prompt message to display. If empty, no prompt is shown.
+            default: Optional default value if user provides no input.
+
+        Returns:
+            User input string, or default if provided and user enters nothing.
+        """
+        if prompt:  # Only print if prompt is not empty
+            if default:
+                self.console.print(
+                    f"[bold #dbac30]{prompt}（預設 {default}）：[/bold #dbac30]"
+                )
+            else:
+                self.console.print(f"[bold #dbac30]{prompt}：[/bold #dbac30]")
+
+        user_input = input().strip()
+        return user_input if user_input else (default or user_input)
 
     def get_date_range(
         self, default_start: str = "2020-01-01", default_end: Optional[str] = None
