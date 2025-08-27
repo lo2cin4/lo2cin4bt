@@ -53,22 +53,15 @@ from typing import Optional, Tuple
 
 import pandas as pd
 import requests
-from rich.console import Console
-from rich.panel import Panel
-from rich.text import Text
 
+from .base_loader import AbstractDataLoader
 from .calculator_loader import ReturnCalculator
 
-console = Console()
 
-
-class CoinbaseLoader:
+class CoinbaseLoader(AbstractDataLoader):
     def load(self) -> Tuple[Optional[pd.DataFrame], str]:
         """從 Coinbase API 載入數據"""
-        console.print(
-            "[bold #dbac30]請輸入交易對（例如 BTC-USD，預設 BTC-USD）：[/bold #dbac30]"
-        )
-        symbol = input().strip() or "BTC-USD"
+        symbol = self.get_user_input("請輸入交易對（例如 BTC-USD", "BTC-USD")
 
         # Coinbase 支援的時間間隔
         interval_map = {
@@ -80,35 +73,18 @@ class CoinbaseLoader:
             "1d": 86400,
         }
 
-        console.print(
-            "[bold #dbac30]輸入價格數據的周期 (1m, 5m, 15m, 1h, 6h, 1d，預設 1d)：[/bold #dbac30]"
+        interval_input = self.get_user_input(
+            "輸入價格數據的周期 (1m, 5m, 15m, 1h, 6h, 1d", "1d"
         )
-        interval_input = input().strip() or "1d"
 
         if interval_input not in interval_map:
-            console.print(
-                Panel(
-                    f"❌ 不支援的時間周期 '{interval_input}'，將使用預設值 1d",
-                    title=Text("⚠️ 數據載入警告", style="bold #8f1511"),
-                    border_style="#8f1511",
-                )
-            )
+            self.show_warning(f"不支援的時間周期 '{interval_input}'，將使用預設值 1d")
             interval_input = "1d"
 
         granularity = interval_map[interval_input]
 
-        # 預設開始日期為 2020-01-01，結束日期為運行當日
-        default_start = "2020-01-01"
-        default_end = datetime.now().strftime("%Y-%m-%d")
-
-        console.print(
-            f"[bold #dbac30]請輸入開始日期（例如 2023-01-01，預設 {default_start}）：[/bold #dbac30]"
-        )
-        start_date_str = input().strip() or default_start
-        console.print(
-            f"[bold #dbac30]請輸入結束日期（例如 2023-12-31，預設 {default_end}）：[/bold #dbac30]"
-        )
-        end_date_str = input().strip() or default_end
+        # 獲取日期範圍
+        start_date_str, end_date_str = self.get_date_range()
 
         try:
             # 轉換日期為 timestamp
@@ -126,13 +102,7 @@ class CoinbaseLoader:
 
             current_start = start_date
 
-            console.print(
-                Panel(
-                    f"正在從 Coinbase 下載 {symbol} 數據...",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
-            )
+            self.show_info(f"正在從 Coinbase 下載 {symbol} 數據...")
 
             while current_start < end_date:
                 current_end = min(
@@ -152,12 +122,8 @@ class CoinbaseLoader:
                 response = requests.get(url, params=params)
 
                 if response.status_code != 200:
-                    console.print(
-                        Panel(
-                            f"❌ API 請求失敗：{response.status_code} - {response.text}",
-                            title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                            border_style="#8f1511",
-                        )
+                    self.show_error(
+                        f"API 請求失敗：{response.status_code} - {response.text}"
                     )
                     return None, interval_input
 
@@ -170,13 +136,7 @@ class CoinbaseLoader:
                 current_start = current_end
 
             if not all_data:
-                console.print(
-                    Panel(
-                        f"❌ 無法獲取 '{symbol}' 的數據",
-                        title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                        border_style="#8f1511",
-                    )
-                )
+                self.show_error(f"無法獲取 '{symbol}' 的數據")
                 return None, interval_input
 
             # 轉換為 DataFrame
@@ -216,35 +176,11 @@ class CoinbaseLoader:
             data = calculator.calculate_returns()
 
             # 檢查缺失值
-            missing_msgs = []
-            for col in ["Open", "High", "Low", "Close", "Volume"]:
-                missing_ratio = data[col].isna().mean()
-                missing_msgs.append(f"{col} 缺失值比例：{missing_ratio:.2%}")
-
-            console.print(
-                Panel(
-                    "\n".join(missing_msgs),
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
-            )
-
-            console.print(
-                Panel(
-                    f"從 Coinbase 載入 '{symbol}' 成功，行數：{len(data)}",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
-            )
+            self.display_missing_values(data)
+            self.show_success(f"從 Coinbase 載入 '{symbol}' 成功，行數：{len(data)}")
 
             return data, interval_input
 
         except Exception as e:
-            console.print(
-                Panel(
-                    f"❌ {e}",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+            self.show_error(str(e))
             return None, interval_input
