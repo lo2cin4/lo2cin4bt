@@ -4,6 +4,10 @@ Test suite for dataloader module
 Tests the AbstractDataLoader base class and common functionality
 that all data loaders should inherit.
 """
+import sys
+import os
+# 添加專案根目錄到 Python 路徑
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from typing import Optional, Tuple
 from unittest.mock import Mock, patch
