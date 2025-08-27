@@ -48,43 +48,21 @@ flowchart TD
 - 專案 README
 """
 
-from datetime import datetime
 from typing import Optional, Tuple
 
 import pandas as pd
 from binance.client import Client
-from rich.console import Console
-from rich.panel import Panel
 
+from .base_loader import AbstractDataLoader
 from .calculator_loader import ReturnCalculator
 
-console = Console()
 
-
-class BinanceLoader:
+class BinanceLoader(AbstractDataLoader):
     def load(self) -> Tuple[Optional[pd.DataFrame], str]:
         """從 Binance API 載入數據"""
-        console.print(
-            "[bold #dbac30]請輸入交易對（例如 BTCUSDT，預設 BTCUSDT）：[/bold #dbac30]"
-        )
-        symbol = input().strip() or "BTCUSDT"
-        console.print(
-            "[bold #dbac30]輸入價格數據的周期 (例如 1d 代替日線，1h 代表 1小時線，預設 1d)：[/bold #dbac30]"
-        )
-        interval = input().strip() or "1d"
-
-        # 預設開始日期為 2020-01-01，結束日期為運行當日
-        default_start = "2020-01-01"
-        default_end = datetime.now().strftime("%Y-%m-%d")
-
-        console.print(
-            f"[bold #dbac30]請輸入開始日期（例如 2023-01-01，預設 {default_start}）：[/bold #dbac30]"
-        )
-        start_date = input().strip() or default_start
-        console.print(
-            f"[bold #dbac30]請輸入結束日期（例如 2023-12-31，預設 {default_end}）：[/bold #dbac30]"
-        )
-        end_date = input().strip() or default_end
+        symbol = self.get_user_input("請輸入交易對（例如 BTCUSDT", "BTCUSDT")
+        interval = self.get_frequency("1d")
+        start_date, end_date = self.get_date_range()
 
         try:
             # 使用無憑證的 Client
@@ -93,13 +71,7 @@ class BinanceLoader:
                 symbol, interval, start_date, end_date
             )
             if not klines:
-                console.print(
-                    Panel(
-                        f"❌ 無法獲取 '{symbol}' 的數據",
-                        title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                        border_style="#8f1511",
-                    )
-                )
+                self.show_error(f"無法獲取 '{symbol}' 的數據")
                 return None, interval
 
             # 轉換為 DataFrame
@@ -149,33 +121,9 @@ class BinanceLoader:
             data = calculator.calculate_returns()
 
             # 檢查缺失值
-            # 缺失值比例 Panel
-            missing_msgs = []
-            for col in ["Open", "High", "Low", "Close", "Volume"]:
-                missing_ratio = data[col].isna().mean()
-                missing_msgs.append(f"{col} 缺失值比例：{missing_ratio:.2%}")
-            console.print(
-                Panel(
-                    "\n".join(missing_msgs),
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
-            )
-
-            console.print(
-                Panel(
-                    f"從 Binance 載入 '{symbol}' 成功，行數：{len(data)}",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
-            )
+            self.display_missing_values(data)
+            self.show_success(f"從 Binance 載入 '{symbol}' 成功，行數：{len(data)}")
             return data, interval
         except Exception as err:  # pylint: disable=broad-exception-caught
-            console.print(
-                Panel(
-                    f"❌ {err}",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+            self.show_error(str(err))
             return None, interval
