@@ -62,6 +62,8 @@ flowchart TD
 """
 
 import logging
+from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import List, Optional, Tuple, Union
 
 import pandas as pd
@@ -71,17 +73,170 @@ from rich.text import Text
 
 from dataloader.validator_loader import print_dataframe_table
 
-# 自定義模組：從各種數據源載入數據
-from .binance_loader import BinanceLoader  # Binance API
-from .calculator_loader import ReturnCalculator  # 收益率計算
-from .coinbase_loader import CoinbaseLoader  # Coinbase API
-from .data_exporter_loader import DataExporter  # 數據導出
-from .file_loader import FileLoader  # Excel/CSV 文件
-from .predictor_loader import PredictorLoader  # 預測因子
-from .validator_loader import DataValidator  # 數據驗證
-from .yfinance_loader import YahooFinanceLoader  # Yahoo Finance
-
 console = Console()
+
+
+class AbstractDataLoader(ABC):
+    """Abstract base class for all data loaders with common functionality"""
+
+    def __init__(self) -> None:
+        self.console = Console()
+        self.panel_title = "[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]"
+        self.panel_error_style = "#8f1511"
+        self.panel_success_style = "#dbac30"
+
+    def show_error(self, message: str) -> None:
+        """Display error message in standardised panel"""
+        self.console.print(
+            Panel(
+                f"❌ {message}",
+                title=self.panel_title,
+                border_style=self.panel_error_style,
+            )
+        )
+
+    def show_success(self, message: str) -> None:
+        """Display success message in standardised panel"""
+        self.console.print(
+            Panel(
+                message,
+                title=self.panel_title,
+                border_style=self.panel_success_style,
+            )
+        )
+
+    def show_warning(self, message: str) -> None:
+        """Display warning message in standardised panel"""
+        self.console.print(
+            Panel(
+                f"⚠️ {message}",
+                title=self.panel_title,
+                border_style=self.panel_error_style,
+            )
+        )
+
+    def show_info(self, message: str) -> None:
+        """Display informational message in standardised panel"""
+        self.console.print(
+            Panel(
+                message,
+                title=self.panel_title,
+                border_style=self.panel_success_style,
+            )
+        )
+
+    def get_user_input(self, prompt: str, default: Optional[str] = None) -> str:
+        """Get user input with optional default value"""
+        if default:
+            self.console.print(
+                f"[bold #dbac30]{prompt}（預設 {default}）：[/bold #dbac30]"
+            )
+            return input().strip() or default
+        else:
+            self.console.print(f"[bold #dbac30]{prompt}：[/bold #dbac30]")
+            return input().strip()
+
+    def get_date_range(
+        self, default_start: str = "2020-01-01", default_end: Optional[str] = None
+    ) -> Tuple[str, str]:
+        """Get date range from user input with defaults"""
+        if default_end is None:
+            default_end = datetime.now().strftime("%Y-%m-%d")
+
+        start_date = self.get_user_input(
+            f"請輸入開始日期（例如 {default_start}", default_start
+        )
+        end_date = self.get_user_input(
+            f"請輸入結束日期（例如 {default_end}", default_end
+        )
+
+        return start_date, end_date
+
+    def get_frequency(self, default: str = "1d") -> str:
+        """Get data frequency from user input"""
+        return self.get_user_input(
+            "輸入價格數據的周期 (例如 1d 代替日線，1h 代表 1小時線", default
+        )
+
+    def display_missing_values(
+        self, data: pd.DataFrame, columns: Optional[List[str]] = None
+    ) -> None:
+        """Display missing value statistics for specified columns"""
+        if columns is None:
+            columns = ["Open", "High", "Low", "Close", "Volume"]
+
+        missing_msgs = []
+        for col in columns:
+            if col in data.columns:
+                missing_ratio = data[col].isna().mean()
+                missing_msgs.append(f"{col} 缺失值比例：{missing_ratio:.2%}")
+
+        if missing_msgs:
+            self.console.print(
+                Panel(
+                    "\n".join(missing_msgs),
+                    title=self.panel_title,
+                    border_style=self.panel_success_style,
+                )
+            )
+
+    def standardize_columns(self, data: pd.DataFrame) -> pd.DataFrame:
+        """Standardize column names to expected format"""
+        col_map = {}
+        for col in data.columns:
+            col_lower = str(col).lower()
+            if col_lower in ["date", "time", "timestamp", "datetime"]:
+                col_map[col] = "Time"
+            elif col_lower in ["open", "o"]:
+                col_map[col] = "Open"
+            elif col_lower in ["high", "h"]:
+                col_map[col] = "High"
+            elif col_lower in ["low", "l"]:
+                col_map[col] = "Low"
+            elif col_lower in ["close", "c"]:
+                col_map[col] = "Close"
+            elif col_lower in ["volume", "vol", "v"]:
+                col_map[col] = "Volume"
+
+        return data.rename(columns=col_map)
+
+    def ensure_required_columns(
+        self, data: pd.DataFrame, required_cols: Optional[List[str]] = None
+    ) -> pd.DataFrame:
+        """Ensure all required columns exist in dataframe"""
+        if required_cols is None:
+            required_cols = ["Time", "Open", "High", "Low", "Close", "Volume"]
+
+        missing_cols = [col for col in required_cols if col not in data.columns]
+
+        if missing_cols:
+            self.show_warning(f"缺少欄位 {missing_cols}，將設為缺失值")
+            for col in missing_cols:
+                data[col] = pd.NA
+
+        # Keep only required columns
+        return data[required_cols]
+
+    def convert_numeric_columns(
+        self, data: pd.DataFrame, numeric_cols: Optional[List[str]] = None
+    ) -> pd.DataFrame:
+        """Convert specified columns to numeric types"""
+        if numeric_cols is None:
+            numeric_cols = ["Open", "High", "Low", "Close", "Volume"]
+
+        for col in numeric_cols:
+            if col in data.columns:
+                try:
+                    data[col] = pd.to_numeric(data[col], errors="coerce")
+                except Exception as e:
+                    self.show_warning(f"無法轉換欄位 '{col}' 為數值：{e}")
+                    data[col] = pd.NA
+
+        return data
+
+    @abstractmethod
+    def load(self) -> Tuple[Optional[pd.DataFrame], str]:
+        """Abstract method that must be implemented by all subclasses"""
 
 
 class BaseDataLoader:
@@ -174,6 +329,8 @@ class BaseDataLoader:
             break
 
         # 進行差分處理
+        from .predictor_loader import PredictorLoader
+
         predictor_loader = PredictorLoader(data)
         data, diff_cols, used_series = predictor_loader.process_difference(
             data, predictor_col
@@ -245,12 +402,20 @@ class BaseDataLoader:
             # 載入價格數據
             while True:
                 if self.source == "1":
+                    from .file_loader import FileLoader
+
                     loader = FileLoader()
                 elif self.source == "2":
+                    from .yfinance_loader import YahooFinanceLoader
+
                     loader = YahooFinanceLoader()
                 elif self.source == "3":
+                    from .binance_loader import BinanceLoader
+
                     loader = BinanceLoader()
                 else:
+                    from .coinbase_loader import CoinbaseLoader
+
                     loader = CoinbaseLoader()
 
                 self.data, self.frequency = loader.load()
@@ -260,6 +425,8 @@ class BaseDataLoader:
                 return self.run()
 
             # 驗證和清洗價格數據
+            from .validator_loader import DataValidator
+
             validator = DataValidator(self.data)
             self.data = validator.validate_and_clean()
             if self.data is None:
@@ -273,12 +440,16 @@ class BaseDataLoader:
                 return None
 
             # 計算收益率
+            from .calculator_loader import ReturnCalculator
+
             calculator = ReturnCalculator(self.data)
             self.data = calculator.calculate_returns()
             price_data = self.data
 
             # 價格數據載入完成 Panel
-            print_dataframe_table(self.data.head(), title="價格數據載入完成，概覽")
+            print_dataframe_table(
+                self.data.head(), title="價格數據載入完成，概覽"  # type: ignore[union-attr]
+            )
 
             # Step 2: 輸入預測因子
             self._print_step_panel(
@@ -292,6 +463,8 @@ class BaseDataLoader:
             )
 
             # 載入預測因子數據
+            from .predictor_loader import PredictorLoader
+
             predictor_loader = PredictorLoader(price_data=price_data)
             predictor_data = predictor_loader.load()
 
@@ -315,6 +488,8 @@ class BaseDataLoader:
                 self.data = price_data
 
             # 重新驗證合併數據
+            from .validator_loader import DataValidator
+
             validator = DataValidator(self.data)
             self.data = validator.validate_and_clean()
             if self.data is None:
@@ -345,6 +520,8 @@ class BaseDataLoader:
             )
             export_choice = input().strip().lower() or "n"
             if export_choice == "y":
+                from .data_exporter_loader import DataExporter
+
                 exporter = DataExporter(self.data)
                 exporter.export()
             else:
