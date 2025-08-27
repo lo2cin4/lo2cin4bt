@@ -24,11 +24,11 @@
 ```plaintext
 dataloader/
 ├── __init__.py
-├── base_loader.py            # 數據載入基底類，定義統一介面
-├── binance_loader.py         # Binance API 數據載入
-├── coinbase_loader.py        # Coinbase API 數據載入
-├── yfinance_loader.py        # Yahoo Finance 數據載入
-├── file_loader.py            # 本地 Excel/CSV 數據載入
+├── base_loader.py            # 抽象基底類 & 主協調器
+├── binance_loader.py         # Binance API 數據載入（繼承 AbstractDataLoader）
+├── coinbase_loader.py        # Coinbase API 數據載入（繼承 AbstractDataLoader）
+├── yfinance_loader.py        # Yahoo Finance 數據載入（繼承 AbstractDataLoader）
+├── file_loader.py            # 本地 Excel/CSV 數據載入（繼承 AbstractDataLoader）
 ├── calculator_loader.py      # 技術指標/衍生欄位計算
 ├── predictor_loader.py       # 預測因子/特徵工程處理
 ├── validator_loader.py       # 數據驗證與清洗
@@ -36,11 +36,11 @@ dataloader/
 ├── README.md                 # 本文件
 ```
 
-- **base_loader.py**：定義所有數據來源載入器的抽象基底類與介面規範
-- **binance_loader.py**：連接 Binance API，下載多頻率行情數據
-- **coinbase_loader.py**：連接 Coinbase API，下載多頻率行情數據
-- **yfinance_loader.py**：連接 Yahoo Finance API，下載行情數據
-- **file_loader.py**：讀取本地 Excel/CSV，欄位標準化
+- **base_loader.py**：包含 `AbstractDataLoader` 抽象基底類（提供共用方法）和 `BaseDataLoader`/`DataLoader` 主協調器
+- **binance_loader.py**：繼承 `AbstractDataLoader`，連接 Binance API，下載多頻率行情數據
+- **coinbase_loader.py**：繼承 `AbstractDataLoader`，連接 Coinbase API，下載多頻率行情數據
+- **yfinance_loader.py**：繼承 `AbstractDataLoader`，連接 Yahoo Finance API，下載行情數據
+- **file_loader.py**：繼承 `AbstractDataLoader`，讀取本地 Excel/CSV，欄位標準化
 - **calculator_loader.py**：批次計算技術指標、收益率等衍生欄位
 - **predictor_loader.py**：載入、對齊、合併外部預測因子，支援特徵工程
 - **validator_loader.py**：多層次數據驗證、型態與缺失值處理
@@ -52,8 +52,15 @@ dataloader/
 
 ### 1. base_loader.py
 
-- **功能**：定義數據載入器的標準介面與繼承規範
-- **主要處理**：規範 load_data、validate_data 等方法，所有子類必須實作
+- **功能**：提供抽象基底類 `AbstractDataLoader` 和主協調器 `BaseDataLoader`/`DataLoader`
+- **AbstractDataLoader 共用方法**：
+  - `show_error()`, `show_success()`, `show_warning()`, `show_info()` - 統一的訊息顯示
+  - `get_user_input()`, `get_date_range()`, `get_frequency()` - 統一的使用者輸入
+  - `display_missing_values()` - 缺失值統計顯示
+  - `standardize_columns()` - 欄位名稱標準化
+  - `ensure_required_columns()` - 確保必要欄位存在
+  - `convert_numeric_columns()` - 欄位數值型態轉換
+- **主要處理**：定義 `load()` 抽象方法，所有子類必須實作
 - **輸入**：數據來源參數
 - **輸出**：標準化 DataFrame
 
@@ -114,8 +121,15 @@ flowchart TD
 
 ## 主要類別與方法（Key Classes & Methods）
 
-- `DataLoader`：主流程協調器，互動式選擇數據來源、載入、驗證、合併、導出
-- `FileLoader` / `BinanceLoader` / `CoinbaseLoader` / `YahooFinanceLoader`：各自負責不同來源的行情數據載入
+- `AbstractDataLoader`：**抽象基底類**，提供所有數據載入器的共用功能
+  - 統一的 UI 訊息顯示（error, success, warning, info）
+  - 標準化的使用者輸入處理
+  - 通用的數據處理方法（欄位標準化、型態轉換等）
+- `BaseDataLoader` / `DataLoader`：主流程協調器，互動式選擇數據來源、載入、驗證、合併、導出
+- `FileLoader` / `BinanceLoader` / `CoinbaseLoader` / `YahooFinanceLoader`：
+  - **皆繼承自 `AbstractDataLoader`**
+  - 各自實作 `load()` 方法，負責不同來源的行情數據載入
+  - 自動享有基底類的所有共用方法
 - `PredictorLoader`：載入並合併外部預測因子
 - `DataValidator`：欄位、型態、缺失值、時間序列驗證與清洗
 - `ReturnCalculator`：自動計算 open/close return、logreturn 等欄位
@@ -125,13 +139,17 @@ flowchart TD
 
 ## 維護重點（Maintenance Notes）
 
-- 新增/修改數據來源、欄位、格式時，**務必同步更新 base_loader 及所有依賴子類**
-- 所有互動式 input() 需有預設值與錯誤提示，避免 crash
+- **新增數據載入器時**，必須繼承 `AbstractDataLoader` 並實作 `load()` 方法
+- **修改共用功能時**，只需更新 `AbstractDataLoader` 基底類，所有子類自動享有更新
+- 新增/修改數據來源、欄位、格式時，**務必同步更新相關類別**
+- 所有互動式 input() 應使用基底類的 `get_user_input()` 方法，確保一致性
 - 欄位名稱、型態、時間格式需全模組統一（如 'Time', 'Open', 'Close' 等）
 - 每次擴充功能、格式、驗證規則時，請同步更新本 README 與頂部註解
 - 若有下游依賴（如 BacktestEngine、metricstracker），需同步檢查數據流與欄位對應
 
 ## 範例流程（Example Workflow）
+
+### 使用主協調器（推薦）
 
 ```python
 from dataloader.base_loader import DataLoader
@@ -140,16 +158,28 @@ dataloader = DataLoader()
 data = dataloader.load_data()  # 互動式選擇來源、驗證、合併、導出
 ```
 
+### 直接使用特定載入器
+
+```python
+from dataloader.binance_loader import BinanceLoader
+from dataloader.yfinance_loader import YahooFinanceLoader
+
+# 所有載入器都繼承自 AbstractDataLoader，享有統一的介面和方法
+loader = BinanceLoader()  # 或 YahooFinanceLoader(), FileLoader(), CoinbaseLoader()
+data, frequency = loader.load()  # 回傳 (DataFrame, frequency) tuple
+```
+
 ---
 
 ## 技術備註（Technical Notes）
 
+- **繼承架構**：所有數據載入器皆繼承自 `AbstractDataLoader`，確保介面一致性
 - **欄位標準化**：所有行情數據欄位統一為 'Time', 'Open', 'High', 'Low', 'Close', 'Volume'
 - **技術指標**：自動計算 open_return, close_return, open_logreturn, close_logreturn
 - **預測因子**：支援 Excel/CSV，時間欄位自動對齊，支援差分處理
 - **驗證規則**：型態、缺失值、重複值、時間序列完整性
 - **導出格式**：CSV、Excel（.xlsx）、JSON，統一導出至 records 目錄
-- **依賴套件**：pandas, numpy, openpyxl, yfinance, binance, numba
+- **依賴套件**：pandas, numpy, openpyxl, yfinance, binance, numba, rich（用於統一 UI）
 
 ---
 
