@@ -52,16 +52,15 @@ import os  # 用於檢查文件是否存在（os.path.exists）
 from typing import List, Optional, Tuple
 
 import pandas as pd  # 用於讀取 Excel/CSV 文件、數據處理（如重命名欄位、填充缺失值）
-from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
 from dataloader.validator_loader import print_dataframe_table
 
-console = Console()
+from .base_loader import AbstractDataLoader
 
 
-class FileLoader:
+class FileLoader(AbstractDataLoader):
     def load(self) -> Tuple[Optional[pd.DataFrame], str]:
         """從 Excel 或 CSV 文件載入數據
         使用模組:
@@ -107,38 +106,28 @@ class FileLoader:
             import_dir: 預設目錄路徑
         返回: 文件路徑或 None
         """
-        console.print(
+        self.console.print(
             Panel(
                 "[bold white]請選擇文件來源：\n1. 從預設目錄選擇文件\n2. 輸入完整文件路徑[/bold white]",
-                title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                border_style="#dbac30",
+                title=self.panel_title,
+                border_style=self.panel_success_style,
             )
         )
 
         while True:
-            console.print("[bold #dbac30]請選擇（1 或 2，預設1）：[/bold #dbac30]")
-            source_choice = input().strip() or "1"
+            source_choice = self.get_user_input("請選擇（1 或 2", "1")
             if source_choice == "1":
                 return self._select_from_directory(available_files, import_dir)
             elif source_choice == "2":
                 return self._input_file_path()
             else:
-                console.print(
-                    Panel(
-                        "❌ 請輸入 1 或 2",
-                        title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                        border_style="#8f1511",
-                    )
-                )
+                self.show_error("請輸入 1 或 2")
 
     def _get_frequency(self) -> str:
         """獲取數據頻率設定
         返回: 頻率字符串
         """
-        console.print(
-            "[bold #dbac30]輸入價格數據的周期 (例如 1d 代替日線，1h 代表 1小時線，預設 1d)：[/bold #dbac30]"
-        )
-        return input().strip() or "1d"
+        return self.get_frequency("1d")
 
     def _read_and_process_file(
         self, file_name: str, frequency: str
@@ -152,7 +141,7 @@ class FileLoader:
         try:
             # 檢查文件是否存在
             if not os.path.exists(file_name):
-                self._show_error_panel(f"❌ 找不到文件 '{file_name}'")
+                self.show_error(f"找不到文件 '{file_name}'")
                 return None
 
             # 讀取文件
@@ -161,14 +150,14 @@ class FileLoader:
                 return None
 
             # 標準化欄位名稱
-            data = self._standardize_columns(data)
+            data = self.standardize_columns(data)
 
             # 顯示成功信息
             self._show_success_info(data)
             return data, frequency
 
         except Exception as e:
-            self._show_error_panel(f"❌ 讀取文件時出錯：{e}")
+            self.show_error(f"讀取文件時出錯：{e}")
             return None
 
     def _read_file(self, file_name: str) -> Optional[pd.DataFrame]:
@@ -182,21 +171,8 @@ class FileLoader:
         elif file_name.endswith(".csv"):
             return pd.read_csv(file_name)
         else:
-            self._show_error_panel("❌ 僅支援 .xlsx 或 .csv 文件")
+            self.show_error("僅支援 .xlsx 或 .csv 文件")
             return None
-
-    def _show_error_panel(self, message: str) -> None:
-        """顯示錯誤信息面板
-        參數:
-            message: 錯誤信息
-        """
-        console.print(
-            Panel(
-                message,
-                title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                border_style="#8f1511",
-            )
-        )
 
     def _show_success_info(self, data: pd.DataFrame) -> None:
         """顯示成功載入信息
@@ -204,13 +180,7 @@ class FileLoader:
             data: 載入的數據
         """
         print_dataframe_table(data.head(), title="數據加載成功，預覽（前5行）")
-        console.print(
-            Panel(
-                f"數據加載成功，行數：{len(data)}",
-                title="[bold #8f1511]📁 FileLoader[/bold #8f1511]",
-                border_style="#dbac30",
-            )
-        )
+        self.show_success(f"數據加載成功，行數：{len(data)}")
 
     def _get_available_files(self, directory: str) -> List[str]:
         """檢測目錄內可用的 xlsx 和 csv 文件
@@ -252,22 +222,18 @@ class FileLoader:
             file_type = "Excel" if file_path.endswith(".xlsx") else "CSV"
             table.add_row(str(i), file_name, file_type)
 
-        console.print(table)
+        self.console.print(table)
 
         while True:
             # 如果只有一個文件，自動選擇
             if len(available_files) == 1:
                 selected_file = available_files[0]
-                console.print(
-                    Panel(
-                        f"✅ 自動選擇唯一文件：{os.path.basename(selected_file)}",
-                        title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                        border_style="#dbac30",
-                    )
+                self.show_success(
+                    f"自動選擇唯一文件：{os.path.basename(selected_file)}"
                 )
                 return selected_file
 
-            console.print(
+            self.console.print(
                 "[bold #dbac30]請選擇文件編號（1-{}，預設1）：[/bold #dbac30]".format(
                     len(available_files)
                 )
@@ -277,76 +243,30 @@ class FileLoader:
                 choice = int(choice_input) if choice_input else 1
                 if 1 <= choice <= len(available_files):
                     selected_file = available_files[choice - 1]
-                    console.print(
-                        Panel(
-                            f"✅ 已選擇：{os.path.basename(selected_file)}",
-                            title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                            border_style="#dbac30",
-                        )
-                    )
+                    self.show_success(f"已選擇：{os.path.basename(selected_file)}")
                     return selected_file
                 else:
-                    console.print(
-                        Panel(
-                            f"❌ 請輸入 1-{len(available_files)} 之間的數字",
-                            title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                            border_style="#8f1511",
-                        )
-                    )
+                    self.show_error(f"請輸入 1-{len(available_files)} 之間的數字")
             except ValueError:
-                console.print(
-                    Panel(
-                        "❌ 請輸入有效的數字",
-                        title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                        border_style="#8f1511",
-                    )
-                )
+                self.show_error("請輸入有效的數字")
 
     def _input_file_path(self) -> Optional[str]:
         """要求用戶輸入完整文件路徑
         返回: str - 文件路徑或 None
         """
-        console.print(
+        self.console.print(
             "[bold #dbac30]請輸入文件名稱（例如 D:/Python/data.xlsx 或 D:/Python/data.csv，按Enter跳過）：[/bold #dbac30]"
         )
         file_name = input().strip()
         if not file_name:
-            console.print(
-                Panel(
-                    "ℹ️ 跳過文件路徑輸入",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+            self.show_info("跳過文件路徑輸入")
             return None
         return file_name
 
     def _standardize_columns(self, data: pd.DataFrame) -> pd.DataFrame:
-        """將數據欄位標準化為 Time, Open, High, Low, Close, Volume
-        使用模組:
-            - pandas (pd): 欄位重命名（rename）、缺失值填充（pd.NA）、數據處理
-        參數:
-            data: pandas DataFrame - 輸入的數據
-        功能: 將輸入數據的欄位名稱映射為標準名稱，檢查必要欄位並處理缺失值
-        返回: 標準化後的 pandas DataFrame
-        """
-        # 定義欄位名稱映射
-        col_map = {
-            "Time": ["time", "date", "timestamp", "Time", "Date", "Timestamp"],
-            "Open": ["open", "o", "Open", "O"],
-            "High": ["high", "h", "High", "H"],
-            "Low": ["low", "l", "Low", "L"],
-            "Close": ["close", "c", "Close", "C"],
-            "Volume": ["volume", "vol", "Volume", "Vol"],
-        }
-        new_cols = {}
-        # 遍歷映射，查找現有欄位並重命名
-        for std_col, aliases in col_map.items():
-            for alias in aliases:
-                if alias in data.columns:  # 使用 pandas 的 columns 屬性檢查
-                    new_cols[alias] = std_col
-                    break
-        data = data.rename(columns=new_cols)  # 使用 pandas 的 rename 方法重命名欄位
+        """將數據欄位標準化為 Time, Open, High, Low, Close, Volume - now delegates to base class"""
+        # First use base class standardization
+        data = super().standardize_columns(data)
 
         # 檢查必要欄位
         required_cols = ["Time", "Open", "High", "Low", "Close"]
@@ -354,19 +274,13 @@ class FileLoader:
             col for col in required_cols if col not in data.columns
         ]  # 標準 Python 列表推導式，檢查 pandas columns
         if missing_cols:
-            console.print(
-                Panel(
-                    f"⚠️ 缺少欄位 {missing_cols}，將從用戶輸入補充",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+            self.show_warning(f"缺少欄位 {missing_cols}，將從用戶輸入補充")
             for col in missing_cols:
                 data[col] = pd.NA  # 使用 pandas 的 pd.NA 填充缺失欄位
 
         # 處理 volume 欄位（可選）
         if "Volume" not in data.columns:  # 使用 pandas 的 columns 屬性檢查
-            console.print(
+            self.console.print(
                 "[bold #dbac30]數據缺少 Volume 欄位，是否填充內容？(y/n)：[/bold #dbac30]"
             )
             choice = input().strip().lower()  # 標準 Python 輸入
