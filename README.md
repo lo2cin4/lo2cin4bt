@@ -231,6 +231,13 @@ lo2cin4bt/
 <summary>📅 2025-08-27 </summary>
 
 - 修正了回測後程序無法讀取 Parquet file 的 Bug
+- 【重構】DataLoader 模組大幅重構，引入 `AbstractDataLoader` 抽象基底類
+  - 所有數據載入器（Binance、Coinbase、Yahoo Finance、File）現在繼承自統一基底類
+  - 減少約 200+ 行重複程式碼
+  - 統一的錯誤處理、成功訊息、警告顯示
+  - 標準化的使用者輸入處理（日期、頻率、預設值）
+  - 通用的數據處理方法（欄位標準化、型態轉換、缺失值處理）
+  - 提升程式碼可維護性和擴展性
 
 </details>
 
