@@ -332,6 +332,8 @@ class VectorBacktestEngine:
         condition_pairs = config["condition_pairs"]
         predictors = config["predictors"]
         trading_params = config["trading_params"]
+        
+
 
         total_backtests = len(all_combinations) * len(predictors)
 
@@ -574,6 +576,7 @@ class VectorBacktestEngine:
                 all_trade_results,
                 all_signals,
                 condition_pairs,
+                trading_params,  # 添加 trading_params 參數
                 parallel_progress,
                 None,
                 total_backtests,
@@ -769,6 +772,8 @@ class VectorBacktestEngine:
             entry_signals = all_signals["entry_signals"]
             exit_signals = all_signals["exit_signals"]
 
+
+        
         # 創建 TradeSimulator 實例
         simulator = TradeSimulator_backtester(
             self.data,
@@ -808,6 +813,7 @@ class VectorBacktestEngine:
         all_trade_results: Dict,
         all_signals: Dict,
         condition_pairs: List[Dict],
+        trading_params: Dict,  # 添加 trading_params 參數
         progress=None,
         task=None,
         total_backtests=None,
@@ -891,6 +897,7 @@ class VectorBacktestEngine:
                 all_trade_results,
                 all_signals,
                 condition_pairs,
+                trading_params,  # 傳入 trading_params
             )
             results = self._process_batch_results_optimized(batch_data)
 
@@ -942,6 +949,7 @@ class VectorBacktestEngine:
                             all_trade_results,
                             all_signals,
                             condition_pairs,
+                            trading_params,  # 傳入 trading_params
                         )
                         future = executor.submit(
                             self._process_batch_results_optimized, batch_data
@@ -1068,6 +1076,7 @@ class VectorBacktestEngine:
         all_trade_results: Dict,
         all_signals: Dict,
         condition_pairs: List[Dict],
+        trading_params: Dict,  # 添加 trading_params 參數
     ) -> Dict:
         """準備批次數據，直接傳遞 numpy 數組以優化性能"""
         batch_data = {
@@ -1140,6 +1149,9 @@ class VectorBacktestEngine:
             "trade_actions": all_trade_results["trade_actions"][:, batch_indices],
             "equity_values": all_trade_results["equity_values"][:, batch_indices],
         }
+        
+        # 添加 trading_params 到 batch_data
+        batch_data["trading_params"] = trading_params
 
         return batch_data
 
@@ -1151,6 +1163,7 @@ class VectorBacktestEngine:
         task_data = batch_data["task_data"]
         signals = batch_data["signals"]
         trade_results = batch_data["trade_results"]
+        trading_params = batch_data["trading_params"]  # 從 batch_data 中獲取 trading_params
 
         try:
             results = []
@@ -1199,7 +1212,7 @@ class VectorBacktestEngine:
                         task_data[task_idx]["backtest_id"],
                         entry_params,
                         exit_params,
-                        {"transaction_cost": 0.001, "slippage": 0.0005},
+                        trading_params,  # 使用完整的 trading_params
                     )
                     results.append(result)
 
