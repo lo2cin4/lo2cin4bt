@@ -9,6 +9,7 @@ lxml>=4.9.0
 numba>=0.58.0
 numpy>=1.23.0
 openpyxl>=3.1.0
+
 # lo2cin4BT 核心依賴
 pandas>=2.0.0
 pandas-stubs==2.3.0.250703
@@ -32,3 +33,40 @@ tqdm>=4.66.2
 types-pytz==2025.2.0.20250809
 types-requests==2.32.4.20250809
 yfinance>=0.2.0
+
+
+#MAC 相關下載庫
+# 標準庫依賴
+multiprocessing
+
+# pandas 相關依賴
+pytz>=2023.3
+python-dateutil>=2.8.2
+
+# python-binance 相關依賴
+aiohttp>=3.8.0
+dateparser>=1.1.0
+pycryptodome>=3.17
+websockets>=11.0.0
+
+# requests 相關依賴
+urllib3>=1.26.0
+certifi>=2023.7.22
+
+# numba 相關依賴
+llvmlite>=0.41.0
+
+# yfinance 相關依賴
+curl_cffi>=0.5.0
+frozendict>=2.3.8
+peewee>=3.16.0
+platformdirs>=3.10.0
+protobuf>=4.23.0
+multitasking>=0.0.11
+
+# plotly 相關依賴
+narwhals>=0.7.0
+
+# plotter 模組依賴
+flask>=2.3.0
+importlib_metadata>=6.7.0
