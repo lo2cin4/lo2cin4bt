@@ -61,6 +61,8 @@ flowchart TD
 - 專案 README
 """
 
+import glob
+import os
 from typing import List, Optional, Tuple, Union
 
 import pandas as pd
@@ -119,8 +121,6 @@ class PredictorLoader:
 
     def _get_file_path(self) -> Optional[str]:
         """獲取要載入的檔案路徑"""
-        import os
-
         import_dir = os.path.join(
             os.path.dirname(os.path.dirname(__file__)),
             "records",
@@ -136,9 +136,6 @@ class PredictorLoader:
 
     def _scan_for_files(self, import_dir: str) -> List[str]:
         """掃描指定目錄下的檔案"""
-        import glob
-        import os
-
         file_patterns = ["*.xlsx", "*.xls", "*.csv", "*.json"]
         found_files = []
         for pat in file_patterns:
@@ -147,8 +144,6 @@ class PredictorLoader:
 
     def _select_from_found_files(self, found_files: List[str]) -> Optional[str]:
         """從找到的檔案中選擇"""
-        import os
-
         console.print("[bold #dbac30]偵測到以下可用的預測因子檔案：[/bold #dbac30]")
         for idx, f in enumerate(found_files, 1):
             console.print(f"[bold white][{idx}][/bold white] {os.path.basename(f)}")
@@ -195,8 +190,6 @@ class PredictorLoader:
 
     def _read_file(self, file_path: str) -> Optional[pd.DataFrame]:
         """讀取檔案數據"""
-        import os
-
         # 檢查檔案存在
         if not os.path.exists(file_path):
             console.print(
@@ -251,9 +244,16 @@ class PredictorLoader:
         data = data.rename(columns={time_col: "Time"})
 
         try:
-            data["Time"] = pd.to_datetime(
-                data["Time"], format=time_format, errors="coerce"
-            )
+            # 修正時間解析警告，明確指定 dayfirst 參數
+            if time_format:
+                data["Time"] = pd.to_datetime(
+                    data["Time"], format=time_format, errors="coerce"
+                )
+            else:
+                # 自動推斷格式，明確指定 dayfirst=False
+                data["Time"] = pd.to_datetime(
+                    data["Time"], dayfirst=True, errors="coerce"
+                )
 
             if data["Time"].isna().sum() > 0:
                 console.print(
@@ -261,7 +261,7 @@ class PredictorLoader:
                         f"⚠️ {data['Time'].isna().sum()} 個時間值無效，將移除\n"
                         f"以下是檔案的前幾行數據：\n{data.head()}\n"
                         f"建議：請檢查 '{file_path}' 的 'Time' 欄，"
-                        f"確保日期格式為 YYYY-MM-DD（如 2023-01-01）或其他一致格式",
+                        f"確保日期格式為 YYYY-MM-DD（如 31-12-2000）或其他一致格式",
                         title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
                         border_style="#8f1511",
                     )
@@ -285,11 +285,14 @@ class PredictorLoader:
 
     def _clean_and_merge_data(self, data: pd.DataFrame) -> Optional[pd.DataFrame]:
         """清洗並合併數據"""
-        # 清洗數據
-        from .validator_loader import DataValidator
-
-        validator = DataValidator(data)
-        cleaned_data = validator.validate_and_clean()
+        # 清洗數據 - 使用絕對導入避免循環導入問題
+        try:
+            from dataloader.validator_loader import DataValidator
+            validator = DataValidator(data)
+            cleaned_data = validator.validate_and_clean()
+        except ImportError:
+            # 如果無法導入，使用基本的數據清洗
+            cleaned_data = self._basic_clean_data(data)
 
         if cleaned_data is None or cleaned_data.empty:
             console.print(
@@ -303,6 +306,17 @@ class PredictorLoader:
 
         # 時間對齊與合併
         return self._align_and_merge(cleaned_data)
+
+    def _basic_clean_data(self, data: pd.DataFrame) -> pd.DataFrame:
+        """基本數據清洗，當無法導入 DataValidator 時使用"""
+        # 移除完全為空的列
+        data = data.dropna(axis=1, how="all")
+        # 移除完全為空的行
+        data = data.dropna(axis=0, how="all")
+        # 填充數值列的缺失值為 0
+        numeric_cols = data.select_dtypes(include=["number"]).columns
+        data[numeric_cols] = data[numeric_cols].fillna(0)
+        return data
 
     def _show_success_message(self, merged_data: pd.DataFrame) -> None:
         """顯示成功訊息"""
@@ -365,7 +379,10 @@ class PredictorLoader:
             diff_cols.append(diff_col_name)
             diff_col_map[diff_col_name] = diff_series
             used_series = diff_series
-            diff_msg = f"已產生減數差分欄位 {diff_col_name}\n差分處理完成，新增欄位：{[col for col in diff_cols if col != predictor_col]}"
+            diff_msg = (
+                f"已產生減數差分欄位 {diff_col_name}\n"
+                f"差分處理完成，新增欄位：{[col for col in diff_cols if col != predictor_col]}"
+            )
             console.print(
                 Panel(
                     diff_msg,
@@ -390,8 +407,9 @@ class PredictorLoader:
             diff_col_map[diff_col_name_div] = diff_series_div
             used_series = diff_series_sub
             diff_msg = (
-                f"已產生減數差分欄位 {diff_col_name_sub} 和除數差分欄位 {diff_col_name_div}\n"
-                f"差分處理完成，新增欄位：{[col for col in diff_cols if col != predictor_col]}"
+                f"已產生減數差分欄位 {diff_col_name_sub} 和除數差分欄位 "
+                f"{diff_col_name_div}\n差分處理完成，新增欄位："
+                f"{[col for col in diff_cols if col != predictor_col]}"
             )
             console.print(
                 Panel(
