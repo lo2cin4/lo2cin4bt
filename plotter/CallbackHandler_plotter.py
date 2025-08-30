@@ -292,35 +292,6 @@ class CallbackHandler:
 
             return values, button_texts
 
-            # 動態處理：為每個indicator按鈕設置文字
-            # 獲取所有唯一的indicator類型
-            unique_indicators = set(id_["indicator"] for id_ in ids)
-            button_texts = []
-
-            for unique_indicator in unique_indicators:
-                if unique_indicator == indicator:
-                    # 檢查觸發的indicator是否全選
-                    indicator_values = []
-                    for id_, opts, cur in zip(ids, options, current_values):
-                        if id_["indicator"] == unique_indicator:
-                            indicator_values.extend(cur if cur else [])
-
-                    # 獲取該indicator的所有選項
-                    all_options = []
-                    for id_, opts, cur in zip(ids, options, current_values):
-                        if id_["indicator"] == unique_indicator:
-                            all_options.extend([o["value"] for o in opts])
-
-                    # 檢查是否全選
-                    is_all_selected = len(indicator_values) == len(all_options) and all(
-                        v in indicator_values for v in all_options
-                    )
-                    button_texts.append("反選" if is_all_selected else "全選")
-                else:
-                    button_texts.append("全選")
-
-            return values, button_texts
-
         # === 功能性主 callback ===
         @app.callback(
             Output("equity_chart", "figure"),
@@ -386,32 +357,43 @@ class CallbackHandler:
                 )
                 entry_ok = False
                 exit_ok = False
+                
+                # 檢查入場指標
                 for d in param.get("Entry_params", []):
                     if str(d.get("indicator_type")) in entry_types:
                         indicator = str(d.get("indicator_type"))
-                        entry_ok = True
+                        # 檢查該指標的所有參數是否匹配
+                        param_match = True
                         for k, v in d.items():
                             if k == "indicator_type":
                                 continue
-                            if k in entry_param_map[indicator]:
+                            if k in entry_param_map.get(indicator, {}):
                                 checklist_vals = entry_param_map[indicator][k]
                                 if str(v) not in [str(x) for x in checklist_vals]:
-                                    entry_ok = False
+                                    param_match = False
                                     break
-                        break
+                        if param_match:
+                            entry_ok = True
+                            break  # 找到匹配的入場指標後跳出
+                
+                # 檢查出場指標
                 for d in param.get("Exit_params", []):
                     if str(d.get("indicator_type")) in exit_types:
                         indicator = str(d.get("indicator_type"))
-                        exit_ok = True
+                        # 檢查該指標的所有參數是否匹配
+                        param_match = True
                         for k, v in d.items():
                             if k == "indicator_type":
                                 continue
-                            if k in exit_param_map[indicator]:
+                            if k in exit_param_map.get(indicator, {}):
                                 checklist_vals = exit_param_map[indicator][k]
                                 if str(v) not in [str(x) for x in checklist_vals]:
-                                    exit_ok = False
+                                    param_match = False
                                     break
-                        break
+                        if param_match:
+                            exit_ok = True
+                            break  # 找到匹配的出場指標後跳出
+                
                 if entry_ok and exit_ok:
                     filtered_ids.append(bid)
             # 只根據 sorting_value 排序，取前 20
