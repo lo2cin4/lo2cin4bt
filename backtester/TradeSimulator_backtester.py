@@ -116,8 +116,8 @@ def _vectorized_trade_simulation_njit(
         open_prices,
         transaction_cost,
         slippage,
-        trade_price="close",
-        trade_delay=0,
+        trade_price="open",
+        trade_delay=1,
     ):
         """
         向量化交易模擬 - 移植自 VBT
