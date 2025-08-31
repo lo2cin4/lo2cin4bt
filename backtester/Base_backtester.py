@@ -991,10 +991,10 @@ class BaseBacktester:
         while True:
             try:
                 trade_delay_input = console.input(
-                    "[bold #dbac30]請輸入交易延遲 (信號發出後，延遲至下幾個數據點執行交易，整數 ≥ 0，預設為 0 (注意可能會導致使用未來參數！))：[/bold #dbac30]"
+                    "[bold #dbac30]請輸入交易延遲 (信號發出後，延遲至下幾個數據點執行交易，整數 ≥ 0，預設為 1 (注意未來參數！))：[/bold #dbac30]"
                 ).strip()
                 trading_params["trade_delay"] = (
-                    int(trade_delay_input) if trade_delay_input else 0
+                    int(trade_delay_input) if trade_delay_input else 1
                 )
                 if trading_params["trade_delay"] < 0:
                     raise ValueError("交易延遲必須為 0 或以上")
@@ -1010,11 +1010,11 @@ class BaseBacktester:
         # 交易價格
         trade_price_input = (
             console.input(
-                "[bold #dbac30]請輸入交易價格 (使用開盤價 'open' 或收盤價 'close'，預設 close)：[/bold #dbac30]"
+                "[bold #dbac30]請輸入交易價格 (使用開盤價 'open' 或收盤價 'close'，預設 open)：[/bold #dbac30]"
             )
             .strip()
             .lower()
-            or "close"
+            or "open"
         )
         trading_params["trade_price"] = trade_price_input
         return trading_params
