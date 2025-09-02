@@ -1,7 +1,7 @@
 beautifulsoup4>=4.11.0
 black>=24.3.0
 
-# plotter 可視化平台依賴
+# Plotter visualization platform dependencies
 dash>=2.15.0
 dash-bootstrap-components>=2.0.0
 kaleido
@@ -10,13 +10,13 @@ numba>=0.58.0
 numpy>=1.23.0
 openpyxl>=3.1.0
 
-# lo2cin4BT 核心依賴
+# lo2cin4BT core dependencies
 pandas>=2.0.0
 pandas-stubs==2.3.0.250703
 plotly>=5.0.0
 plotly>=6.3.0
 
-# 可選依賴（用於開發和測試）
+# Optional dependencies (for development and testing)
 pre-commit>=3.5.0
 psutil>=6.3.0
 pyarrow>=10.0.0
@@ -24,7 +24,7 @@ pytest>=7.0.0
 pytest-cov>=4.0.0
 python-binance>=1.0.0
 
-# 網路和數據處理依賴
+# Network and data processing dependencies
 requests>=2.28.0
 rich>=13.0.0
 scipy>=1.10.0
@@ -34,29 +34,28 @@ types-pytz==2025.2.0.20250809
 types-requests==2.32.4.20250809
 yfinance>=0.2.0
 
-
-#MAC 相關下載庫
-# 標準庫依賴
+# MAC-related download libraries
+# Standard library dependencies
 multiprocessing
 
-# pandas 相關依賴
+# pandas-related dependencies
 pytz>=2023.3
 python-dateutil>=2.8.2
 
-# python-binance 相關依賴
+# python-binance-related dependencies
 aiohttp>=3.8.0
 dateparser>=1.1.0
 pycryptodome>=3.17
 websockets>=11.0.0
 
-# requests 相關依賴
+# requests-related dependencies
 urllib3>=1.26.0
 certifi>=2023.7.22
 
-# numba 相關依賴
+# numba-related dependencies
 llvmlite>=0.41.0
 
-# yfinance 相關依賴
+# yfinance-related dependencies
 curl_cffi>=0.5.0
 frozendict>=2.3.8
 peewee>=3.16.0
@@ -64,9 +63,9 @@ platformdirs>=3.10.0
 protobuf>=4.23.0
 multitasking>=0.0.11
 
-# plotly 相關依賴
+# plotly-related dependencies
 narwhals>=0.7.0
 
-# plotter 模組依賴
+# Plotter module dependencies
 flask>=2.3.0
 importlib_metadata>=6.7.0
