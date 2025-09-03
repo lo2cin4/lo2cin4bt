@@ -684,7 +684,7 @@ class ParameterPlateauPlotter:
             elif metric == "Calmar":
                 zmin, zmax = 0.5, 2.0  # 強制使用 0.5 到 2.0 的範圍
             elif metric == "Max_drawdown":
-                zmin, zmax = -0.30, -0.05  # 強制使用 -0.30 到 -0.05 的範圍
+                zmin, zmax = -0.7, -0.0  # 強制使用 -0.30 到 -0.05 的範圍
             else:
                 zmin, zmax = None, None  # 使用自動範圍
 
@@ -1335,10 +1335,10 @@ class ParameterPlateauPlotter:
                 # MDD是負值，數值範圍通常是 -1.0 到 0
                 # 例如 -0.57 表示 -57% 的drawdown
                 thresholds = {
-                    "unacceptable": -0.30,  # 不可接受 (> 30%)
-                    "qualified": -0.20,  # 合格 (< 20%)
-                    "good": -0.10,  # 良好 (< 10%)
-                    "excellent": -0.05,  # 優秀及以上 (< 5%)
+                    "unacceptable": -0.7,  # 不可接受 (> 30%)
+                    "qualified": -0.5,  # 合格 (< 20%)
+                    "good": -0.3,  # 良好 (< 10%)
+                    "excellent": -0.1,  # 優秀及以上 (< 5%)
                 }
             else:
                 # 預設threshold
