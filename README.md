@@ -316,7 +316,8 @@ lo2cin4bt/
 
 ### 未來開發目標
 
-- 穩健性測試 (Robustness Check, Walk-forward analysis)
+- 穩健性測試 ( Walk-forward analysis )
+- 策略逐筆賺賠分佈
 - 新增技術指標指導文檔
 - 自動判斷參數高原的合格參數區間
 - 多個預測因子在單一策略進行回測
