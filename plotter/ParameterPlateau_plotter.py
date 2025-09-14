@@ -1335,10 +1335,10 @@ class ParameterPlateauPlotter:
                 # MDD是負值，數值範圍通常是 -1.0 到 0
                 # 例如 -0.57 表示 -57% 的drawdown
                 thresholds = {
-                    "unacceptable": -0.7,  # 不可接受 (> 30%)
-                    "qualified": -0.5,  # 合格 (< 20%)
-                    "good": -0.3,  # 良好 (< 10%)
-                    "excellent": -0.1,  # 優秀及以上 (< 5%)
+                    "unacceptable": -0.7,  # 不可接受
+                    "qualified": -0.5,  # 合格
+                    "good": -0.3,  # 良好
+                    "excellent": -0.1,  # 優秀及以上
                 }
             else:
                 # 預設threshold
