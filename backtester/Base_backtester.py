@@ -93,7 +93,7 @@ from .VectorBacktestEngine_backtester import VectorBacktestEngine as BacktestEng
 logger = logging.getLogger("lo2cin4bt")
 console = Console()
 
-DEFAULT_STRATEGY_PAIRS = [
+DEFAULT_LONG_STRATEGY_PAIRS = [
     ("MA1", "MA4"),
     (["MA1", "MA9"], "MA4"),
     ("BOLL1", "BOLL4"),
@@ -101,8 +101,19 @@ DEFAULT_STRATEGY_PAIRS = [
     ("PERC1", "PERC4"),
     ("PERC3", "PERC2"),
     ("HL1", "HL4"),
-    ("VALUE1", "VALUE4"),
 ]
+
+DEFAULT_SHORT_STRATEGY_PAIRS = [
+    ("MA4", "MA1"),
+    (["MA4", "MA9"], "MA1"),
+    ("BOLL4", "BOLL1"),
+    ("HL4", "HL1"),
+    ("PERC4", "PERC1"),
+    ("PERC2", "PERC3"),
+    ("HL4", "HL1"),
+]
+
+DEFAULT_ALL_STRATEGY_PAIRS = DEFAULT_LONG_STRATEGY_PAIRS + DEFAULT_SHORT_STRATEGY_PAIRS
 
 """
 本模組所有參數詢問Panel（如MA長度、BOLL長度、NDAY範圍等）
@@ -431,7 +442,7 @@ class BaseBacktester:
             "- 開倉與平倉條件方向必須對立（如開倉做多，平倉應為做空），否則策略會失敗。。\n"
             "- 支援同時回測多組不同條件的策略，靈活組合。\n"
             "- 格式：先輸入開倉條件（如MA1,BOLL1），再輸入平倉條件（如 MA2,BOLL2），即可建立一組策略。\n"
-            "- [bold yellow]如不確定如何選擇，建議先用預設策略體驗流程，在開倉和平倉條件同時輸入default即可。[/bold yellow]\n"
+            "- [bold yellow]如不確定如何選擇，建議先用預設策略體驗流程，在開倉和平倉條件同時輸入'defaultlong'(長倉)/'defaultshort'(短倉)/'defaultall'(全部)即可。[/bold yellow]\n"
             "- ※ 輸入多個指標時，必須全部同時滿足才會開倉/平倉。"
         )
         content = desc + "\n\n" + "\n\n".join(group_texts)
@@ -446,7 +457,7 @@ class BaseBacktester:
         all_aliases = self.indicators_helper.get_all_indicator_aliases()
         while True:
             # 開倉條件輸入
-            entry_prompt = f"[bold #dbac30]請輸入第 {pair_count} 組【開倉】指標 (如 MA1,BOLL2，或輸入 'none' 結束，或 'default' 用預設策略)：[/bold #dbac30]"
+            entry_prompt = f"[bold #dbac30]請輸入第 {pair_count} 組【開倉】指標 (如 MA1,BOLL2，或輸入 'none' 結束，或 'defaultlong/defaultshort/defaultall' 用預設策略)：[/bold #dbac30]"
             entry_indicators = self._get_indicator_input(entry_prompt, all_aliases)
             if not entry_indicators:
                 if pair_count == 1:
@@ -461,13 +472,35 @@ class BaseBacktester:
                 else:
                     break
             # 平倉條件輸入
-            exit_prompt = f"[bold #dbac30]請輸入第 {pair_count} 組【平倉】指標 (如 MA2,BOLL4，或輸入 'none' 結束，或 'default' 用預設策略)：[/bold #dbac30]"
+            exit_prompt = f"[bold #dbac30]請輸入第 {pair_count} 組【平倉】指標 (如 MA2,BOLL4，或輸入 'none' 結束，或 'defaultlong/defaultshort/defaultall' 用預設策略)：[/bold #dbac30]"
             exit_indicators = self._get_indicator_input(exit_prompt, all_aliases)
             # default 批次產生
+            default_strategy_pairs = None
+            default_type = ""
+
             if entry_indicators == ["__DEFAULT__"] and exit_indicators == [
                 "__DEFAULT__"
             ]:
-                for entry, exit in DEFAULT_STRATEGY_PAIRS:
+                default_strategy_pairs = DEFAULT_LONG_STRATEGY_PAIRS
+                default_type = "default"
+            elif entry_indicators == ["__DEFAULT_LONG__"] and exit_indicators == [
+                "__DEFAULT_LONG__"
+            ]:
+                default_strategy_pairs = DEFAULT_LONG_STRATEGY_PAIRS
+                default_type = "defaultlong"
+            elif entry_indicators == ["__DEFAULT_SHORT__"] and exit_indicators == [
+                "__DEFAULT_SHORT__"
+            ]:
+                default_strategy_pairs = DEFAULT_SHORT_STRATEGY_PAIRS
+                default_type = "defaultshort"
+            elif entry_indicators == ["__DEFAULT_ALL__"] and exit_indicators == [
+                "__DEFAULT_ALL__"
+            ]:
+                default_strategy_pairs = DEFAULT_ALL_STRATEGY_PAIRS
+                default_type = "defaultall"
+
+            if default_strategy_pairs is not None:
+                for entry, exit in default_strategy_pairs:
                     # 處理開倉指標可能是列表的情況
                     if isinstance(entry, list):
                         entry_list = entry
@@ -481,7 +514,7 @@ class BaseBacktester:
                     condition_pairs.append({"entry": entry_list, "exit": exit_list})
                 console.print(
                     Panel(
-                        f"已自動批次產生 {len(DEFAULT_STRATEGY_PAIRS)} 組預設策略條件。",
+                        f"已自動批次產生 {len(default_strategy_pairs)} 組{default_type}策略條件。",
                         title="[bold #dbac30]👨‍💻 交易回測 Backtester[/bold #dbac30]",
                         border_style="#dbac30",
                     )
@@ -1036,6 +1069,12 @@ class BaseBacktester:
                 return []
             if user_input.lower() == "default":
                 return ["__DEFAULT__"]
+            if user_input.lower() == "defaultlong":
+                return ["__DEFAULT_LONG__"]
+            if user_input.lower() == "defaultshort":
+                return ["__DEFAULT_SHORT__"]
+            if user_input.lower() == "defaultall":
+                return ["__DEFAULT_ALL__"]
             indicators = [i.strip().upper() for i in user_input.split(",") if i.strip()]
 
             invalid_indicators = [
