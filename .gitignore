@@ -18,6 +18,7 @@ logs/
 records/**/*.parquet
 records/**/*.csv
 records/**/*.txt
+records/**/*.json
 
 # 但不要忽略資料夾和 .gitkeep
 !records/**/
@@ -52,6 +53,5 @@ AUTOMODE_DEVELOPMENT_PLAN.md
 CLAUDE.md
 .mcp.json
 .claude/
-records/autorunner/config_template 2.json
 records/dataloader/import/Boxer_Score_20210103.xlsx
 autorunner/DEV_PLAN.md
