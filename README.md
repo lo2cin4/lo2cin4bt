@@ -152,22 +152,29 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
 ### 1. 價格文件（非必須）
 
 - 支援 Excel（.xlsx）、CSV
-- 必要欄位：Time, Open, High, Low, Close, Volume
+- 必要欄位：Time, Open, High, Low, Close
+- **時間欄位名稱**：支援 `Time`、`Date`、`Timestamp`（系統會自動標準化為 `Time`）
+- **日期格式**：建議使用 `DD/MM/YYYY` (如：31/12/2023) 或 `YYYY-MM-DD`（如：2023-01-01）
 - 目前僅支援單一預測因子進行回測與差分，未來將開放多預測因子功能，敬請期待！
 - 範例：
 
-  | Time | Open | High | Low | Close | Volume |
-  |------|------|------|-----|-------|--------|
-  | 2020-01-01 | 100 | 110 | 90 | 105 | 1000 |
+  | Time | Open | High | Low | Close |
+  |------|------|------|-----|-------|
+  | 2020-01-01 | 100 | 110 | 90 | 105 |
 
 ### 2. 預測因子文件（非必須）
 
 - 支援 Excel（.xlsx）、CSV、JSON
-- 必要欄位：Time, [自訂因子欄位]
+- 必要欄位：Time 或 Date, [自訂因子欄位]
+- **時間欄位名稱**：支援 `Time`、`Date`、`Timestamp` 等（系統會自動標準化為 `Time`）
+- **日期格式**：支援多種格式，可在 autorunner 配置中指定：
+  - `YYYY-MM-DD`（如：2023-01-01）→ 配置 `"time_format": "%Y-%m-%d"`
+  - `DD/MM/YYYY`（如：01/01/2023）→ 配置 `"time_format": "%d/%m/%Y"`
+  - `MM/DD/YYYY`（如：01/01/2023）→ 配置 `"time_format": "%m/%d/%Y"`
 - 需放在`records\dataloader\import`，系統會自動檢測
 - 範例：
 
-  | Time | factor1 | factor2 |
+  | Date | factor1 | factor2 |
   |------|---------|---------|
   | 2020-01-01 | 0.5 | 1.2 |
 
@@ -186,18 +193,63 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
 ```raw
 lo2cin4bt/
 ├── main.py
-├── backtester/
-├── dataloader/
-├── metricstracker/
-├── plotter/
-├── statanalyser/
-├── records/
-├── assets/
+├── autorunner/             # 自動化回測模組
+├── backtester/             # 回測引擎模組
+├── dataloader/             # 數據載入模組
+├── metricstracker/         # 績效分析模組
+├── plotter/                # 可視化模組
+├── statanalyser/           # 統計分析模組
+├── records/                # 數據與結果存放
+│   └── autorunner/         # 自動化回測配置檔案
+├── assets/                 # 靜態資源
 ├── requirements.txt
 └── README.md
 ```
 
 > 每個資料夾內都有對應的 README，遇到問題請先參考「疑難排解」區塊！
+
+---
+
+## 🚀 Autorunner 自動化回測模組 *NEW*
+
+### 概述
+Autorunner 是 lo2cin4bt 的自動化回測模組，讓用戶可以透過配置文件驅動整個回測流程，無需手動輸入參數。支援多種數據來源、多策略配置和批次執行。
+
+### 核心特性
+- **📝 配置文件驅動**：透過 JSON 配置文件定義所有回測參數
+- **🔄 全自動執行**：數據載入 → 回測執行 → 績效分析一鍵完成
+- **📊 多數據源支援**：Yahoo Finance、Binance、Coinbase、本地文件
+- **⚡ 批次處理**：支援多個配置文件同時執行
+- **🎯 零交互設計**：適合程式化回測和策略優化
+
+### 快速開始
+
+#### 1. 準備配置文件
+將 `records/autorunner/config_template.json` 複製為您的配置文件，並根據需要修改：。
+
+#### 2. 執行自動化回測
+```bash
+python main.py
+# 在主選單選擇 "5. 🚀 Autorunner 自動化回測"
+# 選擇您的配置文件
+# 系統將自動執行完整回測流程
+```
+
+### 支援的數據來源
+
+| 數據源 | 配置方式 | 說明 |
+|--------|----------|------|
+| **Yahoo Finance** | `"source": "yfinance"` | 支援全球股票、ETF、指數 |
+| **Binance** | `"source": "binance"` | 支援加密貨幣交易對 |
+| **Coinbase** | `"source": "coinbase"` | 支援加密貨幣交易對 |
+| **本地文件** | `"source": "file"` | 支援 CSV/Excel 格式 |
+
+### 批次執行
+支援多個配置文件同時執行，適合策略優化和參數測試：
+
+1. 在 `records/autorunner/` 目錄放置多個配置文件
+2. 執行 autorunner 時選擇多個配置
+3. 系統將依序執行所有選定配置的回測與分析，並放置在對應資料夾
 
 ---
 
@@ -224,6 +276,17 @@ lo2cin4bt/
 ## 🎯 開發目標與進度
 
 ### 目前已完成
+
+<details>
+<summary>📅 2025-10-03 </summary>
+
+- 修改了 metricstracker 的儲存方式以降低電腦配置需求 
+- 【重榜】省略輸入選項的全自動版本 Autorunner 已上線！
+  - 在 records/autorunner 中設定 config.json
+  - 運行 main.py，在主選單選擇 autorunner
+  - 系統會自動回測並產生可視化所需要的檔案
+
+</details>
 
 <details>
 <summary>📅 2025-09-14 </summary>
@@ -316,14 +379,14 @@ lo2cin4bt/
 
 ### 未來開發目標
 
+- Pre-commit 格式修改
 - 穩健性測試 ( Walk-forward analysis )
 - 策略逐筆賺賠分佈
 - 新增技術指標指導文檔
 - 自動判斷參數高原的合格參數區間
 - 多個預測因子在單一策略進行回測
-- 無須輸入指令的「全自動模式」
 - 更多數據接口
-- 接駁 AI 
+- 接駁 AI
 
 > 歡迎任何 issue、建議或貢獻，一起讓 lo2cin4bt 變得更好！
 
