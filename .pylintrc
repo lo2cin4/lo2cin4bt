@@ -25,7 +25,7 @@ disable=
 known-standard-library=dataclasses,typing,enum
 
 # Force import order to be compatible with isort
-known-first-party=dataloader,backtester,metricstracker,plotter,statanalyser
+# known-first-party=dataloader,backtester,metricstracker,plotter,statanalyser
 
 [FORMAT]
 # Maximum number of characters on a single line.
