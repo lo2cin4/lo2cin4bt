@@ -1,6 +1,7 @@
 import glob
 import json
 import os
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 import pyarrow.parquet as pq
@@ -8,7 +9,12 @@ import pyarrow.parquet as pq
 # 新增：將所有 batch_metadata 與主表格輸出為 txt
 
 
-def export_metadata_and_table_to_txt(batch_metadata, df, out_dir, base_name):
+def export_metadata_and_table_to_txt(
+    batch_metadata: List[Dict[str, Any]],
+    df: pd.DataFrame,
+    out_dir: str,
+    base_name: str,
+) -> None:
     meta_txt = os.path.join(out_dir, f"{base_name}_metadata.txt")
     df_txt = os.path.join(out_dir, f"{base_name}_main_table.txt")
     # 輸出 batch_metadata
@@ -100,7 +106,7 @@ else:
     print("[ReadParquet][ERROR] 找不到 batch_metadata。")
 
 
-def list_parquet_files():
+def list_parquet_files() -> List[str]:
     """
     列出指定路徑內所有 .parquet 檔案
 
@@ -133,7 +139,9 @@ def list_parquet_files():
     return parquet_files
 
 
-def read_parquet_with_metadata(file_path):
+def read_parquet_with_metadata(
+    file_path: str,
+) -> tuple[Optional[pd.DataFrame], Dict[str, Any]]:
     """
     讀取 Parquet 檔案並提取 metadata
 
@@ -156,17 +164,57 @@ def read_parquet_with_metadata(file_path):
         for key, value in metadata.items():
             try:
                 metadata_dict[key.decode("utf-8")] = value.decode("utf-8")
-            except:
+            except (AttributeError, UnicodeDecodeError):
                 metadata_dict[key.decode("utf-8")] = str(value)
 
         return df, metadata_dict
 
     except Exception as e:
         print(f"❌ 讀取 Parquet 檔案時發生錯誤: {e}")
-        return None, None
+        return None, {}
 
 
-def display_metadata(metadata_dict):
+def _calculate_column_widths(batch_list: List[Dict[str, Any]]) -> tuple[int, int]:
+    """計算顯示欄位所需的最大寬度"""
+    all_keys: set[str] = set()
+    for meta in batch_list:
+        all_keys.update(meta.keys())
+    maxlen = max(len(str(k)) for k in all_keys) if all_keys else 0
+
+    num_maxlen = 0
+    for meta in batch_list:
+        for v in meta.values():
+            if isinstance(v, (int, float)):
+                num_maxlen = max(num_maxlen, len(str(v)))
+    return maxlen, num_maxlen
+
+
+def _display_strategy_metadata(
+    batch_list: List[Dict[str, Any]], maxlen: int, num_maxlen: int
+) -> None:
+    """顯示每個策略的 metadata"""
+    for i, meta in enumerate(batch_list, 1):
+        print(f"--- 策略 {i} ---")
+        for k, v in meta.items():
+            if isinstance(v, (int, float)):
+                print(f"{str(k).ljust(maxlen)} | {str(v).rjust(num_maxlen)}")
+            else:
+                print(f"{str(k).ljust(maxlen)} | {str(v)}")
+        print("-------------------------------")
+
+
+def _display_batch_metadata(batch: str) -> None:
+    """顯示 batch_metadata 信息"""
+    try:
+        batch_list = json.loads(batch)
+        print(f"\n=== batch_metadata（共 {len(batch_list)} 組策略） ===")
+        maxlen, num_maxlen = _calculate_column_widths(batch_list)
+        _display_strategy_metadata(batch_list, maxlen, num_maxlen)
+    except Exception as e:
+        print(f"❌ 解析 batch_metadata 失敗: {e}")
+
+
+def display_metadata(metadata_dict: Dict[str, Any]) -> None:
     """
     顯示 metadata 信息（含 batch_metadata 展開）
     Args:
@@ -175,40 +223,20 @@ def display_metadata(metadata_dict):
     if not metadata_dict:
         print("❌ 沒有找到 metadata")
         return
+
     print("\n=== Metadata（檔案層級） ===")
     for key, value in metadata_dict.items():
         if key == "batch_metadata":
             continue
         print(f"  {key}: {value}")
+
     # 額外展開 batch_metadata
     batch = metadata_dict.get("batch_metadata")
     if batch:
-        try:
-            batch_list = json.loads(batch)
-            print(f"\n=== batch_metadata（共 {len(batch_list)} 組策略） ===")
-            # 找出所有欄位的最大長度與所有數值的最大長度
-            all_keys = set()
-            for meta in batch_list:
-                all_keys.update(meta.keys())
-            maxlen = max(len(str(k)) for k in all_keys)
-            num_maxlen = 0
-            for meta in batch_list:
-                for v in meta.values():
-                    if isinstance(v, (int, float)):
-                        num_maxlen = max(num_maxlen, len(str(v)))
-            for i, meta in enumerate(batch_list, 1):
-                print(f"--- 策略 {i} ---")
-                for k, v in meta.items():
-                    if isinstance(v, (int, float)):
-                        print(f"{str(k).ljust(maxlen)} | {str(v).rjust(num_maxlen)}")
-                    else:
-                        print(f"{str(k).ljust(maxlen)} | {str(v)}")
-                print("-------------------------------")
-        except Exception as e:
-            print(f"❌ 解析 batch_metadata 失敗: {e}")
+        _display_batch_metadata(batch)
 
 
-def display_table_info(df):
+def display_table_info(df: pd.DataFrame) -> None:
     """
     顯示主表格欄位與前 3 行
     Args:
@@ -223,7 +251,7 @@ def display_table_info(df):
     print(df.head(3))
 
 
-def main():
+def main() -> None:
     """
     主函數：列出指定路徑中的 Parquet 檔案，讓用戶選擇並顯示 metadata 和主表格資訊
     """
@@ -243,9 +271,9 @@ def main():
             if choice.lower() == "q":
                 print("程式結束")
                 return
-            choice = int(choice)
-            if 1 <= choice <= len(parquet_files):
-                selected_file = parquet_files[choice - 1]
+            choice_int = int(choice)
+            if 1 <= choice_int <= len(parquet_files):
+                selected_file = parquet_files[choice_int - 1]
                 print(f"\n✅ 已選擇檔案: {selected_file}")
                 break
             else:
@@ -257,7 +285,7 @@ def main():
         display_metadata(metadata)
     if df is not None:
         display_table_info(df)
-        print(f"\n=== 讀取完成 ===")
+        print("\n=== 讀取完成 ===")
         print(f"文件: {selected_file}")
         print(f"數據行數: {len(df)}")
         print(f"數據列數: {len(df.columns)}")
