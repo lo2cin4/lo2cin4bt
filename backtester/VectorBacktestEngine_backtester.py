@@ -155,7 +155,7 @@ class ProgressMonitor:
 
             # 更新描述
             description = (
-                f"生成回測結果 ({self.completed_batches}/{self.total_batches} 批次, "
+                f"📊 [3/3] 生成回測結果 ({self.completed_batches}/{self.total_batches} 批次, "
                 f"{self.completed_tasks}/{self.total_backtests} 任務)"
             )
             self.progress.update(self.task, description=description)
@@ -167,7 +167,7 @@ class ProgressMonitor:
             self.progress.update(
                 self.task,
                 description=(
-                    f"生成回測結果 ({self.total_batches}/{self.total_batches} 批次, "
+                    f"📊 [3/3] 生成回測結果 ({self.total_batches}/{self.total_batches} 批次, "
                     f"{self.total_backtests}/{self.total_backtests} 任務)"
                 ),
             )
@@ -550,7 +550,6 @@ class VectorBacktestEngine:
         total_backtests = len(all_combinations) * len(predictors)
 
         # 創建並行處理進度條
-        from rich.console import Console
         from rich.progress import (
             BarColumn,
             Progress,
@@ -576,22 +575,71 @@ class VectorBacktestEngine:
             console=console,
         )
 
+        # 先執行不需要進度條的步驟
+        # 步驟1: 生成任務矩陣
+        all_tasks = self._generate_all_tasks_matrix(all_combinations, predictors)
+
+        # 步驟2: 向量化信號生成
+        all_signals = self._generate_all_signals_vectorized(
+            all_tasks, condition_pairs
+        )
+
+        # 步驟3: 向量化交易模擬
+        all_trade_results = self._simulate_all_trades_vectorized(
+            all_signals, trading_params
+        )
+
+        # 在創建進度條之前顯示配置信息
+        n_tasks = len(all_tasks["combinations"])
+        n_cores, _ = SpecMonitor.get_optimal_core_count()
+        
+        # 確認並行處理模式
+        console.print(
+            Panel(
+                f"🔧 並行處理模式: {n_tasks} 個任務, {n_cores} 核心",
+                title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
+                border_style="#dbac30",
+            )
+        )
+
+        # 動態計算批次大小
+        if n_tasks <= 100:
+            batch_size = max(20, n_tasks // 2)
+        elif n_tasks <= 1000:
+            batch_size = max(50, n_tasks // (n_cores * 2))
+        elif n_tasks <= 10000:
+            batch_size = max(200, n_tasks // (n_cores * 2))
+        else:
+            batch_size = max(400, n_tasks // (n_cores * 3))
+
+        # 計算批次數量
+        n_batches = (n_tasks + batch_size - 1) // batch_size
+
+        # 顯示批次配置
+        if n_batches == 1:
+            console.print(
+                Panel(
+                    f"🔧 單進程處理: {n_tasks} 個任務",
+                    title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
+                    border_style="#dbac30",
+                )
+            )
+        else:
+            console.print(
+                Panel(
+                    f"🔧 批次配置: {n_batches} 個批次, 每批次約 {batch_size} 個任務",
+                    title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
+                    border_style="#dbac30",
+                )
+            )
+
+        # 步驟4: 並行結果生成（帶進度條）
         with parallel_progress:
-            # 先執行所有會產生 print 語句的步驟，不使用進度條
-            # 步驟1: 生成任務矩陣
-            all_tasks = self._generate_all_tasks_matrix(all_combinations, predictors)
-
-            # 步驟2: 向量化信號生成（包含所有 print 語句）
-            all_signals = self._generate_all_signals_vectorized(
-                all_tasks, condition_pairs
+            # 創建進度條任務
+            progress_task = parallel_progress.add_task(
+                "📊 [3/3] 生成回測結果", total=total_backtests
             )
-
-            # 步驟3: 向量化交易模擬
-            all_trade_results = self._simulate_all_trades_vectorized(
-                all_signals, trading_params
-            )
-
-            # 步驟4: 並行結果生成（包含所有 print 語句）
+            
             all_results = self._generate_all_results_vectorized(
                 all_tasks,
                 all_trade_results,
@@ -599,7 +647,7 @@ class VectorBacktestEngine:
                 condition_pairs,
                 trading_params,  # 添加 trading_params 參數
                 parallel_progress,
-                None,
+                progress_task,
                 total_backtests,
             )
 
@@ -637,9 +685,8 @@ class VectorBacktestEngine:
     def _generate_all_signals_vectorized(
         self, all_tasks: Dict, condition_pairs: List[Dict]
     ) -> Dict:
-        """直接按順序生成所有信號 - 禁用分組邏輯，與原版行為一致"""
+        """真正的向量化信號生成 - 一次性處理所有任務，帶進度條"""
 
-        # 直接按順序處理每個任務，不分組
         n_tasks = len(all_tasks["combinations"])
         n_time = len(self.data)
 
@@ -648,60 +695,98 @@ class VectorBacktestEngine:
         exit_signals = np.zeros((n_time, n_tasks))
 
         from rich.console import Console
-
-        console = Console()
-        console.print(
-            Panel(
-                f"🚀 直接生成信號: {n_tasks} 個任務",
-                title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
-                border_style="#dbac30",
-            )
+        from rich.progress import (
+            BarColumn,
+            Progress,
+            SpinnerColumn,
+            TaskProgressColumn,
+            TextColumn,
+            TimeElapsedColumn,
+            TimeRemainingColumn,
         )
 
-        # 按順序處理每個任務
-        for task_idx in range(n_tasks):
-            try:
-                # 解析策略參數
-                strategy_id = all_tasks["strategy_ids"][task_idx]
-                strategy_idx = self._parse_strategy_id(strategy_id)
+        console = Console()
+        
+        # 創建信號生成進度條
+        signal_progress = Progress(
+            SpinnerColumn(),
+            TextColumn("[bold cyan]{task.description}"),
+            BarColumn(bar_width=40, complete_style="cyan", finished_style="bright_cyan"),
+            TaskProgressColumn(),
+            TextColumn("({task.completed}/{task.total})"),
+            TimeElapsedColumn(),
+            TextColumn("•"),
+            TimeRemainingColumn(),
+            console=console,
+        )
 
-                if strategy_idx < len(condition_pairs):
-                    condition_pair = condition_pairs[strategy_idx]
-                    combo = all_tasks["combinations"][task_idx]
-                    predictor = all_tasks["predictors"][task_idx]
+        with signal_progress:
+            # 總共3個步驟：收集參數、開倉信號、平倉信號
+            signal_task = signal_progress.add_task(
+                "🚀 [1/3] 信號生成", total=3
+            )
+            
+            # 步驟1: 收集所有任務的參數（一次性準備）
+            all_entry_params = []
+            all_exit_params = []
+            all_predictors = []
+            valid_task_indices = []
 
-                    # 解析參數
-                    entry_count = len(condition_pair["entry"])
-                    exit_count = len(condition_pair["exit"])
+            for task_idx in range(n_tasks):
+                try:
+                    strategy_id = all_tasks["strategy_ids"][task_idx]
+                    strategy_idx = self._parse_strategy_id(strategy_id)
 
-                    entry_params = list(combo[:entry_count])
-                    exit_params = list(combo[entry_count : entry_count + exit_count])
+                    if strategy_idx < len(condition_pairs):
+                        condition_pair = condition_pairs[strategy_idx]
+                        combo = all_tasks["combinations"][task_idx]
+                        predictor = all_tasks["predictors"][task_idx]
 
-                    # 生成開倉信號
-                    if entry_params:
-                        entry_signals_matrix = self._vectorized_generate_signals(
-                            [entry_params], [predictor]
-                        )
-                        combined_entry_signals = self._vectorized_combine_signals(
-                            entry_signals_matrix, is_exit_signals=False
-                        )
-                        entry_signals[:, task_idx] = combined_entry_signals[:, 0]
+                        # 解析參數
+                        entry_count = len(condition_pair["entry"])
+                        exit_count = len(condition_pair["exit"])
 
-                    # 生成平倉信號
-                    if exit_params:
-                        exit_signals_matrix = self._vectorized_generate_signals(
-                            [exit_params], [predictor]
-                        )
-                        combined_exit_signals = self._vectorized_combine_signals(
-                            exit_signals_matrix, is_exit_signals=True
-                        )
-                        exit_signals[:, task_idx] = combined_exit_signals[:, 0]
+                        entry_params = list(combo[:entry_count])
+                        exit_params = list(combo[entry_count : entry_count + exit_count])
 
-            except Exception as e:
-                self.logger.warning(f"任務 {task_idx} 信號生成失敗: {e}")
-                # 保持零信號
-                entry_signals[:, task_idx] = 0
-                exit_signals[:, task_idx] = 0
+                        all_entry_params.append(entry_params)
+                        all_exit_params.append(exit_params)
+                        all_predictors.append(predictor)
+                        valid_task_indices.append(task_idx)
+                except Exception as e:
+                    self.logger.warning(f"任務 {task_idx} 參數解析失敗: {e}")
+            
+            signal_progress.update(signal_task, completed=1, description=f"🚀 [1/3] 信號生成 - 已收集 {len(all_entry_params)} 個任務參數")
+
+            # 步驟2: 向量化生成開倉信號（一次性處理所有任務）
+            if all_entry_params:
+                entry_signals_matrix = self._vectorized_generate_signals(
+                    all_entry_params, all_predictors
+                )
+                combined_entry_signals = self._vectorized_combine_signals(
+                    entry_signals_matrix, is_exit_signals=False
+                )
+                
+                # 將結果分配到對應位置
+                for idx, task_idx in enumerate(valid_task_indices):
+                    entry_signals[:, task_idx] = combined_entry_signals[:, idx]
+            
+            signal_progress.update(signal_task, completed=2, description="🚀 [2/3] 信號生成 - 已完成開倉信號")
+
+            # 步驟3: 向量化生成平倉信號（一次性處理所有任務）
+            if all_exit_params:
+                exit_signals_matrix = self._vectorized_generate_signals(
+                    all_exit_params, all_predictors
+                )
+                combined_exit_signals = self._vectorized_combine_signals(
+                    exit_signals_matrix, is_exit_signals=True
+                )
+                
+                # 將結果分配到對應位置
+                for idx, task_idx in enumerate(valid_task_indices):
+                    exit_signals[:, task_idx] = combined_exit_signals[:, idx]
+            
+            signal_progress.update(signal_task, completed=3, description="🚀 [3/3] 信號生成 - 已完成平倉信號")
 
         # 返回單個numpy數組，與原版格式一致
         return {
@@ -808,40 +893,76 @@ class VectorBacktestEngine:
     def _simulate_all_trades_vectorized(
         self, all_signals: Dict, trading_params: Dict
     ) -> Dict:
-        """向量化交易模擬 - 處理單個numpy數組格式的信號"""
+        """向量化交易模擬 - 處理單個numpy數組格式的信號，帶進度條"""
+
+        from rich.console import Console
+        from rich.progress import (
+            BarColumn,
+            Progress,
+            SpinnerColumn,
+            TaskProgressColumn,
+            TextColumn,
+            TimeElapsedColumn,
+            TimeRemainingColumn,
+        )
+
+        console = Console()
+        
+        # 創建交易模擬進度條
+        trade_progress = Progress(
+            SpinnerColumn(),
+            TextColumn("[bold yellow]{task.description}"),
+            BarColumn(bar_width=40, complete_style="yellow", finished_style="bright_yellow"),
+            TaskProgressColumn(),
+            TextColumn("({task.completed}/{task.total})"),
+            TimeElapsedColumn(),
+            TextColumn("•"),
+            TimeRemainingColumn(),
+            console=console,
+        )
 
         # 直接使用單個numpy數組格式的信號
         entry_signals = all_signals["entry_signals"]
         exit_signals = all_signals["exit_signals"]
+        n_strategies = entry_signals.shape[1]
 
-        # 創建 TradeSimulator 實例
-        simulator = TradeSimulator_backtester(
-            self.data,
-            (
-                pd.Series(entry_signals[:, 0])
-                if entry_signals.shape[1] > 0
-                else pd.Series(0, index=self.data.index)
-            ),  # 使用第一個策略的信號作為示例
-            (
-                pd.Series(exit_signals[:, 0])
-                if exit_signals.shape[1] > 0
-                else pd.Series(0, index=self.data.index)
-            ),
-            trading_params.get("transaction_cost", 0.001),
-            trading_params.get("slippage", 0.0005),
-            trading_params.get("trade_delay", 0),
-            trading_params.get("trade_price", "close"),
-            None,  # Backtest_id
-            None,  # parameter_set_id
-            None,  # predictor
-            1.0,  # initial_equity
-            None,  # indicators
-        )
+        with trade_progress:
+            trade_task = trade_progress.add_task(
+                f"📈 [2/3] 交易模擬 - {n_strategies} 個策略", total=2
+            )
+            
+            # 創建 TradeSimulator 實例
+            simulator = TradeSimulator_backtester(
+                self.data,
+                (
+                    pd.Series(entry_signals[:, 0])
+                    if entry_signals.shape[1] > 0
+                    else pd.Series(0, index=self.data.index)
+                ),  # 使用第一個策略的信號作為示例
+                (
+                    pd.Series(exit_signals[:, 0])
+                    if exit_signals.shape[1] > 0
+                    else pd.Series(0, index=self.data.index)
+                ),
+                trading_params.get("transaction_cost", 0.001),
+                trading_params.get("slippage", 0.0005),
+                trading_params.get("trade_delay", 0),
+                trading_params.get("trade_price", "close"),
+                None,  # Backtest_id
+                None,  # parameter_set_id
+                None,  # predictor
+                1.0,  # initial_equity
+                None,  # indicators
+            )
+            
+            trade_progress.update(trade_task, completed=1, description="📈 [2/3] 交易模擬 - 準備完成")
 
-        # 調用 TradeSimulator 的向量化方法
-        trade_results = simulator.simulate_trades_vectorized(
-            entry_signals, exit_signals, trading_params
-        )
+            # 調用 TradeSimulator 的向量化方法
+            trade_results = simulator.simulate_trades_vectorized(
+                entry_signals, exit_signals, trading_params
+            )
+            
+            trade_progress.update(trade_task, completed=2, description=f"📈 [2/3] 交易模擬 - 完成 {n_strategies} 個策略")
 
         return trade_results
 
@@ -871,18 +992,6 @@ class VectorBacktestEngine:
         # 智能CPU配置檢測
         n_cores, core_info = SpecMonitor.get_optimal_core_count()
 
-        # 確認並行處理模式
-        from rich.console import Console
-
-        console = Console()
-        console.print(
-            Panel(
-                f"🔧 並行處理模式: {n_tasks} 個任務, {n_cores} 核心",
-                title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
-                border_style="#dbac30",
-            )
-        )
-
         # 動態計算批次大小 - 基於核心數優化
         if n_tasks <= 100:
             # 小任務數也分批處理，避免單批次開銷
@@ -903,33 +1012,19 @@ class VectorBacktestEngine:
             batch_indices.append(list(range(i, end_idx)))
             batch_sizes.append(end_idx - i)
 
-        console.print(
-            Panel(
-                f"🔧 批次配置: {len(batch_indices)} 個批次, 每批次約 {batch_size} 個任務",
-                title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
-                border_style="#dbac30",
-            )
-        )
-
         # 創建改進的進度監控器
+        from rich.console import Console
+
+        console = Console()
         progress_monitor = None
-        if progress is not None:
-            task = progress.add_task("生成回測結果", total=total_backtests)
+        if progress is not None and task is not None:
             progress_monitor = ProgressMonitor(
                 progress, task, total_backtests, len(batch_indices)
             )
             progress_monitor.set_batch_sizes(batch_sizes)
 
-        # 智能選擇處理模式
+        # 處理邏輯
         if len(batch_indices) == 1:
-            # 單批次直接處理，避免多進程開銷
-            console.print(
-                Panel(
-                    f"🔧 單進程處理: {n_tasks} 個任務",
-                    title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
-                    border_style="#dbac30",
-                )
-            )
 
             batch_data = self._prepare_batch_data(
                 batch_indices[0],
@@ -1300,8 +1395,7 @@ class VectorBacktestEngine:
 
         # 創建改進的進度監控器
         progress_monitor = None
-        if progress is not None:
-            task = progress.add_task("生成回測結果", total=total_backtests)
+        if progress is not None and task is not None:
             # 對於串行處理，將每個任務視為一個批次
             progress_monitor = ProgressMonitor(progress, task, total_backtests, n_tasks)
             progress_monitor.set_batch_sizes([1] * n_tasks)  # 每個批次大小為1
