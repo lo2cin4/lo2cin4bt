@@ -46,8 +46,12 @@ build/
 README_CLI_STYLE.md
 Development_Guideline.md
 HowToAddNewTA_AIPROMPT.md
+AUTOMODE_DEVELOPMENT_PLAN.md
 
 # Claude
 CLAUDE.md
 .mcp.json
 .claude/
+records/autorunner/config_template 2.json
+records/dataloader/import/Boxer_Score_20210103.xlsx
+autorunner/DEV_PLAN.md
