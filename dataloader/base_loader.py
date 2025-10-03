@@ -478,6 +478,9 @@ class BaseDataLoader:
             predictor_loader = PredictorLoader(price_data=price_data)
             predictor_data = predictor_loader.load()
 
+            # 存儲預測因子文件名供後續使用
+            self.predictor_file_name = predictor_loader.predictor_file_name
+
             if (
                 isinstance(predictor_data, str)
                 and predictor_data == "__SKIP_STATANALYSER__"

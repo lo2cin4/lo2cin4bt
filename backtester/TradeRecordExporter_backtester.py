@@ -124,6 +124,8 @@ class TradeRecordExporter_backtester:
         trade_delay: Optional[int] = None,
         trade_price: Optional[str] = None,
         data: Optional[pd.DataFrame] = None,
+        predictor_file_name: Optional[str] = None,
+        predictor_column: Optional[str] = None,
     ) -> None:
         self.trade_records = trade_records
         self.frequency = frequency
@@ -136,6 +138,8 @@ class TradeRecordExporter_backtester:
         self.trade_delay = trade_delay
         self.trade_price = trade_price
         self.data = data
+        self.predictor_file_name = predictor_file_name
+        self.predictor_column = predictor_column
         self.logger = logging.getLogger(self.__class__.__name__)
 
         self.output_dir = os.path.join(
@@ -144,6 +148,7 @@ class TradeRecordExporter_backtester:
             "backtester",
         )
         os.makedirs(self.output_dir, exist_ok=True)
+        self.last_exported_path: Optional[str] = None
 
     def _get_strategy_name(self, params: Optional[dict]) -> str:  # noqa: C901
         """根據 entry/exit 參數產生 strategy 字串，格式為 entry1+entry2_exit1+exit2"""
@@ -378,14 +383,47 @@ class TradeRecordExporter_backtester:
             raise
 
     def _create_parquet_filename(self) -> tuple[str, str]:
-        """創建 Parquet 文件名和路徑"""
+        """創建 Parquet 文件名和路徑
+
+        格式: {date}_{Trading_instrument}_{predictor_file_name}_{predictor_column}_{random_id}_{Backtest_id}.parquet
+        如果使用價格: {date}_{Trading_instrument}_{price}_{price}_{random_id}_{Backtest_id}.parquet
+        """
         import uuid
 
         date_str = datetime.now().strftime("%Y%m%d")
         random_id = uuid.uuid4().hex[:8]
-        filename = f"{date_str}_{random_id}_{self.Backtest_id}.parquet"
+
+        # 獲取交易標的
+        trading_instrument = self._get_trading_instrument()
+
+        # 獲取預測因子文件名和列名
+        if self.predictor_file_name and self.predictor_column:
+            # 使用預測因子文件
+            predictor_file = self.predictor_file_name
+            predictor_col = self.predictor_column
+        else:
+            # 僅使用價格數據
+            predictor_file = "price"
+            predictor_col = "price"
+
+        # 生成文件名（與原版一致：date + random_id + Backtest_id）
+        filename = f"{date_str}_{trading_instrument}_{predictor_file}_{predictor_col}_{random_id}_{self.Backtest_id}.parquet"
         filepath = os.path.join(self.output_dir, filename)
         return filename, filepath
+
+    def _get_trading_instrument(self) -> str:
+        """獲取交易標的名稱"""
+        # 從 results 中獲取
+        if self.results:
+            for result in self.results:
+                records = result.get("records", pd.DataFrame())
+                if not records.empty and "Trading_instrument" in records.columns:
+                    instrument = records["Trading_instrument"].iloc[0]
+                    if instrument and str(instrument) != "nan":
+                        return str(instrument)
+
+        # 預設值
+        return "UNKNOWN"
 
     def _get_results_to_export(self, backtest_id: Optional[str] = None) -> List[dict]:
         """獲取要導出的回測結果"""
@@ -581,6 +619,7 @@ class TradeRecordExporter_backtester:
 
         # 儲存 Parquet
         pq.write_table(table, filepath)
+        self.last_exported_path = filepath
 
     def export_to_parquet(self, backtest_id: Optional[str] = None) -> None:
         """導出交易記錄至 Parquet，包含 metadata。

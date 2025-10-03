@@ -100,7 +100,7 @@ class BaseMetricTracker:
         content = step_content.strip()
         if desc:
             content += f"\n\n[bold #dbac30]說明[/bold #dbac30]\n{desc}"
-        panel_title = f"[bold #dbac30]🚦 Metricstracker 交易分析 步驟：{steps[current_step-1]}[/bold #dbac30]"
+        panel_title = f"[bold #dbac30]🚦 Metricstracker 交易分析 步驟：{steps[current_step - 1]}[/bold #dbac30]"
         console.print(Panel(content.strip(), title=panel_title, border_style="#dbac30"))
 
     def _print_step_panel(self, current_step: int, desc: str = ""):
@@ -206,7 +206,7 @@ class BaseMetricTracker:
     def _get_analysis_params(self):
         """獲取分析參數"""
         console.print(
-            f"[bold #dbac30]請輸入年化時間單位（如日線股票252，日線幣365，留空預設為365）：[/bold #dbac30]"
+            "[bold #dbac30]請輸入年化時間單位（如日線股票252，日線幣365，留空輸入為365）：[/bold #dbac30]"
         )
         time_unit = input().strip()
         if time_unit == "":
@@ -215,7 +215,7 @@ class BaseMetricTracker:
             time_unit = int(time_unit)
 
         console.print(
-            f"[bold #dbac30]請輸入無風險利率（%）（輸入n代表n% ，留空預設為4）：[/bold #dbac30]"
+            "[bold #dbac30]請輸入無風險利率（%）（輸入n代表n% ，留空輸入為4）：[/bold #dbac30]"
         )
         risk_free_rate = input().strip()
         if risk_free_rate == "":
@@ -229,8 +229,7 @@ class BaseMetricTracker:
         """分析檔案列表"""
         console.print(
             Panel(
-                f"收到以下檔案進行分析：\n"
-                + "\n".join([f"  - {f}" for f in file_list]),
+                "收到以下檔案進行分析：\n" + "\n".join([f"  - {f}" for f in file_list]),
                 title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
                 border_style="#dbac30",
             )

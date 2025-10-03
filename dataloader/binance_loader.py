@@ -60,9 +60,17 @@ from .calculator_loader import ReturnCalculator
 class BinanceLoader(AbstractDataLoader):
     def load(self) -> Tuple[Optional[pd.DataFrame], str]:
         """從 Binance API 載入數據"""
-        symbol = self.get_user_input("請輸入交易對（例如 BTCUSDT", "BTCUSDT")
-        interval = self.get_frequency("1d")
-        start_date, end_date = self.get_date_range()
+        symbol = getattr(self, "symbol", None)
+        interval = getattr(self, "interval", None)
+        start_date = getattr(self, "start_date", None)
+        end_date = getattr(self, "end_date", None)
+
+        if symbol is None:
+            symbol = self.get_user_input("請輸入交易對（例如 BTCUSDT", "BTCUSDT")
+        if interval is None:
+            interval = self.get_frequency("1d")
+        if start_date is None or end_date is None:
+            start_date, end_date = self.get_date_range()
 
         try:
             # 使用無憑證的 Client

@@ -100,6 +100,7 @@ flowchart TD
 """
 
 import logging
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -107,94 +108,96 @@ import pandas as pd
 # 導入 Numba 進行 JIT 編譯加速
 from numba import njit
 
+# 導入型別
+from .IndicatorParams_backtester import IndicatorParams
+
+
 # 核心算法：向量化 Numba 實現
 @njit(fastmath=True, cache=True)
-def _vectorized_trade_simulation_njit(
-        entry_signals,
-        exit_signals,
-        close_prices,
-        open_prices,
-        transaction_cost,
-        slippage,
-        trade_price="open",
-        trade_delay=1,
-    ):
-        """
-        向量化交易模擬 - 移植自 VBT
-        """
-        n_time, n_strategies = entry_signals.shape
+def _vectorized_trade_simulation_njit(  # pylint: disable=too-complex
+    entry_signals: np.ndarray,
+    exit_signals: np.ndarray,
+    close_prices: np.ndarray,
+    open_prices: np.ndarray,
+    transaction_cost: float,
+    slippage: float,
+    trade_price: str = "open",
+    trade_delay: int = 1,
+) -> Dict[str, Any]:
+    """
+    向量化交易模擬 - 移植自 VBT
+    """
+    n_time, n_strategies = entry_signals.shape
 
-        # 預分配結果矩陣
-        positions = np.zeros((n_time, n_strategies))
-        returns = np.zeros((n_time, n_strategies))
-        trade_actions = np.zeros((n_time, n_strategies))
-        equity_values = np.zeros((n_time, n_strategies))
+    # 預分配結果矩陣
+    positions = np.zeros((n_time, n_strategies))
+    returns = np.zeros((n_time, n_strategies))
+    trade_actions = np.zeros((n_time, n_strategies))
+    equity_values = np.zeros((n_time, n_strategies))
 
-        # 對每個策略進行優化的狀態機處理
-        for s in range(n_strategies):
-            # 狀態機：最小化記憶依賴
-            current_state = 0.0  # 0=空倉, 1=多倉, -1=空倉
-            equity = 1.0
+    # 對每個策略進行優化的狀態機處理
+    for s in range(n_strategies):
+        # 狀態機：最小化記憶依賴
+        current_state = 0.0  # 0=空倉, 1=多倉, -1=空倉
+        equity = 1.0
 
-            for t in range(n_time):
-                # 計算信號索引（考慮交易延遲）
-                signal_index = t - trade_delay
-                entry_sig = (
-                    entry_signals[signal_index, s]
-                    if 0 <= signal_index < n_time
-                    else 0.0
-                )
-                exit_sig = (
-                    exit_signals[signal_index, s] if 0 <= signal_index < n_time else 0.0
-                )
+        for t in range(n_time):
+            # 計算信號索引（考慮交易延遲）
+            signal_index = t - trade_delay
+            entry_sig = (
+                entry_signals[signal_index, s] if 0 <= signal_index < n_time else 0.0
+            )
+            exit_sig = (
+                exit_signals[signal_index, s] if 0 <= signal_index < n_time else 0.0
+            )
 
-                # 計算收益率（修正邏輯）
-                if t > 0 and current_state != 0.0:
-                    if trade_price == "close":
-                        # Close 交易：使用前一日收盤價到當日收盤價的收益率
-                        prev_close = close_prices[t - 1]
-                        current_close = close_prices[t]
-                        ret = (current_close - prev_close) / prev_close * current_state
-                    else:  # trade_price == 'open'
-                        # Open 交易：使用前一日開盤價到當日開盤價的收益率
-                        prev_open = open_prices[t - 1]
-                        current_open = open_prices[t]
-                        ret = (current_open - prev_open) / prev_open * current_state
+            # 計算收益率（修正邏輯）
+            if t > 0 and current_state != 0.0:
+                if trade_price == "close":
+                    # Close 交易：使用前一日收盤價到當日收盤價的收益率
+                    prev_close = close_prices[t - 1]
+                    current_close = close_prices[t]
+                    ret = (current_close - prev_close) / prev_close * current_state
+                else:  # trade_price == 'open'
+                    # Open 交易：使用前一日開盤價到當日開盤價的收益率
+                    prev_open = open_prices[t - 1]
+                    current_open = open_prices[t]
+                    ret = (current_open - prev_open) / prev_open * current_state
 
-                    equity *= 1.0 + ret
-                    returns[t, s] = ret
-                else:
-                    returns[t, s] = 0.0
+                equity *= 1.0 + ret
+                returns[t, s] = ret
+            else:
+                returns[t, s] = 0.0
 
-                # 狀態轉換邏輯（優化版本）
-                if current_state == 0.0:  # 空倉
-                    if entry_sig == 1.0:  # 開多倉
-                        current_state = 1.0
-                        trade_actions[t, s] = 1
-                        # 扣除滑點與手續費
-                        equity *= (1.0 - slippage) * (1.0 - transaction_cost)
-                    elif entry_sig == -1.0:  # 開空倉
-                        current_state = -1.0
-                        trade_actions[t, s] = 1
-                        # 扣除滑點與手續費
-                        equity *= (1.0 - slippage) * (1.0 - transaction_cost)
-                elif current_state == 1.0:  # 多倉
-                    if exit_sig == -1.0:  # 平多倉
-                        current_state = 0.0
-                        trade_actions[t, s] = 4
-                        # 扣除滑點與手續費
-                        equity *= (1.0 - slippage) * (1.0 - transaction_cost)
-                elif current_state == -1.0:  # 空倉
-                    if exit_sig == 1.0:  # 平空倉
-                        current_state = 0.0
-                        trade_actions[t, s] = 4
-                        # 扣除滑點與手續費
-                        equity *= (1.0 - slippage) * (1.0 - transaction_cost)
+            # 狀態轉換邏輯（優化版本）
+            if current_state == 0.0:  # 空倉
+                if entry_sig == 1.0:  # 開多倉
+                    current_state = 1.0
+                    trade_actions[t, s] = 1
+                    # 扣除滑點與手續費
+                    equity *= (1.0 - slippage) * (1.0 - transaction_cost)
+                elif entry_sig == -1.0:  # 開空倉
+                    current_state = -1.0
+                    trade_actions[t, s] = 1
+                    # 扣除滑點與手續費
+                    equity *= (1.0 - slippage) * (1.0 - transaction_cost)
+            elif current_state == 1.0:  # 多倉
+                if exit_sig == -1.0:  # 平多倉
+                    current_state = 0.0
+                    trade_actions[t, s] = 4
+                    # 扣除滑點與手續費
+                    equity *= (1.0 - slippage) * (1.0 - transaction_cost)
+            elif current_state == -1.0:  # 空倉
+                if exit_sig == 1.0:  # 平空倉
+                    current_state = 0.0
+                    trade_actions[t, s] = 4
+                    # 扣除滑點與手續費
+                    equity *= (1.0 - slippage) * (1.0 - transaction_cost)
 
-                positions[t, s] = current_state
-                equity_values[t, s] = equity * 100.0
+            positions[t, s] = current_state
+            equity_values[t, s] = equity * 100.0
 
-        return positions, returns, trade_actions, equity_values
+    return {"positions": positions, "returns": returns, "trade_actions": trade_actions, "equity_values": equity_values}
 
 
 logger = logging.getLogger("lo2cin4bt")
@@ -219,20 +222,20 @@ class TradeSimulator_backtester:
         indicators (list): 所有參與的 indicator 實例列表，預設 None。
     """
 
-    def __init__(
+    def __init__(  # pylint: disable=unused-argument
         self,
-        data,
-        entry_signal,
-        exit_signal,
-        transaction_cost=0.001,
-        slippage=0.0005,
-        trade_delay=0,
-        trade_price="close",
-        Backtest_id=None,
-        parameter_set_id=None,
-        predictor=None,
-        initial_equity=1.0,
-        indicators=None,
+        data: pd.DataFrame,
+        entry_signal: pd.Series,
+        exit_signal: pd.Series,
+        transaction_cost: float = 0.001,
+        slippage: float = 0.0005,
+        trade_delay: int = 0,
+        trade_price: str = "close",
+        Backtest_id: Optional[str] = None,
+        parameter_set_id: Optional[str] = None,
+        predictor: Optional[str] = None,
+        initial_equity: float = 1.0,
+        indicators: Optional[List[str]] = None,
     ):
         self.data = data
         self.entry_signal = entry_signal
@@ -248,10 +251,7 @@ class TradeSimulator_backtester:
         self.logger = logger
         self.indicators = indicators  # 新增：所有參與的 indicator 實例列表，預設 None
 
-        entry_signal.value_counts().to_dict()
-        exit_signal.value_counts().to_dict()
-
-    def simulate_trades(self):
+    def simulate_trades(self) -> pd.DataFrame:
         """
         模擬交易，生成交易記錄
 
@@ -299,18 +299,18 @@ class TradeSimulator_backtester:
             returns,
             trade_actions,
             equity_values,
-            self.predictor,
-            self.Backtest_id,
-            [],  # entry_params (單個策略不需要)
-            [],  # exit_params (單個策略不需要)
+            self.predictor or "",
+            self.Backtest_id or "",
+            {},  # entry_params (單個策略不需要)
+            {},  # exit_params (單個策略不需要)
             trading_params,
         )
 
         return result["records"], None  # 返回 records_df 和 warning_msg
 
-    def simulate_trades_vectorized(
-        self, entry_signals_matrix, exit_signals_matrix, trading_params
-    ):
+    def simulate_trades_vectorized(  # pylint: disable=unused-argument
+        self, entry_signals_matrix: pd.Series, exit_signals_matrix: pd.Series, trading_params: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """
         向量化交易模擬 - 供 VBT 調用
 
@@ -323,18 +323,20 @@ class TradeSimulator_backtester:
             dict: 包含向量化交易結果
         """
         # 使用 Numba 加速的向量化交易模擬
-        positions, returns, trade_actions, equity_values = (
-            _vectorized_trade_simulation_njit(
-                entry_signals_matrix,
-                exit_signals_matrix,
-                self.data["Close"].values.astype(np.float64),
-                self.data["Open"].values.astype(np.float64),
-                trading_params.get("transaction_cost", 0.001),
-                trading_params.get("slippage", 0.0005),
-                trading_params.get("trade_price", "close"),
-                trading_params.get("trade_delay", 0),
-            )
+        result = _vectorized_trade_simulation_njit(
+            entry_signals_matrix,
+            exit_signals_matrix,
+            self.data["Close"].values.astype(np.float64),
+            self.data["Open"].values.astype(np.float64),
+            trading_params.get("transaction_cost", 0.001),
+            trading_params.get("slippage", 0.0005),
+            trading_params.get("trade_price", "close"),
+            trading_params.get("trade_delay", 0),
         )
+        positions = result["positions"]
+        returns = result["returns"]
+        trade_actions = result["trade_actions"]
+        equity_values = result["equity_values"]
 
         return {
             "positions": positions,
@@ -343,23 +345,21 @@ class TradeSimulator_backtester:
             "equity_values": equity_values,
         }
 
-
-
-    def generate_single_result(
+    def generate_single_result(  # pylint: disable=too-complex
         self,
-        task_idx,
-        entry_signal,
-        exit_signal,
-        position,
-        returns,
-        trade_actions,
-        equity_values,
-        predictor,
-        backtest_id,
-        entry_params,
-        exit_params,
-        trading_params,
-    ):
+        task_idx: int,
+        entry_signal: np.ndarray,
+        exit_signal: np.ndarray,
+        position: np.ndarray,
+        returns: np.ndarray,
+        trade_actions: np.ndarray,
+        equity_values: np.ndarray,
+        predictor: str,
+        backtest_id: str,
+        entry_params: Dict[str, Any],
+        exit_params: Dict[str, Any],
+        trading_params: Dict[str, Any],
+    ) -> Dict[str, Any]:
         """
         生成單個任務的結果 - 移植自 VBT 的 _generate_single_result
         """
@@ -392,7 +392,7 @@ class TradeSimulator_backtester:
             slippage_cost = 0.0
             holding_period = None
             trade_return = None
-            
+
             # 根據trade_price設置當前時間點的價格（無論是否有交易動作）
             trade_price = trading_params.get("trade_price", "close")
             current_price = row["Open"] if trade_price == "open" else row["Close"]
@@ -535,7 +535,7 @@ class TradeSimulator_backtester:
 
         return result
 
-    def _param_to_dict(self, param):
+    def _param_to_dict(self, param: Any) -> Dict[str, Any]:  # pylint: disable=unused-argument
         """將參數物件轉換為字典格式"""
         if param is None:
             return {}
@@ -545,10 +545,17 @@ class TradeSimulator_backtester:
             result[key] = value
         return result
 
-    def _generate_parameter_set_id(self, entry_params, exit_params, predictor):
+    def _generate_parameter_set_id(
+        self, entry_params: Union[List[IndicatorParams], Dict[str, Any]], exit_params: Union[List[IndicatorParams], Dict[str, Any]], predictor: str
+    ) -> str:  # pylint: disable=too-complex
         """
         根據 entry/exit 參數生成有意義的 parameter_set_id
         """
+        # 處理不同的參數型別
+        if isinstance(entry_params, dict):
+            # 如果是字典，直接返回簡單的策略名稱
+            return f"Strategy_{predictor}_{len(entry_params)}"
+
         # 生成開倉參數字符串
         entry_str = ""
         for i, param in enumerate(entry_params):

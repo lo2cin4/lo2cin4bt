@@ -64,10 +64,13 @@ flowchart TD
 - BacktestEngine 的參數組合生成與多進程執行邏輯請參考對應模組
 """
 
+import glob
 import logging
+import multiprocessing
 import os
 from logging.handlers import QueueHandler, QueueListener, RotatingFileHandler
 
+import numpy as np
 import pandas as pd
 
 from backtester.Base_backtester import BaseBacktester
@@ -82,11 +85,6 @@ from statanalyser.StationarityTest_statanalyser import StationarityTest
 
 # 從基類匯入 select_predictor_factor 方法
 select_predictor_factor = BaseStatAnalyser.select_predictor_factor
-
-import glob
-import multiprocessing
-
-import numpy as np
 
 # === 刪除所有plotguy相關import與代碼 ===
 
@@ -260,21 +258,22 @@ def main():
             "[bold white]1. 全面回測 (載入數據→統計分析→回測交易→交易分析→可視化平台)\n"
             "2. 回測交易 (載入數據→回測交易→交易分析→可視化平台)\n"
             "3. 交易分析 (交易分析→可視化平台)\n"
-            "4. 可視化平台 (需至少進行一次回測交易) [/bold white]",
+            "4. 可視化平台 (需至少進行一次回測交易)\n"
+            "5. 🚀 Autorunner 自動化回測 (配置文件驅動，支援多配置批次執行) [/bold white]",
             title=Text("🏁 主選單", style="bold #dbac30"),
             border_style="#dbac30",
         )
     )
     console.print(
-        "[bold #dbac30]請選擇要執行的功能（1, 2, 3, 4，預設1）：[/bold #dbac30]"
+        "[bold #dbac30]請選擇要執行的功能（1, 2, 3, 4, 5，預設1）：[/bold #dbac30]"
     )
     while True:
         choice = input().strip() or "1"
-        if choice in ["1", "2", "3", "4"]:
+        if choice in ["1", "2", "3", "4", "5"]:
             break
         console.print(
             Panel(
-                "❌ 無效選擇，請重新輸入 1~4。",
+                "❌ 無效選擇，請重新輸入 1~5。",
                 title=Text("🏁 主選單", style="bold #8f1511"),
                 border_style="#8f1511",
             )
@@ -285,13 +284,14 @@ def main():
                 "[bold white]1. 全面回測 (載入數據→統計分析→回測交易→交易分析→可視化平台)\n"
                 "2. 回測交易 (載入數據→回測交易→交易分析→可視化平台)\n"
                 "3. 交易分析 (metricstracker + 可視化平台)\n"
-                "4. 可視化平台 (僅讀取 metricstracker 數據並顯示)[/bold white]",
+                "4. 可視化平台 (僅讀取 metricstracker 數據並顯示)\n"
+                "5. 自動化回測 ( autorunner 配置文件驅動，支援多配置批次執行)[/bold white]",
                 title=Text("🏁 主選單", style="bold #8f1511"),
                 border_style="#dbac30",
             )
         )
         console.print(
-            "[bold #dbac30]請選擇要執行的功能（1, 2, 3, 4，預設1）：[/bold #dbac30]"
+            "[bold #dbac30]請選擇要執行的功能（1, 2, 3, 4, 5，預設1）：[/bold #dbac30]"
         )
 
     try:
@@ -318,7 +318,10 @@ def main():
                     print("未輸入預測因子檔案，將跳過統計分析，僅使用價格數據。")
                 data = data_loader.data
                 frequency = data_loader.frequency
-                backtester = BaseBacktester(data, frequency, logger)
+                predictor_file_name = getattr(data_loader, "predictor_file_name", None)
+                backtester = BaseBacktester(
+                    data, frequency, logger, predictor_file_name
+                )
                 backtester.run()
                 analyze_backtest = "y"
                 if analyze_backtest == "y":
@@ -347,7 +350,10 @@ def main():
                 )
                 logger.info("用戶選擇price，跳過統計分析")
                 # 直接進行回測，不進行統計分析
-                backtester = BaseBacktester(data, frequency, logger)
+                predictor_file_name = getattr(data_loader, "predictor_file_name", None)
+                backtester = BaseBacktester(
+                    data, frequency, logger, predictor_file_name
+                )
                 backtester.run()
                 logger.info("回測完成")
                 console.print(
@@ -362,7 +368,7 @@ def main():
                 metric_tracker = BaseMetricTracker()
                 metric_tracker.run_analysis()
                 console.print(
-                    f"[bold #dbac30]是否啟動可視化平台？(y/n，預設y）：[/bold #dbac30]"
+                    "[bold #dbac30]是否啟動可視化平台？(y/n，預設y）：[/bold #dbac30]"
                 )
                 run_plotter = input().strip().lower() or "y"
                 if run_plotter == "y":
@@ -436,7 +442,10 @@ def main():
                 logger.info("統計分析完成")
 
                 # 回測
-                backtester = BaseBacktester(data, frequency, logger)
+                predictor_file_name = getattr(data_loader, "predictor_file_name", None)
+                backtester = BaseBacktester(
+                    data, frequency, logger, predictor_file_name
+                )
                 backtester.run()
                 logger.info("回測完成")
                 console.print(
@@ -451,7 +460,7 @@ def main():
                 metric_tracker = BaseMetricTracker()
                 metric_tracker.run_analysis()
                 console.print(
-                    f"[bold #dbac30]是否啟動可視化平台？(y/n，預設y）：[/bold #dbac30]"
+                    "[bold #dbac30]是否啟動可視化平台？(y/n，預設y）：[/bold #dbac30]"
                 )
                 run_plotter = input().strip().lower() or "y"
                 if run_plotter == "y":
@@ -505,7 +514,8 @@ def main():
                 logger.info("用戶選擇price，跳過統計分析")
 
             # 回測
-            backtester = BaseBacktester(data, frequency, logger)
+            predictor_file_name = getattr(data_loader, "predictor_file_name", None)
+            backtester = BaseBacktester(data, frequency, logger, predictor_file_name)
             backtester.run()
             logger.info("回測完成")
             console.print(
@@ -520,7 +530,7 @@ def main():
             metric_tracker = BaseMetricTracker()
             metric_tracker.run_analysis()
             console.print(
-                f"[bold #dbac30]是否啟動可視化平台？(y/n，預設y)：[/bold #dbac30]"
+                "[bold #dbac30]是否啟動可視化平台？(y/n，預設y)：[/bold #dbac30]"
             )
             run_plotter = input().strip().lower() or "y"
             if run_plotter == "y":
@@ -538,7 +548,7 @@ def main():
             metric_tracker = BaseMetricTracker()
             metric_tracker.run_analysis()
             console.print(
-                f"[bold #dbac30]是否啟動可視化平台？(y/n，預設y)：[/bold #dbac30]"
+                "[bold #dbac30]是否啟動可視化平台？(y/n，預設y)：[/bold #dbac30]"
             )
             run_plotter = input().strip().lower() or "y"
             if run_plotter == "y":
@@ -565,6 +575,44 @@ def main():
             except Exception as e:
                 print(f"❌ 可視化平台啟動失敗: {e}")
                 logger.error(f"可視化平台啟動失敗: {e}")
+        elif choice == "5":
+            # Autorunner 自動化回測
+            logger.info("[主選單] 進入 Autorunner 自動化回測模式")
+
+            try:
+                # 導入 autorunner 模組
+                from autorunner.Base_autorunner import BaseAutorunner
+
+                # 創建 autorunner 實例
+                autorunner = BaseAutorunner(logger=logger)
+
+                # 執行 autorunner
+                autorunner.run()
+
+            except ImportError as e:
+                print(f"❌ [ERROR] 導入 autorunner 模組失敗: {e}")
+                logger.error(f"導入 autorunner 模組失敗: {e}")
+                console.print(
+                    Panel(
+                        f"❌ 導入 autorunner 模組失敗: {e}\n\n"
+                        "請確保 autorunner 模組已正確安裝。",
+                        title=Text("⚠️ 模組導入錯誤", style="bold #8f1511"),
+                        border_style="#8f1511",
+                    )
+                )
+            except Exception as e:
+                print(f"❌ [ERROR] autorunner 執行失敗: {e}")
+                logger.error(f"autorunner 執行失敗: {e}")
+                console.print(
+                    Panel(
+                        f"❌ autorunner 執行失敗: {e}",
+                        title=Text("⚠️ 執行錯誤", style="bold #8f1511"),
+                        border_style="#8f1511",
+                    )
+                )
+                import traceback
+
+                traceback.print_exc()
         else:
             pass
     except Exception as e:

@@ -77,6 +77,7 @@ class PredictorLoader:
     def __init__(self, price_data: pd.DataFrame) -> None:
         """初始化 PredictorLoader，必須提供價格數據"""
         self.price_data = price_data
+        self.predictor_file_name = None  # 存儲預測因子文件名
 
     def load(self) -> Optional[Union[pd.DataFrame, str]]:
         """載入預測因子數據，與價格數據對齊並合併"""
@@ -84,9 +85,13 @@ class PredictorLoader:
             # 選擇或輸入檔案路徑
             file_path = self._get_file_path()
             if file_path == "__SKIP_STATANALYSER__":
+                self.predictor_file_name = None  # 僅使用價格
                 return "__SKIP_STATANALYSER__"
             if file_path is None:
                 return None
+
+            # 存儲預測因子文件名（不含路徑和副檔名）
+            self.predictor_file_name = os.path.splitext(os.path.basename(file_path))[0]
 
             # 獲取時間格式
             time_format = self._get_time_format()
@@ -288,6 +293,7 @@ class PredictorLoader:
         # 清洗數據 - 使用絕對導入避免循環導入問題
         try:
             from dataloader.validator_loader import DataValidator
+
             validator = DataValidator(data)
             cleaned_data = validator.validate_and_clean()
         except ImportError:
@@ -444,13 +450,6 @@ class PredictorLoader:
             )
         console.print(table)
 
-        console.print(
-            Panel(
-                "⚠️ 目前僅支援單一預測因子進行回測與差分，未來將開放多預測因子功能，敬請期待！",
-                title="[bold #dbac30]功能提醒[/bold #dbac30]",
-                border_style="#dbac30",
-            )
-        )
         return df, diff_cols, used_series
 
     def _identify_time_col(self, columns: pd.Index, file_path: str) -> Optional[str]:

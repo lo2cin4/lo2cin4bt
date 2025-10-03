@@ -61,7 +61,7 @@ flowchart TD
 ------------------------------------------------------------
 - 單指標計算：indicator = BollingerBandIndicator(data, params)
   signals = indicator.generate_signals(predictor)
-- 批量向量化計算：signals_matrix = BollingerBandIndicator.vectorized_calculate_boll_signals(tasks, predictor, signals_matrix, global_boll_cache, data)
+- 批量向量化計算：signals_matrix = BollingerBandIndicator.vectorized_calculate_boll_signals(tasks, predictor, signals_matrix, global_boll_cache, data)  # noqa: E501
 - 參數生成：params_list = BollingerBandIndicator.get_params(strat_idx, params_config)
 
 【與其他模組的關聯】
@@ -212,7 +212,7 @@ class BollingerBandIndicator:
     def get_strategy_descriptions():
         # 回傳 dict: {'BOLL{i+1}': '描述', ...}
         return {
-            f"BOLL{i+1}": desc
+            f"BOLL{i + 1}": desc
             for i, desc in enumerate(BollingerBandIndicator.STRATEGY_DESCRIPTIONS)
         }
 

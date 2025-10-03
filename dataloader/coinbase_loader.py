@@ -61,7 +61,9 @@ from .calculator_loader import ReturnCalculator
 class CoinbaseLoader(AbstractDataLoader):
     def load(self) -> Tuple[Optional[pd.DataFrame], str]:
         """從 Coinbase API 載入數據"""
-        symbol = self.get_user_input("請輸入交易對（例如 BTC-USD", "BTC-USD")
+        symbol = getattr(self, "symbol", None)
+        if symbol is None:
+            symbol = self.get_user_input("請輸入交易對（例如 BTC-USD", "BTC-USD")
 
         # Coinbase 支援的時間間隔
         interval_map = {
@@ -73,9 +75,11 @@ class CoinbaseLoader(AbstractDataLoader):
             "1d": 86400,
         }
 
-        interval_input = self.get_user_input(
-            "輸入價格數據的周期 (1m, 5m, 15m, 1h, 6h, 1d", "1d"
-        )
+        interval_input = getattr(self, "interval", None)
+        if interval_input is None:
+            interval_input = self.get_user_input(
+                "輸入價格數據的周期 (1m, 5m, 15m, 1h, 6h, 1d", "1d"
+            )
 
         if interval_input not in interval_map:
             self.show_warning(f"不支援的時間周期 '{interval_input}'，將使用預設值 1d")
@@ -84,7 +88,11 @@ class CoinbaseLoader(AbstractDataLoader):
         granularity = interval_map[interval_input]
 
         # 獲取日期範圍
-        start_date_str, end_date_str = self.get_date_range()
+        start_date_str = getattr(self, "start_date", None)
+        end_date_str = getattr(self, "end_date", None)
+
+        if start_date_str is None or end_date_str is None:
+            start_date_str, end_date_str = self.get_date_range()
 
         try:
             # 轉換日期為 timestamp

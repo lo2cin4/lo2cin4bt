@@ -27,7 +27,7 @@ C -->|PERC1-PERC6| E[策略信號生成]
 使用方式：
 - 單指標計算：indicator = PercentileIndicator(data, params)
 - 信號生成：signals = indicator.generate_signals(predictor)
-- 批量向量化計算：signals_matrix = PercentileIndicator.vectorized_calculate_percentile_signals(tasks, predictor, signals_matrix, global_percentile_cache, data)
+- 批量向量化計算：signals_matrix = PercentileIndicator.vectorized_calculate_percentile_signals(tasks, predictor, signals_matrix, global_percentile_cache, data)  # noqa: E501
 - 參數生成：params_list = PercentileIndicator.get_params(strat_idx, params_config)
 
 依賴模組：
@@ -165,7 +165,7 @@ class PercentileIndicator:
     def get_strategy_descriptions():
         """獲取策略描述字典"""
         return {
-            f"PERC{i+1}": desc
+            f"PERC{i + 1}": desc
             for i, desc in enumerate(PercentileIndicator.STRATEGY_DESCRIPTIONS)
         }
 

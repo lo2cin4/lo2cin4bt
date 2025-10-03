@@ -67,9 +67,11 @@ flowchart TD
 - parquet 檔案格式請參考 metricstracker 模組
 """
 
+import concurrent.futures
 import glob
 import json
 import logging
+import multiprocessing
 import os
 import warnings
 from datetime import datetime
@@ -316,12 +318,28 @@ class DataImporterPlotter:
             df = table.to_pandas()
             (datetime.now() - step3_start).total_seconds()
 
-            # 步驟4: 提取metadata
+            # 步驟4: 提取metadata（優先從 JSON 檔案讀取）
             step4_start = datetime.now()
-            meta = table.schema.metadata or {}
             batch_metadata = []
-            if b"batch_metadata" in meta:
-                batch_metadata = json.loads(meta[b"batch_metadata"].decode())
+
+            # 嘗試從 JSON 檔案讀取 metadata（新格式）
+            metadata_json_path = file_path.replace("_metrics.parquet", "_metadata.json")
+            if os.path.exists(metadata_json_path):
+                try:
+                    with open(metadata_json_path, "r", encoding="utf-8") as f:
+                        batch_metadata = json.load(f)
+                except Exception as e:
+                    self.logger.warning(f"無法讀取 JSON metadata: {e}")
+
+            # 如果 JSON 檔案不存在，嘗試從 Parquet metadata 讀取（向後相容）
+            if not batch_metadata:
+                meta = table.schema.metadata or {}
+                if b"batch_metadata" in meta:
+                    try:
+                        batch_metadata = json.loads(meta[b"batch_metadata"].decode())
+                    except Exception as e:
+                        self.logger.warning(f"無法讀取 Parquet metadata: {e}")
+
             (datetime.now() - step4_start).total_seconds()
 
             # 步驟5: 批量處理數據（優化版本）
@@ -396,12 +414,28 @@ class DataImporterPlotter:
             # 讀取 parquet 檔案
             df = pd.read_parquet(file_path)
             table = pq.read_table(file_path)
-            meta = table.schema.metadata or {}
             batch_metadata = []
-            if b"batch_metadata" in meta:
-                batch_metadata = json.loads(meta[b"batch_metadata"].decode())
-            else:
-                self.logger.warning(f"找不到 batch_metadata: {file_path}")
+
+            # 嘗試從 JSON 檔案讀取 metadata（新格式）
+            metadata_json_path = file_path.replace("_metrics.parquet", "_metadata.json")
+            if os.path.exists(metadata_json_path):
+                try:
+                    with open(metadata_json_path, "r", encoding="utf-8") as f:
+                        batch_metadata = json.load(f)
+                except Exception as e:
+                    self.logger.warning(f"無法讀取 JSON metadata: {e}")
+
+            # 如果 JSON 檔案不存在，嘗試從 Parquet metadata 讀取（向後相容）
+            if not batch_metadata:
+                meta = table.schema.metadata or {}
+                if b"batch_metadata" in meta:
+                    try:
+                        batch_metadata = json.loads(meta[b"batch_metadata"].decode())
+                    except Exception as e:
+                        self.logger.warning(f"無法讀取 Parquet metadata: {e}")
+
+                if not batch_metadata:
+                    self.logger.warning(f"找不到 batch_metadata: {file_path}")
 
             results = []
             for meta_item in batch_metadata:

@@ -91,7 +91,7 @@ flowchart TD
 
 import importlib
 import logging
-from typing import Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -116,7 +116,7 @@ except ImportError:
 if NUMBA_AVAILABLE:
 
     @njit(fastmath=True)
-    def _combine_signals_njit(signals_list):
+    def _combine_signals_njit(signals_list: List[np.ndarray]) -> np.ndarray:  # pylint: disable=unused-argument
         """
         使用 Numba 合併多個信號序列
         """
@@ -142,7 +142,7 @@ class IndicatorsBacktester:
     指標集合點，負責調用各個 indicator 並提供通用部件。
     """
 
-    def __init__(self, logger=None):
+    def __init__(self, logger: Optional[logging.Logger] = None):  # pylint: disable=unused-argument
         self.logger = logger or logging.getLogger("IndicatorsBacktester")
         self.indicator_map = {
             "ma": "MovingAverage_Indicator_backtester",
@@ -161,7 +161,7 @@ class IndicatorsBacktester:
         # 細分型態對應表
         self.indicator_alias_map = self._build_indicator_alias_map()
 
-    def _build_indicator_alias_map(self):
+    def _build_indicator_alias_map(self) -> Dict[str, Tuple[str, int]]:  # pylint: disable=too-complex
         alias_map = {}
         # MA
         try:
@@ -233,7 +233,7 @@ class IndicatorsBacktester:
 
         return alias_map
 
-    def get_all_indicator_aliases(self):
+    def get_all_indicator_aliases(self) -> List[str]:
         """
         回傳所有可用細分型態（如 MA1、BOLL2...）
 
@@ -242,9 +242,9 @@ class IndicatorsBacktester:
         """
         return list(self.indicator_alias_map.keys())
 
-    def get_indicator_params(
+    def get_indicator_params(  # pylint: disable=unused-argument
         self, indicator_type: str, params_config: Optional[dict] = None
-    ):
+    ) -> List[Any]:
         """
         取得指定指標的所有參數組合（list of IndicatorParams），支援細分型態與參數配置
 
@@ -261,6 +261,8 @@ class IndicatorsBacktester:
         alias = self.indicator_alias_map.get(indicator_type.upper())
         # print(f"[DEBUG] indicator_type={indicator_type}, alias={alias}")
         if alias:
+            main_type: str
+            strat_idx: int
             main_type, strat_idx = alias
             module_name = self.new_indicators[main_type]
             # print(f"[DEBUG] main_type={main_type}, strat_idx={strat_idx}, module_name={module_name}")
@@ -285,45 +287,11 @@ class IndicatorsBacktester:
                 if hasattr(indicator_cls, "get_params"):
                     return indicator_cls.get_params(strat_idx, params_config)
             raise ValueError(f"指標 {indicator_type} 未實作 get_params() 方法")
-        # 傳統主指標
-        if indicator_type in self.new_indicators:
-            module_name = self.new_indicators[indicator_type]
-            module = importlib.import_module(f"backtester.{module_name}")
-            if hasattr(module, "get_params"):
-                return module.get_params(params_config=params_config)
-            elif hasattr(module, indicator_type.capitalize() + "Indicator"):
-                indicator_cls = getattr(
-                    module, indicator_type.capitalize() + "Indicator"
-                )
-                if hasattr(indicator_cls, "get_params"):
-                    # 對於 PERC 指標，需要特殊處理
-                    if indicator_type == "PERC":
-                        # 從 params_config 中提取 strat_idx
-                        if "strat_idx" in params_config:
-                            strat_idx = params_config["strat_idx"]
-                        else:
-                            # 嘗試從別名推斷
-                            alias = params_config.get("alias", "PERC1")
-                            if alias in [
-                                "PERC1",
-                                "PERC2",
-                                "PERC3",
-                                "PERC4",
-                                "PERC5",
-                                "PERC6",
-                            ]:
-                                strat_idx = int(alias[4:])  # 提取數字部分
-                            else:
-                                strat_idx = 1  # 默認使用策略1
-                        return indicator_cls.get_params(
-                            strat_idx=strat_idx, params_config=params_config
-                        )
-                    else:
-                        return indicator_cls.get_params(params_config=params_config)
-            raise ValueError(f"指標 {indicator_type} 未實作 get_params() 方法")
         raise ValueError(f"不支援的指標類型: {indicator_type}")
 
-    def run_indicator(self, indicator_name, data, params):
+    def run_indicator(
+        self, indicator_name: str, data: pd.DataFrame, params: Dict[str, Any]
+    ) -> np.ndarray:  # pylint: disable=unused-argument
         """
         調用指定 indicator 並產生信號
 
@@ -351,7 +319,7 @@ class IndicatorsBacktester:
         return indicator.generate_signals(params.get("predictor"))
 
     # 新的協調器方法 - 與現有架構兼容
-    def get_available_indicators(self):
+    def get_available_indicators(self) -> List[str]:  # pylint: disable=too-complex
         """獲取可用指標列表，並列出每個指標的說明"""
         indicator_descs = {}
         # MA
@@ -399,14 +367,14 @@ class IndicatorsBacktester:
             print(f"{code}: {desc}")
         return list(self.new_indicators.keys())
 
-    def calculate_signals(
+    def calculate_signals(  # pylint: disable=unused-argument
         self,
         indicator_type: str,
         data: pd.DataFrame,
-        params: IndicatorParams,
+        params: "IndicatorParams",
         predictor: Optional[str] = None,
         entry_signal: Optional[pd.Series] = None,
-    ):
+    ) -> np.ndarray:
         """
         計算指標信號，支援快取機制
         """
@@ -426,7 +394,9 @@ class IndicatorsBacktester:
 
         return signals
 
-    def _calculate_ma_signals(self, data, params, predictor=None):
+    def _calculate_ma_signals(
+        self, data: pd.DataFrame, params: "IndicatorParams", predictor: Optional[str] = None
+    ) -> np.ndarray:  # pylint: disable=unused-argument
         # print(f"[DEBUG] _calculate_ma_signals 開始")
         # print(f"[DEBUG] 數據形狀：{data.shape}")
         # print(f"[DEBUG] 預測因子：{predictor}")
@@ -455,7 +425,9 @@ class IndicatorsBacktester:
             traceback.print_exc()
             raise
 
-    def _calculate_boll_signals(self, data, params, predictor=None):
+    def _calculate_boll_signals(
+        self, data: pd.DataFrame, params: "IndicatorParams", predictor: Optional[str] = None
+    ) -> np.ndarray:  # pylint: disable=unused-argument
         # print(f"[DEBUG] _calculate_boll_signals 開始")
         # print(f"[DEBUG] 數據形狀：{data.shape}")
         # print(f"[DEBUG] 預測因子：{predictor}")
@@ -483,7 +455,9 @@ class IndicatorsBacktester:
             traceback.print_exc()
             raise
 
-    def _calculate_hl_signals(self, data, params, predictor=None):
+    def _calculate_hl_signals(
+        self, data: pd.DataFrame, params: "IndicatorParams", predictor: Optional[str] = None
+    ) -> np.ndarray:  # pylint: disable=unused-argument
         # print(f"[DEBUG] _calculate_hl_signals 開始")
         # print(f"[DEBUG] 數據形狀：{data.shape}")
         # print(f"[DEBUG] 預測因子：{predictor}")
@@ -509,7 +483,9 @@ class IndicatorsBacktester:
             traceback.print_exc()
             raise
 
-    def _calculate_value_signals(self, data, params, predictor=None):
+    def _calculate_value_signals(
+        self, data: pd.DataFrame, params: "IndicatorParams", predictor: Optional[str] = None
+    ) -> np.ndarray:  # pylint: disable=unused-argument
         # print(f"[DEBUG] _calculate_value_signals 開始")
         # print(f"[DEBUG] 數據形狀：{data.shape}")
         # print(f"[DEBUG] 預測因子：{predictor}")
@@ -535,7 +511,9 @@ class IndicatorsBacktester:
             traceback.print_exc()
             raise
 
-    def _calculate_percentile_signals(self, data, params, predictor=None):
+    def _calculate_percentile_signals(
+        self, data: pd.DataFrame, params: "IndicatorParams", predictor: Optional[str] = None
+    ) -> np.ndarray:  # pylint: disable=unused-argument
         # print(f"[DEBUG] _calculate_percentile_signals 開始")
         # print(f"[DEBUG] 數據形狀：{data.shape}")
         # print(f"[DEBUG] 預測因子：{predictor}")
@@ -563,7 +541,7 @@ class IndicatorsBacktester:
             traceback.print_exc()
             raise
 
-    def combine_signals_optimized(self, signals_list):
+    def combine_signals_optimized(self, signals_list: List[pd.Series]) -> pd.Series:  # pylint: disable=unused-argument
         """
         使用 Numba 優化合併多個信號序列
         """

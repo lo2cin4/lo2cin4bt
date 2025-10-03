@@ -357,7 +357,7 @@ class CallbackHandler:
                 )
                 entry_ok = False
                 exit_ok = False
-                
+
                 # 檢查入場指標
                 for d in param.get("Entry_params", []):
                     if str(d.get("indicator_type")) in entry_types:
@@ -375,7 +375,7 @@ class CallbackHandler:
                         if param_match:
                             entry_ok = True
                             break  # 找到匹配的入場指標後跳出
-                
+
                 # 檢查出場指標
                 for d in param.get("Exit_params", []):
                     if str(d.get("indicator_type")) in exit_types:
@@ -393,7 +393,7 @@ class CallbackHandler:
                         if param_match:
                             exit_ok = True
                             break  # 找到匹配的出場指標後跳出
-                
+
                 if entry_ok and exit_ok:
                     filtered_ids.append(bid)
             # 只根據 sorting_value 排序，取前 20

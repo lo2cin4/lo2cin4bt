@@ -58,7 +58,7 @@ flowchart TD
 【範例】
 ------------------------------------------------------------
 - MovingAverage 單均線：IndicatorParams("MA").add_param("period", 20).add_param("ma_type", "SMA")
-- MovingAverage 雙均線：IndicatorParams("MA").add_param("shortMA_period", 10).add_param("longMA_period", 20).add_param("mode", "double")
+- MovingAverage 雙均線：IndicatorParams("MA").add_param("shortMA_period", 10).add_param("longMA_period", 20).add_param("mode", "double")  # noqa: E501
 - BollingerBand：IndicatorParams("BOLL").add_param("ma_length", 20).add_param("std_multiplier", 2.0)
 - 參數雜湊：hash_value = params.get_param_hash()
 
@@ -86,6 +86,8 @@ flowchart TD
 - 緩存機制與雜湊算法設計
 """
 
+from typing import Any, Dict
+
 
 class IndicatorParams:
     """
@@ -93,15 +95,15 @@ class IndicatorParams:
     用於封裝技術指標的參數、策略型態、交易參數等，便於回測流程中統一管理與擴展。
     """
 
-    def __init__(self, indicator_type, **kwargs):
+    def __init__(self, indicator_type: str, **kwargs: Any) -> None:
         self.indicator_type = indicator_type
-        self.params = {}
-        self.trading_params = {}
+        self.params: Dict[str, Any] = {}
+        self.trading_params: Dict[str, Any] = {}
         # 支援所有可能的參數
         for key, value in kwargs.items():
             setattr(self, key, value)
 
-    def add_param(self, name: str, value, param_type: str = "numeric"):
+    def add_param(self, name: str, value: Any, param_type: str = "numeric") -> None:
         """
         添加參數到參數容器
 
@@ -112,7 +114,7 @@ class IndicatorParams:
         """
         self.params[name] = {"value": value, "type": param_type}
 
-    def set_trading_params(self, **kwargs):
+    def set_trading_params(self, **kwargs: Any) -> None:
         """
         設置交易參數
 
@@ -121,7 +123,7 @@ class IndicatorParams:
         """
         self.trading_params.update(kwargs)
 
-    def get_param(self, name: str, default=None):
+    def get_param(self, name: str, default: Any = None) -> Any:
         """
         獲取參數值
 
@@ -136,7 +138,7 @@ class IndicatorParams:
             return self.params[name]["value"]
         return default
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         """
         將參數轉換為字典格式
 
@@ -150,7 +152,7 @@ class IndicatorParams:
         }
         return result
 
-    def get_param_hash(self):
+    def get_param_hash(self) -> str:
         """
         生成參數的雜湊值，用於快取鍵
         返回一個字串，包含所有參數的組合

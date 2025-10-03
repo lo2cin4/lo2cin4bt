@@ -94,11 +94,11 @@ import itertools
 import logging
 import time
 import uuid
+from concurrent.futures import ProcessPoolExecutor
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-from concurrent.futures import ProcessPoolExecutor
-from typing import Dict, List, Tuple
-
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
@@ -107,7 +107,10 @@ from .BollingerBand_Indicator_backtester import BollingerBandIndicator
 from .HL_Indicator_backtester import HLIndicator
 from .Indicators_backtester import IndicatorsBacktester
 from .SpecMonitor_backtester import SpecMonitor
-from .TradeSimulator_backtester import TradeSimulator_backtester
+from .TradeSimulator_backtester import (
+    TradeSimulator_backtester,
+    _vectorized_trade_simulation_njit,
+)
 from .VALUE_Indicator_backtester import VALUEIndicator
 
 # 嘗試導入 Numba
@@ -122,21 +125,23 @@ except ImportError:
 class ProgressMonitor:
     """獨立的進度監控器 - 簡化版本，專門針對批次處理優化"""
 
-    def __init__(self, progress, task, total_backtests, total_batches):
+    def __init__(self, progress: Any, task: Any, total_backtests: int, total_batches: int):  # pylint: disable=unused-argument
         self.progress = progress
         self.task = task
         self.total_backtests = total_backtests
         self.total_batches = total_batches
         self.completed_batches = 0
         self.completed_tasks = 0
-        self.batch_sizes = []  # 記錄每個批次的大小
+        self.batch_sizes: List[int] = []  # 記錄每個批次的大小
         self.start_time = time.time()
 
-    def set_batch_sizes(self, batch_sizes):
+    def set_batch_sizes(self, batch_sizes: List[int]) -> None:  # pylint: disable=unused-argument
         """設置每個批次的大小"""
         self.batch_sizes = batch_sizes
 
-    def batch_completed(self, batch_idx=None, completed_tasks_in_batch=None):
+    def batch_completed(
+        self, batch_idx: Optional[int] = None, completed_tasks_in_batch: Optional[int] = None
+    ) -> None:  # pylint: disable=unused-argument
         """通知一個批次完成"""
         self.completed_batches += 1
         if completed_tasks_in_batch is not None:
@@ -149,16 +154,22 @@ class ProgressMonitor:
             self.progress.update(self.task, completed=self.completed_tasks)
 
             # 更新描述
-            description = f"生成回測結果 ({self.completed_batches}/{self.total_batches} 批次, {self.completed_tasks}/{self.total_backtests} 任務)"
+            description = (
+                f"生成回測結果 ({self.completed_batches}/{self.total_batches} 批次, "
+                f"{self.completed_tasks}/{self.total_backtests} 任務)"
+            )
             self.progress.update(self.task, description=description)
 
-    def finish(self):
+    def finish(self) -> None:
         """完成進度監控"""
         if self.progress is not None and self.task is not None:
             self.progress.update(self.task, completed=self.total_backtests)
             self.progress.update(
                 self.task,
-                description=f"生成回測結果 ({self.total_batches}/{self.total_batches} 批次, {self.total_backtests}/{self.total_backtests} 任務)",
+                description=(
+                    f"生成回測結果 ({self.total_batches}/{self.total_batches} 批次, "
+                    f"{self.total_backtests}/{self.total_backtests} 任務)"
+                ),
             )
 
 
@@ -166,7 +177,7 @@ class ProgressMonitor:
 if NUMBA_AVAILABLE:
 
     @njit(fastmath=True, cache=True)
-    def _vectorized_combine_signals_njit(signals_matrix, is_exit_signals):
+    def _vectorized_combine_signals_njit(signals_matrix: np.ndarray, is_exit_signals: bool) -> np.ndarray:
         """
         向量化信號合併
         signals_matrix: [時間點, 策略數, 指標數]
@@ -209,27 +220,27 @@ if NUMBA_AVAILABLE:
 class VectorBacktestEngine:
     """真正的向量化回測引擎，完全兼容原有 BacktestEngine 接口"""
 
-    def __init__(self, data: pd.DataFrame, frequency: str, logger=None):
+    def __init__(self, data: pd.DataFrame, frequency: str, logger: Optional[logging.Logger] = None):
         self.data = data
         self.frequency = frequency
         self.logger = logger or logging.getLogger("VectorBacktestEngine")
         self.indicators = IndicatorsBacktester(logger=self.logger)
-        self.results = []
+        self.results: List[Dict[str, Any]] = []
 
         # 向量化配置
         self.max_memory_mb = 1000  # 最大記憶體使用量（MB）
 
         # 全局緩存
-        self._ma_cache = {}
-        self._boll_cache = {}
-        self._hl_cache = {}
-        self._value_cache = {}
-        self._price_cache = {}
+        self._ma_cache: Dict[str, Any] = {}
+        self._boll_cache: Dict[str, Any] = {}
+        self._hl_cache: Dict[str, Any] = {}
+        self._value_cache: Dict[str, Any] = {}
+        self._price_cache: Dict[str, Any] = {}
 
         # 預計算常用數據
         self._precompute_data()
 
-    def _precompute_data(self):
+    def _precompute_data(self) -> None:
         """預計算常用數據，避免重複計算"""
         # 預計算價格數據
         for col in self.data.columns:
@@ -266,7 +277,7 @@ class VectorBacktestEngine:
 
             # 處理開倉指標參數
             for entry_indicator in pair["entry"]:
-                strategy_alias = f"{entry_indicator}_strategy_{i+1}"
+                strategy_alias = f"{entry_indicator}_strategy_{i + 1}"
                 if strategy_alias in indicator_params:
                     strategy_entry_params.append(indicator_params[strategy_alias])
                 else:
@@ -274,7 +285,7 @@ class VectorBacktestEngine:
 
             # 處理平倉指標參數
             for exit_indicator in pair["exit"]:
-                strategy_alias = f"{exit_indicator}_strategy_{i+1}"
+                strategy_alias = f"{exit_indicator}_strategy_{i + 1}"
                 if strategy_alias in indicator_params:
                     strategy_exit_params.append(indicator_params[strategy_alias])
                 else:
@@ -291,7 +302,7 @@ class VectorBacktestEngine:
             for entry_combo in entry_combinations:
                 for exit_combo in exit_combinations:
                     strategy_combo = entry_combo + exit_combo
-                    strategy_combo = strategy_combo + (f"strategy_{i+1}",)
+                    strategy_combo = strategy_combo + (f"strategy_{i + 1}",)
                     all_combinations.append(strategy_combo)
 
         return all_combinations
@@ -318,7 +329,7 @@ class VectorBacktestEngine:
 
         return combinations
 
-    def run_backtests(self, config: Dict) -> List[Dict]:
+    def run_backtests(self, config: Dict) -> List[Dict]:  # pylint: disable=too-complex
         """
         執行真正的向量化回測 - 一次性處理所有任務
 
@@ -332,8 +343,6 @@ class VectorBacktestEngine:
         condition_pairs = config["condition_pairs"]
         predictors = config["predictors"]
         trading_params = config["trading_params"]
-        
-
 
         total_backtests = len(all_combinations) * len(predictors)
 
@@ -341,7 +350,11 @@ class VectorBacktestEngine:
 
         console.print(
             Panel(
-                f"將執行向量化回測：{len(all_combinations)} 種參數組合 x {len(predictors)} 個預測因子 = {total_backtests} 次回測\n交易參數：{trading_params}",
+                (
+                    f"將執行向量化回測：{len(all_combinations)} 種參數組合 x "
+                    f"{len(predictors)} 個預測因子 = {total_backtests} 次回測\n"
+                    f"交易參數：{trading_params}"
+                ),
                 title="[bold #8f1511]🚀 向量化回測引擎[/bold #8f1511]",
                 border_style="#dbac30",
             )
@@ -412,7 +425,11 @@ class VectorBacktestEngine:
             )
             console.print(
                 Panel(
-                    f"⚠️ 記憶體使用過高: {memory_used:.1f} MB ({memory_percent:.1f}% of {memory_thresholds['total_memory_gb']:.1f}GB)，強制垃圾回收",
+                    (
+                        f"⚠️ 記憶體使用過高: {memory_used:.1f} MB "
+                        f"({memory_percent:.1f}% of "
+                        f"{memory_thresholds['total_memory_gb']:.1f}GB)，強制垃圾回收"
+                    ),
                     title="[bold #dbac30]💾 記憶體管理[/bold #dbac30]",
                     border_style="#dbac30",
                 )
@@ -485,7 +502,11 @@ class VectorBacktestEngine:
                 if entry_signal is not None and exit_signal is not None:
                     entry_counts = np.unique(entry_signal, return_counts=True)
                     exit_counts = np.unique(exit_signal, return_counts=True)
-                    diagnostic_info = f"\n🔍 診斷信息：\n• 開倉信號分布：{dict(zip(entry_counts[0], entry_counts[1]))}\n• 平倉信號分布：{dict(zip(exit_counts[0], exit_counts[1]))}"
+                    diagnostic_info = (
+                        f"\n🔍 診斷信息：\n"
+                        f"• 開倉信號分布：{dict(zip(entry_counts[0], entry_counts[1]))}\n"
+                        f"• 平倉信號分布：{dict(zip(exit_counts[0], exit_counts[1]))}"
+                    )
 
         # 添加交易統計詳情
         if len(trade_count_details) <= 10:  # 只顯示前10個的詳情
@@ -499,12 +520,12 @@ class VectorBacktestEngine:
 
 📊 最終統計：
 • 總任務數：{total_backtests}
-• 成功：{success_count} ({success_count/total_backtests*100:.1f}%)
-• 失敗：{error_count} ({error_count/total_backtests*100:.1f}%)
-• 無交易：{zero_trade_count} ({zero_trade_count/total_backtests*100:.1f}%)
+• 成功：{success_count} ({success_count / total_backtests * 100:.1f}%)
+• 失敗：{error_count} ({error_count / total_backtests * 100:.1f}%)
+• 無交易：{zero_trade_count} ({zero_trade_count / total_backtests * 100:.1f}%)
 • 總耗時：{total_time:.1f}秒
 • 記憶體使用：{memory_used:.1f} MB
-• 平均速度：{total_backtests/total_time:.0f} 任務/秒{diagnostic_info}
+• 平均速度：{total_backtests / total_time:.0f} 任務/秒{diagnostic_info}
 """
 
         console.print(
@@ -588,7 +609,7 @@ class VectorBacktestEngine:
         self, all_combinations: List[Tuple], predictors: List[str]
     ) -> Dict:
         """一次性生成所有任務矩陣"""
-        all_tasks = {
+        all_tasks: Dict[str, List[Any]] = {
             "combinations": [],
             "predictors": [],
             "backtest_ids": [],
@@ -616,46 +637,84 @@ class VectorBacktestEngine:
     def _generate_all_signals_vectorized(
         self, all_tasks: Dict, condition_pairs: List[Dict]
     ) -> Dict:
-        """分組向量化生成所有信號 - 解決不同策略間維度衝突問題"""
+        """直接按順序生成所有信號 - 禁用分組邏輯，與原版行為一致"""
 
-        # 1. 按指標數量分組策略
-        strategy_groups = self._group_strategies_by_indicator_count(
-            all_tasks, condition_pairs
+        # 直接按順序處理每個任務，不分組
+        n_tasks = len(all_tasks["combinations"])
+        n_time = len(self.data)
+
+        # 初始化信號矩陣
+        entry_signals = np.zeros((n_time, n_tasks))
+        exit_signals = np.zeros((n_time, n_tasks))
+
+        from rich.console import Console
+
+        console = Console()
+        console.print(
+            Panel(
+                f"🚀 直接生成信號: {n_tasks} 個任務",
+                title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
+                border_style="#dbac30",
+            )
         )
 
-        # 2. 分別處理每個分組
-        all_entry_signals = []
-        all_exit_signals = []
-        all_signals_matrix = []
+        # 按順序處理每個任務
+        for task_idx in range(n_tasks):
+            try:
+                # 解析策略參數
+                strategy_id = all_tasks["strategy_ids"][task_idx]
+                strategy_idx = self._parse_strategy_id(strategy_id)
 
-        for group_idx, group in enumerate(strategy_groups):
-            from rich.console import Console
+                if strategy_idx < len(condition_pairs):
+                    condition_pair = condition_pairs[strategy_idx]
+                    combo = all_tasks["combinations"][task_idx]
+                    predictor = all_tasks["predictors"][task_idx]
 
-            console = Console()
-            console.print(
-                Panel(
-                    f"🔧 處理策略分組 {group_idx + 1}/{len(strategy_groups)}: {len(group['tasks'])} 個任務",
-                    title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
-                    border_style="#dbac30",
-                )
-            )
-            group_signals = self._process_strategy_group(group)
-            all_entry_signals.append(group_signals["entry_signals"])
-            all_exit_signals.append(group_signals["exit_signals"])
-            all_signals_matrix.append(group_signals["all_signals_matrix"])
+                    # 解析參數
+                    entry_count = len(condition_pair["entry"])
+                    exit_count = len(condition_pair["exit"])
 
-        # 3. 合併結果 - 簡化處理，直接返回分組結果
+                    entry_params = list(combo[:entry_count])
+                    exit_params = list(combo[entry_count : entry_count + exit_count])
+
+                    # 生成開倉信號
+                    if entry_params:
+                        entry_signals_matrix = self._vectorized_generate_signals(
+                            [entry_params], [predictor]
+                        )
+                        combined_entry_signals = self._vectorized_combine_signals(
+                            entry_signals_matrix, is_exit_signals=False
+                        )
+                        entry_signals[:, task_idx] = combined_entry_signals[:, 0]
+
+                    # 生成平倉信號
+                    if exit_params:
+                        exit_signals_matrix = self._vectorized_generate_signals(
+                            [exit_params], [predictor]
+                        )
+                        combined_exit_signals = self._vectorized_combine_signals(
+                            exit_signals_matrix, is_exit_signals=True
+                        )
+                        exit_signals[:, task_idx] = combined_exit_signals[:, 0]
+
+            except Exception as e:
+                self.logger.warning(f"任務 {task_idx} 信號生成失敗: {e}")
+                # 保持零信號
+                entry_signals[:, task_idx] = 0
+                exit_signals[:, task_idx] = 0
+
+        # 返回單個numpy數組，與原版格式一致
         return {
-            "entry_signals": all_entry_signals,
-            "exit_signals": all_exit_signals,
-            "all_signals_matrix": all_signals_matrix,
+            "entry_signals": entry_signals,
+            "exit_signals": exit_signals,
+            "all_signals_matrix": [],  # 空列表，保持兼容性
         }
 
     def _group_strategies_by_indicator_count(
         self, all_tasks: Dict, condition_pairs: List[Dict]
     ) -> List[Dict]:
         """按指標數量分組策略"""
-        groups = {}
+        groups: Dict[str, Any] = {}
 
         for task_idx, combo in enumerate(all_tasks["combinations"]):
             strategy_id = combo[-1]
@@ -702,8 +761,9 @@ class VectorBacktestEngine:
 
         for task_info in tasks:
             combo = task_info["combo"]
-            task_info["strategy_idx"]
-            condition_pair = group["condition_pairs"][0]  # 同組內條件相同
+            _ = task_info["strategy_idx"]  # 保留以供未來使用
+            # condition_pair未使用,已註釋
+            # condition_pair = group["condition_pairs"][0]  # 同組內條件相同
 
             # 解析參數
             entry_params = list(combo[:entry_count])
@@ -748,32 +808,12 @@ class VectorBacktestEngine:
     def _simulate_all_trades_vectorized(
         self, all_signals: Dict, trading_params: Dict
     ) -> Dict:
-        """向量化交易模擬 - 處理分組後的信號"""
+        """向量化交易模擬 - 處理單個numpy數組格式的信號"""
 
-        # 處理分組後的信號格式
-        if isinstance(all_signals["entry_signals"], list):
-            # 分組後的結果，需要合併
-            entry_signals_list = all_signals["entry_signals"]
-            exit_signals_list = all_signals["exit_signals"]
+        # 直接使用單個numpy數組格式的信號
+        entry_signals = all_signals["entry_signals"]
+        exit_signals = all_signals["exit_signals"]
 
-            # 合併所有分組的信號
-            entry_signals = (
-                np.column_stack(entry_signals_list)
-                if entry_signals_list
-                else np.zeros((len(self.data), 0))
-            )
-            exit_signals = (
-                np.column_stack(exit_signals_list)
-                if exit_signals_list
-                else np.zeros((len(self.data), 0))
-            )
-        else:
-            # 單個numpy數組（未分組）
-            entry_signals = all_signals["entry_signals"]
-            exit_signals = all_signals["exit_signals"]
-
-
-        
         # 創建 TradeSimulator 實例
         simulator = TradeSimulator_backtester(
             self.data,
@@ -807,16 +847,16 @@ class VectorBacktestEngine:
 
     # 舊的批次處理函數已被 _process_batch_results_optimized 取代
 
-    def _generate_all_results_vectorized(
+    def _generate_all_results_vectorized(  # pylint: disable=too-complex
         self,
-        all_tasks: Dict,
-        all_trade_results: Dict,
-        all_signals: Dict,
-        condition_pairs: List[Dict],
-        trading_params: Dict,  # 添加 trading_params 參數
-        progress=None,
-        task=None,
-        total_backtests=None,
+        all_tasks: Dict[str, Any],
+        all_trade_results: Dict[str, Any],
+        all_signals: Dict[str, Any],
+        condition_pairs: List[Dict[str, Any]],
+        trading_params: Dict[str, Any],  # 添加 trading_params 參數
+        progress: Optional[Any] = None,
+        task: Optional[Any] = None,
+        total_backtests: Optional[int] = None,
     ) -> List[Dict]:
         """一次性生成所有結果（優化並行版本）- 改進進度追蹤"""
         n_tasks = len(all_tasks["combinations"])
@@ -928,7 +968,11 @@ class VectorBacktestEngine:
                 )
                 console.print(
                     Panel(
-                        f"⚠️ 記憶體使用過高: {memory_used:.1f} MB ({memory_percent:.1f}% of {memory_thresholds['total_memory_gb']:.1f}GB)，強制垃圾回收",
+                        (
+                            f"⚠️ 記憶體使用過高: {memory_used:.1f} MB "
+                            f"({memory_percent:.1f}% of "
+                            f"{memory_thresholds['total_memory_gb']:.1f}GB)，強制垃圾回收"
+                        ),
                         title=Text("💾 記憶體管理", style="bold #8f1511"),
                         border_style="#dbac30",
                     )
@@ -989,7 +1033,12 @@ class VectorBacktestEngine:
                                 )
                                 console.print(
                                     Panel(
-                                        f"⚠️ 記憶體使用過高: {memory_used:.1f} MB ({memory_percent:.1f}% of {memory_thresholds['total_memory_gb']:.1f}GB)，強制垃圾回收",
+                                        (
+                                            f"⚠️ 記憶體使用過高: {memory_used:.1f} MB "
+                                            f"({memory_percent:.1f}% of "
+                                            f"{memory_thresholds['total_memory_gb']:.1f}GB)，"
+                                            f"強制垃圾回收"
+                                        ),
                                         title=Text(
                                             "💾 記憶體管理", style="bold #8f1511"
                                         ),
@@ -1004,7 +1053,7 @@ class VectorBacktestEngine:
                     except Exception as batch_error:
                         console.print(
                             Panel(
-                                f"批次 {batch_idx+1} 處理失敗: {batch_error}",
+                                f"批次 {batch_idx + 1} 處理失敗: {batch_error}",
                                 title=Text("⚠️ 處理錯誤", style="bold #8f1511"),
                                 border_style="#dbac30",
                             )
@@ -1094,53 +1143,11 @@ class VectorBacktestEngine:
                 "combo": all_tasks["combinations"][idx],
             }
 
-        # 處理分組後的信號數據
-        if isinstance(all_signals["entry_signals"], list):
-            # 分組後的結果，需要重新構建完整的信號矩陣
-            total_tasks = len(all_tasks["combinations"])
-            n_time = len(self.data)
-
-            entry_signals_full = np.zeros((n_time, total_tasks))
-            exit_signals_full = np.zeros((n_time, total_tasks))
-
-            # 從分組結果中提取信號
-            current_task_idx = 0
-            for group_signals in all_signals["entry_signals"]:
-                group_size = (
-                    group_signals.shape[1] if len(group_signals.shape) > 1 else 1
-                )
-                if len(group_signals.shape) > 1:
-                    entry_signals_full[
-                        :, current_task_idx : current_task_idx + group_size
-                    ] = group_signals
-                else:
-                    entry_signals_full[:, current_task_idx] = group_signals
-                current_task_idx += group_size
-
-            current_task_idx = 0
-            for group_signals in all_signals["exit_signals"]:
-                group_size = (
-                    group_signals.shape[1] if len(group_signals.shape) > 1 else 1
-                )
-                if len(group_signals.shape) > 1:
-                    exit_signals_full[
-                        :, current_task_idx : current_task_idx + group_size
-                    ] = group_signals
-                else:
-                    exit_signals_full[:, current_task_idx] = group_signals
-                current_task_idx += group_size
-
-            # 直接傳遞 numpy 數組，避免 .tolist() 轉換
-            batch_data["signals"] = {
-                "entry_signals": entry_signals_full[:, batch_indices],
-                "exit_signals": exit_signals_full[:, batch_indices],
-            }
-        else:
-            # 單個numpy數組（未分組），直接傳遞
-            batch_data["signals"] = {
-                "entry_signals": all_signals["entry_signals"][:, batch_indices],
-                "exit_signals": all_signals["exit_signals"][:, batch_indices],
-            }
+        # 直接使用單個numpy數組格式的信號
+        batch_data["signals"] = {
+            "entry_signals": all_signals["entry_signals"][:, batch_indices],
+            "exit_signals": all_signals["exit_signals"][:, batch_indices],
+        }
 
         # 提取交易結果數據，直接傳遞 numpy 數組
         batch_data["trade_results"] = {
@@ -1149,7 +1156,7 @@ class VectorBacktestEngine:
             "trade_actions": all_trade_results["trade_actions"][:, batch_indices],
             "equity_values": all_trade_results["equity_values"][:, batch_indices],
         }
-        
+
         # 添加 trading_params 到 batch_data
         batch_data["trading_params"] = trading_params
 
@@ -1163,7 +1170,9 @@ class VectorBacktestEngine:
         task_data = batch_data["task_data"]
         signals = batch_data["signals"]
         trade_results = batch_data["trade_results"]
-        trading_params = batch_data["trading_params"]  # 從 batch_data 中獲取 trading_params
+        trading_params = batch_data[
+            "trading_params"
+        ]  # 從 batch_data 中獲取 trading_params
 
         try:
             results = []
@@ -1221,7 +1230,7 @@ class VectorBacktestEngine:
                     error_result = {
                         "Backtest_id": task_data[task_idx]["backtest_id"],
                         "strategy_id": (
-                            f"strategy_{strategy_idx+1}"
+                            f"strategy_{strategy_idx + 1}"
                             if "strategy_idx" in locals()
                             else "unknown"
                         ),
@@ -1253,16 +1262,16 @@ class VectorBacktestEngine:
                 error_results.append(error_result)
             return error_results
 
-    def _generate_all_results_simple(
+    def _generate_all_results_simple(  # pylint: disable=too-complex
         self,
-        all_tasks: Dict,
-        all_trade_results: Dict,
-        all_signals: Dict,
-        condition_pairs: List[Dict],
-        progress=None,
-        task=None,
-        total_backtests=None,
-    ) -> List[Dict]:
+        all_tasks: Dict[str, Any],
+        all_trade_results: Dict[str, Any],
+        all_signals: Dict[str, Any],
+        condition_pairs: List[Dict[str, Any]],
+        progress: Optional[Any] = None,
+        task: Optional[Any] = None,
+        total_backtests: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
         """簡化的串行處理（備用方案）- 改進進度追蹤"""
 
         n_tasks = len(all_tasks["combinations"])
@@ -1285,27 +1294,9 @@ class VectorBacktestEngine:
             )
         )
 
-        # 處理分組後的信號格式
-        if isinstance(all_signals["entry_signals"], list):
-            # 分組後的結果，需要合併
-            entry_signals_list = all_signals["entry_signals"]
-            exit_signals_list = all_signals["exit_signals"]
-
-            # 合併所有分組的信號
-            entry_signals = (
-                np.column_stack(entry_signals_list)
-                if entry_signals_list
-                else np.zeros((len(self.data), 0))
-            )
-            exit_signals = (
-                np.column_stack(exit_signals_list)
-                if exit_signals_list
-                else np.zeros((len(self.data), 0))
-            )
-        else:
-            # 單個numpy數組（未分組）
-            entry_signals = all_signals["entry_signals"]
-            exit_signals = all_signals["exit_signals"]
+        # 直接使用單個numpy數組格式的信號
+        entry_signals = all_signals["entry_signals"]
+        exit_signals = all_signals["exit_signals"]
 
         # 創建改進的進度監控器
         progress_monitor = None
@@ -1386,7 +1377,11 @@ class VectorBacktestEngine:
                         )
                         console.print(
                             Panel(
-                                f"⚠️ 記憶體使用過高: {memory_used:.1f} MB ({memory_percent:.1f}% of {memory_thresholds['total_memory_gb']:.1f}GB)，強制垃圾回收",
+                                (
+                                    f"⚠️ 記憶體使用過高: {memory_used:.1f} MB "
+                                    f"({memory_percent:.1f}% of "
+                                    f"{memory_thresholds['total_memory_gb']:.1f}GB)，強制垃圾回收"
+                                ),
                                 title=Text("💾 記憶體管理", style="bold #8f1511"),
                                 border_style="#dbac30",
                             )
@@ -1401,7 +1396,7 @@ class VectorBacktestEngine:
                 error_result = {
                     "Backtest_id": all_tasks["backtest_ids"][task_idx],
                     "strategy_id": (
-                        f"strategy_{strategy_idx+1}"
+                        f"strategy_{strategy_idx + 1}"
                         if "strategy_idx" in locals()
                         else "unknown"
                     ),
@@ -1493,8 +1488,8 @@ class VectorBacktestEngine:
 
     # 參數轉換方法已移植到 TradeSimulator 中
 
-    def _vectorized_generate_signals(
-        self, params_list: List[List], predictors: List[str]
+    def _vectorized_generate_signals(  # pylint: disable=too-complex
+        self, params_list: List[List[Any]], predictors: List[str]
     ) -> np.ndarray:
         """真正的向量化生成信號 - 批量計算指標，只生成純粹的 +1/-1/0 信號"""
 
@@ -1518,14 +1513,14 @@ class VectorBacktestEngine:
         signals_matrix = np.zeros((n_time, n_tasks, n_indicators))
 
         # 初始化全局快取
-        global_ma_cache = {}
-        global_boll_cache = {}
-        global_hl_cache = {}
-        global_value_cache = {}
-        global_percentile_cache = {}
+        global_ma_cache: Dict[str, Any] = {}
+        global_boll_cache: Dict[str, Any] = {}
+        global_hl_cache: Dict[str, Any] = {}
+        global_value_cache: Dict[str, Any] = {}
+        global_percentile_cache: Dict[str, Any] = {}
 
         # 按指標類型分組任務
-        indicator_groups = {}
+        indicator_groups: Dict[str, List[Any]] = {}
         for task_idx, params in enumerate(params_list):
             # 確保 params 是列表格式
             if not isinstance(params, list):
@@ -1609,7 +1604,7 @@ class VectorBacktestEngine:
 
         return signals_matrix
 
-    def _vectorized_combine_signals(
+    def _vectorized_combine_signals(  # pylint: disable=too-complex
         self, signals_matrix: np.ndarray, is_exit_signals: bool = False
     ) -> np.ndarray:
         """向量化合併信號"""
@@ -1663,22 +1658,50 @@ class VectorBacktestEngine:
         # 計算價格收益
         price_returns = self.data["Close"].pct_change().fillna(0).values
 
+        # 驗證交易參數
+        required_params = [
+            "transaction_cost",
+            "slippage",
+            "trade_price",
+            "trade_delay",
+        ]
+        missing_params = [
+            param for param in required_params if param not in trading_params
+        ]
+        if missing_params:
+            raise ValueError(f"缺少交易參數: {', '.join(missing_params)}")
+
+        # 取得價格資料
+        if "Close" not in self.data.columns:
+            raise ValueError("數據缺少 Close 欄位，無法執行交易模擬")
+        if "Open" not in self.data.columns:
+            raise ValueError("數據缺少 Open 欄位，無法執行交易模擬")
+
+        close_prices = self.data["Close"].values.astype(np.float64)
+        open_prices = self.data["Open"].values.astype(np.float64)
+
         # 向量化交易模擬
         if NUMBA_AVAILABLE:
             positions, returns, trade_actions, equity_values = (
                 _vectorized_trade_simulation_njit(
                     entry_signals,
                     exit_signals,
-                    price_returns,
-                    trading_params["transaction_cost"],
-                    trading_params["slippage"],
+                    close_prices,
+                    open_prices,
+                    float(trading_params["transaction_cost"]),
+                    float(trading_params["slippage"]),
+                    str(trading_params["trade_price"]),
+                    int(trading_params["trade_delay"]),
                 )
             )
         else:
             # 備用實現
             positions, returns, trade_actions, equity_values = (
                 self._fallback_trade_simulation(
-                    entry_signals, exit_signals, price_returns, trading_params
+                    entry_signals,
+                    exit_signals,
+                    price_returns,
+                    trading_params,
                 )
             )
 
@@ -1716,10 +1739,12 @@ class VectorBacktestEngine:
 
     # 參數集ID生成方法已移植到 TradeSimulator 中
 
-    def _convert_params_to_dict(self, entry_params: List, exit_params: List) -> Dict:
+    def _convert_params_to_dict(  # pylint: disable=too-complex
+        self, entry_params: List[Any], exit_params: List[Any]
+    ) -> Dict[str, Any]:
         """將參數列表轉換為字典格式"""
 
-        def param_to_dict(param):
+        def param_to_dict(param: Any) -> Dict[str, Any]:
             if param is None:
                 return {}
 
@@ -1773,5 +1798,5 @@ class VectorBacktestEngine:
                 "exit_params": [],  # 需要根據實際結構調整
                 "combo": combo,
             }
-        except:
+        except Exception:
             return {"strategy_idx": strategy_idx, "combo": combo}

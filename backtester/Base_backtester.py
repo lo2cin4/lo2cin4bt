@@ -77,7 +77,7 @@ flowchart TD
 import logging
 import re
 from collections import defaultdict
-from typing import Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 
@@ -97,6 +97,7 @@ DEFAULT_LONG_STRATEGY_PAIRS = [
     ("MA1", "MA4"),
     (["MA1", "MA9"], "MA4"),
     ("BOLL1", "BOLL4"),
+    ("BOLL3", "BOLL2"),
     ("HL1", "HL4"),
     ("PERC1", "PERC4"),
     ("PERC3", "PERC2"),
@@ -105,8 +106,9 @@ DEFAULT_LONG_STRATEGY_PAIRS = [
 
 DEFAULT_SHORT_STRATEGY_PAIRS = [
     ("MA4", "MA1"),
-    (["MA4", "MA9"], "MA1"),
+    (["MA4", "MA12"], "MA1"),
     ("BOLL4", "BOLL1"),
+    ("BOLL2", "BOLL3"),
     ("HL4", "HL1"),
     ("PERC4", "PERC1"),
     ("PERC2", "PERC3"),
@@ -132,18 +134,21 @@ class BaseBacktester:
         self,
         data: pd.DataFrame | None = None,
         frequency: str | None = None,
-        logger=None,
-    ):
+        logger: Optional[logging.Logger] = None,
+        predictor_file_name: str | None = None,
+    ) -> None:
         self.data = data
         self.frequency = frequency
         self.logger = logger or logging.getLogger("BaseBacktester")
-        self.results = []
+        self.results: List[Any] = []
         self.data_importer = DataImporter()
+        self.predictor_file_name = predictor_file_name
+        self.predictor_column: Optional[str] = None  # 將在 _select_predictor 中設置
         self.indicators_helper = IndicatorsBacktester(logger=self.logger)
-        self.backtest_engine = None
+        self.backtest_engine: Optional[Any] = None
         self.exporter = None
 
-    def run(self, predictor_col: str = None):
+    def run(self, predictor_col: Optional[str] = None) -> None:
         """
         主執行函數，協調預測因子選擇、用戶配置獲取、回測執行與結果導出。
         """
@@ -164,7 +169,7 @@ class BaseBacktester:
         self._print_step_panel(5, "開始執行回測引擎，生成回測任務並並行執行")
 
         # 執行回測
-        self.backtest_engine = BacktestEngine(self.data, self.frequency, self.logger)
+        self.backtest_engine = BacktestEngine(self.data, self.frequency or "1D", self.logger)
         self.results = self.backtest_engine.run_backtests(config)
 
         # 導出結果（步驟 6 的 panel 會在 _export_results 中適當時機觸發）
@@ -172,7 +177,7 @@ class BaseBacktester:
         self.logger.info("Backtester run finished.")
 
     @staticmethod
-    def get_steps():
+    def get_steps() -> List[str]:
         return [
             "選擇要用於回測的預測因子",
             "選擇回測開倉及平倉指標",
@@ -183,7 +188,7 @@ class BaseBacktester:
         ]
 
     @staticmethod
-    def print_step_panel(current_step: int, desc: str = ""):
+    def print_step_panel(current_step: int, desc: str = "") -> None:
         steps = BaseBacktester.get_steps()
         step_content = ""
         for idx, step in enumerate(steps):
@@ -194,15 +199,15 @@ class BaseBacktester:
         content = step_content.strip()
         if desc:
             content += f"\n\n[bold #dbac30]說明[/bold #dbac30]\n{desc}"
-        panel_title = f"[bold #dbac30]👨‍💻 交易回測 Backtester 步驟：{steps[current_step-1]}[/bold #dbac30]"
+        panel_title = f"[bold #dbac30]👨‍💻 交易回測 Backtester 步驟：{steps[current_step - 1]}[/bold #dbac30]"
         console = Console()
         console.print(Panel(content.strip(), title=panel_title, border_style="#dbac30"))
 
-    def _print_step_panel(self, current_step: int, desc: str = ""):
+    def _print_step_panel(self, current_step: int, desc: str = "") -> None:
         # 已被靜態方法取代，保留兼容性
         BaseBacktester.print_step_panel(current_step, desc)
 
-    def _select_predictor(self, predictor_col: str = None) -> str:
+    def _select_predictor(self, predictor_col: Optional[str] = None) -> str:
         """
         讓用戶選擇預測因子（允許所有非 Time/High/Low 欄位），若有傳入 predictor_col 則直接用
         """
@@ -261,9 +266,11 @@ class BaseBacktester:
                     border_style="#dbac30",
                 )
             )
+            # 存儲 predictor_column 供後續使用
+            self.predictor_column = str(selected)
             return selected
 
-    def _export_results(self, config: Dict):
+    def _export_results(self, config: Dict) -> None:
         """導出結果"""
         if not self.results:
             print("無結果可導出")
@@ -275,10 +282,12 @@ class BaseBacktester:
         # 創建導出器並顯示智能摘要
         exporter = TradeRecordExporter_backtester(
             trade_records=pd.DataFrame(),
-            frequency=self.frequency,
+            frequency=self.frequency or "1D",
             results=self.results,
             data=self.data,
             Backtest_id=config.get("Backtest_id", ""),
+            predictor_file_name=self.predictor_file_name,
+            predictor_column=self.predictor_column,
             **config["trading_params"],
         )
 
@@ -316,10 +325,18 @@ class BaseBacktester:
                 all_indicators.update(pair["exit"])
             else:
                 all_indicators.add(pair["exit"])
-        all_indicators = [ind for ind in all_indicators if ind != "__DEFAULT__"]
+        all_indicators_list: List[str] = list(all_indicators)
+        all_indicators_list = [ind for ind in all_indicators_list if ind != "__DEFAULT__"]
 
         # Step 3: 輸入指標參數
-        step3_desc = f"- 此步驟將針對每個策略、每個指標，依型態分組詢問參數。\n- 請依提示完成所有參數輸入，支援多組策略與多指標。\n- 參數格式錯誤會即時提示，請依說明修正。\n- 不建議設定過大的參數範圍，容易出現沒有交易的情況。\n\n共需設定 {len(condition_pairs)} 個策略的參數。\n每個策略可包含多個指標，請依提示完成所有參數輸入。"
+        step3_desc = (
+            f"- 此步驟將針對每個策略、每個指標，依型態分組詢問參數。\n"
+            f"- 請依提示完成所有參數輸入，支援多組策略與多指標。\n"
+            f"- 參數格式錯誤會即時提示，請依說明修正。\n"
+            f"- 不建議設定過大的參數範圍，容易出現沒有交易的情況。\n\n"
+            f"共需設定 {len(condition_pairs)} 個策略的參數。\n"
+            f"每個策略可包含多個指標，請依提示完成所有參數輸入。"
+        )
         self._print_step_panel(3, step3_desc)
         indicator_params = self._collect_indicator_params(condition_pairs)
 
@@ -341,7 +358,7 @@ class BaseBacktester:
         }
         return config
 
-    def _display_available_indicators(self):
+    def _display_available_indicators(self) -> str:  # pylint: disable=too-complex
         """動態分組指標顯示，返回說明內容"""
         all_aliases = self.indicators_helper.get_all_indicator_aliases()
         indicator_descs = {}
@@ -442,13 +459,14 @@ class BaseBacktester:
             "- 開倉與平倉條件方向必須對立（如開倉做多，平倉應為做空），否則策略會失敗。。\n"
             "- 支援同時回測多組不同條件的策略，靈活組合。\n"
             "- 格式：先輸入開倉條件（如MA1,BOLL1），再輸入平倉條件（如 MA2,BOLL2），即可建立一組策略。\n"
-            "- [bold yellow]如不確定如何選擇，建議先用預設策略體驗流程，在開倉和平倉條件同時輸入'defaultlong'(長倉)/'defaultshort'(短倉)/'defaultall'(全部)即可。[/bold yellow]\n"
+            "- [bold yellow]如不確定如何選擇，建議先用預設策略體驗流程，\n"
+            "  在開倉和平倉條件同時輸入'defaultlong'(長倉)/'defaultshort'(短倉)/'defaultall'(全部)即可。[/bold yellow]\n"
             "- ※ 輸入多個指標時，必須全部同時滿足才會開倉/平倉。"
         )
         content = desc + "\n\n" + "\n\n".join(group_texts)
         return content
 
-    def _collect_condition_pairs(self) -> list:
+    def _collect_condition_pairs(self) -> list:  # pylint: disable=too-complex
         """
         收集條件配對，支援 default 批次產生三組預設策略，所有互動美化
         """
@@ -457,7 +475,10 @@ class BaseBacktester:
         all_aliases = self.indicators_helper.get_all_indicator_aliases()
         while True:
             # 開倉條件輸入
-            entry_prompt = f"[bold #dbac30]請輸入第 {pair_count} 組【開倉】指標 (如 MA1,BOLL2，或輸入 'none' 結束，或 'defaultlong/defaultshort/defaultall' 用預設策略)：[/bold #dbac30]"
+            entry_prompt = (
+                f"[bold #dbac30]請輸入第 {pair_count} 組【開倉】指標 "
+                f"(如 MA1,BOLL2，或輸入 'none' 結束，或 'defaultlong/defaultshort/defaultall' 用預設策略)：[/bold #dbac30]"
+            )
             entry_indicators = self._get_indicator_input(entry_prompt, all_aliases)
             if not entry_indicators:
                 if pair_count == 1:
@@ -472,7 +493,10 @@ class BaseBacktester:
                 else:
                     break
             # 平倉條件輸入
-            exit_prompt = f"[bold #dbac30]請輸入第 {pair_count} 組【平倉】指標 (如 MA2,BOLL4，或輸入 'none' 結束，或 'defaultlong/defaultshort/defaultall' 用預設策略)：[/bold #dbac30]"
+            exit_prompt = (
+                f"[bold #dbac30]請輸入第 {pair_count} 組【平倉】指標 "
+                f"(如 MA2,BOLL4，或輸入 'none' 結束，或 'defaultlong/defaultshort/defaultall' 用預設策略)：[/bold #dbac30]"
+            )
             exit_indicators = self._get_indicator_input(exit_prompt, all_aliases)
             # default 批次產生
             default_strategy_pairs = None
@@ -554,7 +578,7 @@ class BaseBacktester:
                 break
         return condition_pairs
 
-    def _collect_indicator_params(self, condition_pairs: list) -> dict:
+    def _collect_indicator_params(self, condition_pairs: list) -> dict:  # pylint: disable=too-complex
         """
         每個策略只顯示一個大Panel，Panel內依序顯示所有參數問題與已填值，動態刷新，直到該策略所有參數輸入完畢。
         步驟說明Panel與指標選擇Panel只顯示一次，後續不再清除畫面。
@@ -619,7 +643,7 @@ class BaseBacktester:
                                 alias,
                                 "m_range",
                                 f"{alias}連續次數 (可輸入單一值 或 開始值:結束值:間隔，留空預設 1:20:5)",
-                                "1:2:1",
+                                "1:20:5",
                             )
                         )
                         all_questions.append(
@@ -661,7 +685,7 @@ class BaseBacktester:
                             alias,
                             "sd_multi",
                             f"{alias}標準差倍數 (可用逗號分隔多值，留空預設1,1.5,2)",
-                            "1.5,2",
+                            "1,1.5,2",
                         )
                     )
                 elif alias.startswith("HL"):
@@ -786,13 +810,13 @@ class BaseBacktester:
                         )
                     )
 
-            param_values = {}
+            param_values: Dict[Tuple[str, str], Any] = {}
 
             for q_idx, (alias, key, question, default) in enumerate(all_questions):
                 while True:
                     # 顯示當前的參數設定 panel（只顯示一個，不清除其他內容）
                     lines = [
-                        f"[bold #dbac30]策略 {strategy_idx+1} 參數設定[/bold #dbac30]",
+                        f"[bold #dbac30]策略 {strategy_idx + 1} 參數設定[/bold #dbac30]",
                         f"[white]開倉指標：{pair['entry']}[/white]",
                         f"[white]平倉指標：{pair['exit']}[/white]",
                         "",
@@ -887,7 +911,7 @@ class BaseBacktester:
                                     )
                                     console.print(
                                         Panel(
-                                            f"正確格式示例：10 : 50 : 10",
+                                            "正確格式示例：10 : 50 : 10",
                                             title="[bold #dbac30]👨‍💻 交易回測 Backtester[/bold #dbac30]",
                                             border_style="#dbac30",
                                         )
@@ -912,7 +936,7 @@ class BaseBacktester:
                                         )
                                         console.print(
                                             Panel(
-                                                f"正確格式示例：10 : 50 : 10 或 20",
+                                                "正確格式示例：10 : 50 : 10 或 20",
                                                 title="[bold #dbac30]👨‍💻 交易回測 Backtester[/bold #dbac30]",
                                                 border_style="#dbac30",
                                             )
@@ -965,21 +989,21 @@ class BaseBacktester:
                 console.print(
                     Panel(
                         f"{alias} (策略 {strategy_idx + 1}) 參數設定完成，產生 {len(param_list)} 組參數",
-                        title=f"[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
+                        title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
                         border_style="#dbac30",
                     )
                 )
 
         return indicator_params
 
-    def _collect_trading_params(self) -> dict:
+    def _collect_trading_params(self) -> dict:  # pylint: disable=too-complex
         """
         收集交易參數（成本、滑點、延遲、價格），完全參考原UserInterface，並用Rich Panel美化
 
         Returns:
             dict: 包含交易手續費、滑點、延遲、價格等參數的字典
         """
-        trading_params = {}
+        trading_params: Dict[str, Any] = {}
         # 交易手續費
         while True:
             try:

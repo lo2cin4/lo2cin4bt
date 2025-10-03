@@ -62,7 +62,7 @@ flowchart TD
 ------------------------------------------------------------
 - 單指標計算：indicator = MovingAverageIndicator(data, params)
   signals = indicator.generate_signals(predictor)
-- 批量向量化計算：signals_matrix = MovingAverageIndicator.vectorized_calculate_ma_signals(tasks, predictor, signals_matrix, global_ma_cache, data)
+- 批量向量化計算：signals_matrix = MovingAverageIndicator.vectorized_calculate_ma_signals(tasks, predictor, signals_matrix, global_ma_cache, data)  # noqa: E501
 - 參數生成：params_list = MovingAverageIndicator.get_params(strat_idx, params_config)
 
 【與其他模組的關聯】
@@ -562,7 +562,7 @@ class MovingAverageIndicator:
     def get_strategy_descriptions():
         """回傳策略描述字典"""
         return {
-            f"MA{i+1}": desc
+            f"MA{i + 1}": desc
             for i, desc in enumerate(MovingAverageIndicator.MA_DESCRIPTIONS)
         }
 

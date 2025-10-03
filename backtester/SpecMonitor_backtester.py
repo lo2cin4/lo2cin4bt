@@ -99,7 +99,7 @@ flowchart TD
 
 import logging
 import multiprocessing
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from rich.console import Console
 from rich.panel import Panel
@@ -116,7 +116,7 @@ except ImportError:
 class SpecMonitor:
     """系統規格監控器 - 負責系統資源檢測和配置優化"""
 
-    def __init__(self, logger=None):
+    def __init__(self, logger: Optional[logging.Logger] = None):
         self.logger = logger or logging.getLogger("SpecMonitor")
         self.max_memory_mb = 1000  # 最大記憶體使用量（MB）
 
@@ -198,7 +198,11 @@ class SpecMonitor:
                         optimal_cores = 1
                     else:
                         optimal_cores = min(2, total_cores - 1)
-                    config_info = f"💾 低記憶體配置檢測: 總記憶體={total_memory_gb:.1f}GB, 可用記憶體={available_memory_gb:.1f}GB，🔧 使用保守配置: {optimal_cores}/{total_cores} 核心"
+                    config_info = (
+                        f"💾 低記憶體配置檢測: 總記憶體={total_memory_gb:.1f}GB, "
+                        f"可用記憶體={available_memory_gb:.1f}GB，"
+                        f"🔧 使用保守配置: {optimal_cores}/{total_cores} 核心"
+                    )
 
                 elif available_memory_gb < 2.0:
                     # 可用記憶體不足（<2GB）：進一步限制
@@ -367,15 +371,15 @@ class SpecMonitor:
                     print(
                         f"⚠️ 記憶體警告: 估算需求 {estimated_memory_gb:.1f}GB，可用記憶體 {available_memory_gb:.1f}GB"
                     )
-                    print(f"⚠️ 建議減少任務數量或關閉其他程序")
+                    print("⚠️ 建議減少任務數量或關閉其他程序")
                     memory_info += (
-                        f" ⚠️ 記憶體警告: 超過 {warning_threshold*100:.0f}% 閾值"
+                        f" ⚠️ 記憶體警告: 超過 {warning_threshold * 100:.0f}% 閾值"
                     )
 
                     # 如果超過臨界閾值，強制使用串行處理
                     if estimated_memory_gb > available_memory_gb * critical_threshold:
-                        print(f"🛑 記憶體嚴重不足，嘗試優化策略...")
-                        memory_info += f" 🛑 記憶體嚴重不足"
+                        print("🛑 記憶體嚴重不足，嘗試優化策略...")
+                        memory_info += " 🛑 記憶體嚴重不足"
 
                         # 策略1: 強制垃圾回收
                         import gc
@@ -398,14 +402,14 @@ class SpecMonitor:
                             estimated_memory_gb
                             > available_memory_gb_after_gc * critical_threshold
                         ):
-                            print(f"🛑 記憶體仍然不足，強制使用串行處理")
-                            memory_info += f" 🛑 強制串行處理"
+                            print("🛑 記憶體仍然不足，強制使用串行處理")
+                            memory_info += " 🛑 強制串行處理"
                             raise MemoryError(
                                 "記憶體不足，建議減少任務數量或關閉其他程序"
                             )
                         else:
-                            print(f"✅ 垃圾回收後記憶體充足，繼續並行處理")
-                            memory_info += f" ✅ 垃圾回收後充足"
+                            print("✅ 垃圾回收後記憶體充足，繼續並行處理")
+                            memory_info += " ✅ 垃圾回收後充足"
 
                 return memory_info
 
@@ -524,9 +528,9 @@ class SpecMonitor:
             return 0.0
 
     @staticmethod
-    def get_system_info() -> Dict[str, any]:
+    def get_system_info() -> Dict[str, Any]:
         """獲取系統完整信息"""
-        system_info = {
+        system_info: Dict[str, Any] = {
             "cpu_cores": multiprocessing.cpu_count(),
             "psutil_available": PSUTIL_AVAILABLE,
         }

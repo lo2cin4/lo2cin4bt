@@ -94,7 +94,7 @@ import pandas as pd
 class TradeRecorder_backtester:
     """記錄並驗證交易記錄。"""
 
-    def __init__(self, trade_records, Backtest_id):
+    def __init__(self, trade_records: pd.DataFrame, Backtest_id: str):
         self.trade_records = trade_records
         self.Backtest_id = Backtest_id
         self.logger = logging.getLogger(__name__)
@@ -121,7 +121,7 @@ class TradeRecorder_backtester:
             "Predictor_value": float,
         }
 
-    def record_trades(self):
+    def record_trades(self) -> pd.DataFrame:
         """
         記錄並驗證交易記錄
 
@@ -157,13 +157,13 @@ class TradeRecorder_backtester:
             for col, dtype in self.trade_record_schema.items():
                 if col in ["Time", "Open_time", "Close_time"]:
                     df[col] = pd.to_datetime(df[col], errors="coerce")
-                elif dtype == float:
+                elif dtype is float:
                     ser = pd.to_numeric(df[col], errors="coerce")
                     if isinstance(ser, pd.Series):
                         df[col] = ser.fillna(0.0)
                     else:
                         df[col] = ser
-                elif dtype == int:
+                elif dtype is int:
                     ser = pd.to_numeric(df[col], errors="coerce")
                     if isinstance(ser, pd.Series):
                         df[col] = ser.fillna(0).astype(int)
