@@ -58,6 +58,7 @@ flowchart TD
 """
 
 import logging
+import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -65,6 +66,15 @@ import pandas as pd
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
+
+from autorunner.BacktestRunner_autorunner import BacktestRunner
+
+# 導入 autorunner 模組
+from autorunner.ConfigLoader_autorunner import ConfigLoader
+from autorunner.ConfigSelector_autorunner import ConfigSelector
+from autorunner.ConfigValidator_autorunner import ConfigValidator
+from autorunner.DataLoader_autorunner import DataLoaderAutorunner
+from autorunner.MetricsRunner_autorunner import MetricsRunnerAutorunner
 
 # from rich.progress import Progress, SpinnerColumn, TextColumn  # 暫時註釋，後續使用
 
@@ -102,10 +112,6 @@ class BaseAutorunner:
         self._ensure_directories()
 
         # 初始化子模組
-        from autorunner.ConfigLoader_autorunner import ConfigLoader
-        from autorunner.ConfigSelector_autorunner import ConfigSelector
-        from autorunner.ConfigValidator_autorunner import ConfigValidator
-
         self.config_selector = ConfigSelector(self.configs_dir, self.templates_dir)
 
         self.config_validator = ConfigValidator()
@@ -113,7 +119,6 @@ class BaseAutorunner:
         self.config_loader = ConfigLoader()
 
         # 初始化執行模組
-        from autorunner.DataLoader_autorunner import DataLoaderAutorunner
 
         self.data_loader = DataLoaderAutorunner(logger=self.logger)
         self.data_loader_frequency = None
@@ -173,7 +178,7 @@ class BaseAutorunner:
 
         except Exception as e:
             print(f"❌ [ERROR] autorunner 執行失敗: {e}")
-            self.logger.error(f"autorunner 執行失敗: {e}")
+            self.logger.error("autorunner 執行失敗: %s", e)
             self._display_error(f"autorunner 執行失敗: {e}")
             raise
 
@@ -345,7 +350,6 @@ class BaseAutorunner:
         """
 
         try:
-            from .BacktestRunner_autorunner import BacktestRunner
 
             backtest_runner = BacktestRunner()
             backtest_runner.data_loader_frequency = self.data_loader_frequency
@@ -360,8 +364,6 @@ class BaseAutorunner:
 
         except Exception as e:
             print(f"❌ [ERROR] 回測執行異常: {e}")
-            import traceback
-
             print(f"❌ [ERROR] 詳細錯誤: {traceback.format_exc()}")
             return None
 
@@ -437,8 +439,6 @@ class BaseAutorunner:
 
         except Exception as e:
             print(f"❌ [ERROR] 回測摘要顯示失敗: {e}")
-            import traceback
-
             print(f"❌ [ERROR] 詳細錯誤: {traceback.format_exc()}")
 
     def _display_execution_progress(
@@ -462,12 +462,11 @@ class BaseAutorunner:
 
     def _display_error(self, message: str) -> None:
         """顯示錯誤信息"""
-        print(f"❌ [ERROR] 顯示錯誤信息: {message}")
 
         console.print(
             Panel(
                 f"❌ {message}",
-                title=Text("⚠️ 執行錯誤", style="bold #8f1511"),
+                title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
                 border_style="#8f1511",
             )
         )
@@ -478,7 +477,6 @@ class BaseAutorunner:
         """執行 MetricsRunner 分析"""
 
         try:
-            from .MetricsRunner_autorunner import MetricsRunnerAutorunner
 
             self.metrics_runner = self.metrics_runner or MetricsRunnerAutorunner(
                 logger=self.logger
@@ -492,8 +490,6 @@ class BaseAutorunner:
 
         except Exception as e:
             print(f"❌ [ERROR] 績效分析執行異常: {e}")
-            import traceback
-
             print(f"❌ [ERROR] 詳細錯誤: {traceback.format_exc()}")
 
 
@@ -501,13 +497,11 @@ if __name__ == "__main__":
     # 測試模式
 
     # 創建測試用的 logger
-    import logging
-
-    logger = logging.getLogger("test")
-    logger.setLevel(logging.DEBUG)
+    test_logger = logging.getLogger("test")
+    test_logger.setLevel(logging.DEBUG)
 
     # 創建 autorunner 實例
-    autorunner = BaseAutorunner(logger=logger)
+    autorunner = BaseAutorunner(logger=test_logger)
 
     # 執行 autorunner
     autorunner.run()

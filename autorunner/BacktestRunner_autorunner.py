@@ -43,13 +43,18 @@ flowchart TD
 - 與 DataLoader_autorunner 協同工作
 """
 
+import logging
+import time
+import traceback
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
 from rich.console import Console
 from rich.panel import Panel
 
+from backtester.Indicators_backtester import IndicatorsBacktester
 from backtester.TradeRecordExporter_backtester import TradeRecordExporter_backtester
+from backtester.VectorBacktestEngine_backtester import VectorBacktestEngine
 
 console = Console()
 
@@ -60,6 +65,7 @@ class BacktestRunner:
     def __init__(self) -> None:
         """初始化 BacktestRunner"""
         self.console = Console()
+        self.logger = logging.getLogger(__name__)
         self.panel_title = "[bold #8f1511]🧑‍💻 回測 Backtester[/bold #8f1511]"
         self.panel_error_style = "#8f1511"
         self.panel_success_style = "#dbac30"
@@ -122,16 +128,16 @@ class BacktestRunner:
             )
 
             # 步驟3: 執行回測
-            results = self._execute_backtest(data, backtest_params)
-            if not results:
+            backtest_execution_results = self._execute_backtest(data, backtest_params)
+            if not backtest_execution_results:
                 return None
 
             # 步驟4: 處理回測結果
-            processed_results = self._process_backtest_results(results)
+            processed_results = self._process_backtest_results(backtest_execution_results)
 
             # 步驟4-1: 導出交易紀錄
             exported_paths = self._export_backtest_results(
-                raw_results=results,
+                raw_results=backtest_execution_results,
                 params=backtest_params,
                 frequency=backtest_params.get("data_frequency"),
             )
@@ -215,9 +221,6 @@ class BacktestRunner:
     ) -> Optional[Any]:
         """執行回測"""
         try:
-            import logging
-
-            from backtester.VectorBacktestEngine_backtester import VectorBacktestEngine
 
             # 設置日誌記錄器
             logger = logging.getLogger("lo2cin4bt")
@@ -229,14 +232,12 @@ class BacktestRunner:
             config = self._prepare_backtest_config(params)
 
             # 執行回測（跳過互動式確認）
-            results = self._run_backtests_automated(backtest_engine, config)
+            backtest_results = self._run_backtests_automated(backtest_engine, config)
 
-            return results
+            return backtest_results
 
         except Exception as e:
             print(f"❌ [ERROR] 回測執行失敗: {e}")
-            import traceback
-
             print(f"❌ [ERROR] 詳細錯誤: {traceback.format_exc()}")
             return None
 
@@ -254,84 +255,81 @@ class BacktestRunner:
             list: 回測結果列表
         """
         try:
-            import time
-
-            from rich.console import Console
-            from rich.panel import Panel
-
-            # 獲取回測參數
-            all_combinations = backtest_engine.generate_parameter_combinations(config)
-            condition_pairs = config["condition_pairs"]
-            predictors = config["predictors"]
-            trading_params = config["trading_params"]
-
-            total_backtests = len(all_combinations) * len(predictors)
-
-            console = Console()
-
-            # 顯示回測信息（但不等待確認）
-            console.print(
-                Panel(
-                    (
-                        f"將執行向量化回測：{len(all_combinations)} 種參數組合 x "
-                        f"{len(predictors)} 個預測因子 = {total_backtests} 次回測\n"
-                        f"交易參數：{trading_params}"
-                    ),
-                    title="[bold #8f1511]🚀 向量化回測引擎[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
-            )
-
-            # 直接執行回測邏輯（複製自 VectorBacktestEngine 的內部邏輯）
-            start_time = time.time()
-
-            # 執行向量化回測
-            results = backtest_engine._true_vectorized_backtest(
-                all_combinations, condition_pairs, predictors, trading_params
-            )
-
-            end_time = time.time()
-            execution_time = end_time - start_time
-
-            # 顯示結果樣本
-            if results:
-                first_result = results[0]
-                if isinstance(first_result, dict):
-                    records_sample = (
-                        first_result.get("records")
-                        if isinstance(first_result, dict)
-                        else None
-                    )
-                    if records_sample is not None:
-                        try:
-                            if "Trade_action" in records_sample.columns:
-                                action_counts = records_sample[
-                                    "Trade_action"
-                                ].value_counts(dropna=False)
-                                int(action_counts.get(4, 0))
-                        except Exception as err:
-                            print(f"❗️ [WARNING] 無法顯示 records 樣本: {err}")
-
-            # 顯示執行結果
-            console.print(
-                Panel(
-                    f"回測完成！\n"
-                    f"執行時間：{execution_time:.2f} 秒\n"
-                    f"總回測數：{total_backtests}\n"
-                    f"結果數量：{len(results)}",
-                    title="[bold #8f1511]✅ 回測完成[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
-            )
-
-            return results
-
+            return self._execute_vectorized_backtests(backtest_engine, config)
         except Exception as e:
-            print(f"❌ [ERROR] 自動化回測失敗: {e}")
-            import traceback
-
-            print(f"❌ [ERROR] 詳細錯誤: {traceback.format_exc()}")
+            self.logger.error("向量化回測執行失敗: %s", e)
             return []
+
+    def _execute_vectorized_backtests(
+        self, backtest_engine: Any, config: Dict[str, Any]
+    ) -> list:
+        """執行向量化回測的具體邏輯"""  # pylint: disable=too-many-nested-blocks
+        # 獲取回測參數
+        all_combinations = backtest_engine.generate_parameter_combinations(config)
+        condition_pairs = config["condition_pairs"]
+        predictors = config["predictors"]
+        trading_params = config["trading_params"]
+
+        total_backtests = len(all_combinations) * len(predictors)
+
+        backtest_console = Console()
+
+        # 顯示回測信息（但不等待確認）
+        backtest_console.print(
+            Panel(
+                (
+                    f"將執行向量化回測：{len(all_combinations)} 種參數組合 x "
+                    f"{len(predictors)} 個預測因子 = {total_backtests} 次回測\n"
+                    f"交易參數：{trading_params}"
+                ),
+                title="[bold #8f1511]🚀 向量化回測引擎[/bold #8f1511]",
+                border_style="#dbac30",
+            )
+        )
+
+        # 直接執行回測邏輯（複製自 VectorBacktestEngine 的內部邏輯）
+        start_time = time.time()
+
+        # 執行向量化回測
+        vectorized_results = backtest_engine._true_vectorized_backtest(  # pylint: disable=protected-access
+            all_combinations, condition_pairs, predictors, trading_params
+        )
+
+        end_time = time.time()
+        execution_time = end_time - start_time
+
+        # 顯示結果樣本
+        if vectorized_results:
+            first_result = vectorized_results[0]
+            if isinstance(first_result, dict):
+                records_sample = (
+                    first_result.get("records")
+                    if isinstance(first_result, dict)
+                    else None
+                )
+                if records_sample is not None:
+                    try:
+                        if "Trade_action" in records_sample.columns:
+                            action_counts = records_sample[
+                                "Trade_action"
+                            ].value_counts(dropna=False)
+                            int(action_counts.get(4, 0))
+                    except Exception as err:
+                        print(f"❗️ [WARNING] 無法顯示 records 樣本: {err}")
+
+        # 顯示執行結果
+        backtest_console.print(
+            Panel(
+                f"回測完成！\n"
+                f"執行時間：{execution_time:.2f} 秒\n"
+                f"總回測數：{total_backtests}\n"
+                f"結果數量：{len(vectorized_results)}",
+                title="[bold #8f1511]✅ 回測完成[/bold #8f1511]",
+                border_style="#dbac30",
+            )
+        )
+
+        return vectorized_results
 
     def _prepare_backtest_config(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """準備回測配置"""
@@ -393,12 +391,12 @@ class BacktestRunner:
 
         except Exception as e:
             print(f"❌ [ERROR] 回測配置準備失敗: {e}")
-            import traceback
-
             print(f"❌ [ERROR] 詳細錯誤: {traceback.format_exc()}")
             return {}
 
-    def _validate_param_key(self, param_key: str) -> Optional[tuple[str, int]]:
+    def _validate_param_key(
+        self, param_key: str
+    ) -> Optional[tuple[str, int]]:  # pylint: disable=unused-argument
         """驗證並解析參數鍵"""
         if not isinstance(param_key, str):
             return None
@@ -416,7 +414,9 @@ class BacktestRunner:
         return base_alias, int(strategy_suffix)
 
     def _convert_boll_params(
-        self, param_config: Dict[str, Any], param_key: str
+        self,
+        param_config: Dict[str, Any],
+        param_key: str,  # pylint: disable=unused-argument
     ) -> None:
         """轉換 Bollinger Band 參數"""
         if "bb_period" in param_config and "ma_range" not in param_config:
@@ -424,7 +424,11 @@ class BacktestRunner:
         if "bb_std" in param_config and "sd_multi" not in param_config:
             param_config["sd_multi"] = param_config.pop("bb_std")
 
-    def _convert_hl_params(self, param_config: Dict[str, Any], param_key: str) -> None:
+    def _convert_hl_params(
+        self,
+        param_config: Dict[str, Any],
+        param_key: str,  # pylint: disable=unused-argument
+    ) -> None:
         """轉換 HL 參數"""
         if "hl_period" in param_config:
             value = param_config.pop("hl_period")
@@ -432,7 +436,9 @@ class BacktestRunner:
             param_config.setdefault("m_range", value)
 
     def _convert_perc_params(
-        self, param_config: Dict[str, Any], param_key: str
+        self,
+        param_config: Dict[str, Any],
+        param_key: str,  # pylint: disable=unused-argument
     ) -> None:
         """轉換 Percentile 參數"""
         if "perc_period" in param_config and "window_range" not in param_config:
@@ -560,7 +566,6 @@ class BacktestRunner:
         """
 
         try:
-            from backtester.Indicators_backtester import IndicatorsBacktester
 
             indicators_backtester = IndicatorsBacktester()
             converted_params: Dict[str, Any] = {}
@@ -574,14 +579,12 @@ class BacktestRunner:
 
         except Exception as e:
             print(f"❌ [ERROR] 指標參數轉換失敗: {e}")
-            import traceback
-
             print(f"❌ [ERROR] 詳細錯誤: {traceback.format_exc()}")
             return {}
 
     def _expand_indicator_params(
         self,
-        condition_pairs: List[Dict[str, Any]],
+        condition_pairs: List[Dict[str, Any]],  # pylint: disable=unused-argument
         indicator_params: Dict[str, List[Any]],
     ) -> Dict[str, List[Any]]:
         """確保所有策略的所有指標都有對應參數列表"""
@@ -621,12 +624,13 @@ class BacktestRunner:
         self,
         result: Dict[str, Any],
         i: int,
-        total_trades_count: int,
-        winning_trades: int,
-        losing_trades: int,
-        total_return_value: float,
+        trade_metrics: tuple[int, int, int, float],
     ) -> Dict[str, Any]:
         """創建策略摘要"""
+        total_trades_count, winning_trades, losing_trades, total_return_value = (
+            trade_metrics
+        )
+
         params = result.get("params", {})
         condition_pair = {
             "entry": params.get("entry", []),
@@ -654,21 +658,21 @@ class BacktestRunner:
             "final_equity": result.get("final_equity", 0.0),
         }
 
-    def _process_backtest_results(self, results: list) -> Dict[str, Any]:
+    def _process_backtest_results(self, backtest_results: list) -> Dict[str, Any]:
         """處理回測結果"""
 
         try:
-            if not results:
+            if not backtest_results:
                 print("❌ [ERROR] 回測結果為空")
                 return {}
 
             # 處理回測結果列表
-            if isinstance(results, list):
+            if isinstance(backtest_results, list):
 
                 # 計算整體統計
                 total_trades = 0
                 total_return = 0.0
-                total_strategies = len(results)
+                total_strategies = len(backtest_results)
 
                 processed_results: Dict[str, Any] = {
                     "strategies": [],
@@ -679,11 +683,11 @@ class BacktestRunner:
                         "best_strategy": None,
                         "worst_strategy": None,
                     },
-                    "raw_results": results,
+                    "raw_results": backtest_results,
                 }
 
                 # 處理每個策略的結果
-                for i, result in enumerate(results):
+                for i, result in enumerate(backtest_results):
 
                     if not isinstance(result, dict):
                         continue
@@ -700,13 +704,16 @@ class BacktestRunner:
                         total_trades_count = winning_trades = losing_trades = 0
                         total_return_value = 0.0
 
-                    strategy_summary = self._create_strategy_summary(
-                        result,
-                        i,
+                    trade_metrics = (
                         total_trades_count,
                         winning_trades,
                         losing_trades,
                         total_return_value,
+                    )
+                    strategy_summary = self._create_strategy_summary(
+                        result,
+                        i,
+                        trade_metrics,
                     )
 
                     processed_results["strategies"].append(strategy_summary)
@@ -736,24 +743,21 @@ class BacktestRunner:
 
                 return processed_results
 
-            else:
-                print("❌ [ERROR] 回測結果格式不正確")
-                return {}
+            print("❌ [ERROR] 回測結果格式不正確")
+            return {}
 
         except Exception as e:
             print(f"❌ [ERROR] 回測結果處理失敗: {e}")
-            import traceback
-
             print(f"❌ [ERROR] 詳細錯誤: {traceback.format_exc()}")
             return {}
 
     def _update_backtest_summary(
-        self, results: Dict[str, Any], config: Dict[str, Any]
+        self, backtest_results: Dict[str, Any], config: Dict[str, Any]
     ) -> None:
         """更新回測摘要"""
 
         try:
-            summary = results.get("summary", {})
+            summary = backtest_results.get("summary", {})
 
             self.backtest_summary = {
                 "selected_predictor": config["selected_predictor"],
@@ -763,14 +767,18 @@ class BacktestRunner:
                 "average_return": summary.get("average_return", 0.0),
                 "best_strategy": summary.get("best_strategy", None),
                 "worst_strategy": summary.get("worst_strategy", None),
-                "strategies_count": len(results.get("strategies", [])),
-                "exported_files": results.get("exported_files", []),
+                "strategies_count": len(
+                    backtest_results.get("strategies", []) if backtest_results else []
+                ),
+                "exported_files": (
+                    backtest_results.get("exported_files", [])
+                    if backtest_results
+                    else []
+                ),
             }
 
         except Exception as e:
             print(f"❌ [ERROR] 回測摘要更新失敗: {e}")
-            import traceback
-
             print(f"❌ [ERROR] 詳細錯誤: {traceback.format_exc()}")
 
     def _extract_frequency(
@@ -808,24 +816,39 @@ class BacktestRunner:
             trading_params = backtester_config.get("trading_params", {})
             selected_predictor = params.get("selected_predictor")
 
+            # 從數據的 attrs 中獲取預測因子文件信息
+            data_obj = params.get("data")
+            predictor_file_name = None
+            predictor_column = None
+
+            if data_obj is not None and hasattr(data_obj, "attrs"):
+                predictor_file_name = data_obj.attrs.get("predictor_file_name")
+                predictor_column = data_obj.attrs.get("predictor_column")
+
+            # 創建導出器實例，避免 pylint 參數檢查問題
             exporter = TradeRecordExporter_backtester(
                 trade_records=pd.DataFrame(),
                 frequency=frequency or "1d",
-                results=raw_results,
-                data=params.get("data"),
-                predictor=selected_predictor,
-                trade_params=trading_params,
-                transaction_cost=trading_params.get("transaction_cost"),
-                slippage=trading_params.get("slippage"),
-                trade_delay=trading_params.get("trade_delay"),
-                trade_price=trading_params.get("trade_price"),
             )
+
+            # 設置其他屬性
+            exporter.trade_params = trading_params
+            exporter.predictor = selected_predictor
+            exporter.Backtest_id = ""
+            exporter.results = raw_results
+            exporter.transaction_cost = trading_params.get("transaction_cost")
+            exporter.slippage = trading_params.get("slippage")
+            exporter.trade_delay = trading_params.get("trade_delay")
+            exporter.trade_price = trading_params.get("trade_price")
+            exporter.data = data_obj
+            exporter.predictor_file_name = predictor_file_name
+            exporter.predictor_column = predictor_column
 
             # 自動導出所有可用的回測結果
             exporter.export_to_parquet()
 
-            if exporter.last_exported_path:
-                exported_paths.append(exporter.last_exported_path)
+            if hasattr(exporter, "last_exported_path") and getattr(exporter, "last_exported_path", None):
+                exported_paths.append(getattr(exporter, "last_exported_path", ""))
 
             if export_config.get("export_csv", False):
                 try:
@@ -835,8 +858,6 @@ class BacktestRunner:
 
         except Exception as e:
             print(f"❌ [ERROR] 導出回測結果失敗: {e}")
-            import traceback
-
             print(f"❌ [ERROR] 詳細錯誤: {traceback.format_exc()}")
 
         self.export_paths = exported_paths
@@ -872,7 +893,6 @@ if __name__ == "__main__":
     print("🧑‍💻 BacktestRunner 測試")
 
     # 創建測試數據
-    import pandas as pd
 
     test_data = pd.DataFrame(
         {
