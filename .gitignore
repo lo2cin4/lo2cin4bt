@@ -24,6 +24,9 @@ records/**/*.json
 !records/**/
 !records/**/.gitkeep
 
+# 不要忽略 config template 文件
+!records/autorunner/config_template*.json
+
 # Jupyter
 .ipynb_checkpoints/
 
