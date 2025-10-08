@@ -42,6 +42,7 @@
       "_help": {
         "file_path": "本地 CSV/Excel 路徑",
         "time_column": "時間欄位名稱",
+        "time_format": "時間格式 (例如 %d/%m/%Y %H:%M:%S，小時:分鐘:秒可不填，留空自動推斷)",
         "open_column": "開盤價欄位名稱",
         "high_column": "最高價欄位名稱",
         "low_column": "最低價欄位名稱",
@@ -49,6 +50,7 @@
       },
       "file_path": "records/dataloader/import/BATS_QQQ, 1D.csv",
       "time_column": "time",
+      "time_format": "%Y-%m-%d %H:%M:%S",
       "open_column": "open",
       "high_column": "high",
       "low_column": "low",
@@ -61,21 +63,21 @@
         "predictor_column": "需要載入的預測因子欄位",
         "skip_predictor": "是否跳過預測因子載入",
         "time_column": "時間欄位名稱 (例如 timestamp, time, Date)",
-        "time_format": "時間格式 (例如 %Y-%m-%d)"
+        "time_format": "時間格式 (例如 %Y-%m-%d %H:%M:%S 或 %d/%m/%Y %H:%M:%S，小時:分鐘:秒可不填，留空自動推斷)"
       },
       "predictor_source": "file",
       "predictor_path": "records/dataloader/import/predictor_example.xlsx",
       "predictor_column": "X",
       "skip_predictor": false,
-      "time_column": "Date",
-      "time_format": "%d/%m/%Y"
+      "time_column": "time",
+      "time_format": "%Y-%m-%d %H:%M:%S"
     }
   },
   "backtester": {
     "_help": {
       "selected_predictor": "預測因子欄位，例如 X, factor_name_diff_div, factor_name_diff_sub",
       "condition_pairs": "開倉/平倉指標配對列表",
-      "indicator_params": "每個指標的參數範圍 (依原 backtester 規則)",
+      "indicator_params": "每個指標的參數範圍 (依原 backtester 規則，目前必須輸入 range)",
       "trading_params.transaction_cost": "交易成本 (手續費)；以比例表示",
       "trading_params.slippage": "滑點；以比例表示",
       "trading_params.trade_delay": "交易延遲 (0=當根，1=下一根)",
