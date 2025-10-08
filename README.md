@@ -278,6 +278,14 @@ python main.py
 ### 目前已完成
 
 <details>
+<summary>📅 2025-10-08 </summary>
+
+- 修正了各種 BUG
+- 新增了更多 autorunner config 範例
+
+</details>
+
+<details>
 <summary>📅 2025-10-03 </summary>
 
 - 修改了 metricstracker 的儲存方式以降低電腦配置需求 
