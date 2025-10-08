@@ -220,14 +220,6 @@ flowchart TD
 
 ---
 
-## ⚠️ NDayCycle 平倉信號產生注意事項
-
-- NDayCycle 只能作為平倉信號，不能作為開倉信號。
-- NDayCycle 的 exit_signal 不能在_generate_signals 內直接產生，必須在 BacktestEngine combine_signals 特殊處理：
-  - _generate_signals 內遇到 NDayCycle 必須直接回傳全 0，不報錯。
-  - combine_signals 後，若 exit_params 只有 NDayCycle，必須呼叫 NDayCycleIndicator.generate_exit_signal_from_entry(entry_signal, n, strat_idx) 產生 exit_signal。
-- 若未依此設計，NDayCycle exit_signal 將無法正確產生，導致只有一筆交易或無法平倉。
-
 ## ⚠️ IndicatorParams 參數型態注意事項
 
 - 所有指標參數都會被包成 dict（{'value': x, 'type': y}），必須用 get_param('參數名') 取值，否則會拿到 dict 型態。
@@ -271,15 +263,11 @@ results = backtester.run()  # 互動式選擇因子、參數、執行回測、�
 問題詳情：所有 add_param 參數都會被包成 dict（{'value': x, 'type': y}），若直接用 param.n 或 param['n'] 取值，會拿到 dict，導致 NDayCycle exit_signal 產生失敗，無法平倉。
 解決方法：所有參數必須用 param.get_param('n') 取值，保證型態正確。已修正所有 NDayCycle、MA、BOLL 相關流程，README 也已提醒。
 
-2. NDayCycle 平倉方向邏輯錯誤 22/07/2025
-問題詳情：原本 NDayCycle exit_signal 產生時，strat_idx=1 只找 entry_signal==1，strat_idx=2 只找 entry_signal==-1，導致多單/空單平倉對應錯誤，永遠無法平倉。
-解決方法：已修正為 strat_idx=1（空單平倉）找 entry_signal==-1，N天後 exit_signal=1；strat_idx=2（多單平倉）找 entry_signal==1，N天後 exit_signal=-1。
-
-3. Base 參數型態傳遞問題 22/07/2025
+2. Base 參數型態傳遞問題 22/07/2025
 問題詳情：Base 或參數收集流程有時會將 n 包成 dict 傳遞，導致下游型態錯誤。
 解決方法：NDayCycle get_params 內強制 n=int(n)，保證後續流程型態正確。
 
-4. 向量化回測性能優化 02/08/2025
+3. 向量化回測性能優化 02/08/2025
 問題詳情：VectorBacktestEngine 執行速度慢，影響大量參數組合的回測效率。
 解決方法：
 
@@ -288,7 +276,7 @@ results = backtester.run()  # 互動式選擇因子、參數、執行回測、�
 - 優化批次處理策略：小任務數（≤1000）直接單進程處理，避免多進程開銷
 - 添加全局緩存機制：避免重複計算相同參數組合的指標
 
-5. 多策略維度衝突問題 04/08/2025 ✅ 已解決
+4. 多策略維度衝突問題 04/08/2025 ✅ 已解決
 問題詳情：當同時使用不同指標數量的策略時（如 MA1開倉+MA4平倉 與 MA1+MA9開倉+MA4平倉），會出現信號矩陣維度衝突，導致部分策略失效。具體表現為：
 
 - 單獨測試 MA1開倉+MA4平倉：正常工作
@@ -323,7 +311,7 @@ results = backtester.run()  # 互動式選擇因子、參數、執行回測、�
 - 跨平台兼容：支援 Windows、Linux、macOS 系統檢測
 - 性能優化建議：根據系統配置提供最佳化建議
 
-7. 回測結果狀態判斷邏輯不一致問題 19/12/2024 ✅ 已解決
+5. 回測結果狀態判斷邏輯不一致問題 19/12/2024 ✅ 已解決
 問題詳情：VectorBacktestEngine 統計階段顯示成功回測數量與 TradeRecordExporter 顯示階段不一致。具體表現為：
 
 - 統計階段：顯示 368 成功，0 失敗，48 無交易
@@ -355,7 +343,7 @@ results = backtester.run()  # 互動式選擇因子、參數、執行回測、�
 - 為未來擴充提供統一的判斷標準
 - 提升用戶體驗和系統可靠性
 
-8. BOLL 指標參數管理統一化 15/08/2025 ✅ 已解決
+6. BOLL 指標參數管理統一化 15/08/2025 ✅ 已解決
 問題詳情：BOLL 指標仍保留內部預設值設定，與 MA 和 NDAY 指標的 UserInterface 模式不一致。具體表現為：
 
 - MA 指標：完全使用 UserInterface 傳入參數，無內部預設值
