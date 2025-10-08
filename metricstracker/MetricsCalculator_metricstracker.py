@@ -71,15 +71,12 @@ class MetricsCalculatorMetricTracker:
         self.risk_free_rate = risk_free_rate
         self.daily_returns = self.df["Return"]  # Return 已是小數
         # 自動偵測年數
-        if "Time" in self.df.columns:
-            t0 = pd.to_datetime(self.df["Time"].iloc[0])
-            t1 = pd.to_datetime(self.df["Time"].iloc[-1])
-            self.years = (t1 - t0).days / self.time_unit
-            if self.years <= 0:
-                self.years = 1.0
-        else:
+        # 使用總交易週期數除以年化單位來計算年數
+        total_periods = len(self.df)
+        self.years = total_periods / self.time_unit
+        if self.years <= 0:
             self.years = 1.0
-        ##print(f"[Metrics] 自動偵測回測年數: {self.years:.3f} 年")
+        ##print(f"[Metrics] 自動偵測回測年數: {self.years:.3f} 年 (總週期: {total_periods}, 年化單位: {self.time_unit})")
 
     def _get_data_source(self, source_type="strategy"):
         """獲取數據源（策略或BAH）"""
@@ -525,12 +522,33 @@ class MetricsCalculatorMetricTracker:
             if abs(base - 1) < 1e-10:
                 return 1.0
 
+            # 防止指數過大導致 overflow
+            # 當指數絕對值超過 1000 時，使用對數運算
+            if abs(exponent) > 1000:
+                # 使用對數運算：base^exponent = exp(exponent * log(base))
+                try:
+                    with np.errstate(over='raise', invalid='raise'):
+                        log_result = exponent * np.log(base)
+                        # 防止結果過大
+                        if log_result > 700:  # exp(700) 接近 float 的最大值
+                            return fallback
+                        elif log_result < -700:
+                            return 0.0
+                        result = np.exp(log_result)
+                        if np.isnan(result) or np.isinf(result):
+                            return fallback
+                        return result
+                except (ValueError, OverflowError, FloatingPointError):
+                    return fallback
+
             # 如果所有檢查都通過，才進行冪運算
             if base > 0:  # 只對正數進行冪運算
-                result = np.power(base, exponent)
-                if np.isnan(result) or np.isinf(result):
-                    return fallback
-                return result
+                # 使用 errstate 捕獲 RuntimeWarning
+                with np.errstate(over='ignore', invalid='ignore'):
+                    result = np.power(base, exponent)
+                    if np.isnan(result) or np.isinf(result):
+                        return fallback
+                    return result
             else:
                 return fallback
 

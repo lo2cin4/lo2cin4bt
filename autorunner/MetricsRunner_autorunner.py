@@ -261,21 +261,6 @@ class MetricsRunnerAutorunner:
 
         self.console.print(table)
 
-        success = sum(1 for r in task_results if r.status == "success")
-        failure = sum(1 for r in task_results if r.status == "failed")
-
-        summary_lines = [
-            f"🎯 成功：{success}",
-            f"❌ 失敗：{failure}",
-        ]
-
-        self.console.print(
-            Panel(
-                "\n".join(summary_lines),
-                title=self.panel_title,
-                border_style=self.panel_success_style,
-            )
-        )
 
     def _display_info(self, title: str, details: Optional[List[str]] = None) -> None:
         content = title

@@ -212,6 +212,7 @@ class DataValidator:
 
             # 設置索引但保留 Time 欄位
             self.data = self.data.reset_index(drop=True)  # 確保 Time 為普通欄位
+            self.data = self.data.infer_objects()  # 消除 dtype inference 警告
             self.data = self.data.sort_values("Time")
 
         except Exception as e:
@@ -226,3 +227,4 @@ class DataValidator:
                 start="2020-01-01", periods=len(self.data)
             )
             self.data = self.data.reset_index(drop=True)
+            self.data = self.data.infer_objects()  # 消除 dtype inference 警告

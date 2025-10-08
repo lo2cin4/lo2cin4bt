@@ -93,6 +93,34 @@ from .VectorBacktestEngine_backtester import VectorBacktestEngine as BacktestEng
 logger = logging.getLogger("lo2cin4bt")
 console = Console()
 
+
+def convert_single_value_to_range(value: str) -> str:
+    """
+    將單一數值轉換為範圍格式
+    
+    Args:
+        value: 輸入值，可能是單一數值或已經是範圍格式
+        
+    Returns:
+        範圍格式字串 (如 "20:20:1" 或保持原格式)
+    """
+    if not isinstance(value, str):
+        return str(value)
+    
+    value = value.strip()
+    
+    # 如果已經是範圍格式，直接返回
+    if ":" in value:
+        return value
+    
+    # 檢查是否為單一數值
+    if value.isdigit():
+        single_value = int(value)
+        return f"{single_value}:{single_value}:1"
+    
+    # 其他情況，直接返回
+    return value
+
 DEFAULT_LONG_STRATEGY_PAIRS = [
     ("MA1", "MA4"),
     (["MA1", "MA9"], "MA4"),
@@ -921,10 +949,7 @@ class BaseBacktester:
                                     # 檢查是否為單一數值
                                     if value.strip().isdigit():
                                         # 單一數值，轉換為範圍格式
-                                        single_value = int(value.strip())
-                                        param_values[(alias, key)] = (
-                                            f"{single_value}:{single_value}:1"
-                                        )
+                                        param_values[(alias, key)] = convert_single_value_to_range(value)
                                         break
                                     else:
                                         console.print(
@@ -979,8 +1004,6 @@ class BaseBacktester:
 
                 # 添加必要的元數據參數
                 param_dict["alias"] = alias
-                param_dict["strat_idx"] = strategy_idx + 1
-
                 param_list = self.indicators_helper.get_indicator_params(
                     alias, param_dict
                 )

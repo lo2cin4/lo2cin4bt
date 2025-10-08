@@ -454,9 +454,10 @@ class PredictorLoader:
 
     def _identify_time_col(self, columns: pd.Index, file_path: str) -> Optional[str]:
         """識別時間欄位，若自動識別失敗則詢問用戶"""
-        time_candidates = ["time", "date", "timestamp", "Date", "Time", "Timestamp"]
+        # 時間欄位候選名稱（不區分大小寫）
+        time_candidates = ["time", "date", "timestamp"]
         for col in columns:
-            if col.lower() in [c.lower() for c in time_candidates]:
+            if col.lower() in time_candidates:
                 return col
 
         # 自動識別失敗，詢問用戶

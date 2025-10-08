@@ -268,6 +268,7 @@ class VectorBacktestEngine:
         indicator_params = config["indicator_params"]
         config["predictors"]
 
+
         all_combinations = []
 
         # 為每個條件配對生成參數組合
@@ -279,7 +280,8 @@ class VectorBacktestEngine:
             for entry_indicator in pair["entry"]:
                 strategy_alias = f"{entry_indicator}_strategy_{i + 1}"
                 if strategy_alias in indicator_params:
-                    strategy_entry_params.append(indicator_params[strategy_alias])
+                    params = indicator_params[strategy_alias]
+                    strategy_entry_params.append(params)
                 else:
                     strategy_entry_params.append([])
 
@@ -287,7 +289,8 @@ class VectorBacktestEngine:
             for exit_indicator in pair["exit"]:
                 strategy_alias = f"{exit_indicator}_strategy_{i + 1}"
                 if strategy_alias in indicator_params:
-                    strategy_exit_params.append(indicator_params[strategy_alias])
+                    params = indicator_params[strategy_alias]
+                    strategy_exit_params.append(params)
                 else:
                     strategy_exit_params.append([])
 
@@ -297,6 +300,7 @@ class VectorBacktestEngine:
             exit_combinations = self._generate_indicator_combinations(
                 pair["exit"], strategy_exit_params
             )
+            
 
             # 組合開倉和平倉參數
             for entry_combo in entry_combinations:
@@ -360,23 +364,8 @@ class VectorBacktestEngine:
             )
         )
 
-        while True:
-            confirm = (
-                console.input("[bold #dbac30]是否繼續？(y/n，預設 y): [/bold #dbac30]")
-                .strip()
-                .lower()
-            )
-            if confirm in ["", "y", "yes"]:
-                break
-            elif confirm in ["n", "no"]:
-                console.print(
-                    Panel(
-                        "已取消回測",
-                        title="[bold #8f1511]❌ 取消[/bold #8f1511]",
-                        border_style="#8f1511",
-                    )
-                )
-                return []
+        # 自動化模式：直接繼續，不詢問用戶
+        # 這個確認步驟只在 CLI 模式下需要，autorunner 模式下應該自動繼續
 
         # 開始向量化回測
         start_time = time.time()
@@ -387,18 +376,6 @@ class VectorBacktestEngine:
             len(all_combinations) * len(predictors)
         )
 
-        # 創建配置信息面板
-        config_panel_content = (
-            f"🚀 開始向量化回測...\n📊 初始記憶體使用: {initial_memory:.1f} MB"
-        )
-
-        console.print(
-            Panel(
-                config_panel_content,
-                title="[bold #dbac30]⚡ 向量化性能監控[/bold #dbac30]",
-                border_style="#dbac30",
-            )
-        )
 
         # 顯示配置信息 - 使用 SpecMonitor 的統一方法
         if config_info:
@@ -461,26 +438,13 @@ class VectorBacktestEngine:
 
         # 更準確的無交易統計：檢查是否有實際交易記錄
         zero_trade_count = 0
-        trade_count_details = []
 
         for r in all_results:
             if r.get("error") is None:
                 records = r.get("records", pd.DataFrame())
                 # 檢查是否有開倉交易（Trade_action == 1）
-                if len(records) == 0:
+                if len(records) == 0 or (records["Trade_action"] == 1).sum() == 0:
                     zero_trade_count += 1
-                    trade_count_details.append(
-                        f"無記錄: {r.get('Backtest_id', 'unknown')}"
-                    )
-                elif (records["Trade_action"] == 1).sum() == 0:
-                    zero_trade_count += 1
-                    trade_count_details.append(
-                        f"無開倉: {r.get('Backtest_id', 'unknown')} (記錄數: {len(records)})"
-                    )
-                else:
-                    trade_count_details.append(
-                        f"有交易: {r.get('Backtest_id', 'unknown')} (開倉數: {(records['Trade_action'] == 1).sum()})"
-                    )
 
         # 添加診斷信息
         diagnostic_info = ""
@@ -508,12 +472,6 @@ class VectorBacktestEngine:
                         f"• 平倉信號分布：{dict(zip(exit_counts[0], exit_counts[1]))}"
                     )
 
-        # 添加交易統計詳情
-        if len(trade_count_details) <= 10:  # 只顯示前10個的詳情
-            trade_details = "\n".join(trade_count_details[:10])
-            if len(trade_count_details) > 10:
-                trade_details += f"\n... 還有 {len(trade_count_details) - 10} 個策略"
-            diagnostic_info += f"\n📊 交易統計詳情：\n{trade_details}"
 
         summary_text = f"""
 ✅ 向量化回測完成！
@@ -685,7 +643,7 @@ class VectorBacktestEngine:
     def _generate_all_signals_vectorized(
         self, all_tasks: Dict, condition_pairs: List[Dict]
     ) -> Dict:
-        """真正的向量化信號生成 - 一次性處理所有任務，帶進度條"""
+        """真正的向量化信號生成 - 使用分組處理策略，解決維度衝突問題"""
 
         n_tasks = len(all_tasks["combinations"])
         n_time = len(self.data)
@@ -721,72 +679,50 @@ class VectorBacktestEngine:
         )
 
         with signal_progress:
-            # 總共3個步驟：收集參數、開倉信號、平倉信號
+            # 步驟1: 按指標數量分組策略
+            strategy_groups = self._group_strategies_by_indicator_count(all_tasks, condition_pairs)
+            
+            # 使用分組處理策略，解決維度衝突問題
+            # total = 1 (分組) + len(strategy_groups) (處理每個分組)
             signal_task = signal_progress.add_task(
-                "🚀 [1/3] 信號生成", total=3
+                "🚀 信號生成 (分組處理)", total=1 + len(strategy_groups)
             )
             
-            # 步驟1: 收集所有任務的參數（一次性準備）
-            all_entry_params = []
-            all_exit_params = []
-            all_predictors = []
-            valid_task_indices = []
+            # 完成分組步驟
+            signal_progress.update(signal_task, completed=1, description=f"🚀 [1/{1 + len(strategy_groups)}] 信號生成 - 已分組 {len(strategy_groups)} 個策略組")
 
-            for task_idx in range(n_tasks):
+            # 步驟2: 處理每個策略分組
+            completed_groups = 0
+            for group in strategy_groups:
                 try:
-                    strategy_id = all_tasks["strategy_ids"][task_idx]
-                    strategy_idx = self._parse_strategy_id(strategy_id)
-
-                    if strategy_idx < len(condition_pairs):
-                        condition_pair = condition_pairs[strategy_idx]
-                        combo = all_tasks["combinations"][task_idx]
-                        predictor = all_tasks["predictors"][task_idx]
-
-                        # 解析參數
-                        entry_count = len(condition_pair["entry"])
-                        exit_count = len(condition_pair["exit"])
-
-                        entry_params = list(combo[:entry_count])
-                        exit_params = list(combo[entry_count : entry_count + exit_count])
-
-                        all_entry_params.append(entry_params)
-                        all_exit_params.append(exit_params)
-                        all_predictors.append(predictor)
-                        valid_task_indices.append(task_idx)
+                    # 處理單個策略分組
+                    group_result = self._process_strategy_group(group)
+                    
+                    # 將分組結果分配到對應位置
+                    for task_info in group["tasks"]:
+                        task_idx = task_info["task_idx"]
+                        local_idx = group["tasks"].index(task_info)
+                        
+                        entry_signals[:, task_idx] = group_result["entry_signals"][:, local_idx]
+                        exit_signals[:, task_idx] = group_result["exit_signals"][:, local_idx]
+                        
                 except Exception as e:
-                    self.logger.warning(f"任務 {task_idx} 參數解析失敗: {e}")
-            
-            signal_progress.update(signal_task, completed=1, description=f"🚀 [1/3] 信號生成 - 已收集 {len(all_entry_params)} 個任務參數")
-
-            # 步驟2: 向量化生成開倉信號（一次性處理所有任務）
-            if all_entry_params:
-                entry_signals_matrix = self._vectorized_generate_signals(
-                    all_entry_params, all_predictors
-                )
-                combined_entry_signals = self._vectorized_combine_signals(
-                    entry_signals_matrix, is_exit_signals=False
-                )
+                    self.logger.warning(f"策略分組處理失敗: {e}")
+                    # 為失敗的分組設置零信號
+                    for task_info in group["tasks"]:
+                        task_idx = task_info["task_idx"]
+                        entry_signals[:, task_idx] = 0
+                        exit_signals[:, task_idx] = 0
                 
-                # 將結果分配到對應位置
-                for idx, task_idx in enumerate(valid_task_indices):
-                    entry_signals[:, task_idx] = combined_entry_signals[:, idx]
-            
-            signal_progress.update(signal_task, completed=2, description="🚀 [2/3] 信號生成 - 已完成開倉信號")
-
-            # 步驟3: 向量化生成平倉信號（一次性處理所有任務）
-            if all_exit_params:
-                exit_signals_matrix = self._vectorized_generate_signals(
-                    all_exit_params, all_predictors
+                # 更新進度條
+                completed_groups += 1
+                current_step = 1 + completed_groups
+                total_steps = 1 + len(strategy_groups)
+                signal_progress.update(
+                    signal_task, 
+                    completed=current_step, 
+                    description=f"🚀 [{current_step}/{total_steps}] 信號生成 - 已處理 {completed_groups}/{len(strategy_groups)} 個策略分組"
                 )
-                combined_exit_signals = self._vectorized_combine_signals(
-                    exit_signals_matrix, is_exit_signals=True
-                )
-                
-                # 將結果分配到對應位置
-                for idx, task_idx in enumerate(valid_task_indices):
-                    exit_signals[:, task_idx] = combined_exit_signals[:, idx]
-            
-            signal_progress.update(signal_task, completed=3, description="🚀 [3/3] 信號生成 - 已完成平倉信號")
 
         # 返回單個numpy數組，與原版格式一致
         return {
@@ -858,17 +794,7 @@ class VectorBacktestEngine:
             exit_params_list.append(exit_params)
             predictors_list.append(task_info["predictor"])
 
-        # 生成信號
-        from rich.console import Console
-
-        console = Console()
-        console.print(
-            Panel(
-                f"🚀 生成信號: {len(entry_params_list)} 任務, 開倉指標: {entry_count}, 平倉指標: {exit_count}",
-                title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
-                border_style="#dbac30",
-            )
-        )
+        # 生成信號（靜默模式，避免與外層進度條衝突）
         entry_signals_matrix = self._vectorized_generate_signals(
             entry_params_list, predictors_list
         )

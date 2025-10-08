@@ -486,11 +486,7 @@ def main():
                 print("數據載入失敗，程式終止")
                 logger.error("數據載入失敗")
                 return
-
-            if isinstance(data, str) and data == "__SKIP_STATANALYSER__":
-                if choice == "1":
-                    print("未輸入預測因子檔案，將跳過統計分析，僅使用價格數據。")
-                data = data_loader.data
+                
                 frequency = data_loader.frequency
             else:
                 # 確保 frequency 被定義

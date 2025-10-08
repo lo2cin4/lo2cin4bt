@@ -285,7 +285,11 @@ class IndicatorsBacktester:
                 indicator_cls = getattr(module, indicator_cls_name)
                 # print(f"[DEBUG] indicator_cls={indicator_cls}, dir={dir(indicator_cls)}")
                 if hasattr(indicator_cls, "get_params"):
-                    return indicator_cls.get_params(strat_idx, params_config)
+                    # 優先使用 params_config 中的 strat_idx，如果沒有則使用指標類型的 strat_idx
+                    actual_strat_idx = strat_idx
+                    if params_config and "strat_idx" in params_config:
+                        actual_strat_idx = params_config["strat_idx"]
+                    return indicator_cls.get_params(actual_strat_idx, params_config)
             raise ValueError(f"指標 {indicator_type} 未實作 get_params() 方法")
         raise ValueError(f"不支援的指標類型: {indicator_type}")
 
@@ -541,47 +545,3 @@ class IndicatorsBacktester:
             traceback.print_exc()
             raise
 
-    def combine_signals_optimized(self, signals_list: List[pd.Series]) -> pd.Series:  # pylint: disable=unused-argument
-        """
-        使用 Numba 優化合併多個信號序列
-        """
-        if not signals_list:
-            return pd.Series(0, index=signals_list[0].index if signals_list else None)
-
-        # 核心算法：使用純 Numba + ndarray
-        if NUMBA_AVAILABLE and len(signals_list) > 1:
-            # 轉換為 ndarray 數組
-            signals_arrays = []
-            for signal in signals_list:
-                if isinstance(signal, pd.Series):
-                    signal_array = signal.values.astype(np.float64)
-                    signal_array = np.nan_to_num(signal_array, nan=0.0)
-                    signals_arrays.append(signal_array)
-                else:
-                    signals_arrays.append(np.array(signal, dtype=np.float64))
-
-            # 使用 Numba 合併信號
-            combined_array = _combine_signals_njit(signals_arrays)
-
-            # 轉換回 pandas Series
-            return pd.Series(combined_array, index=signals_list[0].index)
-        else:
-            # 單信號情況
-            if len(signals_list) == 1:
-                return signals_list[0].fillna(0)
-
-            # 多信號合併邏輯 - 使用 Numba 優化
-            signals_arrays = []
-            for signal in signals_list:
-                if isinstance(signal, pd.Series):
-                    signal_array = signal.values.astype(np.float64)
-                    signal_array = np.nan_to_num(signal_array, nan=0.0)
-                    signals_arrays.append(signal_array)
-                else:
-                    signals_arrays.append(np.array(signal, dtype=np.float64))
-
-            # 使用 Numba 合併信號
-            combined_array = _combine_signals_njit(signals_arrays)
-
-            # 轉換回 pandas Series
-            return pd.Series(combined_array, index=signals_list[0].index)

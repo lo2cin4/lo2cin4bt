@@ -240,6 +240,7 @@ class BaseStatAnalyser(ABC):
             try:
                 df["Time"] = pd.to_datetime(df["Time"])
                 df.set_index("Time", inplace=True)
+                df = df.infer_objects()  # 消除 dtype inference 警告
             except ValueError:
                 raise ValueError("無法將 'Time' 欄位轉換為 DatetimeIndex")
         elif not isinstance(df.index, pd.DatetimeIndex):

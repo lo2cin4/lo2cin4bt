@@ -4,7 +4,8 @@ ConfigValidator_autorunner.py
 【功能說明】
 ------------------------------------------------------------
 本模組負責配置文件驗證功能，檢查配置文件的完整性和正確性。
-驗證必要欄位、數據類型、數值範圍等，確保配置文件可以正常執行。
+由於原版模組沒有配置驗證方法，本模組提供基本的配置驗證邏輯，
+確保配置文件可以正常執行。
 
 【流程與數據流】
 ------------------------------------------------------------
@@ -40,6 +41,7 @@ ConfigValidator_autorunner.py
 - v1.0: 初始版本，基本驗證功能
 - v1.1: 新增詳細錯誤報告
 - v1.2: 新增 Rich Panel 錯誤顯示和調試輸出
+- v2.0: 嘗試使用原版驗證邏輯，發現不存在，恢復基本驗證邏輯
 
 【參考】
 ------------------------------------------------------------
@@ -263,79 +265,94 @@ class ConfigValidator:
 
     def _validate_dataloader_config(self, config: Dict[str, Any]) -> bool:
         """驗證數據載入器配置"""
-
-        # 驗證數據源
-        source = config.get("source")
-        valid_sources = ["yfinance", "binance", "coinbase", "file"]
-        if source not in valid_sources:
-            self._display_validation_error(
-                f"無效的數據源: {source}，有效值: {valid_sources}", "數據載入器配置"
-            )
-            return False
-
-        # 驗證日期格式
-        start_date = config.get("start_date")
-        if start_date and not self._validate_date_format(str(start_date)):
-            return False
-
-        return True
-
-    def _validate_backtester_config(self, config: Dict[str, Any]) -> bool:
-        """驗證回測器配置"""
-
-        # 驗證條件配對
-        condition_pairs = config.get("condition_pairs", [])
-        if not isinstance(condition_pairs, list) or len(condition_pairs) == 0:
-            self._display_validation_error("條件配對不能為空", "回測器配置")
-            return False
-
-        # 驗證交易參數（在 trading_params 子節中）
-        trading_params = config.get("trading_params", {})
-        if trading_params:
-            numeric_params = ["transaction_cost", "slippage", "trade_delay"]
-            for param in numeric_params:
-                value = trading_params.get(param)
-                if value is not None and (
-                    not isinstance(value, (int, float)) or value < 0
-                ):
-                    self._display_validation_error(
-                        f"無效的數值參數: {param} = {value}，必須為非負數", "回測器配置"
-                    )
-                    return False
-
-        return True
-
-    def _validate_metricstracker_config(self, config: Dict[str, Any]) -> bool:
-        """驗證績效追蹤器配置"""
-
-        # 驗證啟用狀態
-        enable = config.get("enable_metrics_analysis")
-        if enable is not None and not isinstance(enable, bool):
-            self._display_validation_error("啟用狀態必須為布林值", "績效追蹤器配置")
-            return False
-
-        # 如果未啟用，不需要做進一步驗證
-        if not enable:
-            return True
-
-        if config:
-            numeric_fields = ["risk_free_rate"]
-            for field in numeric_fields:
-                value = config.get(field)
-                if value is not None and not isinstance(value, (int, float, str)):
-                    self._display_validation_error(
-                        f"欄位 {field} 必須為數字或可轉換的字串", "績效追蹤器配置"
-                    )
-                    return False
-
-            time_unit = config.get("time_unit")
-            if time_unit is not None and not isinstance(time_unit, (int, float, str)):
+        try:
+            # 驗證數據源
+            source = config.get("source")
+            valid_sources = ["yfinance", "binance", "coinbase", "file"]
+            if source not in valid_sources:
                 self._display_validation_error(
-                    "time_unit 必須為數字或字串", "績效追蹤器配置"
+                    f"無效的數據源: {source}，有效值: {valid_sources}", "數據載入器配置"
                 )
                 return False
 
-        return True
+            # 驗證日期格式
+            start_date = config.get("start_date")
+            if start_date and not self._validate_date_format(str(start_date)):
+                return False
+
+            return True
+            
+        except Exception as e:
+            print(f"❌ [ERROR] 數據載入器配置驗證失敗: {e}")
+            self._display_validation_error(f"數據載入器配置驗證失敗: {e}", "數據載入器配置")
+            return False
+
+    def _validate_backtester_config(self, config: Dict[str, Any]) -> bool:
+        """驗證回測器配置"""
+        try:
+            # 驗證條件配對
+            condition_pairs = config.get("condition_pairs", [])
+            if not isinstance(condition_pairs, list) or len(condition_pairs) == 0:
+                self._display_validation_error("條件配對不能為空", "回測器配置")
+                return False
+
+            # 驗證交易參數（在 trading_params 子節中）
+            trading_params = config.get("trading_params", {})
+            if trading_params:
+                numeric_params = ["transaction_cost", "slippage", "trade_delay"]
+                for param in numeric_params:
+                    value = trading_params.get(param)
+                    if value is not None and (
+                        not isinstance(value, (int, float)) or value < 0
+                    ):
+                        self._display_validation_error(
+                            f"無效的數值參數: {param} = {value}，必須為非負數", "回測器配置"
+                        )
+                        return False
+
+            return True
+            
+        except Exception as e:
+            print(f"❌ [ERROR] 回測器配置驗證失敗: {e}")
+            self._display_validation_error(f"回測器配置驗證失敗: {e}", "回測器配置")
+            return False
+
+    def _validate_metricstracker_config(self, config: Dict[str, Any]) -> bool:
+        """驗證績效追蹤器配置"""
+        try:
+            # 驗證啟用狀態
+            enable = config.get("enable_metrics_analysis")
+            if enable is not None and not isinstance(enable, bool):
+                self._display_validation_error("啟用狀態必須為布林值", "績效追蹤器配置")
+                return False
+
+            # 如果未啟用，不需要做進一步驗證
+            if not enable:
+                return True
+
+            if config:
+                numeric_fields = ["risk_free_rate"]
+                for field in numeric_fields:
+                    value = config.get(field)
+                    if value is not None and not isinstance(value, (int, float, str)):
+                        self._display_validation_error(
+                            f"欄位 {field} 必須為數字或可轉換的字串", "績效追蹤器配置"
+                        )
+                        return False
+
+                time_unit = config.get("time_unit")
+                if time_unit is not None and not isinstance(time_unit, (int, float, str)):
+                    self._display_validation_error(
+                        "time_unit 必須為數字或字串", "績效追蹤器配置"
+                    )
+                    return False
+
+            return True
+            
+        except Exception as e:
+            print(f"❌ [ERROR] 績效追蹤器配置驗證失敗: {e}")
+            self._display_validation_error(f"績效追蹤器配置驗證失敗: {e}", "績效追蹤器配置")
+            return False
 
     def _validate_date_format(self, date_str: str) -> bool:
         """驗證日期格式"""

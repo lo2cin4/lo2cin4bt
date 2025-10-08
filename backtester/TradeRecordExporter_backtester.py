@@ -709,7 +709,16 @@ class TradeRecordExporter_backtester:
             table.add_row(str(i), result["Backtest_id"], strategy, "✅ 成功")
 
         console.print(table)
-        self._show_operation_menu()
+        
+        # 分支邏輯：根據調用來源決定是否顯示用戶界面
+        # 如果是在 autorunner 模式下，不顯示用戶選擇界面
+        import sys
+        if 'autorunner' in sys.modules:
+            # autorunner 模式：只顯示摘要，不顯示用戶界面
+            pass
+        else:
+            # 原版 backtester 模式：顯示用戶選擇界面
+            self._show_operation_menu()
 
     def _display_paginated_summary(self) -> None:  # noqa: C901
         """分頁顯示摘要表格（結果數量 > 15）"""
@@ -717,6 +726,11 @@ class TradeRecordExporter_backtester:
         total_results = len(self.results)
         total_pages = (total_results + page_size - 1) // page_size
         page = 1
+        
+        # 檢查是否在 autorunner 模式下
+        import sys
+        is_autorunner = 'autorunner' in sys.modules
+        
         while True:
             start_idx = (page - 1) * page_size
             end_idx = min(start_idx + page_size, total_results)
@@ -783,37 +797,55 @@ class TradeRecordExporter_backtester:
 
             # 分頁導航
             if total_pages > 1:
-                console.print(
-                    Panel(
-                        "📄 分頁導航: [m] 下一頁(m) | [n] 上一頁(n) | [數字] 跳轉到指定頁 | [q] 進入操作選單(q)",
-                        title="[bold #8f1511]📄 👨‍💻 交易回測 Backtester[/bold #8f1511]",
-                        border_style="#dbac30",
-                    )
-                )
-                console.print("[bold #dbac30]請輸入導航指令: [/bold #dbac30]", end="")
-                nav = input().lower()
-
-                if nav == "q":
-                    break
-                elif nav == "m" and page < total_pages:
-                    page += 1
-                    console.clear()
-                elif nav == "n" and page > 1:
-                    page -= 1
-                    console.clear()
-                elif nav.isdigit():
-                    page_num = int(nav)
-                    if 1 <= page_num <= total_pages:
-                        page = page_num
+                if is_autorunner:
+                    # autorunner 模式：顯示所有頁面但不要求用戶輸入
+                    if page < total_pages:
+                        page += 1
                         console.clear()
+                        continue
                     else:
-                        console.print("❌ 頁碼超出範圍", style="red")
+                        # 已經顯示完所有頁面，跳出循環
+                        break
                 else:
-                    console.print("❌ 無效命令", style="red")
+                    # 原版 backtester 模式：顯示分頁導航並要求用戶輸入
+                    console.print(
+                        Panel(
+                            "📄 分頁導航: [m] 下一頁(m) | [n] 上一頁(n) | [數字] 跳轉到指定頁 | [q] 進入操作選單(q)",
+                            title="[bold #8f1511]📄 👨‍💻 交易回測 Backtester[/bold #8f1511]",
+                            border_style="#dbac30",
+                        )
+                    )
+                    console.print("[bold #dbac30]請輸入導航指令: [/bold #dbac30]", end="")
+                    nav = input().lower()
+
+                    if nav == "q":
+                        break
+                    elif nav == "m" and page < total_pages:
+                        page += 1
+                        console.clear()
+                    elif nav == "n" and page > 1:
+                        page -= 1
+                        console.clear()
+                    elif nav.isdigit():
+                        page_num = int(nav)
+                        if 1 <= page_num <= total_pages:
+                            page = page_num
+                            console.clear()
+                        else:
+                            console.print("❌ 頁碼超出範圍", style="red")
+                    else:
+                        console.print("❌ 無效命令", style="red")
             else:
                 break
 
-        self._show_operation_menu()
+        # 分支邏輯：根據調用來源決定是否顯示用戶界面
+        import sys
+        if 'autorunner' in sys.modules:
+            # autorunner 模式：只顯示摘要，不顯示用戶界面
+            pass
+        else:
+            # 原版 backtester 模式：顯示用戶選擇界面
+            self._show_operation_menu()
 
     def _show_operation_menu(self) -> None:  # noqa: C901
         """顯示操作選單"""

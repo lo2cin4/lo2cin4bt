@@ -5,6 +5,7 @@ Base_autorunner.py
 ------------------------------------------------------------
 本模組為 lo2cin4bt Autorunner 的核心控制器，負責協調整個自動化回測流程。
 提供配置文件驅動的回測執行，支援多配置文件的批次處理。
+直接使用原版 backtester 的結果處理邏輯，避免重複實現。
 
 【流程與數據流】
 ------------------------------------------------------------
@@ -23,9 +24,9 @@ flowchart TD
 
 【維護與擴充重點】
 ------------------------------------------------------------
-- 新增執行步驟、參數、結果欄位時，請同步更新本檔案與所有依賴模組
-- 若參數結構有變動，需同步更新所有子模組
-- 新增/修改執行流程、參數結構、結果格式時，務必同步更新本檔案與所有依賴模組
+- 直接使用原版 backtester 的結果處理邏輯，避免重複實現
+- 若原版 backtester 介面有變動，需同步更新調用邏輯
+- 新增/修改結果處理時，優先考慮在原版 backtester 中實現
 
 【常見易錯點】
 ------------------------------------------------------------
@@ -41,6 +42,7 @@ flowchart TD
 【與其他模組的關聯】
 ------------------------------------------------------------
 - 調用 ConfigSelector、ConfigValidator、ConfigLoader、DataLoader、BacktestRunner、MetricsRunner
+- 直接調用原版 backtester 模組進行結果處理
 - 參數結構依賴 config_template.json
 - 日誌系統依賴 main.py 的 logging 設定
 
@@ -49,11 +51,13 @@ flowchart TD
 - v1.0: 初始版本，基本功能實現
 - v1.1: 新增多配置文件支援
 - v1.2: 新增 Rich Panel 顯示和調試輸出
+- v2.0: 重構為直接使用原版 backtester 結果處理邏輯，避免重複實現
 
 【參考】
 ------------------------------------------------------------
 - autorunner/DEVELOPMENT_PLAN.md
 - Development_Guideline.md
+- backtester/TradeRecordExporter_backtester.py
 - main.py
 """
 
@@ -67,7 +71,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
-from autorunner.BacktestRunner_autorunner import BacktestRunner
+from autorunner.BacktestRunner_autorunner import BacktestRunnerAutorunner
 
 # 導入 autorunner 模組
 from autorunner.ConfigLoader_autorunner import ConfigLoader
@@ -351,10 +355,13 @@ class BaseAutorunner:
 
         try:
 
-            backtest_runner = BacktestRunner()
-            backtest_runner.data_loader_frequency = self.data_loader_frequency
+            backtest_runner = BacktestRunnerAutorunner()
 
-            config = {"backtester": backtest_config}
+            # 構建完整的 config，包含 dataloader 信息
+            config = {
+                "backtester": backtest_config,
+                "dataloader": {"frequency": self.data_loader_frequency or "1D"}
+            }
             results = backtest_runner.run_backtest(data, config)
 
             if results:
@@ -369,7 +376,7 @@ class BaseAutorunner:
 
     def _display_backtest_summary(self, backtest_results: Dict[str, Any]) -> None:
         """
-        顯示回測摘要
+        顯示回測摘要 - 直接使用原版 backtester 的摘要顯示邏輯
 
         Args:
             backtest_results: 回測結果
@@ -379,67 +386,37 @@ class BaseAutorunner:
             if not backtest_results:
                 return
 
-            raw_results = backtest_results.get("raw_results", [])
-
-            if raw_results:
-                total_backtests = len(raw_results)
-                success_count = 0
-                zero_trade_count = 0
-                error_count = 0
-
-                for result in raw_results:
-                    error = result.get("error")
-                    records = result.get("records")
-
-                    if error is not None:
-                        error_count += 1
-                        continue
-
-                    if (
-                        isinstance(records, pd.DataFrame)
-                        and not records.empty
-                        and (records.get("Trade_action", pd.Series()) == 1).sum() > 0
-                    ):
-                        success_count += 1
-                    else:
-                        zero_trade_count += 1
-
-                if total_backtests > 0:
-                    summary_lines = [
-                        "✅ 向量化回測完成！",
-                        f"📊 總任務數：{total_backtests}",
-                        f"🎯 成功：{success_count} ({(success_count / total_backtests * 100):.1f}%)",
-                        f"⚠️ 無交易：{zero_trade_count} ({(zero_trade_count / total_backtests * 100):.1f}%)",
-                        f"❌ 失敗：{error_count} ({(error_count / total_backtests * 100):.1f}%)",
-                    ]
-
-                    summary_panel = Panel(
-                        "\n".join(summary_lines),
-                        title="[bold #dbac30]🎯 向量化回測結果[/bold #dbac30]",
-                        border_style="#dbac30",
-                    )
-                    self.console.print(summary_panel)
-
-            else:
-                summary = backtest_results.get("summary", {})
-                summary_lines = [
-                    "✅ 向量化回測完成！",
-                    "",
-                    f"📊 總策略數：{summary.get('total_strategies', 0)}",
-                    f"🎯 總交易數：{summary.get('total_trades', 0)}",
-                    f"📈 平均報酬率：{summary.get('average_return', 0.0):.4f}",
-                ]
-
-                summary_panel = Panel(
-                    "\n".join(summary_lines),
-                    title="[bold #dbac30]🎯 向量化回測結果[/bold #dbac30]",
-                    border_style="#dbac30",
-                )
-                self.console.print(summary_panel)
-
+            # 檢查結果數據
+            results = backtest_results.get("results", [])
+            if not results:
+                print("⚠️ [WARNING] 沒有回測結果可顯示")
+                return
+            
+            # 直接使用原版的 TradeRecordExporter 顯示摘要
+            from backtester.TradeRecordExporter_backtester import TradeRecordExporter_backtester
+            
+            # 創建導出器並顯示摘要
+            exporter = TradeRecordExporter_backtester(
+                trade_records=pd.DataFrame(),
+                frequency=self.data_loader_frequency or "1D",
+                results=results,  # 直接使用 results 列表
+                data=pd.DataFrame(),  # 空的 DataFrame，因為我們只需要摘要
+                Backtest_id="",
+                predictor_file_name="",
+                predictor_column="",
+                **backtest_results.get("trading_params", {})
+            )
+            
+            # 直接調用原版方法，分支邏輯會自動判斷是否顯示用戶界面
+            exporter.display_backtest_summary()
+            
         except Exception as e:
             print(f"❌ [ERROR] 回測摘要顯示失敗: {e}")
             print(f"❌ [ERROR] 詳細錯誤: {traceback.format_exc()}")
+            # 簡單的後備顯示
+            results = backtest_results.get("results", [])
+            print(f"✅ [SUCCESS] 回測完成，共 {len(results)} 個結果")
+    
 
     def _display_execution_progress(
         self, current: int, total: int, config_name: str
