@@ -184,9 +184,21 @@ class DataLoaderAutorunner:
                 if "Close" in self.data.columns:
                     self.data["X"] = self.data["Close"].copy()
                     self.current_predictor_column = "X"
-                    print(f"✅ [SUCCESS] 已將 Close 欄位複製為預測因子 X")
+                    console.print(
+                        Panel(
+                            "✅ 已將 Close 欄位複製為預測因子 X",
+                            title=Text("✅ 成功", style="bold green"),
+                            border_style="green"
+                        )
+                    )
                 else:
-                    print(f"❌ [ERROR] 數據中找不到 Close 欄位")
+                    console.print(
+                        Panel(
+                            "❌ 數據中找不到 Close 欄位",
+                            title=Text("⚠️ 錯誤", style="bold #8f1511"),
+                            border_style="#8f1511"
+                        )
+                    )
             else:
                 # 載入預測因子
                 self.data = self._load_predictor_data(config)
