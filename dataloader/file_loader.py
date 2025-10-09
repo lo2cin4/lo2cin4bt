@@ -151,6 +151,9 @@ class FileLoader(AbstractDataLoader):
 
             # 標準化欄位名稱
             data = self.standardize_columns(data)
+            
+            # 檢測並轉換timestamp格式
+            data = self.detect_and_convert_timestamp(data, "Time")
 
             # 顯示成功信息
             self._show_success_info(data)

@@ -187,7 +187,11 @@ class DataValidator:
     def _handle_time_index(self) -> None:
         """處理時間索引，確保格式正確，但保留 Time 欄位"""
         try:
-            self.data["Time"] = pd.to_datetime(self.data["Time"], errors="coerce")
+            # 只有當Time欄位不是datetime格式時才進行轉換
+            # 避免對已轉換的timestamp進行二次處理
+            if not pd.api.types.is_datetime64_any_dtype(self.data["Time"]):
+                self.data["Time"] = pd.to_datetime(self.data["Time"], errors="coerce")
+            
             if self.data["Time"].isna().sum() > 0:
                 console.print(
                     Panel(

@@ -200,7 +200,7 @@ dataloader/
 
 **自動功能：**
 - 掃描 `records/dataloader/import/` 目錄尋找可用檔案
-- 自動識別時間欄位（候選名稱：time, date, timestamp）
+- 自動識別時間欄位（候選名稱：time, date, timestamp, datetime, period，**不區分大小寫**）
 - 自動對齊時間序列（inner join）
 - 自動清洗數據（調用 DataValidator）
 
@@ -536,13 +536,62 @@ class AbstractDataLoader(ABC):
 - **Close**：收盤價（float）
 - **Volume**：成交量（float，可選）
 
-標準化過程會自動將以下欄位名稱轉換為標準格式：
-- `date`, `time`, `timestamp`, `datetime` → `Time`
+標準化過程會自動將以下欄位名稱轉換為標準格式（**不區分大小寫**）：
+- `date`, `time`, `timestamp`, `datetime`, `period` → `Time`
 - `open`, `o` → `Open`
 - `high`, `h` → `High`
 - `low`, `l` → `Low`
 - `close`, `c` → `Close`
 - `volume`, `vol`, `v` → `Volume`
+
+**範例：** 無論您的檔案使用 `Date`、`DATE`、`date`、`Time`、`TIME`、`time`、`Period`、`PERIOD` 等，系統都會自動識別並轉換為標準的 `Time` 欄位。
+
+### Timestamp 自動轉換功能
+
+系統現在支援自動檢測並轉換Unix timestamp格式為標準datetime格式：
+
+**支援的timestamp格式：**
+- **秒級timestamp**：10位數字（如 1609459200，轉換後為 2021-01-01 00:00:00）
+- **毫秒級timestamp**：13位數字（如 1609459200500，轉換後為 2021-01-01 00:00:00.500）
+
+**自動轉換流程：**
+1. 系統自動檢測Time欄位是否為數值型態
+2. 根據數值大小判斷是秒級還是毫秒級timestamp
+3. 使用`pd.to_datetime(unit="s")`或`pd.to_datetime(unit="ms")`進行轉換
+4. 轉換完成後顯示轉換後的時間格式供確認
+
+**適用範圍：**
+- `file_loader.py` - 本地檔案載入時自動檢測
+- `predictor_loader.py` - 預測因子載入時自動檢測
+- `DataLoader_autorunner.py` - 自動化回測時自動檢測
+
+**使用範例：**
+```python
+# 假設你的CSV檔案包含timestamp格式的時間欄位：
+# Time,Open,High,Low,Close,Volume
+# 1609459200,29000,29500,28800,29200,1000
+# 1609545600,29200,29800,29000,29500,1200
+
+from dataloader.file_loader import FileLoader
+
+loader = FileLoader()
+data, freq = loader.load()
+
+# 系統會自動檢測並顯示：
+# "檢測到秒級timestamp格式，正在轉換..."
+# "timestamp轉換成功，格式為：2021-01-01 00:00:00"
+
+print(data['Time'].dtype)  # datetime64[ns]
+print(data['Time'].iloc[0])  # 2021-01-01 00:00:00
+```
+
+**Matchup機制：**
+當您同時使用價格數據和預測因子數據時，系統會自動：
+1. 將兩邊的時間欄位都轉換為datetime格式（包括timestamp自動轉換）
+2. 使用`inner join`根據Time欄位進行對齊合併
+3. 只保留時間交集的數據行
+
+這確保了即使價格數據和預測因子使用不同的時間格式（一邊是datetime字符串，一邊是timestamp），系統也能正確對齊合併。
 
 ### 差分處理邏輯
 
@@ -668,7 +717,30 @@ print(f"預測因子時間範圍：{predictor_data['Time'].min()} ~ {predictor_d
 
 ---
 
-### 7. 差分處理後數據異常 05/10/2025
+### 7. Timestamp格式無法識別 09/10/2025
+**問題詳情：** 載入含有timestamp的檔案時，時間欄位無法被正確識別或轉換。
+
+**可能原因：**
+- Timestamp數值超出合理範圍（如使用微秒級timestamp）
+- Timestamp欄位被儲存為字符串而非數值
+- Timestamp為負數或其他特殊值
+
+**解決方法：**
+- 確認timestamp為正整數（秒級約10位數，毫秒級約13位數）
+- 若timestamp為字符串，確保檔案中沒有引號包圍數值
+- 使用以下Python代碼驗證timestamp範圍：
+```python
+import pandas as pd
+# 檢查timestamp是否在合理範圍
+timestamp = 1609459200  # 你的timestamp
+print(pd.to_datetime(timestamp, unit='s'))  # 秒級
+print(pd.to_datetime(timestamp * 1000, unit='ms'))  # 毫秒級
+```
+- 若仍無法自動轉換，可在Excel或Python中預先將timestamp轉換為標準日期格式再導入
+
+---
+
+### 8. 差分處理後數據異常 05/10/2025
 **問題詳情：** 差分處理後，數值出現極端值或全為 NaN。
 
 **可能原因：**

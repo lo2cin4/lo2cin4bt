@@ -282,6 +282,7 @@ python main.py
 
 - 修正了各種 BUG
 - 新增了更多 autorunner config 範例
+- 系統目前可以閱讀 timestamp 格式的代碼了
 
 </details>
 

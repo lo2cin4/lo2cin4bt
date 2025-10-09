@@ -52,7 +52,6 @@ DataLoader_autorunner.py
 
 import logging
 import traceback
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
@@ -89,6 +88,10 @@ class DataLoaderAutorunner:
         self.loading_summary: Dict[str, Any] = {}
         self.current_predictor_column: Optional[str] = None
         self.using_price_predictor_only: bool = False
+        
+        # 創建一個 FileLoader 實例來調用原版 dataloader 的方法
+        from dataloader.file_loader import FileLoader
+        self._loader_helper = FileLoader()
 
     def load_data(self, config: Dict[str, Any]) -> Optional[pd.DataFrame]:
         """
@@ -196,13 +199,6 @@ class DataLoaderAutorunner:
                 if "Close" in self.data.columns:
                     self.data["X"] = self.data["Close"].copy()
                     self.current_predictor_column = "X"
-                    console.print(
-                        Panel(
-                            "✅ 已將 Close 欄位複製為預測因子 X",
-                            title=Text("✅ 成功", style="bold green"),
-                            border_style="green"
-                        )
-                    )
                 else:
                     console.print(
                         Panel(
@@ -222,13 +218,6 @@ class DataLoaderAutorunner:
             # 更新載入摘要
             self._update_loading_summary(config)
             
-            console.print(
-                Panel(
-                    "✅ 數據載入成功，使用原版 dataloader",
-                    title=Text("🎉 載入完成", style="bold green"),
-                    border_style="green"
-                )
-            )
             return self.data
 
         except Exception as e:
@@ -300,10 +289,10 @@ class DataLoaderAutorunner:
             # 識別時間欄位
             time_column = predictor_config.get("time_column")
             if not time_column or time_column not in predictor_df.columns:
-                # 自動識別時間欄位
-                time_candidates = ["time", "Time", "date", "Date", "timestamp", "Timestamp"]
-                for col in time_candidates:
-                    if col in predictor_df.columns:
+                # 自動識別時間欄位（不區分大小寫）
+                time_candidates = ["time", "date", "timestamp", "datetime", "period"]
+                for col in predictor_df.columns:
+                    if col.lower() in time_candidates:
                         time_column = col
                         break
             
@@ -335,22 +324,27 @@ class DataLoaderAutorunner:
             # 只保留時間和預測因子欄位
             predictor_df = predictor_df[[time_column, predictor_column]].copy()
             
+            # 檢測並轉換timestamp格式 - 調用原版 dataloader 方法
+            predictor_df = self._loader_helper.detect_and_convert_timestamp(predictor_df, time_column)
+            
             # 轉換時間格式
             time_format = predictor_config.get("time_format")
-            if time_format:
-                try:
-                    predictor_df[time_column] = pd.to_datetime(predictor_df[time_column], format=time_format)
-                except Exception as e:
-                    console.print(
-                        Panel(
-                            f"⚠️ 時間格式轉換失敗: {e}，嘗試自動推斷",
-                            title=Text("⚠️ 警告", style="bold #ecbc4f"),
-                            border_style="#ecbc4f"
+            # 如果已經是datetime格式，跳過轉換
+            if not pd.api.types.is_datetime64_any_dtype(predictor_df[time_column]):
+                if time_format:
+                    try:
+                        predictor_df[time_column] = pd.to_datetime(predictor_df[time_column], format=time_format)
+                    except Exception as e:
+                        console.print(
+                            Panel(
+                                f"⚠️ 時間格式轉換失敗: {e}，嘗試自動推斷",
+                                title=Text("⚠️ 警告", style="bold #ecbc4f"),
+                                border_style="#ecbc4f"
+                            )
                         )
-                    )
+                        predictor_df[time_column] = pd.to_datetime(predictor_df[time_column])
+                else:
                     predictor_df[time_column] = pd.to_datetime(predictor_df[time_column])
-            else:
-                predictor_df[time_column] = pd.to_datetime(predictor_df[time_column])
             
             # 設置時間為索引
             predictor_df = predictor_df.set_index(time_column)
@@ -381,11 +375,21 @@ class DataLoaderAutorunner:
             merged_df = merged_df.reset_index()
             merged_df = merged_df.rename(columns={"index": "Time"})
             
+            # 顯示合併成功信息（使用原版樣式）
             console.print(
                 Panel(
-                    f"✅ 預測因子載入成功\n📊 預測因子欄位: {predictor_column}\n📏 合併後數據量: {len(merged_df)} 行",
-                    title=Text("✅ 成功", style="bold green"),
-                    border_style="green"
+                    f"合併數據成功，行數：{len(merged_df)}",
+                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+                    border_style="#dbac30",
+                )
+            )
+            
+            # autorunner 額外顯示預測因子欄位信息
+            console.print(
+                Panel(
+                    f"📊 使用預測因子欄位: {predictor_column}",
+                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+                    border_style="#dbac30",
                 )
             )
             

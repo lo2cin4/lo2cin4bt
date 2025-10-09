@@ -68,7 +68,7 @@
       "predictor_source": "file",
       "predictor_path": "records/dataloader/import/predictor_example.xlsx",
       "predictor_column": "X",
-      "skip_predictor": true,
+      "skip_predictor": false,
       "time_column": "time",
       "time_format": "%Y-%m-%d"
     }

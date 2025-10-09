@@ -193,10 +193,15 @@ class AbstractDataLoader(ABC):
     def standardize_columns(self, data: pd.DataFrame) -> pd.DataFrame:
         """Standardize column names to expected format"""
         col_map = {}
+        time_col_found = False  # 追蹤是否已找到時間欄位
+        
         for col in data.columns:
             col_lower = str(col).lower()
-            if col_lower in ["date", "time", "timestamp", "datetime"]:
-                col_map[col] = "Time"
+            # 只轉換第一個找到的時間欄位，避免重複鍵
+            if col_lower in ["date", "time", "timestamp", "datetime", "period"]:
+                if not time_col_found:
+                    col_map[col] = "Time"
+                    time_col_found = True
             elif col_lower in ["open", "o"]:
                 col_map[col] = "Open"
             elif col_lower in ["high", "h"]:
@@ -242,6 +247,71 @@ class AbstractDataLoader(ABC):
                     self.show_warning(f"無法轉換欄位 '{col}' 為數值：{e}")
                     data[col] = pd.NA
 
+        return data
+
+    def detect_and_convert_timestamp(
+        self, data: pd.DataFrame, time_col: str = "Time"
+    ) -> pd.DataFrame:
+        """
+        檢測並轉換timestamp格式為標準datetime格式
+        
+        如果時間欄位是timestamp格式（Unix時間戳），自動轉換為datetime
+        支援秒級和毫秒級timestamp
+        
+        Args:
+            data: 數據DataFrame
+            time_col: 時間欄位名稱，預設為 "Time"
+            
+        Returns:
+            轉換後的DataFrame
+        """
+        if time_col not in data.columns:
+            return data
+            
+        try:
+            # 檢查是否已經是datetime格式
+            if pd.api.types.is_datetime64_any_dtype(data[time_col]):
+                return data
+            
+            # 嘗試轉換為數值，檢查是否為timestamp
+            sample_value = data[time_col].iloc[0]
+            
+            # 如果是數值型態，可能是timestamp
+            if pd.api.types.is_numeric_dtype(data[time_col]):
+                # 判斷是秒級還是毫秒級timestamp
+                # 秒級timestamp大約為10位數，毫秒級為13位數
+                # 使用 numpy 的數值類型檢查（支援 numpy.int64 等類型）
+                import numpy as np
+                if isinstance(sample_value, (int, float, np.integer, np.floating)):
+                    if sample_value > 1e10:  # 毫秒級timestamp
+                        self.show_info("檢測到毫秒級timestamp格式，正在轉換...")
+                        data[time_col] = pd.to_datetime(data[time_col], unit="ms")
+                    else:  # 秒級timestamp
+                        self.show_info("檢測到秒級timestamp格式，正在轉換...")
+                        data[time_col] = pd.to_datetime(data[time_col], unit="s")
+                    
+                    self.show_success(f"timestamp轉換成功，格式為：{data[time_col].iloc[0]}")
+            else:
+                # 嘗試將字符串轉換為數值再判斷
+                try:
+                    numeric_value = pd.to_numeric(data[time_col].iloc[0])
+                    if numeric_value > 1e10:  # 毫秒級
+                        self.show_info("檢測到毫秒級timestamp格式，正在轉換...")
+                        data[time_col] = pd.to_numeric(data[time_col])
+                        data[time_col] = pd.to_datetime(data[time_col], unit="ms")
+                    else:  # 秒級
+                        self.show_info("檢測到秒級timestamp格式，正在轉換...")
+                        data[time_col] = pd.to_numeric(data[time_col])
+                        data[time_col] = pd.to_datetime(data[time_col], unit="s")
+                    
+                    self.show_success(f"timestamp轉換成功，格式為：{data[time_col].iloc[0]}")
+                except (ValueError, TypeError):
+                    # 不是timestamp，跳過轉換
+                    pass
+                    
+        except Exception as e:
+            self.show_warning(f"timestamp檢測時出錯：{e}，將嘗試其他方式解析時間")
+        
         return data
 
     @abstractmethod
