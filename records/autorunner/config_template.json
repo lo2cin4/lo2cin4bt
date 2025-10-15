@@ -63,7 +63,7 @@
         "predictor_column": "需要載入的預測因子欄位",
         "skip_predictor": "是否跳過預測因子載入",
         "time_column": "時間欄位名稱 (例如 timestamp, time, Date)",
-        "time_format": "時間格式 (例如 %Y-%m-%d %H:%M:%S 或 %d/%m/%Y %H:%M:%S，小時:分鐘:秒可不填，留空自動推斷)"
+        "time_format": "時間格式 (例如 %Y-%m-%d %H:%M:%S 或 %d/%m/%Y %H:%M:%S)。⚠️ 如果是Unix timestamp（純數字如1577750400），請留空讓系統自動檢測轉換！"
       },
       "predictor_source": "file",
       "predictor_path": "records/dataloader/import/predictor_example.xlsx",
