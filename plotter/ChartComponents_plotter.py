@@ -350,7 +350,7 @@ class ChartComponents:
                                                     x=pd.to_datetime(bah_df["Time"]),
                                                     y=bah_df["BAH_Equity"],
                                                     mode="lines",
-                                                    name=f"{instrument} (BAH)",
+                                                    name="Benchmark",
                                                     line=dict(
                                                         dash="dot", color="#ecbc4f"
                                                     ),
@@ -414,7 +414,7 @@ class ChartComponents:
                                                     x=pd.to_datetime(bah_df["Time"]),
                                                     y=bah_df["BAH_Equity"],
                                                     mode="lines",
-                                                    name=f"{instrument} (BAH)",
+                                                    name="Benchmark",
                                                     line=dict(
                                                         dash="dot", color="#ecbc4f"
                                                     ),
@@ -552,7 +552,7 @@ class ChartComponents:
                                     x=pd.to_datetime(bah_df["Time"]),
                                     y=bah_df["BAH_Equity"],
                                     mode="lines",
-                                    name=f"{instrument} (BAH)",
+                                    name="Benchmark",
                                     line=dict(dash="dot", color="#ecbc4f"),
                                     hovertemplate="<b>%{fullData.name}</b><br>"
                                     + "時間: %{x}<br>"

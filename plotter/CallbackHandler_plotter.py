@@ -358,41 +358,59 @@ class CallbackHandler:
                 entry_ok = False
                 exit_ok = False
 
-                # 檢查入場指標
+                # 檢查入場指標 - 所有入場指標都必須匹配
+                entry_indicators_match = True
                 for d in param.get("Entry_params", []):
-                    if str(d.get("indicator_type")) in entry_types:
-                        indicator = str(d.get("indicator_type"))
-                        # 檢查該指標的所有參數是否匹配
-                        param_match = True
-                        for k, v in d.items():
-                            if k == "indicator_type":
-                                continue
-                            if k in entry_param_map.get(indicator, {}):
-                                checklist_vals = entry_param_map[indicator][k]
-                                if str(v) not in [str(x) for x in checklist_vals]:
-                                    param_match = False
-                                    break
-                        if param_match:
-                            entry_ok = True
-                            break  # 找到匹配的入場指標後跳出
+                    indicator = str(d.get("indicator_type"))
+                    
+                    # 首先檢查指標類型是否在用戶勾選範圍內
+                    if indicator not in entry_types:
+                        entry_indicators_match = False
+                        break
+                    
+                    # 然後檢查該指標的所有參數是否匹配
+                    param_match = True
+                    for k, v in d.items():
+                        if k == "indicator_type":
+                            continue
+                        # 如果該參數有用戶勾選的值，則必須匹配
+                        if k in entry_param_map.get(indicator, {}):
+                            checklist_vals = entry_param_map[indicator][k]
+                            if str(v) not in [str(x) for x in checklist_vals]:
+                                param_match = False
+                                break
+                    # 如果該指標不匹配，則整個入場不匹配
+                    if not param_match:
+                        entry_indicators_match = False
+                        break
+                entry_ok = entry_indicators_match
 
-                # 檢查出場指標
+                # 檢查出場指標 - 所有出場指標都必須匹配
+                exit_indicators_match = True
                 for d in param.get("Exit_params", []):
-                    if str(d.get("indicator_type")) in exit_types:
-                        indicator = str(d.get("indicator_type"))
-                        # 檢查該指標的所有參數是否匹配
-                        param_match = True
-                        for k, v in d.items():
-                            if k == "indicator_type":
-                                continue
-                            if k in exit_param_map.get(indicator, {}):
-                                checklist_vals = exit_param_map[indicator][k]
-                                if str(v) not in [str(x) for x in checklist_vals]:
-                                    param_match = False
-                                    break
-                        if param_match:
-                            exit_ok = True
-                            break  # 找到匹配的出場指標後跳出
+                    indicator = str(d.get("indicator_type"))
+                    
+                    # 首先檢查指標類型是否在用戶勾選範圍內
+                    if indicator not in exit_types:
+                        exit_indicators_match = False
+                        break
+                    
+                    # 然後檢查該指標的所有參數是否匹配
+                    param_match = True
+                    for k, v in d.items():
+                        if k == "indicator_type":
+                            continue
+                        # 如果該參數有用戶勾選的值，則必須匹配
+                        if k in exit_param_map.get(indicator, {}):
+                            checklist_vals = exit_param_map[indicator][k]
+                            if str(v) not in [str(x) for x in checklist_vals]:
+                                param_match = False
+                                break
+                    # 如果該指標不匹配，則整個出場不匹配
+                    if not param_match:
+                        exit_indicators_match = False
+                        break
+                exit_ok = exit_indicators_match
 
                 if entry_ok and exit_ok:
                     filtered_ids.append(bid)
