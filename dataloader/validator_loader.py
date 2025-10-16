@@ -107,6 +107,131 @@ class DataValidator:
         self._handle_time_index()
         return self.data
 
+    def _smart_convert_datetime(self, time_series: pd.Series) -> pd.Series:
+        """
+        智能檢測並轉換時間格式
+        1. 先檢測是否為timestamp格式
+        2. 再嘗試不同的日期字符串格式
+        """
+        try:
+            # 1. 檢測是否為timestamp格式
+            if pd.api.types.is_numeric_dtype(time_series):
+                sample_value = time_series.iloc[0]
+                import numpy as np
+                if isinstance(sample_value, (int, float, np.integer, np.floating)):
+                    if sample_value > 1e10:  # 毫秒級timestamp
+                        console.print(
+                            Panel(
+                                "檢測到毫秒級timestamp格式，正在轉換...",
+                                title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+                                border_style="#dbac30",
+                            )
+                        )
+                        return pd.to_datetime(time_series, unit="ms", errors="coerce")
+                    else:  # 秒級timestamp
+                        console.print(
+                            Panel(
+                                "檢測到秒級timestamp格式，正在轉換...",
+                                title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+                                border_style="#dbac30",
+                            )
+                        )
+                        return pd.to_datetime(time_series, unit="s", errors="coerce")
+            else:
+                # 2. 嘗試將字符串轉換為數值再判斷timestamp
+                try:
+                    numeric_value = pd.to_numeric(time_series.iloc[0])
+                    if numeric_value > 1e10:  # 毫秒級
+                        console.print(
+                            Panel(
+                                "檢測到毫秒級timestamp格式，正在轉換...",
+                                title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+                                border_style="#dbac30",
+                            )
+                        )
+                        numeric_series = pd.to_numeric(time_series, errors="coerce")
+                        return pd.to_datetime(numeric_series, unit="ms", errors="coerce")
+                    else:  # 秒級
+                        console.print(
+                            Panel(
+                                "檢測到秒級timestamp格式，正在轉換...",
+                                title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+                                border_style="#dbac30",
+                            )
+                        )
+                        numeric_series = pd.to_numeric(time_series, errors="coerce")
+                        return pd.to_datetime(numeric_series, unit="s", errors="coerce")
+                except (ValueError, TypeError):
+                    # 不是timestamp，繼續嘗試日期字符串格式
+                    pass
+            
+            # 3. 嘗試不同的日期字符串格式
+            sample_dates = time_series.head(5).tolist()
+            console.print(
+                Panel(
+                    f"🔍 智能檢測日期格式：\n"
+                    f"   樣本日期: {sample_dates}\n"
+                    f"   嘗試解析為 DD/MM/YYYY 格式...",
+                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+                    border_style="#dbac30",
+                )
+            )
+            
+            # 先嘗試 DD/MM/YYYY 格式（dayfirst=True）
+            result = pd.to_datetime(time_series, dayfirst=True, errors="coerce")
+            invalid_count = result.isna().sum()
+            
+            if invalid_count == 0:
+                console.print(
+                    Panel(
+                        "✅ 成功解析為 DD/MM/YYYY 格式",
+                        title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+                        border_style="#dbac30",
+                    )
+                )
+                return result
+            else:
+                # 如果 DD/MM/YYYY 格式失敗，嘗試 MM/DD/YYYY 格式
+                console.print(
+                    Panel(
+                        f"⚠️ DD/MM/YYYY 格式解析失敗 {invalid_count} 個值，嘗試 MM/DD/YYYY 格式...",
+                        title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+                        border_style="#8f1511",
+                    )
+                )
+                result2 = pd.to_datetime(time_series, dayfirst=False, errors="coerce")
+                invalid_count2 = result2.isna().sum()
+                
+                if invalid_count2 < invalid_count:
+                    console.print(
+                        Panel(
+                            "✅ 成功解析為 MM/DD/YYYY 格式",
+                            title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+                            border_style="#dbac30",
+                        )
+                    )
+                    return result2
+                else:
+                    # 如果兩種格式都失敗，使用自動推斷
+                    console.print(
+                        Panel(
+                            "⚠️ 兩種格式都失敗，使用自動推斷格式...",
+                            title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+                            border_style="#8f1511",
+                        )
+                    )
+                    return pd.to_datetime(time_series, errors="coerce")
+                    
+        except Exception as e:
+            console.print(
+                Panel(
+                    f"❌ 智能時間轉換失敗：{e}，使用預設格式",
+                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+                    border_style="#8f1511",
+                )
+            )
+            return pd.to_datetime(time_series, errors="coerce")
+
     def _handle_missing_values(self, col: str) -> None:
         """處理缺失值，根據用戶選擇填充"""
         console.print(
@@ -190,7 +315,41 @@ class DataValidator:
             # 只有當Time欄位不是datetime格式時才進行轉換
             # 避免對已轉換的timestamp進行二次處理
             if not pd.api.types.is_datetime64_any_dtype(self.data["Time"]):
-                self.data["Time"] = pd.to_datetime(self.data["Time"], errors="coerce")
+                # 添加詳細的debug輸出
+                console.print(
+                    Panel(
+                        f"🔍 時間轉換前檢查：\n"
+                        f"   Time欄位類型: {self.data['Time'].dtype}\n"
+                        f"   前5個值: {self.data['Time'].head().tolist()}\n"
+                        f"   後5個值: {self.data['Time'].tail().tolist()}\n"
+                        f"   唯一值數量: {self.data['Time'].nunique()}\n"
+                        f"   總行數: {len(self.data)}",
+                        title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+                        border_style="#dbac30",
+                    )
+                )
+                
+                # 智能檢測時間格式
+                original_time = self.data["Time"].copy()
+                self.data["Time"] = self._smart_convert_datetime(self.data["Time"])
+                
+                # 找出無效的時間值
+                invalid_mask = self.data["Time"].isna()
+                if invalid_mask.any():
+                    invalid_indices = invalid_mask[invalid_mask].index.tolist()
+                    invalid_values = original_time[invalid_mask].tolist()
+                    
+                    console.print(
+                        Panel(
+                            f"❌ 發現無效時間值：\n"
+                            f"   無效值數量: {len(invalid_values)}\n"
+                            f"   無效值索引: {invalid_indices[:10]}{'...' if len(invalid_indices) > 10 else ''}\n"
+                            f"   無效值樣本: {invalid_values[:10]}{'...' if len(invalid_values) > 10 else ''}\n"
+                            f"   原始值類型: {[type(v) for v in invalid_values[:5]]}",
+                            title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
+                            border_style="#8f1511",
+                        )
+                    )
             
             if self.data["Time"].isna().sum() > 0:
                 console.print(
