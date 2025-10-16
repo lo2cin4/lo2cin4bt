@@ -140,7 +140,6 @@ def _vectorized_trade_simulation_njit(  # pylint: disable=too-complex
         # 狀態機：最小化記憶依賴
         current_state = 0.0  # 0=空倉, 1=多倉, -1=空倉
         equity = 1.0
-        open_price = 0.0  # 追蹤開倉價格
 
         for t in range(n_time):
             # 計算信號索引（考慮交易延遲）
@@ -160,7 +159,7 @@ def _vectorized_trade_simulation_njit(  # pylint: disable=too-complex
                     current_close = close_prices[t]
                     if current_state == 1.0:  # 多倉
                         ret = (current_close - prev_close) / prev_close
-                    else:  # 沽空
+                    else:  # 空倉
                         ret = (prev_close - current_close) / prev_close
                 else:  # trade_price == 'open'
                     # Open 交易：使用前一日開盤價到當日開盤價的收益率
@@ -168,7 +167,7 @@ def _vectorized_trade_simulation_njit(  # pylint: disable=too-complex
                     current_open = open_prices[t]
                     if current_state == 1.0:  # 多倉
                         ret = (current_open - prev_open) / prev_open
-                    else:  # 沽空
+                    else:  # 空倉
                         ret = (prev_open - current_open) / prev_open
 
                 equity *= 1.0 + ret
