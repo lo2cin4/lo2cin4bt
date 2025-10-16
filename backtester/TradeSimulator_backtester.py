@@ -140,6 +140,8 @@ def _vectorized_trade_simulation_njit(  # pylint: disable=too-complex
         # 狀態機：最小化記憶依賴
         current_state = 0.0  # 0=空倉, 1=多倉, -1=空倉
         equity = 1.0
+        open_price = 0.0  # 追蹤開倉價格
+        open_equity = 1.0  # 追蹤開倉時的權益
 
         for t in range(n_time):
             # 計算信號索引（考慮交易延遲）
@@ -151,27 +153,29 @@ def _vectorized_trade_simulation_njit(  # pylint: disable=too-complex
                 exit_signals[signal_index, s] if 0 <= signal_index < n_time else 0.0
             )
 
-            # 計算收益率（修正邏輯）
-            if t > 0 and current_state != 0.0:
+            # 計算資金曲線和每日收益率
+            if t > 0 and current_state != 0.0 and open_price > 0.0:
                 if trade_price == "close":
-                    # Close 交易：使用前一日收盤價到當日收盤價的收益率
-                    prev_close = close_prices[t - 1]
                     current_close = close_prices[t]
-                    if current_state == 1.0:  # 多倉
-                        ret = (current_close - prev_close) / prev_close
-                    else:  # 空倉
-                        ret = (prev_close - current_close) / prev_close
+                    if current_state == 1.0:  # 做多
+                        price_return = (current_close - open_price) / open_price
+                    else:  # 做空
+                        price_return = (open_price - current_close) / open_price
                 else:  # trade_price == 'open'
-                    # Open 交易：使用前一日開盤價到當日開盤價的收益率
-                    prev_open = open_prices[t - 1]
                     current_open = open_prices[t]
-                    if current_state == 1.0:  # 多倉
-                        ret = (current_open - prev_open) / prev_open
-                    else:  # 空倉
-                        ret = (prev_open - current_open) / prev_open
+                    if current_state == 1.0:  # 做多
+                        price_return = (current_open - open_price) / open_price
+                    else:  # 做空
+                        price_return = (open_price - current_open) / open_price
 
-                equity *= 1.0 + ret
-                returns[t, s] = ret
+                # 計算資金曲線：開倉時權益 * (1 + 價格收益率)
+                equity = open_equity * (1.0 + price_return)
+                
+                # 計算每日收益率：今日資金曲線 / 昨日資金曲線 - 1
+                if equity_values[t-1, s] > 0:
+                    returns[t, s] = (equity * 100.0) / equity_values[t-1, s] - 1.0
+                else:
+                    returns[t, s] = 0.0
             else:
                 returns[t, s] = 0.0
 
@@ -180,23 +184,39 @@ def _vectorized_trade_simulation_njit(  # pylint: disable=too-complex
                 if entry_sig == 1.0:  # 開多倉
                     current_state = 1.0
                     trade_actions[t, s] = 1
+                    # 設置開倉價格
+                    if trade_price == "close":
+                        open_price = close_prices[t]
+                    else:
+                        open_price = open_prices[t]
                     # 扣除滑點與手續費
                     equity *= (1.0 - slippage) * (1.0 - transaction_cost)
+                    open_equity = equity  # 記錄開倉時的權益（扣除成本後）
                 elif entry_sig == -1.0:  # 開空倉
                     current_state = -1.0
                     trade_actions[t, s] = 1
+                    # 設置開倉價格
+                    if trade_price == "close":
+                        open_price = close_prices[t]
+                    else:
+                        open_price = open_prices[t]
                     # 扣除滑點與手續費
                     equity *= (1.0 - slippage) * (1.0 - transaction_cost)
+                    open_equity = equity  # 記錄開倉時的權益（扣除成本後）
             elif current_state == 1.0:  # 多倉
                 if exit_sig == -1.0:  # 平多倉
                     current_state = 0.0
                     trade_actions[t, s] = 4
+                    open_price = 0.0  # 重置開倉價格
+                    open_equity = 1.0  # 重置開倉權益
                     # 扣除滑點與手續費
                     equity *= (1.0 - slippage) * (1.0 - transaction_cost)
             elif current_state == -1.0:  # 空倉
                 if exit_sig == 1.0:  # 平空倉
                     current_state = 0.0
                     trade_actions[t, s] = 4
+                    open_price = 0.0  # 重置開倉價格
+                    open_equity = 1.0  # 重置開倉權益
                     # 扣除滑點與手續費
                     equity *= (1.0 - slippage) * (1.0 - transaction_cost)
 
