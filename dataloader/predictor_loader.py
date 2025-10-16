@@ -149,9 +149,23 @@ class PredictorLoader:
 
     def _select_from_found_files(self, found_files: List[str]) -> Optional[str]:
         """從找到的檔案中選擇"""
-        console.print("[bold #dbac30]偵測到以下可用的預測因子檔案：[/bold #dbac30]")
-        for idx, f in enumerate(found_files, 1):
-            console.print(f"[bold white][{idx}][/bold white] {os.path.basename(f)}")
+        # 創建文件列表表格（與數據文件格式一致）
+        table = Table(
+            title="📁 可用的預測檔案",
+            show_header=True,
+            header_style="bold #dbac30",
+            border_style="#dbac30",
+        )
+        table.add_column("編號", style="bold #dbac30", justify="center")
+        table.add_column("文件名", style="bold white")
+        table.add_column("類型", style="bold white", justify="center")
+
+        for i, file_path in enumerate(found_files, 1):
+            file_name = os.path.basename(file_path)
+            file_type = "Excel" if file_path.endswith(".xlsx") else "CSV"
+            table.add_row(str(i), file_name, file_type)
+        
+        console.print(table)
 
         while True:
             console.print(

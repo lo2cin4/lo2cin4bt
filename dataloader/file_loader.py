@@ -198,7 +198,8 @@ class FileLoader(AbstractDataLoader):
         xlsx_files = glob.glob(os.path.join(directory, "*.xlsx"))
         csv_files = glob.glob(os.path.join(directory, "*.csv"))
 
-        return xlsx_files + csv_files
+        # 確保排序一致性
+        return sorted(xlsx_files + csv_files)
 
     def _select_from_directory(
         self, available_files: List[str], import_dir: str

@@ -339,7 +339,7 @@ def main():
                 logger.info(f"差分處理完成，差分欄位：{diff_cols}")
 
             # 檢查是否選擇了price（跳過統計分析）
-            if diff_cols is None:
+            if hasattr(data_loader, 'skip_statanalyser') and data_loader.skip_statanalyser:
                 # 用戶選擇了price，跳過統計分析
                 console.print(
                     Panel(
@@ -486,11 +486,9 @@ def main():
                 print("數據載入失敗，程式終止")
                 logger.error("數據載入失敗")
                 return
-                
-                frequency = data_loader.frequency
-            else:
-                # 確保 frequency 被定義
-                frequency = data_loader.frequency
+            
+            # 確保 frequency 被定義
+            frequency = data_loader.frequency
 
             # 處理差分步驟
             data, diff_cols, used_series = data_loader.process_difference(data)
@@ -498,7 +496,7 @@ def main():
                 logger.info(f"差分處理完成，差分欄位：{diff_cols}")
 
             # 檢查是否選擇了price（跳過統計分析）
-            if diff_cols is None:
+            if hasattr(data_loader, 'skip_statanalyser') and data_loader.skip_statanalyser:
                 # 用戶選擇了price，跳過統計分析
                 console.print(
                     Panel(

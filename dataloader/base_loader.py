@@ -557,8 +557,10 @@ class BaseDataLoader:
             ):
                 if not hasattr(self, "frequency") or self.frequency is None:
                     self.frequency = "1d"
-                return "__SKIP_STATANALYSER__"
-            if predictor_data is not None:
+                # 設置標記表示跳過統計分析，但繼續使用價格數據
+                self.skip_statanalyser = True
+                self.data = price_data
+            elif predictor_data is not None:
                 self.data = predictor_data
             else:
                 console.print(
