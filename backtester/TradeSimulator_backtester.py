@@ -157,12 +157,18 @@ def _vectorized_trade_simulation_njit(  # pylint: disable=too-complex
                     # Close 交易：使用前一日收盤價到當日收盤價的收益率
                     prev_close = close_prices[t - 1]
                     current_close = close_prices[t]
-                    ret = (current_close - prev_close) / prev_close * current_state
+                    if current_state == 1.0:  # 多倉
+                        ret = (current_close - prev_close) / prev_close
+                    else:  # 空倉
+                        ret = (prev_close - current_close) / current_close
                 else:  # trade_price == 'open'
                     # Open 交易：使用前一日開盤價到當日開盤價的收益率
                     prev_open = open_prices[t - 1]
                     current_open = open_prices[t]
-                    ret = (current_open - prev_open) / prev_open * current_state
+                    if current_state == 1.0:  # 多倉
+                        ret = (current_open - prev_open) / prev_open
+                    else:  # 空倉
+                        ret = (prev_open - current_open) / current_open
 
                 equity *= 1.0 + ret
                 returns[t, s] = ret
