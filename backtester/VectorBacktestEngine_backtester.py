@@ -220,9 +220,10 @@ if NUMBA_AVAILABLE:
 class VectorBacktestEngine:
     """真正的向量化回測引擎，完全兼容原有 BacktestEngine 接口"""
 
-    def __init__(self, data: pd.DataFrame, frequency: str, logger: Optional[logging.Logger] = None):
+    def __init__(self, data: pd.DataFrame, frequency: str, logger: Optional[logging.Logger] = None, symbol: Optional[str] = None):
         self.data = data
         self.frequency = frequency
+        self.symbol = symbol or "X"
         self.logger = logger or logging.getLogger("VectorBacktestEngine")
         self.indicators = IndicatorsBacktester(logger=self.logger)
         self.results: List[Dict[str, Any]] = []
@@ -879,6 +880,7 @@ class VectorBacktestEngine:
                 None,  # predictor
                 1.0,  # initial_equity
                 None,  # indicators
+                self.symbol,  # trading_instrument
             )
             
             trade_progress.update(trade_task, completed=1, description="📈 [2/3] 交易模擬 - 準備完成")
@@ -1486,6 +1488,7 @@ class VectorBacktestEngine:
             predictor,
             1.0,  # initial_equity
             None,  # indicators
+            self.symbol,  # trading_instrument
         )
 
         # 調用 TradeSimulator 的 generate_single_result 方法

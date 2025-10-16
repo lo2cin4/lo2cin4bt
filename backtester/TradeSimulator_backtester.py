@@ -242,6 +242,7 @@ class TradeSimulator_backtester:
         predictor: Optional[str] = None,
         initial_equity: float = 1.0,
         indicators: Optional[List[str]] = None,
+        trading_instrument: Optional[str] = None,
     ):
         self.data = data
         self.entry_signal = entry_signal
@@ -251,6 +252,7 @@ class TradeSimulator_backtester:
         self.trade_delay = trade_delay
         self.trade_price = trade_price
         self.Backtest_id = Backtest_id
+        self.trading_instrument = trading_instrument or "X"
         self.parameter_set_id = parameter_set_id
         self.predictor = predictor
         self.initial_equity = initial_equity
@@ -473,7 +475,7 @@ class TradeSimulator_backtester:
                 "High": row["High"],
                 "Low": row["Low"],
                 "Close": row["Close"],
-                "Trading_instrument": "BTCUSDT",
+                "Trading_instrument": getattr(self, 'trading_instrument', 'X'),
                 "Position_type": position_type,
                 "Open_position_price": open_position_price,
                 "Close_position_price": close_position_price,

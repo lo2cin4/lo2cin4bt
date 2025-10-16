@@ -499,6 +499,11 @@ class BaseDataLoader:
                     loader = CoinbaseLoader()
 
                 self.data, self.frequency = loader.load()
+                # 保存 symbol 信息（如果 loader 有設定）
+                if hasattr(loader, 'symbol'):
+                    self.symbol = loader.symbol
+                else:
+                    self.symbol = "X"  # File loader 預設值
                 if self.data is not None:
                     break
                 # 若 loader 回傳 (None, None)，直接回到數據來源選擇

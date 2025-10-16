@@ -164,6 +164,7 @@ class BaseBacktester:
         frequency: str | None = None,
         logger: Optional[logging.Logger] = None,
         predictor_file_name: str | None = None,
+        symbol: str | None = None,
     ) -> None:
         self.data = data
         self.frequency = frequency
@@ -171,6 +172,7 @@ class BaseBacktester:
         self.results: List[Any] = []
         self.data_importer = DataImporter()
         self.predictor_file_name = predictor_file_name
+        self.symbol = symbol or "X"
         self.predictor_column: Optional[str] = None  # 將在 _select_predictor 中設置
         self.indicators_helper = IndicatorsBacktester(logger=self.logger)
         self.backtest_engine: Optional[Any] = None
@@ -197,7 +199,7 @@ class BaseBacktester:
         self._print_step_panel(5, "開始執行回測引擎，生成回測任務並並行執行")
 
         # 執行回測
-        self.backtest_engine = BacktestEngine(self.data, self.frequency or "1D", self.logger)
+        self.backtest_engine = BacktestEngine(self.data, self.frequency or "1D", self.logger, getattr(self, 'symbol', 'X'))
         self.results = self.backtest_engine.run_backtests(config)
 
         # 導出結果（步驟 6 的 panel 會在 _export_results 中適當時機觸發）

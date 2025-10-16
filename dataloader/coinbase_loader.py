@@ -186,7 +186,8 @@ class CoinbaseLoader(AbstractDataLoader):
             # 檢查缺失值
             self.display_missing_values(data)
             self.show_success(f"從 Coinbase 載入 '{symbol}' 成功，行數：{len(data)}")
-
+            # 保存 symbol 供後續使用
+            self.symbol = symbol
             return data, interval_input
 
         except Exception as e:

@@ -131,6 +131,8 @@ class BinanceLoader(AbstractDataLoader):
             # 檢查缺失值
             self.display_missing_values(data)
             self.show_success(f"從 Binance 載入 '{symbol}' 成功，行數：{len(data)}")
+            # 保存 symbol 供後續使用
+            self.symbol = symbol
             return data, interval
         except Exception as err:  # pylint: disable=broad-exception-caught
             self.show_error(str(err))

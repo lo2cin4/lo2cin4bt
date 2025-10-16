@@ -509,7 +509,8 @@ def main():
 
             # 回測
             predictor_file_name = getattr(data_loader, "predictor_file_name", None)
-            backtester = BaseBacktester(data, frequency, logger, predictor_file_name)
+            symbol = getattr(data_loader, "symbol", "X")
+            backtester = BaseBacktester(data, frequency, logger, predictor_file_name, symbol)
             backtester.run()
             logger.info("回測完成")
             console.print(

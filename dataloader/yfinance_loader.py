@@ -103,6 +103,8 @@ class YahooFinanceLoader(AbstractDataLoader):
             self.show_success(
                 f"從 Yahoo Finance 載入 '{ticker}' 成功，行數：{len(data)}"
             )
+            # 保存 symbol 供後續使用
+            self.symbol = ticker
             return data, frequency
 
         except Exception as e:
