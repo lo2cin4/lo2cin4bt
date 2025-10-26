@@ -16,7 +16,7 @@
 
 我的目標是讓每一位量化新手，只需要以「說人話」的方式，便能輕鬆進行交易回測，並將結果可視化。
 
-讓我們一同把那些仍然憑感覺的交易散戶淘汰吧！
+讓我們一同淘汰那些仍然憑感覺交易的散戶吧！
 
 在使用之前，可在 Github 專案的右上角給一個星😄
 
@@ -53,7 +53,7 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
 
 ### 2. 🔬 統計分析 (Statistical Analysis)
 
-- **用途**：深入分析數據特徵與預測因子有效性
+- **用途**：深入分析數據特徵與預測因子的有效性
 - **功能**：
   - 數據分布檢驗與異常值檢測
   - 預測因子與價格的相關性分析
@@ -110,18 +110,18 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
    python main.py
    ```
 
-7. 按照畫面指示選擇數據來源、回測參數，即可開始！
+7. 依照畫面指示選擇數據來源與回測參數，即可開始！
 
 ---
 
 ## 💾 下載與安裝 (完全編程新手懶人包)
 
 1. 點選 GitHub 頁面右上角的「Code」→「Download ZIP」下載專案
-2. 解壓縮 ZIP 檔案 lo2cin4bt，並將檔案移至你想放置的磁碟 / 資料夾
+2. 解壓縮 ZIP 檔案 lo2cin4bt，並將檔案移至您想放置的磁碟/資料夾
 3. 複製目前 lo2cin4bt 的檔案路徑
 4. 安裝 Cursor
-5. 詢問它：「如何建立虛擬環境，並運行在 "檔案路徑" 的 lo2cin4bt？」
-6. AI會指導你下載各種 Library 和 安裝環境
+5. 詢問它：「如何建立虛擬環境，並運行在 '檔案路徑' 的 lo2cin4bt？」
+6. AI 會指導您下載各種 Library 與安裝環境
 
 ---
 
@@ -129,21 +129,21 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
 
 ### 安裝 Cursor（AI 編輯器）
 
-1. 前往 [Cursor 官方網站](https://www.cursor.cn/) 下載並安裝 Cursor。
-2. 支援 AI 助理協作，可以自然語言解決安裝難題。
+1. 前往 [Cursor 官方網站](https://www.cursor.cn/) 下載並安裝 Cursor
+2. 支援 AI 助理協作，可透過自然語言解決安裝難題
 
-### 用 Cursor 開啟本專案
+### 使用 Cursor 開啟本專案
 
-1. 開啟 Cursor。
-2. 點選「File」→「Open Folder...」，選擇剛剛解壓縮的專案資料夾。
-3. 建議在左側 EXPLORER 檢視所有檔案結構，右側可直接點擊 .py 檔案進行編輯。
+1. 開啟 Cursor
+2. 點選「File」→「Open Folder...」，選擇剛才解壓縮的專案資料夾
+3. 建議在左側 EXPLORER 檢視所有檔案結構，右側可直接點擊 .py 檔案進行編輯
 4. 內建終端機（Terminal）：
-   - 點選「Terminal」→「New Terminal」，即可在專案根目錄下執行 pip、python 等指令。
+   - 點選「Terminal」→「New Terminal」，即可在專案根目錄下執行 pip、python 等指令
 
 ### 執行與除錯
 
-- 在 Cursor 內直接按 F5 或點選「Run」→「Start Debugging」可進行除錯。
-- 也可在內建終端機輸入 `python main.py` 直接執行。
+- 在 Cursor 內直接按 F5 或點選「Run」→「Start Debugging」即可進行除錯
+- 也可在內建終端機輸入 `python main.py` 直接執行
 
 ---
 
@@ -171,7 +171,7 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
   - `YYYY-MM-DD`（如：2023-01-01）→ 配置 `"time_format": "%Y-%m-%d"`
   - `DD/MM/YYYY`（如：01/01/2023）→ 配置 `"time_format": "%d/%m/%Y"`
   - `MM/DD/YYYY`（如：01/01/2023）→ 配置 `"time_format": "%m/%d/%Y"`
-- 需放在`records\dataloader\import`，系統會自動檢測
+- 需放在 `records\dataloader\import`，系統會自動檢測
 - 範例：
 
   | Date | factor1 | factor2 |
@@ -225,9 +225,11 @@ Autorunner 是 lo2cin4bt 的自動化回測模組，讓用戶可以透過配置�
 ### 快速開始
 
 #### 1. 準備配置文件
-將 `records/autorunner/config_template.json` 複製為您的配置文件，並根據需要修改：。
+
+將 `records/autorunner/config_template.json` 複製為您的配置文件，並根據需要修改。
 
 #### 2. 執行自動化回測
+
 ```bash
 python main.py
 # 在主選單選擇 "5. 🚀 Autorunner 自動化回測"
@@ -245,31 +247,32 @@ python main.py
 | **本地文件** | `"source": "file"` | 支援 CSV/Excel 格式 |
 
 ### 批次執行
+
 支援多個配置文件同時執行，適合策略優化和參數測試：
 
 1. 在 `records/autorunner/` 目錄放置多個配置文件
 2. 執行 autorunner 時選擇多個配置
-3. 系統將依序執行所有選定配置的回測與分析，並放置在對應資料夾
+3. 系統將依序執行所有選定配置的回測與分析，並放置於對應資料夾
 
 ---
 
 ## 📂 數據存放與輸出說明
 
 - **預測因子檔案存放**：
-  - 需存放於 `records/dataloader/import` 資料夾，格式為 `csv/xlsx/json` 檔案。
+  - 需存放於 `records/dataloader/import` 資料夾，格式為 `csv/xlsx/json` 檔案
 - **回測結果（交易紀錄）**：
-  - 自動產生並存放於 `records/backtester/` 資料夾，格式為 `.parquet` 檔案。
-  - 每次回測會產生一個唯一檔名（如 `20250723_97dpnzl6.parquet`）。
+  - 自動產生並存放於 `records/backtester/` 資料夾，格式為 `.parquet` 檔案
+  - 每次回測會產生一個唯一檔名（如 `20250723_97dpnzl6.parquet`）
 - **統計分析結果**：
-  - 自動產生於存放於 `records/backtester/statanalyser` 資料夾，包含 `processed_data.csv`、`stats_report.txt` 等。
+  - 自動產生並存放於 `records/backtester/statanalyser` 資料夾，包含 `processed_data.csv`、`stats_report.txt` 等
 - **交易分析**：
-  - 系統會自動讀取 `records/backtester/` 下的 parquet 檔案，計算後會產生新的 `.parquet` 檔案，並存放於`records/metricstracker/`內 。
+  - 系統會自動讀取 `records/backtester/` 下的 parquet 檔案，計算後會產生新的 `.parquet` 檔案，並存放於 `records/metricstracker/` 內
 - **可視化平台**：
-  - 系統會會自動讀取 `records/metricstracker/` 下的 parquet 檔案，並以互動式圖表展示。
+  - 系統會自動讀取 `records/metricstracker/` 下的 parquet 檔案，並以互動式圖表展示
 - **日誌檔案**：
-  - 所有錯誤與執行日誌會存於 `logs/backtest_errors.log`。
+  - 所有錯誤與執行日誌會存於 `logs/backtest_errors.log`
 - **自訂導出**：
-  - 可於互動流程中選擇導出個別回測結果為 CSV。
+  - 可於互動流程中選擇導出個別回測結果為 CSV
 
 ---
 
@@ -282,7 +285,7 @@ python main.py
 
 - 修正了各種 BUG
 - 新增了更多 autorunner config 範例
-- 系統目前可以閱讀 timestamp 格式的代碼了
+- 系統目前可以閱讀 timestamp 格式的數據了
 
 </details>
 
@@ -290,10 +293,10 @@ python main.py
 <summary>📅 2025-10-03 </summary>
 
 - 修改了 metricstracker 的儲存方式以降低電腦配置需求 
-- 【重榜】省略輸入選項的全自動版本 Autorunner 已上線！
+- 【重磅】省略輸入選項的全自動版本 Autorunner 已上線！
   - 在 records/autorunner 中設定 config.json
   - 運行 main.py，在主選單選擇 autorunner
-  - 系統會自動回測並產生可視化所需要的檔案
+  - 系統會自動回測並產生可視化所需的檔案
 
 </details>
 
@@ -301,9 +304,9 @@ python main.py
 <summary>📅 2025-09-14 </summary>
 
 - 擴展了回測時的 default 功能為 defaultlong, defaultshort 和 defaultall。
-  - 以均線交叉策略為例，defaultlong 能檢查「升穿均線做多、跌穿均線平倉」的部份；
-  - defaultshort 能檢查「跌穿均線做空、升穿均線平倉」的部份；
-  - defaultall 則會分別檢查以上兩者。
+  - 以均線交叉策略為例，defaultlong 能檢查「升穿均線做多、跌穿均線平倉」的部分
+  - defaultshort 能檢查「跌穿均線做空、升穿均線平倉」的部分
+  - defaultall 則會分別檢查以上兩者
 
 </details>
 
@@ -324,9 +327,9 @@ python main.py
 <details>
 <summary>📅 2025-08-22 </summary>
 
-- 【重榜】增加了 (高點、低點) HL、 (數值) VALUE 指標
+- 【重磅】增加了 (高點、低點) HL、(數值) VALUE 指標
 - HL、VALUE 指標已加入 default 策略
-- 【重榜】回測參數現在可以輸入單獨數值了，不用必須輸入區間
+- 【重磅】回測參數現在可以輸入單一數值，不需必須輸入區間
 - 修正了持倉時間計算錯誤問題
 - 修正了指標 MA9-MA12 輸入邏輯錯誤問題
 - 修正了指標 NDAYS 計算錯誤問題
@@ -346,7 +349,7 @@ python main.py
 <details>
 <summary>📅 2025-08-18 </summary>
 
-- 【重榜】增加了 (百份位) Percentile 指標
+- 【重磅】增加了 (百分位) Percentile 指標
 - Percentile 指標已加入 default 策略
 
 </details>
@@ -354,8 +357,8 @@ python main.py
 <details>
 <summary>📅 2025-08-16 </summary>
 
-- 【重榜】可視化平台增加了參數高原，檢測過擬合無難度
-- BUG修正Calamar Ratio 的 Bug 已修正
+- 【重磅】可視化平台增加了參數高原，檢測過擬合無難度
+- BUG 修正：Calamar Ratio 的 Bug 已修正
 - 反選功能指示更清晰
 
 </details>
@@ -370,7 +373,7 @@ python main.py
 <details>
 <summary>📅 2025-08-04 </summary>
 
-- 【重榜】向量化形式重構回測部份
+- 【重磅】向量化形式重構回測部分
 - 動態檢測電腦配置以確保程式不會崩潰
 
 </details>
