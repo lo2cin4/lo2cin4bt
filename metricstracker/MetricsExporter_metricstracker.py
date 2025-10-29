@@ -62,7 +62,13 @@ console = Console()
 class MetricsExporter:
     @staticmethod
     def add_drawdown_bah(df):
-        df = df.copy()
+        # 避免不必要複製，只在需要時複製
+        if "Drawdown" not in df.columns or "BAH_Equity" not in df.columns:
+            df = df.copy()
+        else:
+            # 如果欄位已存在，直接返回
+            return df
+        
         equity = df["Equity_value"]
         roll_max = equity.cummax()
         df["Drawdown"] = (equity - roll_max) / roll_max
@@ -100,13 +106,6 @@ class MetricsExporter:
                     border_style="#dbac30",
                 )
             )
-
-        # 統一 batch_metadata 寫入，不論單/多策略
-        grouped = (
-            df.groupby("Backtest_id") if "Backtest_id" in df.columns else [(None, df)]
-        )
-        batch_metadata = []
-        all_df = []
 
         # 先讀取舊的 batch_metadata（從分離的 JSON 檔案）
         old_batch_metadata = []
@@ -153,18 +152,88 @@ class MetricsExporter:
                         border_style="#8f1511",
                     )
                 )
-        for Backtest_id, group in grouped:
-            group = MetricsExporter.add_drawdown_bah(group)
-            all_df.append(group)
-            calc = MetricsCalculatorMetricTracker(group, time_unit, risk_free_rate)
+        
+        # 統一 batch_metadata 寫入，不論單/多策略
+        # 優化：先添加 drawdown 欄位到整個 DataFrame，避免每個 group 都複製
+        df = MetricsExporter.add_drawdown_bah(df)
+        
+        # 檢查是否有太多策略組合，如果是則分批次處理
+        if "Backtest_id" in df.columns:
+            unique_backtest_ids = df["Backtest_id"].nunique()
+            grouped = df.groupby("Backtest_id")
+            batch_metadata = []
+            all_df = []
+            
+            if unique_backtest_ids > 10000:
+                console.print(
+                    Panel(
+                        f"⚠️ 檢測到大量策略組合 ({unique_backtest_ids} 個)，將使用批次處理以優化記憶體使用（每批 1000 個）",
+                        title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
+                        border_style="#8f1511",
+                    )
+                )
+                # 分批處理，每批處理 1000 個
+                batch_size = 1000
+                all_backtest_ids = list(grouped.groups.keys())
+                total_batches = (len(all_backtest_ids) + batch_size - 1) // batch_size
+                
+                for batch_idx in range(total_batches):
+                    start_idx = batch_idx * batch_size
+                    end_idx = min(start_idx + batch_size, len(all_backtest_ids))
+                    batch_ids = all_backtest_ids[start_idx:end_idx]
+                    
+                    console.print(
+                        Panel(
+                            f"處理批次 {batch_idx + 1}/{total_batches} (策略 {start_idx + 1}-{end_idx}/{unique_backtest_ids})",
+                            title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
+                            border_style="#dbac30",
+                        )
+                    )
+                    
+                    for Backtest_id in batch_ids:
+                        group = grouped.get_group(Backtest_id)
+                        all_df.append(group)
+                        calc = MetricsCalculatorMetricTracker(group, time_unit, risk_free_rate)
+                        strategy_metrics = calc.calc_strategy_metrics()
+                        bah_metrics = calc.calc_bah_metrics()
+                        meta = {"Backtest_id": Backtest_id} if Backtest_id is not None else {}
+                        for k in strategy_metrics:
+                            meta[k] = strategy_metrics[k]
+                        for k in bah_metrics:
+                            meta[k] = bah_metrics[k]
+                        batch_metadata.append(meta)
+                        # 清理臨時對象以釋放記憶體
+                        del calc, strategy_metrics, bah_metrics, meta, group
+            else:
+                grouped = df.groupby("Backtest_id")
+                batch_metadata = []
+                all_df = []
+                for Backtest_id, group in grouped:
+                    all_df.append(group)
+                    calc = MetricsCalculatorMetricTracker(group, time_unit, risk_free_rate)
+                    strategy_metrics = calc.calc_strategy_metrics()
+                    bah_metrics = calc.calc_bah_metrics()
+                    meta = {"Backtest_id": Backtest_id} if Backtest_id is not None else {}
+                    for k in strategy_metrics:
+                        meta[k] = strategy_metrics[k]
+                    for k in bah_metrics:
+                        meta[k] = bah_metrics[k]
+                    batch_metadata.append(meta)
+                    # 清理臨時對象以釋放記憶體
+                    del calc, strategy_metrics, bah_metrics, meta
+        else:
+            # 沒有 Backtest_id，直接處理整個 DataFrame
+            all_df = [df]
+            calc = MetricsCalculatorMetricTracker(df, time_unit, risk_free_rate)
             strategy_metrics = calc.calc_strategy_metrics()
             bah_metrics = calc.calc_bah_metrics()
-            meta = {"Backtest_id": Backtest_id} if Backtest_id is not None else {}
+            meta = {}
             for k in strategy_metrics:
                 meta[k] = strategy_metrics[k]
             for k in bah_metrics:
                 meta[k] = bah_metrics[k]
-            batch_metadata.append(meta)
+            batch_metadata = [meta]
+            del calc, strategy_metrics, bah_metrics
         # 合併舊的 batch_metadata（欄位級合併）
         if old_batch_metadata:
             old_map = {

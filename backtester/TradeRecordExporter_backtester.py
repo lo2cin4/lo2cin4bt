@@ -126,6 +126,7 @@ class TradeRecordExporter_backtester:
         data: Optional[pd.DataFrame] = None,
         predictor_file_name: Optional[str] = None,
         predictor_column: Optional[str] = None,
+        symbol: Optional[str] = None,
     ) -> None:
         self.trade_records = trade_records
         self.frequency = frequency
@@ -140,6 +141,7 @@ class TradeRecordExporter_backtester:
         self.data = data
         self.predictor_file_name = predictor_file_name
         self.predictor_column = predictor_column
+        self.symbol = symbol  # 添加 symbol 參數
         self.logger = logging.getLogger(self.__class__.__name__)
 
         self.output_dir = os.path.join(
@@ -413,15 +415,23 @@ class TradeRecordExporter_backtester:
 
     def _get_trading_instrument(self) -> str:
         """獲取交易標的名稱"""
+        # 優先使用直接傳入的 symbol
+        if self.symbol and self.symbol != "X":
+            return self.symbol
+        
         # 從 results 中獲取
         if self.results:
             for result in self.results:
                 records = result.get("records", pd.DataFrame())
                 if not records.empty and "Trading_instrument" in records.columns:
                     instrument = records["Trading_instrument"].iloc[0]
-                    if instrument and str(instrument) != "nan":
+                    if instrument and str(instrument) != "nan" and str(instrument) != "X":
                         return str(instrument)
 
+        # 如果 symbol 有值，返回它（即使是 "X"）
+        if self.symbol:
+            return self.symbol
+        
         # 預設值
         return "UNKNOWN"
 

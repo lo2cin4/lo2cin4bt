@@ -49,36 +49,67 @@ class BacktestRunnerAutorunner:
             # 步驟 1: 轉換 config 為 backtester 格式
             backtester_config = self._convert_config(config)
             
-            # 步驟 2: 創建並配置 BaseBacktester（用於結果導出）
+            # 步驟 2: 從配置中提取必要信息
+            dataloader_config = config.get("dataloader", {})
+            predictor_config = dataloader_config.get("predictor_config", {})
+            predictor_path = predictor_config.get("predictor_path", "")
+            
+            # 提取 predictor_file_name（不含副檔名）
+            predictor_file_name = None
+            if predictor_path:
+                from pathlib import Path
+                predictor_file_name = Path(predictor_path).stem
+            
+            predictor_column = config.get("backtester", {}).get("selected_predictor", "X")
+            
+            # 提取 symbol
+            source = dataloader_config.get("source", "yfinance")
+            if source == "binance":
+                binance_config = dataloader_config.get("binance_config", {})
+                symbol = binance_config.get("symbol", "BTCUSDT")
+            elif source == "yfinance":
+                yfinance_config = dataloader_config.get("yfinance_config", {})
+                symbol = yfinance_config.get("symbol", "AAPL")
+            elif source == "coinbase":
+                coinbase_config = dataloader_config.get("coinbase_config", {})
+                symbol = coinbase_config.get("symbol", "BTC-USD")
+            else:
+                symbol = "X"
+            
+            # 創建並配置 BaseBacktester（用於結果導出）
             backtester = BaseBacktester(
                 data=data,
-                frequency=config.get("dataloader", {}).get("frequency", "1D"),
-                logger=self.logger
+                frequency=dataloader_config.get("frequency", "1D"),
+                logger=self.logger,
+                predictor_file_name=predictor_file_name
             )
+            backtester.predictor_column = predictor_column
             
-            # 設置預測因子
-            selected_predictor = config.get("backtester", {}).get("selected_predictor", "X")
-            backtester.predictor_column = selected_predictor
-            
-            # 步驟 3: 直接調用 VectorBacktestEngine，避免用戶輸入
+            # 步驟 3: 直接調用 VectorBacktestEngine
             from backtester.VectorBacktestEngine_backtester import VectorBacktestEngine
             
-            engine = VectorBacktestEngine(data, config.get("dataloader", {}).get("frequency", "1D"), self.logger)
+            engine = VectorBacktestEngine(
+                data, 
+                dataloader_config.get("frequency", "1D"), 
+                self.logger,
+                symbol=symbol
+            )
             results = engine.run_backtests(backtester_config)
             
-            # 步驟 4: 設置結果到 backtester 並導出（自動化模式，不顯示用戶界面）
+            # 步驟 4: 設置結果並導出
             backtester.results = results
             
-            # 直接導出 parquet 文件，不顯示用戶選擇界面
             from backtester.TradeRecordExporter_backtester import TradeRecordExporter_backtester
+            
             exporter = TradeRecordExporter_backtester(
                 trade_records=pd.DataFrame(),
-                frequency=config.get("dataloader", {}).get("frequency", "1D"),
+                frequency=dataloader_config.get("frequency", "1D"),
                 results=results,
                 data=data,
                 Backtest_id=backtester_config.get("Backtest_id", ""),
-                predictor_file_name=backtester.predictor_file_name,
-                predictor_column=backtester.predictor_column,
+                predictor_file_name=predictor_file_name,
+                predictor_column=predictor_column,
+                symbol=symbol,
                 **backtester_config.get("trading_params", {})
             )
             exporter.export_to_parquet()

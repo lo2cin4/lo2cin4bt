@@ -327,8 +327,8 @@ class BaseAutorunner:
             self._display_error("數據載入失敗")
             return
 
-        # 執行回測
-        backtest_results = self._execute_backtest(data, config_data.backtester_config)
+        # 執行回測（傳遞完整的 config_data 以便獲取 dataloader 和 predictor 配置）
+        backtest_results = self._execute_backtest(data, config_data.backtester_config, config_data)
 
         if backtest_results is not None:
             self._display_backtest_summary(backtest_results)
@@ -340,7 +340,7 @@ class BaseAutorunner:
         self._execute_metrics(backtest_results, config_data.metricstracker_config)
 
     def _execute_backtest(
-        self, data: Any, backtest_config: Dict[str, Any]
+        self, data: Any, backtest_config: Dict[str, Any], config_data: Any = None
     ) -> Optional[Dict[str, Any]]:
         """
         執行回測
@@ -348,6 +348,7 @@ class BaseAutorunner:
         Args:
             data: 已載入的數據
             backtest_config: 回測配置
+            config_data: 完整的配置數據對象（包含 dataloader 和 predictor 配置）
 
         Returns:
             回測結果或 None
@@ -358,10 +359,22 @@ class BaseAutorunner:
             backtest_runner = BacktestRunnerAutorunner()
 
             # 構建完整的 config，包含 dataloader 信息
-            config = {
-                "backtester": backtest_config,
-                "dataloader": {"frequency": self.data_loader_frequency or "1D"}
-            }
+            # 如果有 config_data，使用完整的配置信息
+            if config_data:
+                config = {
+                    "backtester": backtest_config,
+                    "dataloader": {
+                        **config_data.dataloader_config,
+                        "frequency": self.data_loader_frequency or config_data.dataloader_config.get("frequency", "1D"),
+                        "predictor_config": config_data.predictor_config  # 包含 predictor 配置
+                    }
+                }
+            else:
+                # 向後兼容：如果沒有 config_data，只使用基本配置
+                config = {
+                    "backtester": backtest_config,
+                    "dataloader": {"frequency": self.data_loader_frequency or "1D"}
+                }
             results = backtest_runner.run_backtest(data, config)
 
             if results:

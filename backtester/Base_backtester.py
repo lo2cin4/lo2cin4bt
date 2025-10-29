@@ -318,6 +318,7 @@ class BaseBacktester:
             Backtest_id=config.get("Backtest_id", ""),
             predictor_file_name=self.predictor_file_name,
             predictor_column=self.predictor_column,
+            symbol=self.symbol,  # 傳遞 symbol
             **config["trading_params"],
         )
 
