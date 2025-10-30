@@ -338,6 +338,11 @@ class BaseAutorunner:
 
         # 執行績效分析
         self._execute_metrics(backtest_results, config_data.metricstracker_config)
+        
+        # 清理記憶體：刪除大型對象以避免記憶體累積
+        del data, backtest_results
+        import gc
+        gc.collect()
 
     def _execute_backtest(
         self, data: Any, backtest_config: Dict[str, Any], config_data: Any = None

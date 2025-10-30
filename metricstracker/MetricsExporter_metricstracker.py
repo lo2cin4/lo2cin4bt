@@ -237,10 +237,10 @@ class MetricsExporter:
         # 合併舊的 batch_metadata（欄位級合併）
         if old_batch_metadata:
             old_map = {
-                m["Backtest_id"]: m for m in old_batch_metadata if "Backtest_id" in m
+                m.get("Backtest_id"): m for m in old_batch_metadata if "Backtest_id" in m
             }
             new_map = {
-                m["Backtest_id"]: m for m in batch_metadata if "Backtest_id" in m
+                m.get("Backtest_id"): m for m in batch_metadata if "Backtest_id" in m
             }
             all_ids = set(old_map.keys()) | set(new_map.keys())
             merged = []
@@ -254,26 +254,27 @@ class MetricsExporter:
                 else:
                     merged.append(old_map[bid])
             batch_metadata = merged
-        # 過濾空的 DataFrame 以避免 FutureWarning
-        filtered_df = []
-        for df_item in all_df:
-            if not df_item.empty and len(df_item.columns) > 0:
-                # 清理 DataFrame：移除全為 NA 的列
-                cleaned_df = df_item.dropna(axis=1, how="all")
-                if not cleaned_df.empty:
-                    filtered_df.append(cleaned_df)
 
-        if filtered_df:
-            # 使用更安全的 concat 方式
-            try:
-                df = pd.concat(filtered_df, ignore_index=True, sort=False)
-            except Exception:
-                # 如果 concat 失敗，嘗試逐個合併
-                df = filtered_df[0]
-                for df_item in filtered_df[1:]:
-                    df = pd.concat([df, df_item], ignore_index=True, sort=False)
+        # 直接基於原始 df 構建精簡輸出，避免將所有分組 DataFrame 彙整到記憶體
+        preferred_cols = [
+            "Time",
+            "Equity_value",
+            "BAH_Equity",
+            "BAH_Return",
+            "Drawdown",
+            "Backtest_id",
+        ]
+        available_cols = [c for c in preferred_cols if c in df.columns]
+        if available_cols:
+            df_out = df[available_cols].copy()
         else:
-            df = pd.DataFrame()
+            fallback = [c for c in ["Time", "Equity_value"] if c in df.columns]
+            df_out = df[fallback].copy() if fallback else df.head(0).copy()
+
+        # 降精度降低記憶體佔用
+        for col in df_out.columns:
+            if df_out[col].dtype == "float64":
+                df_out[col] = df_out[col].astype("float32")
         # 將 batch_metadata 儲存到獨立的 JSON 檔案
         os.makedirs(out_dir, exist_ok=True)
         with open(metadata_json_path, "w", encoding="utf-8") as f:
@@ -296,7 +297,7 @@ class MetricsExporter:
                 )
             )
 
-        table = pa.Table.from_pandas(df)
+        table = pa.Table.from_pandas(df_out)
         table = table.replace_schema_metadata(new_meta)
         out_path = os.path.join(out_dir, f"{orig_name}_metrics.parquet")
         pq.write_table(table, out_path)

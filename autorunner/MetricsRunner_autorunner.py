@@ -230,6 +230,12 @@ class MetricsRunnerAutorunner:
             MetricsExporter.export(df, abs_path, time_unit, risk_free_rate)
             output_path = self._derive_output_path(abs_path)
             self._display_success(f"已匯出績效：{os.path.basename(output_path)}")
+            
+            # 清理記憶體：刪除 df 並強制垃圾回收
+            del df
+            import gc
+            gc.collect()
+            
             return MetricsTaskResult(abs_path, output_path, "success")
         except Exception as exc:  # pragma: no cover (防止執行時意外)
             error_msg = f"績效分析失敗：{exc}"
