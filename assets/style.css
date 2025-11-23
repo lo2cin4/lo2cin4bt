@@ -1,10 +1,57 @@
+/* 重點指標六角形卡片樣式 */
+.key-metric-hexagon {
+    position: relative;
+    width: 150px;
+    height: 150px;
+    margin: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.key-metric-hexagon::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    clip-path: polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%);
+    background: linear-gradient(135deg, #ecbc4f 0%, #8f1511 100%);
+    z-index: 1;
+}
+
+.key-metric-hexagon::after {
+    content: '';
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: calc(100% - 8px);
+    height: calc(100% - 8px);
+    clip-path: polygon(30% 0%, 70% 0%, 100% 50%, 70% 100%, 30% 100%, 0% 50%);
+    background: #181818;
+    z-index: 2;
+}
+
+.key-metric-content {
+    position: relative;
+    z-index: 3;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
 /* 字體層級調整，顏色維持原主題色設計 */
 
 /* 1. 區塊主標題（控制面板、權益曲線圖、績效指標） */
 h5, .section-title {
     font-size: 2.1rem;
     font-weight: bold;
-    color: #fff !important;
+    color: #ecbc4f !important;  /* 改為主題金色 */
     margin-top: 1.2rem;
     margin-bottom: 0.8rem;
     background: transparent !important;
@@ -53,12 +100,29 @@ h5.mb-3, h5.mb-4, h5.p-3 {
 .dash-table-container .dash-spreadsheet-container td { background: #232323 !important; color: #f5f5f5 !important; }
 .dash-graph .js-plotly-plot .plotly { background: #181818 !important; }
 
-/* 新增：Details 與 Performance 區塊背景改為淺灰 */
+/* 新增：Details 與 Performance 區塊背景改為黑底 */
 .details-block, .performance-block, .performance-table, .details-table, .performance, .details {
-    background: #e0e0e0 !important;
-    color: #181818 !important;
+    background: #232323 !important;
+    color: #f5f5f5 !important;
     border-radius: 6px;
     padding: 0.5rem 1.2rem;
+}
+
+/* Details 表格留白欄優化 */
+.details-table th,
+.performance-table th {
+    background: #dbac30 !important;
+    color: #8f1511 !important;
+    font-weight: bold;
+    padding: 0.75rem 1rem !important;  /* 增加留白 */
+    border-right: 2px solid #8f1511 !important;  /* 分隔線 */
+}
+
+.details-table td,
+.performance-table td {
+    background: #232323 !important;
+    color: #f5f5f5 !important;
+    padding: 0.75rem 1rem !important;  /* 增加留白 */
 }
 
 /* 圖表區域使用透明背景，直接顯示黑色背景 */
@@ -69,6 +133,22 @@ h5.mb-3, h5.mb-4, h5.p-3 {
 /* 確保圖表容器也是透明背景 */
 .dash-graph .js-plotly-plot .plotly {
     background: #181818 !important;
+}
+
+/* 移除圖表容器的多餘留白 */
+#equity_chart {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+.dash-graph {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+/* 確保圖表容器高度固定 */
+#equity_chart .js-plotly-plot {
+    height: 700px !important;
 }
 
 /* Details 與 Performance 區塊內的表格樣式 */
@@ -99,36 +179,36 @@ h5.mb-3, h5.mb-4, h5.p-3 {
 .details .table td, .performance .table td,
 .details-block .table td, .performance-block .table td,
 .details-table .table td, .performance-table .table td {
-    background: #e0e0e0 !important;
-    color: #181818 !important;
+    background: #232323 !important;
+    color: #f5f5f5 !important;
 }
 
 .details .table, .performance .table,
 .details-block .table, .performance-block .table,
 .details-table .table, .performance-table .table {
-    background: #e0e0e0 !important;
-    color: #181818 !important;
+    background: #232323 !important;
+    color: #f5f5f5 !important;
     border: 1px solid #dbac30 !important;
 }
 
 /* Dash dropdown (react-select) 主題色修正 */
 .Select-control, .Select-menu-outer, .Select-option, .Select-placeholder, .Select-value {
     background: #181818 !important;
-    color: #ecbc4f !important;
+    color: #ffffff !important;  /* 選項文字改為白色 */
     border: 1.5px solid #8f1511 !important;
 }
 .Select-option.is-focused, .Select-option.is-selected {
     background: #8f1511 !important;
-    color: #ecbc4f !important;
+    color: #ffffff !important;  /* 選中選項文字改為白色 */
 }
 .Select-menu-outer {
     background: #181818 !important;
-    color: #ecbc4f !important;
+    color: #ffffff !important;  /* 選單文字改為白色 */
     border: 1.5px solid #8f1511 !important;
 }
 
 .Select__single-value, .Select-value-label, .Select-option.is-selected {
-    color: #ecbc4f !important;
+    color: #ffffff !important;  /* 選中值文字改為白色 */
 }
 
 /* 參數高原控制面板滑動條樣式 */

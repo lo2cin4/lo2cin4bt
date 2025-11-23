@@ -162,7 +162,6 @@ class MetricsExporter:
             unique_backtest_ids = df["Backtest_id"].nunique()
             grouped = df.groupby("Backtest_id")
             batch_metadata = []
-            all_df = []
             
             if unique_backtest_ids > 10000:
                 console.print(
@@ -192,7 +191,6 @@ class MetricsExporter:
                     
                     for Backtest_id in batch_ids:
                         group = grouped.get_group(Backtest_id)
-                        all_df.append(group)
                         calc = MetricsCalculatorMetricTracker(group, time_unit, risk_free_rate)
                         strategy_metrics = calc.calc_strategy_metrics()
                         bah_metrics = calc.calc_bah_metrics()
@@ -205,11 +203,7 @@ class MetricsExporter:
                         # 清理臨時對象以釋放記憶體
                         del calc, strategy_metrics, bah_metrics, meta, group
             else:
-                grouped = df.groupby("Backtest_id")
-                batch_metadata = []
-                all_df = []
                 for Backtest_id, group in grouped:
-                    all_df.append(group)
                     calc = MetricsCalculatorMetricTracker(group, time_unit, risk_free_rate)
                     strategy_metrics = calc.calc_strategy_metrics()
                     bah_metrics = calc.calc_bah_metrics()
@@ -220,10 +214,9 @@ class MetricsExporter:
                         meta[k] = bah_metrics[k]
                     batch_metadata.append(meta)
                     # 清理臨時對象以釋放記憶體
-                    del calc, strategy_metrics, bah_metrics, meta
+                    del calc, strategy_metrics, bah_metrics, meta, group
         else:
             # 沒有 Backtest_id，直接處理整個 DataFrame
-            all_df = [df]
             calc = MetricsCalculatorMetricTracker(df, time_unit, risk_free_rate)
             strategy_metrics = calc.calc_strategy_metrics()
             bah_metrics = calc.calc_bah_metrics()

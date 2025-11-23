@@ -161,14 +161,14 @@ class DashboardGenerator:
                                 [
                                     dbc.Row(
                                         [
-                                            # 左側控制面板
+                                            # 左側控制面板（收窄）
                                             dbc.Col(
                                                 [
                                                     self._create_control_panel(
                                                         indicator_param_structure
                                                     )
                                                 ],
-                                                width=3,
+                                                width=2,  # 從 3 改為 2，收窄控制面板
                                             ),
                                             # 右側主要內容
                                             dbc.Col(
@@ -177,9 +177,10 @@ class DashboardGenerator:
                                                         data
                                                     )
                                                 ],
-                                                width=9,
+                                                width=10,  # 從 9 改為 10，補償控制面板的收窄
                                             ),
-                                        ]
+                                        ],
+                                        style={"marginLeft": 0, "marginRight": 0},  # 移除 Row 的邊距
                                     )
                                 ],
                                 id="layout-asset-curve-with-panel",
@@ -206,6 +207,7 @@ class DashboardGenerator:
                             ),
                         ],
                         fluid=True,
+                        style={"paddingLeft": "15px", "paddingRight": "15px"},  # 設置與 Navbar 一致的 padding，使圖表與 logo 左側對齊
                     ),
                 ]
             )
@@ -223,13 +225,32 @@ class DashboardGenerator:
                 dbc.Navbar(
                     dbc.Container(
                         [
-                            dbc.NavbarBrand("Lo2cin4BT 可視化平台", className="ms-2"),
+                            html.Div(
+                                [
+                                    html.Img(
+                                        src="/assets/lo2cin4logo.png",
+                                        style={
+                                            "height": "1.5em",  # 與文字高度相同
+                                            "width": "1.5em",   # 寬度等於高度
+                                            "marginRight": "0.5rem",
+                                            "verticalAlign": "middle",
+                                        },
+                                        alt="Lo2cin4 Logo",
+                                    ),
+                                    dbc.NavbarBrand(
+                                        "Lo2cin4BT 可視化平台",
+                                        className="ms-0",
+                                        style={"display": "inline-block"},
+                                    ),
+                                ],
+                                style={"display": "flex", "alignItems": "center"},
+                            ),
                             dbc.Nav(
                                 [
                                     # 頁面切換按鈕
                                     dbc.NavItem(
                                         dbc.Button(
-                                            "📊 資產曲線組合圖",
+                                            "資產曲線組合圖",
                                             id="btn-asset-curve",
                                             color="success",
                                             className="me-2",
@@ -282,7 +303,9 @@ class DashboardGenerator:
                                 className="ms-auto",
                                 style={"gap": "1.2rem"},
                             ),
-                        ]
+                        ],
+                        fluid=True,
+                        style={"paddingLeft": "15px", "paddingRight": "15px"},  # 設置與主內容區域一致的 padding
                     ),
                     color="primary",
                     dark=True,
@@ -374,9 +397,14 @@ class DashboardGenerator:
                                 "indicator": type_name,
                             },
                             color="secondary",
-                            size="sm",
+                            size="md",  # 從 sm 改為 md，使按鈕更大
                             outline=True,
-                            style={"float": "right", "marginLeft": "8px"},
+                            style={
+                                "float": "right",
+                                "marginLeft": "8px",
+                                "fontSize": "1.1rem",  # 增加字體大小
+                                "padding": "0.5rem 1rem",  # 增加內邊距
+                            },
                         ),
                     ],
                     style={
@@ -423,6 +451,7 @@ class DashboardGenerator:
                             dcc.Dropdown(
                                 id="sorting_select",
                                 options=[
+                                    {"label": "All Results", "value": "All_Results"},
                                     {
                                         "label": "Top 20 Return",
                                         "value": "Top20_Total_return",
@@ -446,7 +475,8 @@ class DashboardGenerator:
                                         "value": "Top20_Information_ratio",
                                     },
                                 ],
-                                placeholder="選擇排序方式",
+                                value="Top20_Sharpe",  # 預設選擇 Top 20 Sharpe
+                                clearable=False,  # 移除清除按鈕
                                 style={
                                     "width": "100%",
                                     "background": "#181818",
@@ -486,9 +516,9 @@ class DashboardGenerator:
         try:
             return html.Div(
                 [
-                    html.H5("📊 資產曲線組合圖", className="mb-3"),
-                    dcc.Graph(id="equity_chart", style={"height": "1000px"}),
-                    html.H5("績效指標", className="mb-3"),
+                    html.H5("資產曲線組合圖", className="mb-2", style={"color": "#ecbc4f"}),
+                    dcc.Graph(id="equity_chart", style={"height": "700px", "marginBottom": "0", "paddingBottom": "0"}),
+                    html.H5("績效指標", className="mb-2 mt-2", style={"color": "#ecbc4f"}),
                     html.Div(id="selected_details"),
                 ]
             )

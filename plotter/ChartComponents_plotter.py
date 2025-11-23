@@ -316,7 +316,7 @@ class ChartComponents:
                                     y=df["Equity_value"],
                                     mode="lines",
                                     name=str(param_key),  # 直接使用backtest_id
-                                    line=dict(width=1, color=color),
+                                    line=dict(width=1.5, color=color),  # 加粗線條
                                     customdata=[param_key] * len(df),
                                     hovertemplate="<b>%{fullData.name}</b><br>"
                                     + "時間: %{x}<br>"
@@ -380,7 +380,7 @@ class ChartComponents:
                                     y=df["Equity_value"],
                                     mode="lines",
                                     name=f"{param_key} (策略)",  # 添加策略標識
-                                    line=dict(width=1, color=color),
+                                    line=dict(width=1.5, color=color),  # 加粗線條
                                     customdata=[param_key] * len(df),
                                     hovertemplate="<b>%{fullData.name}</b><br>"
                                     + "時間: %{x}<br>"
@@ -430,44 +430,39 @@ class ChartComponents:
             fig.update_layout(
                 title=dict(
                     text="權益曲線比較",
-                    font=dict(color="#ecbc4f", size=18),  # 標題使用主題色
+                    font=dict(color="#ecbc4f", size=20),  # 放大標題字體
                 ),
-                xaxis_title=dict(
-                    text="時間",
-                    font=dict(color="#ecbc4f", size=15),  # X軸標題使用主題色
-                ),
-                yaxis_title=dict(
-                    text="權益值",
-                    font=dict(color="#ecbc4f", size=15),  # Y軸標題使用主題色
-                ),
+                xaxis_title=None,  # 移除X軸標題
+                yaxis_title=None,  # 移除Y軸標題
                 template=None,  # 不使用預設模板
-                height=1000,  # 統一使用1000高度
+                height=700,  # 從1000減少到700，讓績效指標可見
                 showlegend=True,
                 plot_bgcolor="#181818",
                 paper_bgcolor="#181818",
-                font=dict(color="#f5f5f5", size=15),
+                font=dict(color="#f5f5f5", size=16),  # 放大基礎字體
                 legend=dict(
-                    font=dict(color="#ecbc4f", size=13),
+                    font=dict(color="#ecbc4f", size=14),  # 放大圖例字體
                     orientation="v",  # 垂直圖例
                     yanchor="top",
                     y=1,
                     xanchor="left",
-                    x=1.02,
+                    x=1.05,  # 稍微向右移動圖例，避免與Y軸標題重疊
                 ),
                 xaxis=dict(
                     color="#ecbc4f",  # X軸刻度使用主題色
                     gridcolor="#444",
-                    title_font=dict(color="#ecbc4f", size=15),  # X軸標題字體
-                    tickfont=dict(color="#ecbc4f", size=12),  # X軸刻度字體
+                    title_font=dict(color="#ecbc4f", size=16),  # 放大X軸標題字體
+                    tickfont=dict(color="#ecbc4f", size=14),  # 放大X軸刻度字體
                 ),
                 yaxis=dict(
                     color="#ecbc4f",  # Y軸刻度使用主題色
                     gridcolor="#444",
-                    title_font=dict(color="#ecbc4f", size=15),  # Y軸標題字體
-                    tickfont=dict(color="#ecbc4f", size=12),  # Y軸刻度字體
+                    title_font=dict(color="#ecbc4f", size=16),  # 放大Y軸標題字體
+                    tickfont=dict(color="#ecbc4f", size=14),  # 放大Y軸刻度字體
+                    side="right",  # 將Y軸移到右側
                 ),
-                hovermode="x unified",
-                margin=dict(l=50, r=50, t=50, b=50),
+                hovermode="closest",  # 移除懸浮效果，改為 closest
+                margin=dict(l=0, r=100, t=30, b=30),  # 減少左側邊距對齊標題，增加右側邊距以容納Y軸標題和圖例
             )
 
             return fig.to_dict()
@@ -520,7 +515,7 @@ class ChartComponents:
                             y=df["Equity_value"],
                             mode="lines",
                             name=str(bid),
-                            line=dict(width=1),  # 統一線條寬度
+                            line=dict(width=1.5),  # 加粗線條
                             customdata=[bid] * len(df),
                             hovertemplate="<b>%{fullData.name}</b><br>"
                             + "時間: %{x}<br>"
@@ -566,43 +561,39 @@ class ChartComponents:
             fig.update_layout(
                 title=dict(
                     text="權益曲線比較",
-                    font=dict(color="#ecbc4f", size=18),  # 標題使用主題色
+                    font=dict(color="#ecbc4f", size=20),  # 放大標題字體
                 ),
-                xaxis_title=dict(
-                    text="時間",
-                    font=dict(color="#ecbc4f", size=15),  # X軸標題使用主題色
-                ),
-                yaxis_title=dict(
-                    text="權益值",
-                    font=dict(color="#ecbc4f", size=15),  # Y軸標題使用主題色
-                ),
+                xaxis_title=None,  # 移除X軸標題
+                yaxis_title=None,  # 移除Y軸標題
                 template=None,
-                height=1000,  # 恢復原始高度
+                height=700,  # 從1000減少到700，讓績效指標可見
                 showlegend=True,
                 plot_bgcolor="#181818",
                 paper_bgcolor="#181818",
-                font=dict(color="#f5f5f5", size=15),
+                font=dict(color="#f5f5f5", size=16),  # 放大基礎字體
                 legend=dict(
-                    font=dict(color="#ecbc4f", size=13),
+                    font=dict(color="#ecbc4f", size=14),  # 放大圖例字體
                     orientation="v",  # 垂直圖例
                     yanchor="top",
                     y=1,
                     xanchor="left",
-                    x=1.02,
+                    x=1.05,  # 稍微向右移動圖例，避免與Y軸標題重疊
                 ),
                 xaxis=dict(
                     color="#ecbc4f",  # X軸刻度使用主題色
                     gridcolor="#444",
-                    title_font=dict(color="#ecbc4f", size=15),  # X軸標題字體
-                    tickfont=dict(color="#ecbc4f", size=12),  # X軸刻度字體
+                    title_font=dict(color="#ecbc4f", size=16),  # 放大X軸標題字體
+                    tickfont=dict(color="#ecbc4f", size=14),  # 放大X軸刻度字體
                 ),
                 yaxis=dict(
                     color="#ecbc4f",  # Y軸刻度使用主題色
                     gridcolor="#444",
-                    title_font=dict(color="#ecbc4f", size=15),  # Y軸標題字體
-                    tickfont=dict(color="#ecbc4f", size=12),  # Y軸刻度字體
+                    title_font=dict(color="#ecbc4f", size=16),  # 放大Y軸標題字體
+                    tickfont=dict(color="#ecbc4f", size=14),  # 放大Y軸刻度字體
+                    side="right",  # 將Y軸移到右側
                 ),
-                margin=dict(l=50, r=50, t=50, b=50),  # 添加邊距
+                hovermode="closest",  # 移除懸浮效果，改為 closest
+                margin=dict(l=0, r=100, t=30, b=30),  # 減少左側邊距對齊標題，增加右側邊距以容納Y軸標題和圖例
             )
 
             return fig.to_dict()

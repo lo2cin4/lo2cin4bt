@@ -66,7 +66,7 @@ flowchart TD
 import logging
 from typing import Any, Dict, Optional
 
-from dash import ALL, Input, Output, State
+from dash import ALL, Input, Output, State, html
 from dash.exceptions import PreventUpdate
 
 
@@ -87,6 +87,111 @@ class CallbackHandler:
         """
         self.logger = logger or logging.getLogger(__name__)
         self.data = None
+
+    def _create_key_metrics_cards(self, meta: Dict[str, Any]) -> html.Div:
+        """
+        創建重點指標卡片（六角形設計）
+
+        Args:
+            meta: 績效指標數據字典
+
+        Returns:
+            html.Div: 重點指標卡片組件
+        """
+        
+        # 指標映射和格式化函數
+        def format_metric(value, metric_name):
+            """格式化指標值"""
+            try:
+                if value is None or value == "":
+                    return "N/A"
+                val = float(value)
+                if metric_name == "Trade_count":
+                    return f"{int(val):,}"
+                elif metric_name == "CAGR":
+                    # CAGR 已經是百分比形式（如 0.16 表示 16%）
+                    return f"{val:.2%}"
+                elif metric_name == "Win Rate":
+                    # Win_rate 已經是百分比形式
+                    return f"{val:.2%}"
+                elif metric_name == "MDD":
+                    # Max_drawdown 是負數（如 -0.234），需要轉換為正數並顯示為百分比
+                    return f"{abs(val):.2%}"
+                elif metric_name in ["Sharpe", "Calmar", "Profit factor"]:
+                    return f"{val:.3f}"
+                else:
+                    return f"{val:.3f}"
+            except (ValueError, TypeError):
+                return "N/A"
+        
+        # 定義7個重點指標（增加了MDD）
+        key_metrics_config = [
+            {"key": "Annualized_return (CAGR)", "label": "CAGR", "name": "CAGR"},
+            {"key": "Sharpe", "label": "Sharpe", "name": "Sharpe"},
+            {"key": "Calmar", "label": "Calmar", "name": "Calmar"},
+            {"key": "Max_drawdown", "label": "MDD", "name": "MDD"},  # 在Calmar和Win Rate之間添加MDD
+            {"key": "Win_rate", "label": "Win Rate", "name": "Win Rate"},
+            {"key": "Profit_factor", "label": "Profit Factor", "name": "Profit factor"},
+            {"key": "Trade_count", "label": "Trade Count", "name": "Trade_count"},
+        ]
+        
+        # 創建卡片
+        cards = []
+        for metric_config in key_metrics_config:
+            metric_key = metric_config["key"]
+            metric_label = metric_config["label"]
+            metric_name = metric_config["name"]
+            
+            value = meta.get(metric_key, "")
+            formatted_value = format_metric(value, metric_name)
+            
+            card = html.Div(
+                [
+                    html.Div(
+                        [
+                            html.Div(
+                                metric_label,
+                                className="key-metric-label",
+                                style={
+                                    "fontSize": "0.85rem",
+                                    "color": "#f5f5f5",
+                                    "marginBottom": "0.3rem",
+                                    "textAlign": "center",
+                                    "opacity": 0.9,
+                                },
+                            ),
+                            html.Div(
+                                formatted_value,
+                                className="key-metric-value",
+                                style={
+                                    "fontSize": "1.6rem",
+                                    "fontWeight": "bold",
+                                    "color": "#f5f5f5",
+                                    "textAlign": "center",
+                                },
+                            ),
+                        ],
+                        className="key-metric-content",
+                    ),
+                ],
+                className="key-metric-hexagon",
+            )
+            cards.append(card)
+        
+        return html.Div(
+            [
+                html.Div(
+                    cards,
+                    style={
+                        "display": "flex",
+                        "flexWrap": "wrap",
+                        "justifyContent": "flex-start",
+                        "marginBottom": "2rem",
+                        "marginTop": "1rem",
+                    },
+                ),
+            ]
+        )
 
     def setup_callbacks(self, app, data: Dict[str, Any]):
         # 頁面切換回調函數
@@ -414,27 +519,32 @@ class CallbackHandler:
 
                 if entry_ok and exit_ok:
                     filtered_ids.append(bid)
-            # 只根據 sorting_value 排序，取前 20
-            sort_map = {
-                "Top20_Total_return": ("Total_return", True),
-                "Top20_least_Max_drawdown": ("Max_drawdown", True),
-                "Top20_Recovery_factor": ("Recovery_factor", True),
-                "Top20_Sharpe": ("Sharpe", True),
-                "Top20_Sortino": ("Sortino", True),
-                "Top20_Calmar": ("Calmar", True),
-                "Top20_Information_ratio": ("Information_ratio", True),
-            }
-            if sorting_value in sort_map:
-                sort_field, descending = sort_map[sorting_value]
-                filtered_ids = sorted(
-                    filtered_ids,
-                    key=lambda bid: float(
-                        metrics.get(bid, {}).get(
-                            sort_field, float("-inf" if descending else "inf")
-                        )
-                    ),
-                    reverse=descending,
-                )[:20]
+            # 根據 sorting_value 排序，如果是 All_Results 則顯示所有結果
+            if not sorting_value or sorting_value == "All_Results":
+                # 顯示所有過濾後的結果，不進行排序限制
+                pass  # 保持 filtered_ids 不變，顯示所有結果
+            else:
+                # 只根據 sorting_value 排序，取前 20
+                sort_map = {
+                    "Top20_Total_return": ("Total_return", True),
+                    "Top20_least_Max_drawdown": ("Max_drawdown", True),
+                    "Top20_Recovery_factor": ("Recovery_factor", True),
+                    "Top20_Sharpe": ("Sharpe", True),
+                    "Top20_Sortino": ("Sortino", True),
+                    "Top20_Calmar": ("Calmar", True),
+                    "Top20_Information_ratio": ("Information_ratio", True),
+                }
+                if sorting_value in sort_map:
+                    sort_field, descending = sort_map[sorting_value]
+                    filtered_ids = sorted(
+                        filtered_ids,
+                        key=lambda bid: float(
+                            metrics.get(bid, {}).get(
+                                sort_field, float("-inf" if descending else "inf")
+                            )
+                        ),
+                        reverse=descending,
+                    )[:20]
             # 🚀 使用ChartComponents的優化函數
             from .ChartComponents_plotter import ChartComponents
 
@@ -562,7 +672,21 @@ class CallbackHandler:
                 "Data_end_time",
             ]
             details_table = [
-                html.Tr([html.Th(f), html.Td(str(meta.get(f, "")))])
+                html.Tr([
+                    html.Th(f, style={
+                        "padding": "0.75rem 1rem",  # 增加留白
+                        "textAlign": "left",
+                        "width": "30%",  # 固定標籤欄寬度
+                        "fontSize": "1.1rem",  # 放大字體
+                    }),
+                    html.Td(str(meta.get(f, "")), style={
+                        "padding": "0.75rem 1rem",  # 增加留白
+                        "textAlign": "left",
+                        "fontSize": "1.1rem",  # 放大字體
+                        "background": "#232323",  # 黑底
+                        "color": "#f5f5f5",  # 白字
+                    })
+                ])
                 for f in details_fields
             ]
 
@@ -615,21 +739,61 @@ class CallbackHandler:
                 "BAH_Calmar",
             ]
             perf_table = [
-                html.Tr([html.Th(f), html.Td(fmt3(meta.get(f, ""), f))])
+                html.Tr([
+                    html.Th(f, style={
+                        "padding": "0.75rem 1rem",  # 增加留白
+                        "textAlign": "left",
+                        "width": "40%",  # 固定標籤欄寬度
+                        "fontSize": "1.1rem",  # 放大字體
+                    }),
+                    html.Td(fmt3(meta.get(f, ""), f), style={
+                        "padding": "0.75rem 1rem",  # 增加留白
+                        "textAlign": "left",
+                        "fontSize": "1.1rem",  # 放大字體
+                        "background": "#232323",  # 黑底
+                        "color": "#f5f5f5",  # 白字
+                    })
+                ])
                 for f in perf_fields
             ]
             bah_table = [
-                html.Tr([html.Th(f), html.Td(fmt3(meta.get(f, ""), f))])
+                html.Tr([
+                    html.Th(f, style={
+                        "padding": "0.75rem 1rem",  # 增加留白
+                        "textAlign": "left",
+                        "width": "40%",  # 固定標籤欄寬度
+                        "fontSize": "1.1rem",  # 放大字體
+                    }),
+                    html.Td(fmt3(meta.get(f, ""), f), style={
+                        "padding": "0.75rem 1rem",  # 增加留白
+                        "textAlign": "left",
+                        "fontSize": "1.1rem",  # 放大字體
+                        "background": "#232323",  # 黑底
+                        "color": "#f5f5f5",  # 白字
+                    })
+                ])
                 for f in bah_fields
             ]
+            # 創建重點指標卡片
+            key_metrics = self._create_key_metrics_cards(meta)
+            
             return html.Div(
                 [
-                    html.H5("Details"),
+                    # 重點指標區塊
+                    key_metrics,
+                    html.H5("Details", style={"fontSize": "1.5rem", "marginBottom": "1rem", "color": "#ecbc4f"}),
                     html.Table(
                         details_table,
                         className="table table-sm table-bordered details-table",
+                        style={
+                            "width": "100%",
+                            "marginBottom": "2rem",
+                            "fontSize": "1.1rem",  # 放大字體
+                            "background": "#232323",  # 黑底
+                            "color": "#f5f5f5",  # 白字
+                        },
                     ),
-                    html.H5("Performance"),
+                    html.H5("Performance", style={"fontSize": "1.5rem", "marginBottom": "1rem", "color": "#ecbc4f"}),
                     html.Div(
                         [
                             html.Div(
@@ -637,6 +801,11 @@ class CallbackHandler:
                                     html.Table(
                                         perf_table,
                                         className="table table-sm table-bordered performance-table",
+                                        style={
+                                            "fontSize": "1.1rem",  # 放大字體
+                                            "background": "#232323",  # 黑底
+                                            "color": "#f5f5f5",  # 白字
+                                        },
                                     )
                                 ],
                                 style={
@@ -650,6 +819,11 @@ class CallbackHandler:
                                     html.Table(
                                         bah_table,
                                         className="table table-sm table-bordered performance-table",
+                                        style={
+                                            "fontSize": "1.1rem",  # 放大字體
+                                            "background": "#232323",  # 黑底
+                                            "color": "#f5f5f5",  # 白字
+                                        },
                                     )
                                 ],
                                 style={
@@ -664,7 +838,7 @@ class CallbackHandler:
                 ]
             )
 
-        from dash import ctx, html
+        from dash import ctx
 
         @app.callback(
             [Output("filter_list_store", "data"), Output("active_filters", "children")],
