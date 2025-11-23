@@ -601,17 +601,19 @@ class ParameterPlateauPlotter:
             x_values = variable_params[x_axis]
             y_values = variable_params[y_axis]
 
-            # 創建績效指標矩陣
+            # 創建績效指標矩陣和Backtest_id矩陣
             performance_matrix = []
+            backtest_id_matrix = []  # 新增：存儲每個格子對應的Backtest_id
             valid_data_points = 0
             total_data_points = 0
             nan_data_points = 0
 
             for y_val in y_values:
                 row = []
+                backtest_id_row = []  # 新增：存儲該行的Backtest_id
                 for x_val in x_values:
-                    # 查找對應的績效指標值（支持固定參數篩選）
-                    performance_value = self._find_performance_value_enhanced(
+                    # 查找對應的績效指標值和Backtest_id（支持固定參數篩選）
+                    result = self._find_performance_value_and_backtest_id(
                         analysis,
                         x_axis,
                         x_val,
@@ -621,7 +623,17 @@ class ParameterPlateauPlotter:
                         data,
                         fixed_params,
                     )
+                    performance_value = result.get("performance_value") if result else None
+                    backtest_id = result.get("backtest_id") if result else None
+                    entry_params = result.get("entry_params", []) if result else []
+                    exit_params = result.get("exit_params", []) if result else []
+                    
                     row.append(performance_value)
+                    backtest_id_row.append({
+                        "backtest_id": backtest_id,
+                        "entry_params": entry_params,
+                        "exit_params": exit_params
+                    })
 
                     total_data_points += 1
                     if performance_value is not None and not np.isnan(
@@ -632,6 +644,7 @@ class ParameterPlateauPlotter:
                         nan_data_points += 1
 
                 performance_matrix.append(row)
+                backtest_id_matrix.append(backtest_id_row)
 
             # 檢查是否有有效數據
             if valid_data_points == 0:
@@ -688,6 +701,60 @@ class ParameterPlateauPlotter:
             else:
                 zmin, zmax = None, None  # 使用自動範圍
 
+            # 構建自定義數據，包含Backtest_id和其他績效指標
+            # 使用字符串格式存儲，因為Plotly的customdata需要是簡單的數據結構
+            customdata_list = []
+            hovertext_list = []  # 使用hovertext來顯示完整信息
+            
+            for i, y_val in enumerate(filtered_y_values):
+                customdata_row = []
+                hovertext_row = []
+                for j, x_val in enumerate(filtered_x_values):
+                    cell_info = backtest_id_matrix[i][j] if i < len(backtest_id_matrix) and j < len(backtest_id_matrix[i]) else None
+                    backtest_id = cell_info.get("backtest_id") if isinstance(cell_info, dict) else (cell_info if cell_info else None)
+                    entry_params = cell_info.get("entry_params", []) if isinstance(cell_info, dict) else []
+                    exit_params = cell_info.get("exit_params", []) if isinstance(cell_info, dict) else []
+                    
+                    # 獲取該Backtest_id的其他績效指標
+                    metrics_info = {}
+                    if backtest_id and backtest_id in data.get("metrics", {}):
+                        metrics = data["metrics"][backtest_id]
+                        # 獲取Sharpe, Sortino, Calmar, Max_drawdown
+                        for m in ["Sharpe", "Sortino", "Calmar", "Max_drawdown"]:
+                            if m in metrics:
+                                val = metrics[m]
+                                if m == "Max_drawdown":
+                                    metrics_info[m] = f"{abs(float(val)):.2%}" if val is not None else "N/A"
+                                else:
+                                    metrics_info[m] = f"{float(val):.3f}" if val is not None else "N/A"
+                            else:
+                                metrics_info[m] = "N/A"
+                    else:
+                        metrics_info = {"Sharpe": "N/A", "Sortino": "N/A", "Calmar": "N/A", "Max_drawdown": "N/A"}
+                    
+                    # 構建hovertext（完整的tooltip文本）
+                    metric_value = filtered_matrix[i][j]
+                    metric_display = f"{metric_value:.2f}" if metric_value != 0 and metric_value is not None else "N/A"
+                    
+                    # 構建績效指標顯示，排除當前指標避免重複
+                    metrics_display = []
+                    for m in ["Sharpe", "Sortino", "Calmar", "Max_drawdown"]:
+                        if m != metric:  # 排除當前指標，避免重複顯示
+                            metrics_display.append(f"<b>{m}</b>: {metrics_info[m]}")
+                    
+                    hover_text = (
+                        f"<b>{x_axis}</b>: {x_val}<br>"
+                        + f"<b>{y_axis}</b>: {y_val}<br>"
+                        + f"<b>{metric}</b>: {metric_display}<br>"
+                        + "<br>".join(metrics_display) + "<br>"
+                        + f"<b>Backtest_id</b>: {backtest_id or 'N/A'}<extra></extra>"
+                    )
+                    
+                    customdata_row.append(backtest_id or "N/A")  # 簡單存儲Backtest_id
+                    hovertext_row.append(hover_text)
+                customdata_list.append(customdata_row)
+                hovertext_list.append(hovertext_row)
+            
             # 創建熱力圖
             fig = go.Figure(
                 data=go.Heatmap(
@@ -707,9 +774,9 @@ class ParameterPlateauPlotter:
                     texttemplate="%{text}",
                     textfont={"size": 14, "color": "#000000", "family": "Arial Black"},
                     hoverongaps=False,
-                    hovertemplate=f"<b>{x_axis}</b>: %{{x}}<br>"
-                    + f"<b>{y_axis}</b>: %{{y}}<br>"
-                    + f"<b>{metric}</b>: %{{z:.2f}}<extra></extra>",
+                    customdata=customdata_list,  # 添加自定義數據（Backtest_id）
+                    hovertext=hovertext_list,  # 使用hovertext顯示完整信息
+                    hovertemplate="%{hovertext}",  # 使用hovertext作為tooltip
                     # 設置間隙來創建邊框效果
                     xgap=2,
                     ygap=2,
@@ -845,10 +912,84 @@ class ParameterPlateauPlotter:
                     return performance_value
 
             return None
-            return None
 
         except Exception as e:
             self.logger.error(f"查找績效指標值失敗: {e}")
+            return None
+
+    def _find_performance_value_and_backtest_id(
+        self,
+        analysis: Dict[str, Any],
+        x_axis: str,
+        x_val: Any,
+        y_axis: str,
+        y_val: Any,
+        metric: str,
+        data: Dict[str, Any],
+        fixed_params: Dict[str, Any] = None,
+    ) -> Dict[str, Any]:
+        """
+        查找績效指標值和對應的Backtest_id（支持固定參數篩選）
+
+        Args:
+            analysis: 策略參數分析結果
+            x_axis: X軸參數名（可能包含 Entry/Exit 前綴）
+            x_val: X軸參數值
+            y_axis: Y軸參數名（可能包含 Entry/Exit 前綴）
+            y_val: Y軸參數值
+            metric: 績效指標名稱
+            data: 完整數據字典
+            fixed_params: 固定參數字典，格式：{param_name: value}
+
+        Returns:
+            Dict[str, Any]: 包含performance_value和backtest_id的字典，如果找不到則返回None
+        """
+        try:
+            parameters = data.get("parameters", [])
+            backtest_ids = data.get("backtest_ids", [])
+            parameter_indices = analysis["parameter_indices"]
+
+            for idx in parameter_indices:
+                param = parameters[idx]
+
+                # 首先檢查固定參數是否匹配
+                if fixed_params:
+                    fixed_params_match = True
+                    for fixed_param_name, fixed_param_value in fixed_params.items():
+                        if not self._check_param_match_enhanced(
+                            param, fixed_param_name, fixed_param_value
+                        ):
+                            fixed_params_match = False
+                            break
+
+                    if not fixed_params_match:
+                        continue  # 固定參數不匹配，跳過這個組合
+
+                # 檢查軸參數是否匹配
+                x_match = self._check_param_match_enhanced(param, x_axis, x_val)
+                y_match = self._check_param_match_enhanced(param, y_axis, y_val)
+
+                if x_match and y_match:
+                    # 找到匹配的參數組合，返回績效指標值、Backtest_id和參數信息
+                    performance_value = self._extract_metric_value(param, metric)
+                    # 獲取Backtest_id
+                    backtest_id = param.get("Backtest_id")
+                    if not backtest_id and idx < len(backtest_ids):
+                        backtest_id = backtest_ids[idx]
+                    # 獲取Entry_params和Exit_params
+                    entry_params = param.get("Entry_params", [])
+                    exit_params = param.get("Exit_params", [])
+                    return {
+                        "performance_value": performance_value,
+                        "backtest_id": backtest_id,
+                        "entry_params": entry_params,
+                        "exit_params": exit_params
+                    }
+
+            return None
+
+        except Exception as e:
+            self.logger.error(f"查找績效指標值和Backtest_id失敗: {e}")
             return None
 
     def _get_param_summary(self, param: Dict[str, Any]) -> str:
