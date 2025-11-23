@@ -462,7 +462,7 @@ class ChartComponents:
                     side="right",  # 將Y軸移到右側
                 ),
                 hovermode="closest",  # 移除懸浮效果，改為 closest
-                margin=dict(l=0, r=100, t=30, b=30),  # 減少左側邊距對齊標題，增加右側邊距以容納Y軸標題和圖例
+                margin=dict(l=0, r=100, t=50, b=30),  # 增加頂部留白以提供標題更多空間，增加右側邊距以容納Y軸標題和圖例
             )
 
             return fig.to_dict()
@@ -593,7 +593,7 @@ class ChartComponents:
                     side="right",  # 將Y軸移到右側
                 ),
                 hovermode="closest",  # 移除懸浮效果，改為 closest
-                margin=dict(l=0, r=100, t=30, b=30),  # 減少左側邊距對齊標題，增加右側邊距以容納Y軸標題和圖例
+                margin=dict(l=0, r=100, t=50, b=30),  # 增加頂部留白以提供標題更多空間，增加右側邊距以容納Y軸標題和圖例
             )
 
             return fig.to_dict()
