@@ -118,8 +118,6 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
 
 > 📖 **完整疑難排解指南**：請參考 [Troubleshooting.md](Troubleshooting.md) 查看所有常見問題與解決方案。
 
-
-
 ---
 
 ## 💾 下載與安裝 (完全編程新手懶人包)
@@ -287,6 +285,13 @@ python main.py
 ## 🎯 開發目標與進度
 
 ### 目前已完成
+
+<details>
+<summary>📅 2025-11-23 </summary>
+
+- 可視化平台美化，現在可更直觀地看到策略的重要指標
+- 新增了疑難排解頁面
+
 
 <details>
 <summary>📅 2025-10-08 </summary>
