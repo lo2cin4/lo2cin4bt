@@ -95,15 +95,6 @@
             },
             {
                 "entry": [
-                    "MA1",
-                    "MA9"
-                ],
-                "exit": [
-                    "MA4"
-                ]
-            },
-            {
-                "entry": [
                     "BOLL1"
                 ],
                 "exit": [
@@ -153,15 +144,6 @@
             {
                 "entry": [
                     "MA4"
-                ],
-                "exit": [
-                    "MA1"
-                ]
-            },
-            {
-                "entry": [
-                    "MA4",
-                    "MA12"
                 ],
                 "exit": [
                     "MA1"
@@ -225,133 +207,107 @@
                 "ma_type": "SMA",
                 "ma_range": "10:200:20"
             },
-            "MA1_strategy_2": {
-                "ma_type": "SMA",
-                "ma_range": "10:200:20"
-            },
-            "MA9_strategy_2": {
-                "ma_type": "SMA",
-                "m_range": "1:20:5",
-                "n_range": "10:200:40"
-            },
-            "MA4_strategy_2": {
-                "ma_type": "SMA",
-                "ma_range": "10:200:20"
-            },
-            "BOLL1_strategy_3": {
+            "BOLL1_strategy_2": {
                 "ma_range": "10:200:20",
                 "sd_multi": "1,1.5,2"
             },
-            "BOLL4_strategy_3": {
+            "BOLL4_strategy_2": {
                 "ma_range": "10:200:20",
                 "sd_multi": "1,1.5,2"
             },
-            "BOLL3_strategy_4": {
+            "BOLL3_strategy_3": {
                 "ma_range": "10:200:20",
                 "sd_multi": "1,1.5,2"
             },
-            "BOLL2_strategy_4": {
+            "BOLL2_strategy_3": {
                 "ma_range": "10:200:20",
                 "sd_multi": "1,1.5,2"
             },
-            "HL1_strategy_5": {
+            "HL1_strategy_4": {
                 "n_range": "1:5:2",
                 "m_range": "10:200:20"
             },
-            "HL4_strategy_5": {
+            "HL4_strategy_4": {
                 "n_range": "1:5:2",
                 "m_range": "10:200:20"
             },
-            "PERC1_strategy_6": {
+            "PERC1_strategy_5": {
                 "window_range": "10:200:20",
                 "percentile_range": "90:100:10"
             },
-            "PERC4_strategy_6": {
+            "PERC4_strategy_5": {
                 "window_range": "10:200:20",
                 "percentile_range": "90:100:10"
             },
-            "PERC3_strategy_7": {
+            "PERC3_strategy_6": {
                 "window_range": "10:200:20",
                 "percentile_range": "0:10:10"
             },
-            "PERC2_strategy_7": {
+            "PERC2_strategy_6": {
                 "window_range": "10:200:20",
                 "percentile_range": "0:10:10"
             },
-            "HL1_strategy_8": {
+            "HL1_strategy_7": {
                 "n_range": "1:5:2",
                 "m_range": "10:200:20"
             },
-            "HL4_strategy_8": {
+            "HL4_strategy_7": {
                 "n_range": "1:5:2",
                 "m_range": "10:200:20"
             },
-            "MA4_strategy_9": {
+            "MA4_strategy_8": {
                 "ma_type": "SMA",
                 "ma_range": "10:200:20"
             },
-            "MA1_strategy_9": {
+            "MA1_strategy_8": {
                 "ma_type": "SMA",
                 "ma_range": "10:200:20"
             },
-            "MA4_strategy_10": {
-                "ma_type": "SMA",
-                "ma_range": "10:200:20"
-            },
-            "MA12_strategy_10": {
-                "ma_type": "SMA",
-                "m_range": "1:20:5",
-                "n_range": "10:200:40"
-            },
-            "MA1_strategy_10": {
-                "ma_type": "SMA",
-                "ma_range": "10:200:20"
-            },
-            "BOLL4_strategy_11": {
+            "BOLL4_strategy_9": {
                 "ma_range": "10:200:20",
                 "sd_multi": "1,1.5,2"
             },
-            "BOLL1_strategy_11": {
+            "BOLL1_strategy_9": {
                 "ma_range": "10:200:20",
                 "sd_multi": "1,1.5,2"
             },
-            "BOLL2_strategy_12": {
+            "BOLL2_strategy_10": {
                 "ma_range": "10:200:20",
                 "sd_multi": "1,1.5,2"
             },
-            "BOLL3_strategy_12": {
+            "BOLL3_strategy_10": {
                 "ma_range": "10:200:20",
                 "sd_multi": "1,1.5,2"
             },
-            "HL4_strategy_13": {
+            "HL4_strategy_11": {
                 "n_range": "1:5:2",
                 "m_range": "10:200:20"
             },
-            "HL1_strategy_13": {
+            "HL1_strategy_11": {
                 "n_range": "1:5:2",
                 "m_range": "10:200:20"
             },
-            "PERC4_strategy_14": {
+            "PERC4_strategy_12": {
                 "window_range": "10:200:20",
                 "percentile_range": "90:100:10"
             },
-            "PERC1_strategy_14": {
+            "PERC1_strategy_12": {
                 "window_range": "10:200:20",
                 "percentile_range": "90:100:10"
             },
-            "PERC2_strategy_15": {
+            "PERC2_strategy_13": {
                 "window_range": "10:200:20",
                 "percentile_range": "0:10:10"
             },
-            "PERC3_strategy_15": {
+            "PERC3_strategy_13": {
                 "window_range": "10:200:20",
                 "percentile_range": "0:10:10"
             },
-            "HL4_strategy_16": {
+            "HL4_strategy_14": {
                 "n_range": "1:5:2",
                 "m_range": "10:200:20"
             },
-            "HL1_strategy_16": {
+            "HL1_strategy_14": {
                 "n_range": "1:5:2",
                 "m_range": "10:200:20"
             }
