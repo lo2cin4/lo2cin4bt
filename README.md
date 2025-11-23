@@ -116,56 +116,9 @@ lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化�
 
 ## ⚠️ 疑難排解
 
-<details>
-<summary>安裝依賴時出現 'SyntaxError: Missing parentheses in call to 'print''</summary>
+> 📖 **完整疑難排解指南**：請參考 [Troubleshooting.md](Troubleshooting.md) 查看所有常見問題與解決方案。
 
-安裝依賴套件時可能出現以下錯誤：
-```
-SyntaxError: Missing parentheses in call to 'print'. Did you mean print(...)?
-note: This error originates from a subprocess, and is likely not a problem with pip.
-```
 
-**原因：**
-這是 Python 2/3 兼容性問題，通常發生在某些依賴包（如 `numba`、`llvmlite`）的舊版本在安裝時執行了 Python 2 風格的代碼。
-
-**解決方案：**
-
-1. **確保使用 Python 3.9 或更高版本**
-   ```bash
-   python --version  # 應顯示 Python 3.9.x 或更高
-   ```
-
-2. **升級 pip、setuptools 和 wheel**
-   ```bash
-   python -m pip install --upgrade pip setuptools wheel
-   ```
-
-3. **單獨安裝可能有問題的包（指定較新版本）**
-   ```bash
-   pip install numba>=0.58.0 llvmlite>=0.41.0
-   ```
-
-4. **然後再安裝其他依賴**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-5. **如果問題仍然存在，嘗試使用虛擬環境**
-   ```bash
-   # Windows
-   python -m venv venv
-   venv\Scripts\activate
-   pip install --upgrade pip setuptools wheel
-   pip install -r requirements.txt
-   
-   # macOS/Linux
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install --upgrade pip setuptools wheel
-   pip install -r requirements.txt
-   ```
-
-</details>
 
 ---
 
