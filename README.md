@@ -291,7 +291,7 @@ python main.py
 
 - 可視化平台美化，現在可更直觀地看到策略的重要指標
 - 新增了疑難排解頁面
-
+</details>
 
 <details>
 <summary>📅 2025-10-08 </summary>
