@@ -67,6 +67,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from dash import ALL, Input, Output, State, html
+from dash import callback_context as ctx
 from dash.exceptions import PreventUpdate
 
 
@@ -397,6 +398,28 @@ class CallbackHandler:
 
             return values, button_texts
 
+        # 檔案選擇下拉選單的回調函數（資產曲線頁面）
+        @app.callback(
+            Output("file-selector-asset-curve", "options"),
+            Input("btn-asset-curve", "n_clicks"),
+            prevent_initial_call=False,
+        )
+        def populate_file_selector_asset_curve(n_clicks):
+            """填充資產曲線頁面的檔案選擇下拉選單"""
+            parameters = data.get("parameters", [])
+            
+            # 收集所有唯一的檔案名稱
+            file_names = set()
+            for param in parameters:
+                file_name = param.get("_file_name", "unknown")
+                if file_name:
+                    file_names.add(file_name)
+            
+            # 創建選項列表
+            options = [{"label": file_name, "value": file_name} for file_name in sorted(file_names)]
+            
+            return options
+
         # === 功能性主 callback ===
         @app.callback(
             Output("equity_chart", "figure"),
@@ -425,6 +448,7 @@ class CallbackHandler:
                 "options",
             ),
             Input("sorting_select", "value"),
+            Input("file-selector-asset-curve", "value"),
         )
         def update_equity_chart(
             entry_types,
@@ -436,6 +460,7 @@ class CallbackHandler:
             entry_opts,
             exit_opts,
             sorting_value,
+            selected_file,
         ):
             parameters = data.get("parameters", [])
             equity_curves = data.get("equity_curves", {})
@@ -457,6 +482,12 @@ class CallbackHandler:
             metrics = data.get("metrics", {})
             filtered_ids = []
             for i, param in enumerate(parameters):
+                # 檔案過濾：如果選擇了檔案，只顯示該檔案的數據
+                if selected_file:
+                    file_name = param.get("_file_name", "unknown")
+                    if file_name != selected_file:
+                        continue
+                
                 bid = param.get(
                     "Backtest_id", backtest_ids[i] if i < len(backtest_ids) else str(i)
                 )
@@ -584,6 +615,7 @@ class CallbackHandler:
                 {"type": "exit_param_checklist", "indicator": ALL, "param": ALL},
                 "options",
             ),
+            State("file-selector-asset-curve", "value"),
         )
         def show_selected_details(
             clickData,
@@ -595,6 +627,7 @@ class CallbackHandler:
             exit_ids,
             entry_opts,
             exit_opts,
+            selected_file,
         ):
             # 找出目前 filtered_ids
             parameters = data.get("parameters", [])
@@ -613,6 +646,12 @@ class CallbackHandler:
                     exit_param_map.setdefault(id_["indicator"], {})[id_["param"]] = v
             filtered_ids = []
             for i, param in enumerate(parameters):
+                # 檔案過濾：如果選擇了檔案，只顯示該檔案的數據
+                if selected_file:
+                    file_name = param.get("_file_name", "unknown")
+                    if file_name != selected_file:
+                        continue
+                
                 bid = param.get(
                     "Backtest_id", backtest_ids[i] if i < len(backtest_ids) else str(i)
                 )

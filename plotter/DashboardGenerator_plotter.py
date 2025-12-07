@@ -441,6 +441,27 @@ class DashboardGenerator:
             control_panel = html.Div(
                 [
                     html.H5("控制面板", className="mb-3"),
+                    # 檔案選擇區塊（在 Sorting 上面）
+                    html.Div(
+                        [
+                            html.Label(
+                                "選擇檔案",
+                                style={"color": "#ecbc4f", "fontWeight": "bold"},
+                            ),
+                            dcc.Dropdown(
+                                id="file-selector-asset-curve",
+                                placeholder="請選擇檔案...",
+                                clearable=True,  # 允許清除選擇
+                                style={
+                                    "width": "100%",
+                                    "background": "#181818",
+                                    "color": "#ecbc4f",
+                                    "border": "1.5px solid #8f1511",
+                                },
+                            ),
+                        ],
+                        style={"marginBottom": "16px"},
+                    ),
                     # Sorting 區塊（移到標題下方）
                     html.Div(
                         [
