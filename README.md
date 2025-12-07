@@ -287,11 +287,17 @@ python main.py
 ### 目前已完成
 
 <details>
+<summary>📅 2025-12-08 </summary>
+
+- 可視化功能增加，目前可以在參數高原頁面選擇不同檔案展示了，立即載入多份回測結果試試看！
+</details>
+
+<details>
 <summary>📅 2025-11-23 </summary>
 
 - 可視化平台美化，現在可更直觀地看到策略的重要指標
 - 新增了疑難排解頁面
-
+</details>
 
 <details>
 <summary>📅 2025-10-08 </summary>

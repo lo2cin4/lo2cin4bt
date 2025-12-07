@@ -254,6 +254,18 @@ class ParameterPlateauPlotter:
             return html.Div(
                 [
                     html.H5("🏔️ 參數高原分析", className="mb-3"),
+                    # 檔案選擇區域
+                    html.Div(
+                        [
+                            html.Label("選擇檔案:", className="form-label fw-bold"),
+                            dcc.Dropdown(
+                                id="file-selector",
+                                placeholder="請選擇檔案...",
+                                className="mb-3",
+                            ),
+                        ],
+                        className="mb-4",
+                    ),
                     # 策略選擇區域
                     html.Div(
                         [
@@ -1141,27 +1153,67 @@ class ParameterPlateauPlotter:
             data: 數據字典
         """
 
-        # 策略選擇下拉選單的回調函數
+        # 檔案選擇下拉選單的回調函數
         @app.callback(
-            Output("strategy-selector", "options"),
+            Output("file-selector", "options"),
             Input("btn-parameter-landscape", "n_clicks"),
             prevent_initial_call=False,
         )
-        def populate_strategy_selector(n_clicks):
-            """填充策略選擇下拉選單"""
+        def populate_file_selector(n_clicks):
+            """填充檔案選擇下拉選單"""
+            strategy_groups = data.get("strategy_groups", {})
+            
+            # 收集所有唯一的檔案名稱
+            file_names = set()
+            for strategy_key, strategy_info in strategy_groups.items():
+                file_name = strategy_info.get("file_name", "unknown")
+                file_names.add(file_name)
+            
+            # 創建選項列表
+            options = [{"label": file_name, "value": file_name} for file_name in sorted(file_names)]
+            
+            return options
+
+        # 策略選擇下拉選單的回調函數（根據選中的檔案過濾）
+        @app.callback(
+            [
+                Output("strategy-selector", "options"),
+                Output("strategy-selector", "value"),
+            ],
+            [
+                Input("file-selector", "value"),
+                Input("btn-parameter-landscape", "n_clicks"),
+            ],
+            prevent_initial_call=False,
+        )
+        def populate_strategy_selector(selected_file, n_clicks):
+            """根據選中的檔案填充策略選擇下拉選單"""
             strategy_groups = data.get("strategy_groups", {})
 
             options = []
             for strategy_key, strategy_info in strategy_groups.items():
+                # 如果選擇了檔案，只顯示該檔案的策略
+                if selected_file:
+                    file_name = strategy_info.get("file_name", "unknown")
+                    if file_name != selected_file:
+                        continue
+                
                 entry_names = strategy_info["entry_names"]
                 exit_names = strategy_info["exit_names"]
                 count = strategy_info["count"]
+                file_name = strategy_info.get("file_name", "unknown")
 
-                # 創建更友好的顯示標籤
-                label = f"Entry: {', '.join(entry_names)} | Exit: {', '.join(exit_names)} ({count} 組合)"
+                # 創建更友好的顯示標籤（包含檔案名稱，如果有多個檔案）
+                if selected_file:
+                    # 如果選擇了檔案，不顯示檔案名稱（因為已經在檔案選擇器中顯示）
+                    label = f"Entry: {', '.join(entry_names)} | Exit: {', '.join(exit_names)} ({count} 組合)"
+                else:
+                    # 如果沒有選擇檔案，顯示檔案名稱以區分
+                    label = f"[{file_name}] Entry: {', '.join(entry_names)} | Exit: {', '.join(exit_names)} ({count} 組合)"
                 options.append({"label": label, "value": strategy_key})
 
-            return options
+            # 如果選項改變，清空當前選擇
+            return options, None
 
         # 績效指標按鈕狀態控制回調函數
         @app.callback(

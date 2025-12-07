@@ -4,7 +4,7 @@
 統一處理 plotter 模組中的參數解析邏輯，避免代碼重複。
 """
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class ParameterParser:
@@ -118,12 +118,14 @@ class ParameterParser:
         return result
 
     @staticmethod
-    def identify_strategy_groups(parameters: list) -> Dict[str, Any]:
+    def identify_strategy_groups(parameters: list, file_paths: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """
         識別策略分組，基於 Entry_params 和 Exit_params 的 indicator_type + strat_idx 組合
+        同時考慮檔案來源，確保不同檔案的策略不會合併
 
         Args:
             parameters: 參數列表
+            file_paths: Backtest_id 到檔案路徑的映射（可選）
 
         Returns:
             Dict[str, Any]: 策略分組信息
@@ -133,6 +135,11 @@ class ParameterParser:
         for i, param in enumerate(parameters):
             entry_strategies = []
             exit_strategies = []
+
+            # 獲取檔案信息（用於區分不同檔案的策略）
+            file_name = param.get("_file_name", "unknown")
+            file_path = param.get("_file_path", "")
+            backtest_id = param.get("Backtest_id", "")
 
             # 提取 Entry 策略信息
             if "Entry_params" in param and isinstance(param["Entry_params"], list):
@@ -166,14 +173,15 @@ class ParameterParser:
                             }
                         )
 
-            # 創建策略組合鍵
+            # 創建策略組合鍵（包含檔案信息）
             if entry_strategies and exit_strategies:
                 # 排序策略名稱以確保一致性
                 entry_names = sorted([s["strategy_name"] for s in entry_strategies])
                 exit_names = sorted([s["strategy_name"] for s in exit_strategies])
 
+                # 策略鍵包含檔案名稱，確保不同檔案的策略不會合併
                 strategy_key = (
-                    f"Entry_{'+'.join(entry_names)}_Exit_{'+'.join(exit_names)}"
+                    f"{file_name}::Entry_{'+'.join(entry_names)}_Exit_{'+'.join(exit_names)}"
                 )
 
                 if strategy_key not in strategy_groups:
@@ -182,6 +190,8 @@ class ParameterParser:
                         "exit_strategies": exit_strategies,
                         "entry_names": entry_names,
                         "exit_names": exit_names,
+                        "file_name": file_name,
+                        "file_path": file_path,
                         "parameter_combinations": [],
                         "count": 0,
                         "display_name": f"Entry: {', '.join(entry_names)} | Exit: {', '.join(exit_names)}",
@@ -255,7 +265,8 @@ class ParameterParser:
         Returns:
             Dict[str, Any]: 參數分析結果
         """
-        # 首先識別策略分組
+        # 首先識別策略分組（包含檔案信息）
+        # 注意：這裡不需要傳遞 file_paths，因為策略鍵已經包含檔案名稱
         strategy_groups = ParameterParser.identify_strategy_groups(parameters)
 
         if strategy_key not in strategy_groups:

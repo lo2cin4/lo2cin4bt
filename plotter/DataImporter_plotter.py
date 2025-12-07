@@ -668,7 +668,11 @@ class DataImporterPlotter:
                     backtest_id = item["Backtest_id"]
                     if backtest_id is not None:
                         all_backtest_ids.append(backtest_id)
-                        all_parameters.append(item["metrics"])
+                        # 在參數中加入檔案信息
+                        param_data = item["metrics"].copy()
+                        param_data["_file_path"] = item["file_path"]
+                        param_data["_file_name"] = os.path.basename(item["file_path"])
+                        all_parameters.append(param_data)
                         all_metrics[backtest_id] = item["metrics"]
                         all_equity_curves[backtest_id] = item["equity_curve"]
                         all_bah_curves[backtest_id] = item["bah_curve"]
@@ -684,7 +688,11 @@ class DataImporterPlotter:
                             backtest_id = item["Backtest_id"]
                             if backtest_id is not None:
                                 all_backtest_ids.append(backtest_id)
-                                all_parameters.append(item["metrics"])
+                                # 在參數中加入檔案信息
+                                param_data = item["metrics"].copy()
+                                param_data["_file_path"] = item["file_path"]
+                                param_data["_file_name"] = os.path.basename(item["file_path"])
+                                all_parameters.append(param_data)
                                 all_metrics[backtest_id] = item["metrics"]
                                 all_equity_curves[backtest_id] = item["equity_curve"]
                                 all_bah_curves[backtest_id] = item["bah_curve"]
@@ -699,11 +707,11 @@ class DataImporterPlotter:
             if not all_parameters:
                 raise ValueError("沒有成功載入任何檔案或找到 Backtest_id")
 
-            # 識別策略分組
+            # 識別策略分組（包含檔案信息）
             strategy_start = datetime.now()
             self._log_memory_usage("策略分組開始")
             strategy_groups = DataImporterPlotter.identify_strategy_groups(
-                all_parameters
+                all_parameters, all_file_paths
             )
             (datetime.now() - strategy_start).total_seconds()
             self._log_memory_usage("策略分組完成")
@@ -858,19 +866,21 @@ class DataImporterPlotter:
         return ParameterParser.parse_indicator_param_structure(parameters)
 
     @staticmethod
-    def identify_strategy_groups(parameters: list) -> Dict[str, Any]:
+    def identify_strategy_groups(parameters: list, file_paths: Dict[str, str] = None) -> Dict[str, Any]:
         """
         識別策略分組，基於 Entry_params 和 Exit_params 的 indicator_type + strat_idx 組合
+        同時考慮檔案來源，確保不同檔案的策略不會合併
 
         Args:
             parameters: 參數列表
+            file_paths: Backtest_id 到檔案路徑的映射
 
         Returns:
             Dict[str, Any]: 策略分組信息
         """
         from .utils.ParameterParser_utils_plotter import ParameterParser
 
-        return ParameterParser.identify_strategy_groups(parameters)
+        return ParameterParser.identify_strategy_groups(parameters, file_paths)
 
     @staticmethod
     def analyze_strategy_parameters(
