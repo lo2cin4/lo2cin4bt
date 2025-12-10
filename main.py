@@ -425,25 +425,28 @@ def main():
     # 主選單
     console.print(
         Panel(
-            "[bold white]1. 全面回測 (載入數據→統計分析→回測交易→交易分析→可視化平台)\n"
-            "2. 回測交易 (載入數據→回測交易→交易分析→可視化平台)\n"
-            "3. 交易分析 (交易分析→可視化平台)\n"
-            "4. 可視化平台 (需至少進行一次回測交易)\n"
-            "5. 自動化回測 (配置文件驅動，支援多配置批次執行) [/bold white]",
+            "[bold white]1. 全面回測 (載入數據→統計分析→回測交易→交易分析→回測可視化平台)\n"
+            "2. 回測交易 (載入數據→回測交易→交易分析→回測可視化平台)\n"
+            "3. 交易分析 (交易分析→回測可視化平台)\n"
+            "4. 回測可視化平台 (需至少進行一次回測交易)\n"
+            "5. 自動化回測 (配置文件驅動，支援多配置批次執行)\n"
+            "6. 滾動前向分析 (WFA)\n"
+            "7. 滾動前向分析 (WFA) (配置文件驅動，支援多配置批次執行)\n"
+            "8. WFA 可視化平台 [/bold white]",
             title=Text("🏁 主選單", style="bold #dbac30"),
             border_style="#dbac30",
         )
     )
     console.print(
-        "[bold #dbac30]請選擇要執行的功能（1, 2, 3, 4, 5，預設1）：[/bold #dbac30]"
+        "[bold #dbac30]請選擇要執行的功能（1, 2, 3, 4, 5, 6, 7, 8，預設1）：[/bold #dbac30]"
     )
     while True:
         choice = input().strip() or "1"
-        if choice in ["1", "2", "3", "4", "5"]:
+        if choice in ["1", "2", "3", "4", "5", "6", "7", "8"]:
             break
         console.print(
             Panel(
-                "❌ 無效選擇，請重新輸入 1~5。",
+                "❌ 無效選擇，請重新輸入 1~8。",
                 title=Text("🏁 主選單", style="bold #8f1511"),
                 border_style="#8f1511",
             )
@@ -451,17 +454,20 @@ def main():
         # 重新印出主選單
         console.print(
             Panel(
-                "[bold white]1. 全面回測 (載入數據→統計分析→回測交易→交易分析→可視化平台)\n"
-                "2. 回測交易 (載入數據→回測交易→交易分析→可視化平台)\n"
-                "3. 交易分析 (metricstracker + 可視化平台)\n"
-                "4. 可視化平台 (僅讀取 metricstracker 數據並顯示)\n"
-                "5. 自動化回測 ( autorunner 配置文件驅動，支援多配置批次執行)[/bold white]",
+                "[bold white]1. 全面回測 (載入數據→統計分析→回測交易→交易分析→回測可視化平台)\n"
+                "2. 回測交易 (載入數據→回測交易→交易分析→回測可視化平台)\n"
+                "3. 交易分析 (metricstracker + 回測可視化平台)\n"
+                "4. 回測可視化平台 (僅讀取 metricstracker 數據並顯示)\n"
+                "5. 自動化回測 ( autorunner 配置文件驅動，支援多配置批次執行)\n"
+                "6. 滾動前向分析 (WFA)\n"
+                "7. 滾動前向分析 (WFA) (配置文件驅動，支援多配置批次執行)\n"
+                "8. WFA 可視化平台[/bold white]",
                 title=Text("🏁 主選單", style="bold #8f1511"),
                 border_style="#dbac30",
             )
         )
         console.print(
-            "[bold #dbac30]請選擇要執行的功能（1, 2, 3, 4, 5，預設1）：[/bold #dbac30]"
+            "[bold #dbac30]請選擇要執行的功能（1, 2, 3, 4, 5, 6, 7, 8，預設1）：[/bold #dbac30]"
         )
 
     try:
@@ -538,7 +544,7 @@ def main():
                 metric_tracker = BaseMetricTracker()
                 metric_tracker.run_analysis()
                 console.print(
-                    "[bold #dbac30]是否啟動可視化平台？(y/n，預設y）：[/bold #dbac30]"
+                    "[bold #dbac30]是否啟動回測可視化平台？(y/n，預設y）：[/bold #dbac30]"
                 )
                 run_plotter = input().strip().lower() or "y"
                 if run_plotter == "y":
@@ -548,7 +554,7 @@ def main():
                         plotter = BasePlotter(logger=logger)
                         plotter.run(host="127.0.0.1", port=8050, debug=False)
                     except Exception as e:
-                        print(f"❌ 可視化平台啟動失敗: {e}")
+                        print(f"❌ 回測可視化平台啟動失敗: {e}")
                 return
             else:
                 # 進行統計分析
@@ -630,7 +636,7 @@ def main():
                 metric_tracker = BaseMetricTracker()
                 metric_tracker.run_analysis()
                 console.print(
-                    "[bold #dbac30]是否啟動可視化平台？(y/n，預設y）：[/bold #dbac30]"
+                    "[bold #dbac30]是否啟動回測可視化平台？(y/n，預設y）：[/bold #dbac30]"
                 )
                 run_plotter = input().strip().lower() or "y"
                 if run_plotter == "y":
@@ -640,7 +646,7 @@ def main():
                         plotter = BasePlotter(logger=logger)
                         plotter.run(host="127.0.0.1", port=8050, debug=False)
                     except Exception as e:
-                        print(f"❌ 可視化平台啟動失敗: {e}")
+                        print(f"❌ 回測可視化平台啟動失敗: {e}")
                 return
         elif choice == "2":
             # 回測交易
@@ -695,7 +701,7 @@ def main():
             metric_tracker = BaseMetricTracker()
             metric_tracker.run_analysis()
             console.print(
-                "[bold #dbac30]是否啟動可視化平台？(y/n，預設y)：[/bold #dbac30]"
+                "[bold #dbac30]是否啟動回測可視化平台？(y/n，預設y)：[/bold #dbac30]"
             )
             run_plotter = input().strip().lower() or "y"
             if run_plotter == "y":
@@ -705,15 +711,15 @@ def main():
                     plotter = BasePlotter(logger=logger)
                     plotter.run(host="127.0.0.1", port=8050, debug=False)
                 except Exception as e:
-                    print(f"❌ 可視化平台啟動失敗: {e}")
+                    print(f"❌ 回測可視化平台啟動失敗: {e}")
             return
         elif choice == "3":
-            # 交易分析（metricstracker + 可視化平台）
-            logger.info("[主選單] 交易分析（metricstracker→可視化平台）")
+            # 交易分析（metricstracker + 回測可視化平台）
+            logger.info("[主選單] 交易分析（metricstracker→回測可視化平台）")
             metric_tracker = BaseMetricTracker()
             metric_tracker.run_analysis()
             console.print(
-                "[bold #dbac30]是否啟動可視化平台？(y/n，預設y)：[/bold #dbac30]"
+                "[bold #dbac30]是否啟動回測可視化平台？(y/n，預設y)：[/bold #dbac30]"
             )
             run_plotter = input().strip().lower() or "y"
             if run_plotter == "y":
@@ -723,10 +729,10 @@ def main():
                     plotter = BasePlotter(logger=logger)
                     plotter.run(host="127.0.0.1", port=8050, debug=False)
                 except Exception as e:
-                    print(f"❌ 可視化平台啟動失敗: {e}")
+                    print(f"❌ 回測可視化平台啟動失敗: {e}")
         elif choice == "4":
-            # 可視化平台
-            logger.info("[主選單] 可視化平台")
+            # 回測可視化平台
+            logger.info("[主選單] 回測可視化平台")
             try:
                 from plotter.Base_plotter import BasePlotter
 
@@ -738,8 +744,8 @@ def main():
                 print("請確保已安裝所需的依賴套件：")
                 print("pip install dash dash-bootstrap-components plotly")
             except Exception as e:
-                print(f"❌ 可視化平台啟動失敗: {e}")
-                logger.error(f"可視化平台啟動失敗: {e}")
+                print(f"❌ 回測可視化平台啟動失敗: {e}")
+                logger.error(f"回測可視化平台啟動失敗: {e}")
         elif choice == "5":
             # Autorunner 自動化回測
             logger.info("[主選單] 進入 Autorunner 自動化回測模式")
@@ -771,6 +777,120 @@ def main():
                 console.print(
                     Panel(
                         f"❌ autorunner 執行失敗: {e}",
+                        title=Text("⚠️ 執行錯誤", style="bold #8f1511"),
+                        border_style="#8f1511",
+                    )
+                )
+                import traceback
+
+                traceback.print_exc()
+        elif choice == "6":
+            # WFA 輸入模式
+            logger.info("[主選單] 進入 WFA 輸入模式")
+
+            try:
+                # 導入 wfanalyser 模組
+                from wfanalyser.Base_wfanalyser import BaseWFAAnalyser
+
+                # 創建 WFA 實例
+                wfa_analyser = BaseWFAAnalyser(logger=logger)
+
+                # 執行 WFA（輸入模式）
+                wfa_analyser.run_input_mode()
+
+            except ImportError as e:
+                print(f"❌ [ERROR] 導入 wfanalyser 模組失敗: {e}")
+                logger.error(f"導入 wfanalyser 模組失敗: {e}")
+                console.print(
+                    Panel(
+                        f"❌ 導入 wfanalyser 模組失敗: {e}\n\n"
+                        "請確保 wfanalyser 模組已正確安裝。",
+                        title=Text("⚠️ 模組導入錯誤", style="bold #8f1511"),
+                        border_style="#8f1511",
+                    )
+                )
+            except Exception as e:
+                print(f"❌ [ERROR] WFA 執行失敗: {e}")
+                logger.error(f"WFA 執行失敗: {e}")
+                console.print(
+                    Panel(
+                        f"❌ WFA 執行失敗: {e}",
+                        title=Text("⚠️ 執行錯誤", style="bold #8f1511"),
+                        border_style="#8f1511",
+                    )
+                )
+                import traceback
+
+                traceback.print_exc()
+        elif choice == "7":
+            # WFA 自動化模式（JSON 配置）
+            logger.info("[主選單] 進入 WFA 自動化模式（JSON 配置）")
+
+            try:
+                # 導入 wfanalyser 模組
+                from wfanalyser.Base_wfanalyser import BaseWFAAnalyser
+
+                # 創建 WFA 實例
+                wfa_analyser = BaseWFAAnalyser(logger=logger)
+
+                # 執行 WFA（JSON 模式）
+                wfa_analyser.run_json_mode()
+
+            except ImportError as e:
+                print(f"❌ [ERROR] 導入 wfanalyser 模組失敗: {e}")
+                logger.error(f"導入 wfanalyser 模組失敗: {e}")
+                console.print(
+                    Panel(
+                        f"❌ 導入 wfanalyser 模組失敗: {e}\n\n"
+                        "請確保 wfanalyser 模組已正確安裝。",
+                        title=Text("⚠️ 模組導入錯誤", style="bold #8f1511"),
+                        border_style="#8f1511",
+                    )
+                )
+            except Exception as e:
+                print(f"❌ [ERROR] WFA 執行失敗: {e}")
+                logger.error(f"WFA 執行失敗: {e}")
+                console.print(
+                    Panel(
+                        f"❌ WFA 執行失敗: {e}",
+                        title=Text("⚠️ 執行錯誤", style="bold #8f1511"),
+                        border_style="#8f1511",
+                    )
+                )
+                import traceback
+
+                traceback.print_exc()
+        elif choice == "8":
+            # WFA 可視化平台
+            logger.info("[主選單] 進入 WFA 可視化平台")
+
+            try:
+                # 導入 WFA 可視化模組
+                from wfanalyser.BaseWFAPlotter_wfanalyser import BaseWFAPlotter
+
+                # 創建可視化平台實例
+                wfa_plotter = BaseWFAPlotter(logger=logger)
+
+                # 運行可視化平台
+                wfa_plotter.run(host="127.0.0.1", port=8051, debug=False)
+
+            except ImportError as e:
+                print(f"❌ [ERROR] 導入 WFA 可視化模組失敗: {e}")
+                logger.error(f"導入 WFA 可視化模組失敗: {e}")
+                console.print(
+                    Panel(
+                        f"❌ 導入 WFA 可視化模組失敗: {e}\n\n"
+                        "請確保 wfanalyser 模組已正確安裝。",
+                        title=Text("⚠️ 模組導入錯誤", style="bold #8f1511"),
+                        border_style="#8f1511",
+                    )
+                )
+            except Exception as e:
+                print(f"❌ [ERROR] WFA 可視化平台啟動失敗: {e}")
+                logger.error(f"WFA 可視化平台啟動失敗: {e}")
+                console.print(
+                    Panel(
+                        f"❌ WFA 可視化平台啟動失敗: {e}",
                         title=Text("⚠️ 執行錯誤", style="bold #8f1511"),
                         border_style="#8f1511",
                     )

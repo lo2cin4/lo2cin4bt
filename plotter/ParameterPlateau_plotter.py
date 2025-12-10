@@ -278,47 +278,87 @@ class ParameterPlateauPlotter:
                         ],
                         className="mb-4",
                     ),
-                    # 績效指標選擇區域
+                    # 績效指標選擇區域（與下載按鈕並排）
                     html.Div(
                         [
-                            html.Label(
-                                "選擇績效指標:", className="form-label fw-bold mb-2"
-                            ),
+                            # 左側：績效指標選擇（收窄）
                             html.Div(
                                 [
-                                    dbc.Button(
-                                        "Sharpe Ratio",
-                                        id="btn-sharpe",
-                                        color="primary",
-                                        outline=False,
-                                        className="me-2",
+                                    html.Label(
+                                        "選擇績效指標:", className="form-label fw-bold mb-2"
                                     ),
-                                    dbc.Button(
-                                        "Sortino Ratio",
-                                        id="btn-sortino",
-                                        color="primary",
-                                        outline=True,
-                                        className="me-2",
-                                    ),
-                                    dbc.Button(
-                                        "Calmar Ratio",
-                                        id="btn-calmar",
-                                        color="primary",
-                                        outline=True,
-                                        className="me-2",
-                                    ),
-                                    dbc.Button(
-                                        "MDD",
-                                        id="btn-mdd",
-                                        color="primary",
-                                        outline=True,
-                                        className="me-2",
+                                    html.Div(
+                                        [
+                                            dbc.Button(
+                                                "Sharpe Ratio",
+                                                id="btn-sharpe",
+                                                color="primary",
+                                                outline=False,
+                                                className="me-2",
+                                            ),
+                                            dbc.Button(
+                                                "Sortino Ratio",
+                                                id="btn-sortino",
+                                                color="primary",
+                                                outline=True,
+                                                className="me-2",
+                                            ),
+                                            dbc.Button(
+                                                "Calmar Ratio",
+                                                id="btn-calmar",
+                                                color="primary",
+                                                outline=True,
+                                                className="me-2",
+                                            ),
+                                            dbc.Button(
+                                                "MDD",
+                                                id="btn-mdd",
+                                                color="primary",
+                                                outline=True,
+                                                className="me-2",
+                                            ),
+                                        ],
+                                        className="mb-3",
                                     ),
                                 ],
-                                className="mb-3",
+                                style={"flex": "1", "marginRight": "20px"},
+                            ),
+                            # 右側：下載按鈕
+                            html.Div(
+                                [
+                                    html.Label(
+                                        "批量下載:", className="form-label fw-bold mb-2"
+                                    ),
+                                    html.Div(
+                                        [
+                                            dbc.Button(
+                                                "下載當前檔案所有圖表",
+                                                id="btn-download-current-file",
+                                                color="success",
+                                                outline=True,
+                                                className="me-2 mb-2",
+                                                style={"width": "100%"},
+                                            ),
+                                            dbc.Button(
+                                                "下載所有檔案所有圖表",
+                                                id="btn-download-all-files",
+                                                color="warning",
+                                                outline=True,
+                                                className="mb-2",
+                                                style={"width": "100%"},
+                                            ),
+                                            html.Div(
+                                                id="download-status",
+                                                className="mt-2 text-muted small",
+                                            ),
+                                        ],
+                                    ),
+                                ],
+                                style={"flex": "0 0 250px"},
                             ),
                         ],
-                        className="mb-4",
+                        className="mb-4 d-flex",
+                        style={"border": "2px solid #ecbc4f", "padding": "15px", "borderRadius": "5px"},
                     ),
                     # 參數控制面板
                     html.Div(
@@ -1384,7 +1424,7 @@ class ParameterPlateauPlotter:
                     f"更新參數控制面板失敗: {str(e)}", className="text-danger"
                 )
 
-        # 生成2D參數高原圖表的回調函數
+        # 生成2D參數高原圖表的回調函數（指標按鈕和策略選擇觸發）
         @app.callback(
             Output("parameter-landscape-chart", "children"),
             [
@@ -1393,7 +1433,6 @@ class ParameterPlateauPlotter:
                 Input("btn-sortino", "n_clicks"),
                 Input("btn-calmar", "n_clicks"),
                 Input("btn-mdd", "n_clicks"),
-                Input("btn-update-chart", "n_clicks"),
             ],
             [
                 State({"type": "checkbox", "index": ALL}, "value"),
@@ -1407,7 +1446,6 @@ class ParameterPlateauPlotter:
             sortino_clicks,
             calmar_clicks,
             mdd_clicks,
-            update_clicks,
             checkbox_values,
             slider_values,
         ):
@@ -1455,7 +1493,7 @@ class ParameterPlateauPlotter:
                     self.index_manager = ParameterIndexManager(parameters)
                     self.index_manager.build_indexes()
 
-                # 構建固定參數字典
+                # 構建固定參數字典（如果有）
                 fixed_params = {}
                 if checkbox_values and slider_values:
                     variable_params = analysis.get("variable_params", {})
@@ -1476,6 +1514,545 @@ class ParameterPlateauPlotter:
 
             except Exception as e:
                 return html.P(f"生成圖表失敗: {str(e)}", className="text-danger")
+
+        # 更新圖表按鈕的回調函數（單獨處理，因為按鈕是動態創建的）
+        @app.callback(
+            Output("parameter-landscape-chart", "children", allow_duplicate=True),
+            Input("btn-update-chart", "n_clicks"),
+            [
+                State("strategy-selector", "value"),
+                State("btn-sharpe", "outline"),
+                State("btn-sortino", "outline"),
+                State("btn-calmar", "outline"),
+                State("btn-mdd", "outline"),
+                State({"type": "checkbox", "index": ALL}, "value"),
+                State({"type": "slider", "index": ALL}, "value"),
+            ],
+            prevent_initial_call=True,
+        )
+        def update_chart_with_fixed_params(
+            update_clicks,
+            strategy_key,
+            sharpe_outline,
+            sortino_outline,
+            calmar_outline,
+            mdd_outline,
+            checkbox_values,
+            slider_values,
+        ):
+            """使用固定參數更新2D參數高原圖表"""
+            if not update_clicks or not strategy_key:
+                raise PreventUpdate
+
+            # 確定選中的績效指標（根據按鈕的outline狀態）
+            if sharpe_outline == False:
+                metric = "Sharpe"
+            elif sortino_outline == False:
+                metric = "Sortino"
+            elif calmar_outline == False:
+                metric = "Calmar"
+            elif mdd_outline == False:
+                metric = "Max_drawdown"
+            else:
+                metric = "Sharpe"  # 預設
+
+            try:
+                from .DataImporter_plotter import DataImporterPlotter
+
+                parameters = data.get("parameters", [])
+
+                # 使用緩存的策略分析方法
+                if hasattr(self, "data_importer") and self.data_importer is not None:
+                    analysis = self.data_importer.get_strategy_analysis_cached(
+                        parameters, strategy_key
+                    )
+                else:
+                    temp_importer = DataImporterPlotter("", None)
+                    analysis = temp_importer.get_strategy_analysis_cached(
+                        parameters, strategy_key
+                    )
+
+                if not analysis:
+                    return html.P("無法分析策略參數", className="text-danger")
+
+                # 檢查是否有索引管理器
+                if not hasattr(self, "index_manager") or self.index_manager is None:
+                    self.index_manager = ParameterIndexManager(parameters)
+                    self.index_manager.build_indexes()
+
+                # 構建固定參數字典
+                fixed_params = {}
+                if checkbox_values and slider_values:
+                    variable_params = analysis.get("variable_params", {})
+                    param_names = list(variable_params.keys())
+
+                    for i, (is_checked, slider_value) in enumerate(
+                        zip(checkbox_values, slider_values)
+                    ):
+                        if i < len(param_names) and is_checked:
+                            param_name = param_names[i]
+                            fixed_params[param_name] = slider_value
+
+                # 創建2D熱力圖（使用固定參數）
+                chart = self.create_2d_parameter_heatmap(
+                    analysis, metric, data, strategy_key, fixed_params
+                )
+                return chart
+
+            except Exception as e:
+                return html.P(f"生成圖表失敗: {str(e)}", className="text-danger")
+
+        # 下載當前檔案所有圖表的回調函數
+        @app.callback(
+            Output("download-status", "children"),
+            Input("btn-download-current-file", "n_clicks"),
+            [
+                State("file-selector", "value"),
+            ],
+            prevent_initial_call=True,
+        )
+        def download_current_file_charts(n_clicks, selected_file):
+            """下載當前選擇檔案下的所有參數高原圖表"""
+            if not n_clicks:
+                raise PreventUpdate
+            
+            if not selected_file:
+                return html.P(
+                    "⚠️ 請先選擇一個檔案",
+                    className="text-warning mb-0"
+                )
+
+            try:
+                import os
+                from datetime import datetime
+                from .DataImporter_plotter import DataImporterPlotter
+
+                # 獲取項目根目錄
+                # 從當前文件的絕對路徑開始，向上查找包含 main.py 的目錄
+                current_file = os.path.abspath(__file__)  # plotter/ParameterPlateau_plotter.py 的絕對路徑
+                current_dir = os.path.dirname(current_file)  # plotter 目錄的絕對路徑
+                project_root = os.path.dirname(current_dir)  # 項目根目錄 (lo2cin4bt) 的絕對路徑
+                
+                # 驗證：檢查是否存在 main.py 和 records 目錄
+                main_py_path = os.path.join(project_root, "main.py")
+                records_dir = os.path.join(project_root, "records")
+                if not os.path.exists(main_py_path) or not os.path.exists(records_dir):
+                    # 如果驗證失敗，嘗試使用與 Base_plotter.py 相同的方式
+                    project_root = os.path.dirname(os.path.dirname(__file__))
+                
+                # 生成日期前綴（僅保留日期，不包含時間）
+                timestamp = datetime.now().strftime("%Y%m%d")
+                file_prefix = selected_file.replace(".parquet", "").replace(" ", "_")
+                
+                # 簡化文件名（去掉 __metrics 和 hash）
+                short_file_prefix = file_prefix.split("__metrics")[0] if "__metrics" in file_prefix else file_prefix
+                
+                # 為該檔案創建專屬資料夾（在records/plotter下）
+                base_dir = os.path.join(project_root, "records", "plotter")
+                download_dir = os.path.join(base_dir, f"{timestamp}_{short_file_prefix}")
+                os.makedirs(download_dir, exist_ok=True)
+                
+                self.logger.info(f"開始下載當前檔案圖表，目標目錄: {download_dir}")
+
+                strategy_groups = data.get("strategy_groups", {})
+                parameters = data.get("parameters", [])
+                metrics = ["Sharpe", "Sortino", "Calmar", "Max_drawdown"]
+                
+                downloaded_count = 0
+                error_count = 0
+
+                # 遍歷該檔案的所有策略
+                for strategy_key, strategy_info in strategy_groups.items():
+                    file_name = strategy_info.get("file_name", "unknown")
+                    if file_name != selected_file:
+                        continue
+
+                    # 獲取策略分析
+                    try:
+                        if hasattr(self, "data_importer") and self.data_importer is not None:
+                            analysis = self.data_importer.get_strategy_analysis_cached(
+                                parameters, strategy_key
+                            )
+                        else:
+                            temp_importer = DataImporterPlotter("", None)
+                            analysis = temp_importer.get_strategy_analysis_cached(
+                                parameters, strategy_key
+                            )
+
+                        if not analysis:
+                            error_count += 1
+                            continue
+
+                        variable_params = analysis.get("variable_params", {})
+                        
+                        # 為每個指標生成圖表
+                        for metric in metrics:
+                            try:
+                                fig = self._create_heatmap_figure_for_download(
+                                    analysis, metric, data, strategy_key, fixed_params=None
+                                )
+                                
+                                if fig:
+                                    # 生成文件名（優化：提取策略部分，避免重複文件名）
+                                    # strategy_key 格式: "file_name::Entry_XXX_Exit_YYY"
+                                    if "::" in strategy_key:
+                                        # 提取策略部分（Entry和Exit信息），去掉文件名部分
+                                        strategy_part = strategy_key.split("::", 1)[1]
+                                        # 清理策略名稱，替換特殊字符
+                                        strategy_name = strategy_part.replace(":", "_").replace("|", "_").replace(",", "").replace("+", "_")
+                                    else:
+                                        # 如果格式不符合預期，使用原始策略鍵
+                                        strategy_name = strategy_key.replace(":", "_").replace("|", "_").replace(",", "")
+                                    
+                                    # 文件名格式：日期_簡化文件名_策略名稱_指標.png
+                                    filename = f"{timestamp}_{short_file_prefix}_{strategy_name}_{metric}.png"
+                                    filepath = os.path.join(download_dir, filename)
+                                    
+                                    # 保存圖片
+                                    fig.write_image(filepath, width=1200, height=800, scale=2)
+                                    downloaded_count += 1
+                                    self.logger.info(f"成功下載: {filename}")
+                                else:
+                                    error_count += 1
+                            except Exception as e:
+                                self.logger.error(f"下載圖表失敗 {strategy_key} {metric}: {e}")
+                                error_count += 1
+                                continue
+                    except Exception as e:
+                        self.logger.error(f"處理策略失敗 {strategy_key}: {e}")
+                        error_count += 1
+                        continue
+
+                status_messages = [
+                    html.P(
+                        f"✅ 下載完成！已下載 {downloaded_count} 個圖表",
+                        className="text-success mb-1",
+                    ),
+                ]
+                
+                if error_count > 0:
+                    status_messages.append(
+                        html.P(
+                            f"⚠️ 有 {error_count} 個圖表下載失敗",
+                            className="text-warning mb-1",
+                        )
+                    )
+                
+                status_messages.append(
+                    html.P(
+                        f"📁 保存位置: {download_dir}",
+                        className="text-muted mb-0 small",
+                    ),
+                )
+
+                return html.Div(status_messages)
+
+            except Exception as e:
+                self.logger.error(f"批量下載失敗: {e}", exc_info=True)
+                return html.Div(
+                    [
+                        html.P(
+                            f"❌ 下載失敗: {str(e)}",
+                            className="text-danger mb-1",
+                        ),
+                        html.P(
+                            "請檢查日誌以獲取詳細錯誤信息",
+                            className="text-muted mb-0 small",
+                        ),
+                    ]
+                )
+
+        # 下載所有檔案所有圖表的回調函數
+        @app.callback(
+            Output("download-status", "children", allow_duplicate=True),
+            Input("btn-download-all-files", "n_clicks"),
+            prevent_initial_call=True,
+        )
+        def download_all_files_charts(n_clicks):
+            """下載所有檔案下的所有參數高原圖表"""
+            if not n_clicks:
+                raise PreventUpdate
+
+            try:
+                import os
+                from datetime import datetime
+                from .DataImporter_plotter import DataImporterPlotter
+
+                # 獲取項目根目錄
+                # 從當前文件的絕對路徑開始，向上查找包含 main.py 的目錄
+                current_file = os.path.abspath(__file__)  # plotter/ParameterPlateau_plotter.py 的絕對路徑
+                current_dir = os.path.dirname(current_file)  # plotter 目錄的絕對路徑
+                project_root = os.path.dirname(current_dir)  # 項目根目錄 (lo2cin4bt) 的絕對路徑
+                
+                # 驗證：檢查是否存在 main.py 和 records 目錄
+                main_py_path = os.path.join(project_root, "main.py")
+                records_dir = os.path.join(project_root, "records")
+                if not os.path.exists(main_py_path) or not os.path.exists(records_dir):
+                    # 如果驗證失敗，嘗試使用與 Base_plotter.py 相同的方式
+                    project_root = os.path.dirname(os.path.dirname(__file__))
+                
+                # 生成日期前綴（僅保留日期，不包含時間）
+                timestamp = datetime.now().strftime("%Y%m%d")
+
+                strategy_groups = data.get("strategy_groups", {})
+                parameters = data.get("parameters", [])
+                metrics = ["Sharpe", "Sortino", "Calmar", "Max_drawdown"]
+                
+                downloaded_count = 0
+                error_count = 0
+                total_files = len(set(info.get("file_name", "unknown") for info in strategy_groups.values()))
+                
+                # 基礎目錄
+                base_dir = os.path.join(project_root, "records", "plotter")
+                
+                self.logger.info(f"開始下載所有檔案圖表，基礎目錄: {base_dir}")
+
+                # 遍歷所有檔案的所有策略
+                for strategy_key, strategy_info in strategy_groups.items():
+                    file_name = strategy_info.get("file_name", "unknown")
+                    file_prefix = file_name.replace(".parquet", "").replace(" ", "_")
+                    
+                    # 為每個檔案創建專屬資料夾
+                    short_file_prefix = file_prefix.split("__metrics")[0] if "__metrics" in file_prefix else file_prefix
+                    download_dir = os.path.join(base_dir, f"{timestamp}_{short_file_prefix}")
+                    os.makedirs(download_dir, exist_ok=True)
+
+                    # 獲取策略分析
+                    try:
+                        if hasattr(self, "data_importer") and self.data_importer is not None:
+                            analysis = self.data_importer.get_strategy_analysis_cached(
+                                parameters, strategy_key
+                            )
+                        else:
+                            temp_importer = DataImporterPlotter("", None)
+                            analysis = temp_importer.get_strategy_analysis_cached(
+                                parameters, strategy_key
+                            )
+
+                        if not analysis:
+                            error_count += 1
+                            continue
+
+                        variable_params = analysis.get("variable_params", {})
+                        
+                        # 為每個指標生成圖表
+                        for metric in metrics:
+                            try:
+                                fig = self._create_heatmap_figure_for_download(
+                                    analysis, metric, data, strategy_key, fixed_params=None
+                                )
+                                
+                                if fig:
+                                    # 生成文件名（優化：提取策略部分，避免重複文件名）
+                                    # strategy_key 格式: "file_name::Entry_XXX_Exit_YYY"
+                                    if "::" in strategy_key:
+                                        # 提取策略部分（Entry和Exit信息），去掉文件名部分
+                                        strategy_part = strategy_key.split("::", 1)[1]
+                                        # 清理策略名稱，替換特殊字符
+                                        strategy_name = strategy_part.replace(":", "_").replace("|", "_").replace(",", "").replace("+", "_")
+                                    else:
+                                        # 如果格式不符合預期，使用原始策略鍵
+                                        strategy_name = strategy_key.replace(":", "_").replace("|", "_").replace(",", "")
+                                    
+                                    # 文件名格式：日期_簡化文件名_策略名稱_指標.png
+                                    filename = f"{timestamp}_{short_file_prefix}_{strategy_name}_{metric}.png"
+                                    filepath = os.path.join(download_dir, filename)
+                                    
+                                    # 保存圖片
+                                    fig.write_image(filepath, width=1200, height=800, scale=2)
+                                    downloaded_count += 1
+                                    self.logger.info(f"成功下載: {filename}")
+                                else:
+                                    error_count += 1
+                            except Exception as e:
+                                self.logger.error(f"下載圖表失敗 {strategy_key} {metric}: {e}")
+                                error_count += 1
+                                continue
+                    except Exception as e:
+                        self.logger.error(f"處理策略失敗 {strategy_key}: {e}")
+                        error_count += 1
+                        continue
+
+                status_messages = [
+                    html.P(
+                        f"✅ 下載完成！已下載 {downloaded_count} 個圖表（來自 {total_files} 個檔案）",
+                        className="text-success mb-1",
+                    ),
+                ]
+                
+                if error_count > 0:
+                    status_messages.append(
+                        html.P(
+                            f"⚠️ 有 {error_count} 個圖表下載失敗",
+                            className="text-warning mb-1",
+                        )
+                    )
+                
+                status_messages.append(
+                    html.P(
+                        f"📁 保存位置: {download_dir}",
+                        className="text-muted mb-0 small",
+                    ),
+                )
+
+                return html.Div(status_messages)
+
+            except Exception as e:
+                self.logger.error(f"批量下載失敗: {e}", exc_info=True)
+                return html.Div(
+                    [
+                        html.P(
+                            f"❌ 下載失敗: {str(e)}",
+                            className="text-danger mb-1",
+                        ),
+                        html.P(
+                            "請檢查日誌以獲取詳細錯誤信息",
+                            className="text-muted mb-0 small",
+                        ),
+                    ]
+                )
+
+    def _create_heatmap_figure_for_download(
+        self,
+        analysis: Dict[str, Any],
+        metric: str,
+        data: Dict[str, Any],
+        strategy_key: str = None,
+        fixed_params: Dict[str, Any] = None,
+    ) -> go.Figure:
+        """
+        為下載創建熱力圖Figure對象
+        
+        Args:
+            analysis: 策略參數分析結果
+            metric: 績效指標名稱
+            data: 完整數據字典
+            strategy_key: 策略鍵值
+            fixed_params: 固定參數字典
+            
+        Returns:
+            go.Figure: Plotly Figure對象，如果無法生成則返回None
+        """
+        try:
+            variable_params = analysis.get("variable_params", {})
+            
+            if len(variable_params) < 2:
+                return None
+            
+            # 獲取前兩個參數作為軸
+            param_names = list(variable_params.keys())
+            x_axis = param_names[0]
+            y_axis = param_names[1]
+            x_values = variable_params[x_axis]
+            y_values = variable_params[y_axis]
+            
+            # 創建績效指標矩陣
+            performance_matrix = []
+            valid_count = 0
+            for y_val in y_values:
+                row = []
+                for x_val in x_values:
+                    result = self._find_performance_value_and_backtest_id(
+                        analysis, x_axis, x_val, y_axis, y_val,
+                        metric, data, fixed_params
+                    )
+                    performance_value = result.get("performance_value") if result else None
+                    if performance_value is not None and not np.isnan(performance_value):
+                        row.append(float(performance_value))
+                        valid_count += 1
+                    else:
+                        row.append(np.nan)  # 使用 NaN 而不是 0，這樣可以正確顯示
+                performance_matrix.append(row)
+            
+            # 檢查是否有有效數據
+            if valid_count == 0:
+                self.logger.warning(f"沒有找到有效的 {metric} 數據")
+                return None
+            
+            # 創建文本矩陣和顯示矩陣（用於顯示數值）
+            # 將 NaN 轉換為 0 用於顯示，但保留原始數據結構
+            display_matrix = []
+            text_matrix = []
+            for row in performance_matrix:
+                display_row = []
+                text_row = []
+                for val in row:
+                    if val is not None and not np.isnan(val):
+                        display_row.append(float(val))
+                        text_row.append(f"{float(val):.2f}")
+                    else:
+                        display_row.append(0.0)
+                        text_row.append("")  # 空字符串，不顯示
+                display_matrix.append(display_row)
+                text_matrix.append(text_row)
+            
+            # 創建熱力圖數組（NaN已轉換為0）
+            filtered_array = np.array(display_matrix)
+            colorscale = self._get_threshold_based_colorscale(metric, display_matrix)
+            
+            # 設定zmin和zmax
+            if metric == "Sharpe":
+                zmin, zmax = 0.5, 2.0
+            elif metric == "Sortino":
+                zmin, zmax = 0.5, 2.0
+            elif metric == "Calmar":
+                zmin, zmax = 0.5, 2.0
+            elif metric == "Max_drawdown":
+                zmin, zmax = -0.7, -0.0
+            else:
+                zmin, zmax = None, None
+            
+            # 創建Figure
+            fig = go.Figure(
+                data=go.Heatmap(
+                    z=filtered_array,
+                    x=x_values,
+                    y=y_values,
+                    colorscale=colorscale,
+                    zmin=zmin,
+                    zmax=zmax,
+                    text=text_matrix,
+                    texttemplate="%{text}",
+                    textfont={"size": 12, "color": "#000000", "family": "Arial Black"},
+                    xgap=2,
+                    ygap=2,
+                    hoverongaps=False,
+                )
+            )
+            
+            # 設定布局
+            chart_title = f"{metric} 參數高原圖表 | X軸: {x_axis}, Y軸: {y_axis}"
+            fig.update_layout(
+                title=chart_title,
+                xaxis_title=x_axis,
+                yaxis_title=y_axis,
+                template=None,
+                height=600,
+                plot_bgcolor="#000000",
+                paper_bgcolor="#181818",
+                font=dict(color="#f5f5f5", size=14),
+                xaxis=dict(
+                    color="#ecbc4f",
+                    gridcolor="rgba(0,0,0,0)",
+                    showgrid=False,
+                    tickfont=dict(color="#ecbc4f"),
+                    zeroline=False,
+                ),
+                yaxis=dict(
+                    color="#ecbc4f",
+                    gridcolor="rgba(0,0,0,0)",
+                    showgrid=False,
+                    tickfont=dict(color="#ecbc4f"),
+                    zeroline=False,
+                ),
+                title_font=dict(color="#ecbc4f", size=18),
+            )
+            
+            return fig
+            
+        except Exception as e:
+            self.logger.error(f"創建下載圖表失敗: {e}")
+            return None
 
     def _get_threshold_based_colorscale(
         self, metric: str, performance_matrix: List[List[float]]
