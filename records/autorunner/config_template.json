@@ -219,99 +219,125 @@
         "ma_type": "SMA",
         "ma_range": "10:200:20"
       },
-      "BOLL1_strategy_2": {
-        "ma_range": "10:200:20",
-        "sd_multi": "2"
-      },
-      "BOLL4_strategy_2": {
-        "ma_range": "10:200:20",
-        "sd_multi": "2"
-      },
-      "BOLL3_strategy_3": {
-        "ma_range": "10:200:20",
-        "sd_multi": "2"
-      },
-      "BOLL2_strategy_3": {
-        "ma_range": "10:200:20",
-        "sd_multi": "2"
-      },
-      "HL1_strategy_4": {
-        "n_range": "1:1:1",
-        "m_range": "10:200:20"
-      },
-      "HL4_strategy_4": {
-        "n_range": "1:1:1",
-        "m_range": "10:200:20"
-      },
-      "PERC1_strategy_5": {
-        "window_range": "10:200:20",
-        "percentile_range": "90:90:1"
-      },
-      "PERC4_strategy_5": {
-        "window_range": "10:200:20",
-        "percentile_range": "90:90:1"
-      },
-      "PERC3_strategy_6": {
-        "window_range": "10:200:20",
-        "percentile_range": "10:10:1"
-      },
-      "PERC2_strategy_6": {
-        "window_range": "10:200:20",
-        "percentile_range": "10:10:1"
-      },
-      "MA4_strategy_7": {
+      "MA1_strategy_2": {
         "ma_type": "SMA",
         "ma_range": "10:200:20"
       },
-      "MA1_strategy_7": {
+      "MA9_strategy_2": {
+        "ma_type": "SMA",
+        "m_range": "1:1:1",
+        "n_range": "10:200:20"
+      },
+      "MA4_strategy_2": {
         "ma_type": "SMA",
         "ma_range": "10:200:20"
       },
-      "BOLL4_strategy_8": {
+      "BOLL1_strategy_3": {
         "ma_range": "10:200:20",
         "sd_multi": "2"
       },
-      "BOLL1_strategy_8": {
+      "BOLL4_strategy_3": {
         "ma_range": "10:200:20",
         "sd_multi": "2"
       },
-      "BOLL2_strategy_9": {
+      "BOLL3_strategy_4": {
         "ma_range": "10:200:20",
         "sd_multi": "2"
       },
-      "BOLL3_strategy_9": {
+      "BOLL2_strategy_4": {
         "ma_range": "10:200:20",
         "sd_multi": "2"
       },
-      "HL4_strategy_10": {
+      "HL1_strategy_5": {
         "n_range": "1:1:1",
         "m_range": "10:200:20"
       },
-      "HL1_strategy_10": {
+      "HL4_strategy_5": {
         "n_range": "1:1:1",
         "m_range": "10:200:20"
       },
-      "PERC4_strategy_11": {
+      "PERC1_strategy_6": {
         "window_range": "10:200:20",
         "percentile_range": "90:90:1"
       },
-      "PERC1_strategy_11": {
+      "PERC4_strategy_6": {
         "window_range": "10:200:20",
         "percentile_range": "90:90:1"
       },
-      "PERC2_strategy_12": {
+      "PERC3_strategy_7": {
         "window_range": "10:200:20",
         "percentile_range": "10:10:1"
       },
-      "PERC3_strategy_12": {
+      "PERC2_strategy_7": {
         "window_range": "10:200:20",
         "percentile_range": "10:10:1"
       },
-      "HL4_strategy_13": {
+      "MA4_strategy_8": {
+        "ma_type": "SMA",
+        "ma_range": "10:200:20"
+      },
+      "MA1_strategy_8": {
+        "ma_type": "SMA",
+        "ma_range": "10:200:20"
+      },
+      "MA4_strategy_9": {
+        "ma_type": "SMA",
+        "ma_range": "10:200:20"
+      },
+      "MA12_strategy_9": {
+        "ma_type": "SMA",
+        "m_range": "1:1:1",
+        "n_range": "10:200:20"
+      },
+      "MA1_strategy_9": {
+        "ma_type": "SMA",
+        "ma_range": "10:200:20"
+      },
+      "BOLL4_strategy_10": {
+        "ma_range": "10:200:20",
+        "sd_multi": "2"
+      },
+      "BOLL1_strategy_10": {
+        "ma_range": "10:200:20",
+        "sd_multi": "2"
+      },
+      "BOLL2_strategy_11": {
+        "ma_range": "10:200:20",
+        "sd_multi": "2"
+      },
+      "BOLL3_strategy_11": {
+        "ma_range": "10:200:20",
+        "sd_multi": "2"
+      },
+      "HL4_strategy_12": {
         "n_range": "1:1:1",
         "m_range": "10:200:20"
       },
-      "HL1_strategy_13": {
+      "HL1_strategy_12": {
+        "n_range": "1:1:1",
+        "m_range": "10:200:20"
+      },
+      "PERC4_strategy_13": {
+        "window_range": "10:200:20",
+        "percentile_range": "90:90:1"
+      },
+      "PERC1_strategy_13": {
+        "window_range": "10:200:20",
+        "percentile_range": "90:90:1"
+      },
+      "PERC2_strategy_14": {
+        "window_range": "10:200:20",
+        "percentile_range": "10:10:1"
+      },
+      "PERC3_strategy_14": {
+        "window_range": "10:200:20",
+        "percentile_range": "10:10:1"
+      },
+      "HL4_strategy_15": {
+        "n_range": "1:1:1",
+        "m_range": "10:200:20"
+      },
+      "HL1_strategy_15": {
         "n_range": "1:1:1",
         "m_range": "10:200:20"
       }

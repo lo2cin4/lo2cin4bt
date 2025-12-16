@@ -281,19 +281,19 @@
                 "window_range": "10:200:20",
                 "percentile_range": "90:100:10"
             },
-            "PERC2_strategy_13": {
+            "PERC2_strategy_12": {
                 "window_range": "10:200:20",
                 "percentile_range": "0:10:10"
             },
-            "PERC3_strategy_13": {
+            "PERC3_strategy_12": {
                 "window_range": "10:200:20",
                 "percentile_range": "0:10:10"
             },
-            "HL4_strategy_14": {
+            "HL4_strategy_13": {
                 "n_range": "1:5:2",
                 "m_range": "10:200:20"
             },
-            "HL1_strategy_14": {
+            "HL1_strategy_13": {
                 "n_range": "1:5:2",
                 "m_range": "10:200:20"
             }

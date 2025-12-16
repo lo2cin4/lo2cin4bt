@@ -289,11 +289,11 @@
         "window_range": "10:200:20",
         "percentile_range": "10:10:1"
       },
-      "HL4_strategy_14": {
+      "HL4_strategy_13": {
         "n_range": "1:1:1",
         "m_range": "10:200:20"
       },
-      "HL1_strategy_14": {
+      "HL1_strategy_13": {
         "n_range": "1:1:1",
         "m_range": "10:200:20"
       }
