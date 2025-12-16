@@ -6,12 +6,14 @@
             "source": "數據來源：yfinance | binance | coinbase | file",
             "frequency": "價格頻率，例如 1d、1h",
             "start_date": "資料開始日期 (YYYY-MM-DD)",
+            "end_date": "資料結束日期 (YYYY-MM-DD)，輸入 '/' 或留空則使用今天的日期",
             "handle_missing_values": "缺失值處理方式：目前僅支援 fill",
             "missing_value_strategy": "缺失值填充策略 (A=前向填充, B,N=前N期均值, C,x=固定值)"
         },
         "source": "binance",
         "frequency": "1d",
         "start_date": "2020-01-01",
+        "end_date": "/",
         "handle_missing_values": "fill",
         "missing_value_strategy": "A",
         "yfinance_config": {

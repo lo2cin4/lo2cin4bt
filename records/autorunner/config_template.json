@@ -6,12 +6,14 @@
       "source": "數據來源：yfinance | binance | coinbase | file",
       "frequency": "價格頻率，例如 1d、1h",
       "start_date": "資料開始日期 (YYYY-MM-DD)",
+      "end_date": "資料結束日期 (YYYY-MM-DD)，輸入 '/' 或留空則使用今天的日期",
       "handle_missing_values": "缺失值處理方式：目前僅支援 fill",
       "missing_value_strategy": "缺失值填充策略 (A=前向填充, B,N=前N期均值, C,x=固定值)"
     },
     "source": "binance",
     "frequency": "1d",
     "start_date": "2020-01-01",
+    "end_date": "/",
     "handle_missing_values": "fill",
     "missing_value_strategy": "A",
     "yfinance_config": {
@@ -144,14 +146,6 @@
       },
       {
         "entry": [
-          "HL1"
-        ],
-        "exit": [
-          "HL4"
-        ]
-      },
-      {
-        "entry": [
           "MA4"
         ],
         "exit": [
@@ -265,67 +259,59 @@
         "window_range": "10:200:20",
         "percentile_range": "10:10:1"
       },
-      "HL1_strategy_7": {
-        "n_range": "1:1:1",
-        "m_range": "10:200:20"
-      },
-      "HL4_strategy_7": {
-        "n_range": "1:1:1",
-        "m_range": "10:200:20"
-      },
-      "MA4_strategy_8": {
+      "MA4_strategy_7": {
         "ma_type": "SMA",
         "ma_range": "10:200:20"
       },
-      "MA1_strategy_8": {
+      "MA1_strategy_7": {
         "ma_type": "SMA",
         "ma_range": "10:200:20"
       },
-      "BOLL4_strategy_9": {
+      "BOLL4_strategy_8": {
         "ma_range": "10:200:20",
         "sd_multi": "2"
       },
-      "BOLL1_strategy_9": {
+      "BOLL1_strategy_8": {
         "ma_range": "10:200:20",
         "sd_multi": "2"
       },
-      "BOLL2_strategy_10": {
+      "BOLL2_strategy_9": {
         "ma_range": "10:200:20",
         "sd_multi": "2"
       },
-      "BOLL3_strategy_10": {
+      "BOLL3_strategy_9": {
         "ma_range": "10:200:20",
         "sd_multi": "2"
       },
-      "HL4_strategy_11": {
+      "HL4_strategy_10": {
         "n_range": "1:1:1",
         "m_range": "10:200:20"
       },
-      "HL1_strategy_11": {
+      "HL1_strategy_10": {
         "n_range": "1:1:1",
         "m_range": "10:200:20"
       },
-      "PERC4_strategy_12": {
+      "PERC4_strategy_11": {
         "window_range": "10:200:20",
         "percentile_range": "90:90:1"
       },
-      "PERC1_strategy_12": {
+      "PERC1_strategy_11": {
         "window_range": "10:200:20",
         "percentile_range": "90:90:1"
       },
-      "PERC2_strategy_13": {
+      "PERC2_strategy_12": {
         "window_range": "10:200:20",
         "percentile_range": "10:10:1"
       },
-      "PERC3_strategy_13": {
+      "PERC3_strategy_12": {
         "window_range": "10:200:20",
         "percentile_range": "10:10:1"
       },
-      "HL4_strategy_14": {
+      "HL4_strategy_13": {
         "n_range": "1:1:1",
         "m_range": "10:200:20"
       },
-      "HL1_strategy_14": {
+      "HL1_strategy_13": {
         "n_range": "1:1:1",
         "m_range": "10:200:20"
       }
