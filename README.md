@@ -219,7 +219,7 @@ lo2cin4bt/
 ## 🚀 Autorunner 自動化回測模組 *NEW*
 
 ### 概述
-Autorunner 是 lo2cin4bt 的自動化回測模組，讓用戶可以透過配置文件驅動整個回測流程，無需手動輸入參數。支援多種數據來源、多策略配置和批次執行。
+Autorunner 是 lo2cin4bt 的自動化回測模組，讓用戶可以透過配置文件驅動整個回測流程，無需手動輸入參數。支援多種數據來源、多策略配置、批次執行，以及 Walk-Forward Analysis (WFA) 滾動前向分析。
 
 ### 核心特性
 - **📝 配置文件驅動**：透過 JSON 配置文件定義所有回測參數
@@ -227,18 +227,26 @@ Autorunner 是 lo2cin4bt 的自動化回測模組，讓用戶可以透過配置�
 - **📊 多數據源支援**：Yahoo Finance、Binance、Coinbase、本地文件
 - **⚡ 批次處理**：支援多個配置文件同時執行
 - **🎯 零交互設計**：適合一次回測大量數據
+- **🔄 WFA 支援**：支援前向分析，評估策略穩健性
 
 ### 快速開始
 
 #### 1. 準備配置文件
 
-將 `records/autorunner/config_template.json` 複製為您的配置文件，並根據需要修改。
+**回測配置**：
+- 將 `records/autorunner/backtester_autorunner/config_template.json` 複製為您的配置文件，並根據需要修改
+- 支援多種配置範例：`config_template_single.json`、`config_template_defaultall.json` 等
+
+**WFA 配置**：
+- 將 `records/autorunner/wfanalyser_autorunner/config_template.json` 複製為您的 WFA 配置文件
+- 支援滾動模式（Standard）和錨定起點模式（Anchored），詳見 `config_anchored_template.json`
 
 #### 2. 執行自動化回測
 
 ```bash
 python main.py
-# 在主選單選擇 "5. 🚀 Autorunner 自動化回測"
+# 在主選單選擇 "4. 🚀 Autorunner 自動化回測" 進行回測
+# 或選擇 "5. 🔄 滾動前向分析 (WFA)" 進行 WFA 分析
 # 選擇您的配置文件
 # 系統將自動執行完整回測流程
 ```
@@ -256,9 +264,10 @@ python main.py
 
 支援多個配置文件同時執行，適合策略優化和參數測試：
 
-1. 在 `records/autorunner/` 目錄放置多個配置文件
-2. 執行 autorunner 時選擇多個配置
-3. 系統將依序執行所有選定配置的回測與分析，並放置於對應資料夾
+1. **回測批次執行**：在 `records/autorunner/backtester_autorunner/` 目錄放置多個回測配置文件
+2. **WFA 批次執行**：在 `records/autorunner/wfanalyser_autorunner/` 目錄放置多個 WFA 配置文件
+3. 執行 autorunner 時選擇多個配置
+4. 系統將依序執行所有選定配置的回測與分析，並放置於對應資料夾
 
 ---
 
@@ -266,19 +275,30 @@ python main.py
 
 - **預測因子檔案存放**：
   - 需存放於 `records/dataloader/import` 資料夾，格式為 `csv/xlsx/json` 檔案
+- **Autorunner 配置文件**：
+  - **回測配置**：存放於 `records/autorunner/backtester_autorunner/` 資料夾
+  - **WFA 配置**：存放於 `records/autorunner/wfanalyser_autorunner/` 資料夾
+  - 支援多個配置文件批次執行
 - **回測結果（交易紀錄）**：
   - 自動產生並存放於 `records/backtester/` 資料夾，格式為 `.parquet` 檔案
   - 每次回測會產生一個唯一檔名（如 `20250723_97dpnzl6.parquet`）
+  - 可透過 Autorunner 自動執行或手動回測產生
+- **WFA 分析結果**：
+  - 自動產生並存放於 `records/wfanalyser/` 資料夾，格式為 `.parquet` 和 `.csv` 檔案
+  - 包含多個窗口的 IS/OOS 績效對比數據
+  - 僅可透過 Autorunner WFA 模式產生
 - **統計分析結果**：
   - 自動產生並存放於 `records/backtester/statanalyser` 資料夾，包含 `processed_data.csv`、`stats_report.txt` 等
 - **交易分析**：
   - 系統會自動讀取 `records/backtester/` 下的 parquet 檔案，計算後會產生新的 `.parquet` 檔案，並存放於 `records/metricstracker/` 內
 - **可視化平台**：
   - 系統會自動讀取 `records/metricstracker/` 下的 parquet 檔案，並以互動式圖表展示
+  - 如有 WFA 數據，會自動讀取 `records/wfanalyser/` 下的檔案，並顯示「前向分析 (WFA)」頁籤
 - **日誌檔案**：
   - 所有錯誤與執行日誌會存於 `logs/backtest_errors.log`
 - **自訂導出**：
   - 可於互動流程中選擇導出個別回測結果為 CSV
+  - WFA 結果可透過可視化平台下載完整分析圖表
 
 ---
 
@@ -307,7 +327,7 @@ python main.py
   - 九宮格熱力圖顯示不同參數組合在訓練集和測試集上的表現
   - 支援多種績效指標可視化：Sharpe Ratio、Sortino Ratio、Calmar Ratio、Max Drawdown
   - 可下載所有窗口的完整分析圖表
-  - 在主選單選擇「6. 👁️ 可視化平台」後，如有 WFA 數據會自動顯示「前向分析 (WFA)」頁籤
+  - 在主選單選擇「6.可視化平台」後，如有 WFA 數據會自動顯示「前向分析 (WFA)」頁籤
 - 優化了主選單結構，新增「5. 🔄 滾動前向分析 (WFA)」選項
 - 統一了代碼格式和風格，提升可讀性和維護性
 - 簡化了部分代碼邏輯，減少冗餘
