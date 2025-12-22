@@ -108,7 +108,7 @@ class DashboardGenerator:
             dash.Dash: Dash 應用實例
         """
         try:
-            layout = self._create_layout(data)
+            layout = self._create_layout(data, url_base_pathname)
             from .utils.DashAppUtils_utils_plotter import create_dash_app
             
             self.app = create_dash_app(
@@ -122,12 +122,13 @@ class DashboardGenerator:
             self.logger.error(f"創建 Dash 應用失敗: {e}")
             raise
 
-    def _create_layout(self, data: Dict[str, Any]) -> html.Div:
+    def _create_layout(self, data: Dict[str, Any], url_base_pathname: Optional[str] = None) -> html.Div:
         """
         創建應用布局
 
         Args:
             data: 解析後的數據字典
+            url_base_pathname: URL 路徑前綴（例如 "/lo2cin4bt/"），預設為 None
 
         Returns:
             html.Div: 布局組件
@@ -143,7 +144,7 @@ class DashboardGenerator:
             layout = html.Div(
                 [
                     # 標題欄
-                    self._create_header(data),
+                    self._create_header(data, url_base_pathname),
                     # 主要內容區域
                     dbc.Container(
                         [
@@ -285,8 +286,19 @@ class DashboardGenerator:
                 style={"backgroundColor": "#000000", "color": "#ffffff"},
             )
 
-    def _create_header(self, data: Dict[str, Any]) -> html.Div:
+    def _create_header(self, data: Dict[str, Any], url_base_pathname: Optional[str] = None) -> html.Div:
         """創建標題欄"""
+        # 構建正確的 logo 路徑
+        # Dash 的靜態資源路徑需要包含 url_base_pathname（如果有的話）
+        if url_base_pathname:
+            # 確保路徑前綴格式正確（以 / 開頭，不以 / 結尾）
+            base_path = url_base_pathname.rstrip("/")
+            if not base_path.startswith("/"):
+                base_path = "/" + base_path
+            logo_src = f"{base_path}/assets/lo2cin4logo.png"
+        else:
+            logo_src = "/assets/lo2cin4logo.png"
+        
         return html.Div(
             [
                 dbc.Navbar(
@@ -295,7 +307,7 @@ class DashboardGenerator:
                             html.Div(
                                 [
                                     html.Img(
-                                        src="/assets/lo2cin4logo.png",
+                                        src=logo_src,
                                         style={
                                             "height": "1.5em",  # 與文字高度相同
                                             "width": "1.5em",   # 寬度等於高度
