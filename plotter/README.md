@@ -2,11 +2,13 @@
 
 ## 模組概覽（Module Overview）
 
-**plotter** 是 lo2cin4BT 量化回測框架中的可視化平台模組，負責讀取 metricstracker 產生的 parquet 檔案，
-並提供基於 Dash 的互動式可視化界面，顯示績效指標和權益曲線。
+**plotter** 是 lo2cin4BT 量化回測框架中的可視化平台模組，負責讀取 metricstracker 和 wfanalyser 產生的 parquet 檔案，
+並提供基於 Dash 的互動式可視化界面，顯示績效指標、權益曲線、參數高原分析和 WFA（滾動前向分析）結果。
 
-- **輸入來源**：metricstracker 產生的 Parquet 檔案（含績效指標和權益曲線數據）
-- **輸出目標**：互動式 Web 界面，支援參數篩選、圖表顯示、績效比較
+- **輸入來源**：
+  - metricstracker 產生的 Parquet 檔案（含績效指標和權益曲線數據）
+  - wfanalyser 產生的 WFA 結果 Parquet 檔案（含窗口劃分、IS/OOS 績效等）
+- **輸出目標**：互動式 Web 界面，支援參數篩選、圖表顯示、績效比較、參數高原分析、WFA 可視化
 
 ---
 
@@ -29,6 +31,8 @@
 - 已完成參數高原分析功能，支援2D熱力圖可視化
 - 已完成參數解析邏輯重構，統一參數處理流程
 - 已完成使用說明UI，提升用戶體驗
+- 已完成 WFA（滾動前向分析）可視化平台，支援窗口劃分、IS/OOS 績效對比、熱力圖顯示
+- 已完成 WFA 批量下載功能，支援下載完整窗口框框圖片
 
 ### 已解決的難題
 
@@ -57,11 +61,17 @@ plotter/
 ├── ChartComponents_plotter.py                     # 圖表組件生成器
 ├── MetricsDisplay_plotter.py                      # 績效指標顯示組件
 ├── ParameterPlateau_plotter.py                    # 參數高原分析與可視化
-├── CallbackHandler_plotter.py                     # Dash 回調處理器
+├── WFAVisualization_plotter.py                    # WFA 可視化平台核心類
+├── WFADashboardGenerator_plotter.py               # WFA Dash 界面生成器
+├── WFADataImporter_plotter.py                     # WFA 數據載入與解析
+├── WFACallbackHandler_plotter.py                  # WFA Dash 回調處理器
+├── WFAChartComponents_plotter.py                  # WFA 圖表組件生成器
+├── WFADownloadHandler_plotter.py                  # WFA 批量下載處理器
 ├── utils/                                         # 工具模組目錄
 │   ├── __init__.py                               # 工具模組初始化
 │   └── ParameterParser_utils_plotter.py          # 參數解析工具類
-├── USAGE.md                                       # 使用說明文檔
+├── WFA_VISUALIZATION_DEVELOPMENT.md               # WFA 可視化開發文檔
+├── WFA_TODO_ISSUES.md                            # WFA 待辦事項與問題追蹤
 └── README.md                                      # 本文件
 ```
 
@@ -72,6 +82,12 @@ plotter/
 - **ChartComponents_plotter.py**：生成各種圖表組件
 - **MetricsDisplay_plotter.py**：生成績效指標顯示組件
 - **ParameterPlateau_plotter.py**：參數高原分析與2D熱力圖可視化
+- **WFAVisualization_plotter.py**：WFA 可視化平台核心類，協調 WFA 相關模組
+- **WFADashboardGenerator_plotter.py**：生成 WFA Dash 界面布局
+- **WFADataImporter_plotter.py**：讀取和解析 WFA 結果 Parquet 檔案
+- **WFACallbackHandler_plotter.py**：處理 WFA Dash 回調函數
+- **WFAChartComponents_plotter.py**：生成 WFA 圖表組件（IS/OOS 熱力圖等）
+- **WFADownloadHandler_plotter.py**：處理 WFA 批量下載功能
 - **utils/ParameterParser_utils_plotter.py**：統一的參數解析工具類，處理各種參數格式和策略結構
 
 ---
@@ -127,7 +143,49 @@ plotter/
 - **輸入**：策略參數數據、性能指標
 - **輸出**：互動式參數高原圖表
 
-### 8. utils/ParameterParser_utils_plotter.py
+### 8. WFAVisualization_plotter.py
+
+- **功能**：WFA 可視化平台核心類，協調 WFA 相關模組
+- **主要處理**：初始化 WFA 組件、設置回調、協調數據流
+- **輸入**：WFA 數據路徑
+- **輸出**：WFA Dash 應用實例
+
+### 9. WFADashboardGenerator_plotter.py
+
+- **功能**：生成 WFA Dash 界面布局
+- **主要處理**：創建文件/策略選擇器、生成窗口框框、設置下載按鈕
+- **輸入**：WFA 數據
+- **輸出**：WFA Dash 布局組件
+
+### 10. WFADataImporter_plotter.py
+
+- **功能**：讀取和解析 WFA 結果 Parquet 檔案
+- **主要處理**：掃描 WFA 結果目錄、解析窗口數據、提取策略信息
+- **輸入**：WFA 結果目錄路徑
+- **輸出**：解析後的 WFA 數據字典
+
+### 11. WFACallbackHandler_plotter.py
+
+- **功能**：處理 WFA Dash 回調函數
+- **主要處理**：文件/策略選擇、圖表更新、下載處理
+- **輸入**：用戶交互事件
+- **輸出**：更新的界面組件
+
+### 12. WFAChartComponents_plotter.py
+
+- **功能**：生成 WFA 圖表組件（IS/OOS 熱力圖等）
+- **主要處理**：創建 3x3 熱力圖、計算顏色映射、生成圖表
+- **輸入**：窗口數據、績效指標
+- **輸出**：Plotly 圖表對象
+
+### 13. WFADownloadHandler_plotter.py
+
+- **功能**：處理 WFA 批量下載功能
+- **主要處理**：生成完整窗口框框圖片、保存到指定目錄
+- **輸入**：WFA 數據、下載配置
+- **輸出**：PNG 圖片文件
+
+### 14. utils/ParameterParser_utils_plotter.py
 
 - **功能**：統一的參數解析工具類
 - **主要處理**：參數格式解析、策略結構識別、參數值轉換
@@ -189,7 +247,15 @@ plotter/
 - 與 Buy & Hold 策略比較
 - 年度績效分解
 
-### 4. 互動功能
+### 4. WFA 可視化功能
+
+- 文件與策略選擇
+- 窗口劃分顯示（IS/OOS 窗口信息）
+- IS/OOS 績效對比熱力圖（3x3 矩陣）
+- 多指標支援（Sharpe、Sortino、Calmar、MDD）
+- 批量下載功能（下載完整窗口框框圖片）
+
+### 5. 互動功能
 
 - 圖表縮放和平移
 - 數據點懸停顯示
@@ -308,7 +374,7 @@ plotter.run(port=8050, debug=True)
 
 ---
 
-## 參數疑難排解
+## 疑難排解
 
 ### 常見問題
 

@@ -101,8 +101,8 @@ import logging
 import multiprocessing
 from typing import Any, Dict, List, Optional, Tuple
 
-from rich.console import Console
-from rich.panel import Panel
+from .utils import get_console
+from utils import show_info, show_warning
 
 # 嘗試導入 psutil
 try:
@@ -121,22 +121,12 @@ class SpecMonitor:
         self.max_memory_mb = 1000  # 最大記憶體使用量（MB）
 
     @staticmethod
-    def display_vectorization_monitor(initial_memory: float, console: Console) -> None:
+    def display_vectorization_monitor(initial_memory: float, console: "Console") -> None:
         """顯示向量化性能監控面板"""
-        config_panel_content = (
-            f"🚀 開始向量化回測...\n📊 初始記憶體使用: {initial_memory:.1f} MB"
-        )
-
-        console.print(
-            Panel(
-                config_panel_content,
-                title="[bold #8f1511]⚡ 向量化性能監控[/bold #8f1511]",
-                border_style="#dbac30",
-            )
-        )
+        show_info("BACKTESTER", f"🚀 開始向量化回測...\n📊 初始記憶體使用: {initial_memory:.1f} MB")
 
     @staticmethod
-    def display_config_info(config_info: List[str], console: Console) -> None:
+    def display_config_info(config_info: List[str], console: "Console") -> None:
         """顯示智能配置信息面板"""
         if config_info:
             # 過濾掉空字符串和只包含空格的字符串
@@ -155,16 +145,10 @@ class SpecMonitor:
 • 記憶體安全檢查防止系統資源不足導致程序異常終止
 • 批次配置優化確保大量任務能夠高效且穩定地完成處理"""
 
-            console.print(
-                Panel(
-                    config_text + "\n\n" + config_explanation,
-                    title="[bold #8f1511]🔧 智能檢測電腦配置[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
-            )
+            show_info("BACKTESTER", config_text + "\n\n" + config_explanation)
 
     @staticmethod
-    def display_memory_warning(memory_used: float, console: Console) -> None:
+    def display_memory_warning(memory_used: float, console: "Console") -> None:
         """顯示記憶體警告面板"""
         memory_warning = f"⚠️ 記憶體使用過高: {memory_used:.1f} MB，強制垃圾回收"
         memory_explanation = """[bold #dbac30]說明：[/bold #dbac30]
@@ -172,13 +156,7 @@ class SpecMonitor:
 • 這是正常的保護機制，確保程序穩定運行
 • 如果頻繁出現此警告，建議減少回測參數組合數量或關閉其他程序"""
 
-        console.print(
-            Panel(
-                memory_warning + "\n\n" + memory_explanation,
-                title="[bold #dbac30]💾 記憶體管理[/bold #dbac30]",
-                border_style="#dbac30",
-            )
-        )
+        show_warning("BACKTESTER", memory_warning + "\n\n" + memory_explanation)
 
     @staticmethod
     def get_optimal_core_count() -> Tuple[int, str]:

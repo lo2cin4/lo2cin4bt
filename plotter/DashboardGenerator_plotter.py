@@ -96,36 +96,27 @@ class DashboardGenerator:
         self.logger = logger or logging.getLogger(__name__)
         self.app = None
 
-    def create_app(self, data: Dict[str, Any]) -> dash.Dash:
+    def create_app(self, data: Dict[str, Any], url_base_pathname: Optional[str] = None) -> dash.Dash:
         """
         創建 Dash 應用
 
         Args:
             data: 解析後的數據字典
+            url_base_pathname: URL 路徑前綴（例如 "/lo2cin4bt/"），預設為 None
 
         Returns:
             dash.Dash: Dash 應用實例
         """
         try:
-            self.logger.info("開始創建 Dash 應用")
             layout = self._create_layout(data)
-            # 自定義主題色
-            external_stylesheets = [
-                dbc.themes.BOOTSTRAP,  # 用基本主題，全部自定義
-                "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css",
-            ]
-            assets_path = os.path.join(
-                os.path.dirname(os.path.dirname(__file__)), "assets"
+            from .utils.DashAppUtils_utils_plotter import create_dash_app
+            
+            self.app = create_dash_app(
+                layout=layout,
+                app_title="Lo2cin4BT 可視化平台",
+                url_base_pathname=url_base_pathname,
+                logger=self.logger,
             )
-            self.app = dash.Dash(
-                __name__,
-                external_stylesheets=external_stylesheets,
-                suppress_callback_exceptions=True,
-                assets_folder=assets_path,
-            )
-            self.app.title = "Lo2cin4BT 可視化平台"
-            self.app.layout = layout
-            self.logger.info("Dash 應用創建完成")
             return self.app
         except Exception as e:
             self.logger.error(f"創建 Dash 應用失敗: {e}")
@@ -142,17 +133,17 @@ class DashboardGenerator:
             html.Div: 布局組件
         """
         try:
-            from .DataImporter_plotter import DataImporterPlotter
-
+            from .utils.ParameterParser_utils_plotter import ParameterParser
+            
             indicator_param_structure = (
-                DataImporterPlotter.parse_indicator_param_structure(
+                ParameterParser.parse_indicator_param_structure(
                     data.get("parameters", [])
                 )
             )
             layout = html.Div(
                 [
                     # 標題欄
-                    self._create_header(),
+                    self._create_header(data),
                     # 主要內容區域
                     dbc.Container(
                         [
@@ -205,6 +196,14 @@ class DashboardGenerator:
                                 id="layout-parameter-landscape-full",
                                 style={"display": "none"},
                             ),
+                            # WFA 可視化頁面布局（如果有 WFA 數據）
+                            html.Div(
+                                [
+                                    self._create_wfa_visualization_content(data)
+                                ],
+                                id="layout-wfa-visualization",
+                                style={"display": "none"},
+                            ),
                         ],
                         fluid=True,
                         style={"paddingLeft": "15px", "paddingRight": "15px"},  # 設置與 Navbar 一致的 padding，使圖表與 logo 左側對齊
@@ -218,7 +217,75 @@ class DashboardGenerator:
             self.logger.error(f"創建布局失敗: {e}")
             raise
 
-    def _create_header(self) -> html.Div:
+    def _create_wfa_visualization_content(self, data: Dict[str, Any]) -> html.Div:
+        """
+        創建 WFA 可視化內容區域
+
+        Args:
+            data: 解析後的數據字典，應包含 'wfa_data' 鍵
+
+        Returns:
+            html.Div: WFA 可視化內容組件
+        """
+        try:
+            from .WFADashboardGenerator_plotter import WFADashboardGenerator
+
+            wfa_data = data.get("wfa_data", [])
+            if not wfa_data:
+                return html.Div(
+                    html.P("未載入 WFA 數據", style={"textAlign": "center", "padding": "20px"}),
+                    style={"backgroundColor": "#000000", "color": "#ffffff", "minHeight": "100vh"},
+                )
+
+            wfa_generator = WFADashboardGenerator(self.logger)
+            
+            # 獲取檔案列表
+            file_options = []
+            for wfa_item in wfa_data:
+                filename = wfa_item.get("filename", "未知檔案")
+                file_options.append({"label": filename, "value": filename})
+
+            # 頂部控制區
+            top_controls = wfa_generator._create_top_controls(file_options)
+
+            # 主顯示區（窗口框框會通過回調動態生成）
+            main_display = html.Div(
+                id="wfa-main-display",
+                children=[],
+                style={"padding": "20px"},
+            )
+
+            # 下載狀態提示（使用不同的 ID，避免與 WFA 重複）
+            download_status = html.Div(
+                id="download-status-plotter",
+                style={"padding": "10px", "textAlign": "center"},
+            )
+
+            content = html.Div(
+                [
+                    top_controls,
+                    download_status,
+                    main_display,
+                ],
+                style={
+                    "backgroundColor": "#000000",
+                    "color": "#ffffff",
+                    "minHeight": "100vh",
+                    "padding": "20px",
+                },
+            )
+
+            return content
+        except Exception as e:
+            self.logger.error(f"創建 WFA 可視化內容失敗: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            return html.Div(
+                html.P(f"創建 WFA 可視化內容失敗: {str(e)}", style={"textAlign": "center", "padding": "20px"}),
+                style={"backgroundColor": "#000000", "color": "#ffffff"},
+            )
+
+    def _create_header(self, data: Dict[str, Any]) -> html.Div:
         """創建標題欄"""
         return html.Div(
             [
@@ -250,7 +317,7 @@ class DashboardGenerator:
                                     # 頁面切換按鈕
                                     dbc.NavItem(
                                         dbc.Button(
-                                            "資產曲線組合圖",
+                                            "📈 資產曲線組合圖",
                                             id="btn-asset-curve",
                                             color="success",
                                             className="me-2",
@@ -266,6 +333,23 @@ class DashboardGenerator:
                                             n_clicks=0,
                                         )
                                     ),
+                                ]
+                                + (
+                                    [
+                                        dbc.NavItem(
+                                            dbc.Button(
+                                                "📊 前向分析 (WFA)",
+                                                id="btn-wfa-visualization",
+                                                color="warning",
+                                                className="me-2",
+                                                n_clicks=0,
+                                            )
+                                        )
+                                    ]
+                                    if data.get("wfa_data") and len(data.get("wfa_data", [])) > 0
+                                    else []
+                                )
+                                + [
                                     dbc.NavItem(
                                         dbc.NavLink(
                                             "lo2cin4官網",
@@ -537,7 +621,7 @@ class DashboardGenerator:
         try:
             return html.Div(
                 [
-                    html.H5("資產曲線組合圖", className="mb-2", style={"color": "#ecbc4f"}),
+                    html.H5("📈 資產曲線組合圖", className="mb-2"),
                     dcc.Graph(id="equity_chart", style={"height": "700px", "marginBottom": "0", "paddingBottom": "0"}),
                     html.H5("績效指標", className="mb-2 mt-2", style={"color": "#ecbc4f"}),
                     html.Div(id="selected_details"),

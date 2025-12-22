@@ -65,10 +65,9 @@ from typing import Dict, Tuple
 
 import numpy as np
 import pandas as pd
-from rich.console import Console
-from rich.panel import Panel
+from utils import get_console, show_error, show_info, show_step_panel, show_success
 
-console = Console()
+console = get_console()
 
 
 class BaseStatAnalyser(ABC):
@@ -120,31 +119,13 @@ class BaseStatAnalyser(ABC):
         msg = f"[bold #dbac30]請選擇要用於統計分析的預測因子（可選: {available_factors}, 預設 {default}）：[/bold #dbac30]"
         panel_content = detail
         while True:
-            console.print(
-                Panel(
-                    panel_content,
-                    title="[bold #dbac30]🔬 統計分析 StatAnalyser 步驟：選擇預測因子[/bold #dbac30]",
-                    border_style="#dbac30",
-                )
-            )
+            show_step_panel("STATANALYSER", 1, ["選擇預測因子"], panel_content)
             console.print(msg)
             selected_factor = input().strip() or default
             if selected_factor not in available_factors:
-                console.print(
-                    Panel(
-                        f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}）",
-                        title="[bold #8f1511]🔬 統計分析 StatAnalyser[/bold #8f1511]",
-                        border_style="#8f1511",
-                    )
-                )
+                show_error("STATANALYSER", f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}）")
                 continue
-            console.print(
-                Panel(
-                    f"已選擇預測因子: {selected_factor}",
-                    title="[bold #8f1511]🔬 統計分析 StatAnalyser[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
-            )
+            show_success("STATANALYSER", f"已選擇預測因子: {selected_factor}")
             return selected_factor
 
     @classmethod

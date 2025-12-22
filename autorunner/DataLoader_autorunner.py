@@ -57,12 +57,13 @@ from typing import Any, Dict, Optional, Tuple
 
 import pandas as pd
 
-from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-console = Console()
+from autorunner.utils import get_console
+from utils import show_error, show_info, show_step_panel, show_success, show_warning
+
+console = get_console()
 
 
 class DataLoaderAutorunner:
@@ -93,6 +94,35 @@ class DataLoaderAutorunner:
         from dataloader.file_loader import FileLoader
         self._loader_helper = FileLoader()
 
+    def _validate_and_get_end_date(self, config: Dict[str, Any]) -> str:
+        """
+        驗證並獲取結束日期
+        
+        Args:
+            config: 數據載入配置
+            
+        Returns:
+            str: 有效的結束日期（YYYY-MM-DD格式），如果無效則返回今天的日期
+        """
+        import re
+        from datetime import datetime
+        
+        end_date = config.get("end_date")
+        
+        # 如果沒有 end_date 或為空字符串或為 "/"，使用今天
+        if not end_date or end_date == "/" or end_date.strip() == "":
+            return datetime.now().strftime("%Y-%m-%d")
+        
+        # 驗證日期格式是否為 YYYY-MM-DD
+        if re.match(r"^\d{4}-\d{2}-\d{2}$", str(end_date)):
+            return str(end_date)
+        else:
+            # 格式無效，使用今天
+            self.logger.warning(
+                f"end_date 格式無效: {end_date}，應為 YYYY-MM-DD 格式，將使用今天的日期"
+            )
+            return datetime.now().strftime("%Y-%m-%d")
+
     def load_data(self, config: Dict[str, Any]) -> Optional[pd.DataFrame]:
         """
         根據配置載入數據 - 直接使用原版 dataloader 模組
@@ -118,9 +148,8 @@ class DataLoaderAutorunner:
                 loader.symbol = yfinance_config.get("symbol", "AAPL")
                 loader.interval = yfinance_config.get("interval", "1d")
                 loader.start_date = config.get("start_date", "2020-01-01")
-                # 一律使用當前日期作為結束日期
-                from datetime import datetime
-                loader.end_date = datetime.now().strftime("%Y-%m-%d")
+                # 驗證並獲取 end_date
+                loader.end_date = self._validate_and_get_end_date(config)
                 
             elif source == "binance":
                 from dataloader.binance_loader import BinanceLoader
@@ -130,9 +159,8 @@ class DataLoaderAutorunner:
                 loader.symbol = binance_config.get("symbol", "BTCUSDT")
                 loader.interval = binance_config.get("interval", "1d")
                 loader.start_date = config.get("start_date", "2020-01-01")
-                # 一律使用當前日期作為結束日期
-                from datetime import datetime
-                loader.end_date = datetime.now().strftime("%Y-%m-%d")
+                # 驗證並獲取 end_date
+                loader.end_date = self._validate_and_get_end_date(config)
                 
             elif source == "coinbase":
                 from dataloader.coinbase_loader import CoinbaseLoader
@@ -141,9 +169,8 @@ class DataLoaderAutorunner:
                 coinbase_config = config.get("coinbase_config", {})
                 loader.symbol = coinbase_config.get("symbol", "BTC-USD")
                 loader.start_date = config.get("start_date", "2020-01-01")
-                # 一律使用當前日期作為結束日期
-                from datetime import datetime
-                loader.end_date = datetime.now().strftime("%Y-%m-%d")
+                # 驗證並獲取 end_date
+                loader.end_date = self._validate_and_get_end_date(config)
                 
             elif source == "file":
                 from dataloader.file_loader import FileLoader
@@ -160,11 +187,7 @@ class DataLoaderAutorunner:
                 
             else:
                 console.print(
-                    Panel(
-                        f"❌ 不支援的數據源: {source}",
-                        title=Text("⚠️ 錯誤", style="bold #8f1511"),
-                        border_style="#8f1511"
-                    )
+show_error("AUTORUNNER", f"不支援的數據源: {source}")
                 )
                 return None
             
@@ -172,13 +195,7 @@ class DataLoaderAutorunner:
             data, frequency = loader.load()
             
             if data is None:
-                console.print(
-                    Panel(
-                        "❌ 數據載入失敗",
-                        title=Text("⚠️ 錯誤", style="bold #8f1511"),
-                        border_style="#8f1511"
-                    )
-                )
+                show_error("AUTORUNNER", "數據載入失敗")
                 return None
             
             # 設置屬性
@@ -200,13 +217,7 @@ class DataLoaderAutorunner:
                     self.data["X"] = self.data["Close"].copy()
                     self.current_predictor_column = "X"
                 else:
-                    console.print(
-                        Panel(
-                            "❌ 數據中找不到 Close 欄位",
-                            title=Text("⚠️ 錯誤", style="bold #8f1511"),
-                            border_style="#8f1511"
-                        )
-                    )
+                    show_error("AUTORUNNER", "數據中找不到 Close 欄位")
             else:
                 # 載入預測因子
                 self.data = self._load_predictor_data(config)
@@ -221,13 +232,7 @@ class DataLoaderAutorunner:
             return self.data
 
         except Exception as e:
-            console.print(
-                Panel(
-                    f"❌ 數據載入失敗: {e}\n\n詳細錯誤:\n{traceback.format_exc()}",
-                    title=Text("⚠️ 載入失敗", style="bold #8f1511"),
-                    border_style="#8f1511"
-                )
-            )
+            show_error("AUTORUNNER", f"數據載入失敗: {e}\n\n詳細錯誤:\n{traceback.format_exc()}")
             self._display_error(f"數據載入失敗: {e}")
             return None
 
@@ -240,13 +245,7 @@ class DataLoaderAutorunner:
             predictor_column = predictor_config.get("predictor_column", "X")
             
             if not predictor_path:
-                console.print(
-                    Panel(
-                        "⚠️ 預測因子路徑為空，使用價格數據",
-                        title=Text("⚠️ 警告", style="bold #ecbc4f"),
-                        border_style="#ecbc4f"
-                    )
-                )
+                show_warning("AUTORUNNER", "預測因子路徑為空，使用價格數據")
                 self.data["X"] = self.data["Close"].copy()
                 self.current_predictor_column = "X"
                 return self.data
@@ -258,13 +257,7 @@ class DataLoaderAutorunner:
                 predictor_path_obj = project_root / predictor_path
             
             if not predictor_path_obj.exists():
-                console.print(
-                    Panel(
-                        f"⚠️ 預測因子文件不存在: {predictor_path_obj}\n⚠️ 使用價格數據作為預測因子",
-                        title=Text("⚠️ 警告", style="bold #ecbc4f"),
-                        border_style="#ecbc4f"
-                    )
-                )
+                show_warning("AUTORUNNER", f"預測因子文件不存在: {predictor_path_obj}\n⚠️ 使用價格數據作為預測因子")
                 self.data["X"] = self.data["Close"].copy()
                 self.current_predictor_column = "X"
                 return self.data
@@ -275,13 +268,7 @@ class DataLoaderAutorunner:
             elif predictor_path_obj.suffix.lower() == ".csv":
                 predictor_df = pd.read_csv(predictor_path_obj)
             else:
-                console.print(
-                    Panel(
-                        f"❌ 不支援的預測因子文件格式: {predictor_path_obj.suffix}",
-                        title=Text("⚠️ 錯誤", style="bold #8f1511"),
-                        border_style="#8f1511"
-                    )
-                )
+                show_error("AUTORUNNER", f"不支援的預測因子文件格式: {predictor_path_obj.suffix}")
                 self.data["X"] = self.data["Close"].copy()
                 self.current_predictor_column = "X"
                 return self.data
@@ -297,26 +284,14 @@ class DataLoaderAutorunner:
                         break
             
             if not time_column or time_column not in predictor_df.columns:
-                console.print(
-                    Panel(
-                        "❌ 無法識別預測因子文件中的時間欄位",
-                        title=Text("⚠️ 錯誤", style="bold #8f1511"),
-                        border_style="#8f1511"
-                    )
-                )
+                show_error("AUTORUNNER", "無法識別預測因子文件中的時間欄位")
                 self.data["X"] = self.data["Close"].copy()
                 self.current_predictor_column = "X"
                 return self.data
             
             # 檢查預測因子欄位是否存在
             if predictor_column not in predictor_df.columns:
-                console.print(
-                    Panel(
-                        f"❌ 預測因子欄位 {predictor_column} 不存在於文件中\n\n可用欄位: {list(predictor_df.columns)}",
-                        title=Text("⚠️ 錯誤", style="bold #8f1511"),
-                        border_style="#8f1511"
-                    )
-                )
+                show_error("AUTORUNNER", f"預測因子欄位 {predictor_column} 不存在於文件中\n\n可用欄位: {list(predictor_df.columns)}")
                 self.data["X"] = self.data["Close"].copy()
                 self.current_predictor_column = "X"
                 return self.data
@@ -335,13 +310,7 @@ class DataLoaderAutorunner:
                     try:
                         predictor_df[time_column] = pd.to_datetime(predictor_df[time_column], format=time_format)
                     except Exception as e:
-                        console.print(
-                            Panel(
-                                f"⚠️ 時間格式轉換失敗: {e}，嘗試自動推斷",
-                                title=Text("⚠️ 警告", style="bold #ecbc4f"),
-                                border_style="#ecbc4f"
-                            )
-                        )
+                        show_warning("AUTORUNNER", f"時間格式轉換失敗: {e}，嘗試自動推斷")
                         predictor_df[time_column] = pd.to_datetime(predictor_df[time_column])
                 else:
                     predictor_df[time_column] = pd.to_datetime(predictor_df[time_column])
@@ -360,13 +329,7 @@ class DataLoaderAutorunner:
             merged_df = price_df.merge(predictor_df, left_index=True, right_index=True, how="inner")
             
             if merged_df.empty:
-                console.print(
-                    Panel(
-                        "⚠️ 價格數據與預測因子數據無時間交集，使用價格數據",
-                        title=Text("⚠️ 警告", style="bold #ecbc4f"),
-                        border_style="#ecbc4f"
-                    )
-                )
+                show_warning("AUTORUNNER", "價格數據與預測因子數據無時間交集，使用價格數據")
                 self.data["X"] = self.data["Close"].copy()
                 self.current_predictor_column = "X"
                 return self.data
@@ -376,34 +339,16 @@ class DataLoaderAutorunner:
             merged_df = merged_df.rename(columns={"index": "Time"})
             
             # 顯示合併成功信息（使用原版樣式）
-            console.print(
-                Panel(
-                    f"合併數據成功，行數：{len(merged_df)}",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
-            )
+            show_success("DATALOADER", f"合併數據成功，行數：{len(merged_df)}")
             
             # autorunner 額外顯示預測因子欄位信息
-            console.print(
-                Panel(
-                    f"📊 使用預測因子欄位: {predictor_column}",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
-            )
+            show_info("DATALOADER", f"📊 使用預測因子欄位: {predictor_column}")
             
             self.current_predictor_column = predictor_column
             return merged_df
             
         except Exception as e:
-            console.print(
-                Panel(
-                    f"❌ 預測因子載入失敗: {e}\n\n詳細錯誤:\n{traceback.format_exc()}",
-                    title=Text("⚠️ 錯誤", style="bold #8f1511"),
-                    border_style="#8f1511"
-                )
-            )
+            show_error("AUTORUNNER", f"預測因子載入失敗: {e}\n\n詳細錯誤:\n{traceback.format_exc()}")
             self.data["X"] = self.data["Close"].copy()
             self.current_predictor_column = "X"
             return self.data
@@ -417,13 +362,7 @@ class DataLoaderAutorunner:
             return calculator.calculate_returns()
             
         except Exception as e:
-            console.print(
-                Panel(
-                    f"❌ 收益率計算失敗: {e}",
-                    title=Text("⚠️ 錯誤", style="bold #8f1511"),
-                    border_style="#8f1511"
-                )
-            )
+            show_error("AUTORUNNER", f"收益率計算失敗: {e}")
             return self.data
 
     def _process_difference(self, config: Dict[str, Any]) -> pd.DataFrame:
@@ -442,13 +381,7 @@ class DataLoaderAutorunner:
             return data_with_difference
             
         except Exception as e:
-            console.print(
-                Panel(
-                    f"❌ 差分處理失敗: {e}",
-                    title=Text("⚠️ 錯誤", style="bold #8f1511"),
-                    border_style="#8f1511"
-                )
-            )
+            show_error("AUTORUNNER", f"差分處理失敗: {e}")
             return self.data
 
     def _update_loading_summary(self, config: Dict[str, Any]) -> None:
@@ -492,13 +425,7 @@ class DataLoaderAutorunner:
         """顯示載入摘要"""
 
         if not self.loading_summary:
-            console.print(
-                Panel(
-                    "❌ 沒有載入摘要信息",
-                    title=Text("⚠️ 載入摘要", style="bold #8f1511"),
-                    border_style="#8f1511",
-                )
-            )
+            show_error("AUTORUNNER", "沒有載入摘要信息")
             return
 
         # 創建摘要表格
@@ -525,13 +452,7 @@ class DataLoaderAutorunner:
         console.print(table)
 
         # 顯示載入成功信息
-        console.print(
-            Panel(
-                f"✅ 數據載入成功！載入了 {self.loading_summary.get('data_shape', (0, 0))[0]} 行數據",
-                title=Text("🎉 載入成功", style="bold green"),
-                border_style="green",
-            )
-        )
+        show_success("DATALOADER", f"數據載入成功！載入了 {self.loading_summary.get('data_shape', (0, 0))[0]} 行數據")
 
     def _display_error(self, message: str) -> None:
         """
@@ -541,10 +462,4 @@ class DataLoaderAutorunner:
             message: 錯誤信息
         """
 
-        console.print(
-            Panel(
-                f"❌ {message}",
-                title=Text("⚠️ 數據載入錯誤", style="bold #8f1511"),
-                border_style="#8f1511",
-            )
-        )
+        show_error("AUTORUNNER", message)

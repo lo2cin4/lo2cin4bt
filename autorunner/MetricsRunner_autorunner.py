@@ -27,9 +27,12 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
+
+from autorunner.utils import get_console
+from utils import show_error, show_info, show_success, show_warning
+
+console = get_console()
 
 from metricstracker.MetricsExporter_metricstracker import MetricsExporter
 
@@ -48,7 +51,8 @@ class MetricsRunnerAutorunner:
 
     def __init__(self, logger: Optional[logging.Logger] = None):
         self.logger = logger or logging.getLogger("lo2cin4bt.autorunner.metrics")
-        self.console = Console()
+        from autorunner.utils import get_console
+        self.console = get_console()
         self.panel_title = "[bold #8f1511]📈 績效分析 MetricsTracker[/bold #8f1511]"
         self.panel_error_style = "#8f1511"
         self.panel_success_style = "#dbac30"
@@ -272,29 +276,14 @@ class MetricsRunnerAutorunner:
         content = title
         if details:
             content += "\n" + "\n".join(details)
-        self.console.print(
-            Panel(
-                content, title=self.panel_title, border_style=self.panel_success_style
-            )
-        )
+        show_info("METRICSTRACKER", content)
 
     def _display_success(self, message: str) -> None:
-        self.console.print(
-            Panel(
-                message, title=self.panel_title, border_style=self.panel_success_style
-            )
-        )
+        show_success("METRICSTRACKER", message)
 
     def _display_warning(self, message: str) -> None:
-        self.console.print(
-            Panel(message, title=self.panel_title, border_style="#8f1511"),
-        )
+        from utils import show_warning as ui_show_warning
+        ui_show_warning("METRICSTRACKER", message)
 
     def _display_error(self, message: str) -> None:
-        self.console.print(
-            Panel(
-                message,
-                title=self.panel_title,
-                border_style=self.panel_error_style,
-            )
-        )
+        show_error("METRICSTRACKER", message)

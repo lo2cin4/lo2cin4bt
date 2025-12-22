@@ -66,11 +66,11 @@ import os
 from typing import List, Optional, Tuple, Union
 
 import pandas as pd
-from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
 
-console = Console()
+from utils import show_error, show_info, show_success, show_warning, get_console
+
+console = get_console()
 
 
 class PredictorLoader:
@@ -115,13 +115,7 @@ class PredictorLoader:
             return merged_data
 
         except Exception as e:
-            console.print(
-                Panel(
-                    f"❌ PredictorLoader 錯誤：{e}",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+            show_error("DATALOADER", f"PredictorLoader 錯誤：{e}")
             return None
 
     def _get_file_path(self) -> Optional[str]:
@@ -181,14 +175,7 @@ class PredictorLoader:
             elif user_input.isdigit() and 1 <= int(user_input) <= len(found_files):
                 return found_files[int(user_input) - 1]
             else:
-                console.print(
-                    Panel(
-                        f"輸入錯誤，請重新輸入有效的檔案編號（1~{len(found_files)}），"
-                        f"或輸入0僅用價格數據。",
-                        title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                        border_style="#8f1511",
-                    )
-                )
+                show_error("DATALOADER", f"輸入錯誤，請重新輸入有效的檔案編號（1~{len(found_files)}），或輸入0僅用價格數據。")
 
     def _prompt_for_file_path(self) -> Optional[str]:
         """提示用戶輸入檔案路徑"""
@@ -229,28 +216,18 @@ class PredictorLoader:
         try:
             # 檢查是否已經是datetime格式
             if pd.api.types.is_datetime64_any_dtype(data[time_col]):
-                console.print(
-                    Panel(
-                        "Time欄位已經是datetime格式，跳過轉換",
-                        title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                        border_style="#dbac30",
-                    )
-                )
+                show_info("DATALOADER", "Time欄位已經是datetime格式，跳過轉換")
                 return data
             
             # 嘗試轉換為數值，檢查是否為timestamp
             sample_value = data[time_col].iloc[0]
             
-            console.print(
-                Panel(
-                    f"🔍 檢測timestamp：\n"
-                    f"   sample_value = {sample_value}\n"
-                    f"   type = {type(sample_value)}\n"
-                    f"   isinstance(int/float) = {isinstance(sample_value, (int, float))}\n"
-                    f"   is_numeric_dtype = {pd.api.types.is_numeric_dtype(data[time_col])}",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
+            show_info("DATALOADER",
+                f"🔍 檢測timestamp：\n"
+                f"   sample_value = {sample_value}\n"
+                f"   type = {type(sample_value)}\n"
+                f"   isinstance(int/float) = {isinstance(sample_value, (int, float))}\n"
+                f"   is_numeric_dtype = {pd.api.types.is_numeric_dtype(data[time_col])}"
             )
             
             # 如果是數值型態，可能是timestamp
@@ -259,83 +236,35 @@ class PredictorLoader:
                 import numpy as np
                 if isinstance(sample_value, (int, float, np.integer, np.floating)):
                     if sample_value > 1e10:  # 毫秒級timestamp
-                        console.print(
-                            Panel(
-                                "檢測到毫秒級timestamp格式，正在轉換...",
-                                title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                                border_style="#dbac30",
-                            )
-                        )
+                        show_info("DATALOADER", "檢測到毫秒級timestamp格式，正在轉換...")
                         data[time_col] = pd.to_datetime(data[time_col], unit="ms")
                     else:  # 秒級timestamp
-                        console.print(
-                            Panel(
-                                "檢測到秒級timestamp格式，正在轉換...",
-                                title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                                border_style="#dbac30",
-                            )
-                        )
+                        show_info("DATALOADER", "檢測到秒級timestamp格式，正在轉換...")
                         data[time_col] = pd.to_datetime(data[time_col], unit="s")
                     
-                    console.print(
-                        Panel(
-                            f"timestamp轉換成功，格式為：{data[time_col].iloc[0]}",
-                            title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                            border_style="#dbac30",
-                        )
-                    )
+                    show_success("DATALOADER", f"timestamp轉換成功，格式為：{data[time_col].iloc[0]}")
                 else:
-                    console.print(
-                        Panel(
-                            f"⚠️ 數值類型不匹配：{type(sample_value)}",
-                            title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                            border_style="#8f1511",
-                        )
-                    )
+                    show_warning("DATALOADER", f"數值類型不匹配：{type(sample_value)}")
             else:
                 # 嘗試將字符串轉換為數值再判斷
                 try:
                     numeric_value = pd.to_numeric(data[time_col].iloc[0])
                     if numeric_value > 1e10:  # 毫秒級
-                        console.print(
-                            Panel(
-                                "檢測到毫秒級timestamp格式，正在轉換...",
-                                title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                                border_style="#dbac30",
-                            )
-                        )
+                        show_info("DATALOADER", "檢測到毫秒級timestamp格式，正在轉換...")
                         data[time_col] = pd.to_numeric(data[time_col])
                         data[time_col] = pd.to_datetime(data[time_col], unit="ms")
                     else:  # 秒級
-                        console.print(
-                            Panel(
-                                "檢測到秒級timestamp格式，正在轉換...",
-                                title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                                border_style="#dbac30",
-                            )
-                        )
+                        show_info("DATALOADER", "檢測到秒級timestamp格式，正在轉換...")
                         data[time_col] = pd.to_numeric(data[time_col])
                         data[time_col] = pd.to_datetime(data[time_col], unit="s")
                     
-                    console.print(
-                        Panel(
-                            f"timestamp轉換成功，格式為：{data[time_col].iloc[0]}",
-                            title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                            border_style="#dbac30",
-                        )
-                    )
+                    show_success("DATALOADER", f"timestamp轉換成功，格式為：{data[time_col].iloc[0]}")
                 except (ValueError, TypeError):
                     # 不是timestamp，跳過轉換
                     pass
                     
         except Exception as e:
-            console.print(
-                Panel(
-                    f"⚠️ timestamp檢測時出錯：{e}，將嘗試其他方式解析時間",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+            show_warning("DATALOADER", f"timestamp檢測時出錯：{e}，將嘗試其他方式解析時間")
         
         return data
 
@@ -343,13 +272,7 @@ class PredictorLoader:
         """讀取檔案數據"""
         # 檢查檔案存在
         if not os.path.exists(file_path):
-            console.print(
-                Panel(
-                    f"❌ 找不到文件 '{file_path}'",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+            show_error("DATALOADER", f"找不到文件 '{file_path}'")
             return None
 
         # 讀取檔案
@@ -358,22 +281,10 @@ class PredictorLoader:
         elif file_path.endswith(".csv"):
             data = pd.read_csv(file_path)
         else:
-            console.print(
-                Panel(
-                    "❌ 僅支持 .xlsx 或 .csv 格式",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+            show_error("DATALOADER", "僅支持 .xlsx 或 .csv 格式")
             return None
 
-        console.print(
-            Panel(
-                f"載入檔案 '{file_path}' 成功，原始欄位：{list(data.columns)}",
-                title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                border_style="#dbac30",
-            )
-        )
+        show_success("DATALOADER", f"載入檔案 '{file_path}' 成功，原始欄位：{list(data.columns)}")
         return data
 
     def _process_time_column(
@@ -383,54 +294,34 @@ class PredictorLoader:
         # 標準化時間欄位
         time_col = self._identify_time_col(data.columns, file_path)
         if not time_col:
-            console.print(
-                Panel(
-                    "❌ 無法確定時間欄位，程式終止",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+            show_error("DATALOADER", "無法確定時間欄位，程式終止")
             return None
 
         # 如果要重命名的欄位不是 "Time"，且已經存在 "Time" 欄位，先處理重複問題
         if time_col != "Time" and "Time" in data.columns:
             # 刪除其他重複的時間相關欄位，保留我們選定的這個
-            console.print(
-                Panel(
-                    f"⚠️ 檢測到多個時間欄位，將使用 '{time_col}' 作為主要時間欄位",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#ecbc4f",
-                )
-            )
+            show_warning("DATALOADER", f"檢測到多個時間欄位，將使用 '{time_col}' 作為主要時間欄位")
             data = data.drop(columns=["Time"])
         
         data = data.rename(columns={time_col: "Time"})
         
         # 調試：顯示重命名後的Time欄位信息
-        console.print(
-            Panel(
-                f"🔍 重命名後Time欄位信息：\n"
-                f"   第一個值：{data['Time'].iloc[0]}\n"
-                f"   數據類型：{data['Time'].dtype}\n"
-                f"   是否為數值：{pd.api.types.is_numeric_dtype(data['Time'])}",
-                title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                border_style="#dbac30",
-            )
+        show_info("DATALOADER",
+            f"🔍 重命名後Time欄位信息：\n"
+            f"   第一個值：{data['Time'].iloc[0]}\n"
+            f"   數據類型：{data['Time'].dtype}\n"
+            f"   是否為數值：{pd.api.types.is_numeric_dtype(data['Time'])}"
         )
         
         # 檢測並轉換timestamp格式（在時間格式解析前）
         data = self._detect_and_convert_timestamp_predictor(data, "Time")
         
         # 調試：顯示轉換後的Time欄位信息
-        console.print(
-            Panel(
-                f"🔍 轉換後Time欄位信息：\n"
-                f"   第一個值：{data['Time'].iloc[0]}\n"
-                f"   數據類型：{data['Time'].dtype}\n"
-                f"   是否為datetime：{pd.api.types.is_datetime64_any_dtype(data['Time'])}",
-                title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                border_style="#dbac30",
-            )
+        show_info("DATALOADER",
+            f"🔍 轉換後Time欄位信息：\n"
+            f"   第一個值：{data['Time'].iloc[0]}\n"
+            f"   數據類型：{data['Time'].dtype}\n"
+            f"   是否為datetime：{pd.api.types.is_datetime64_any_dtype(data['Time'])}"
         )
 
         try:
@@ -447,37 +338,23 @@ class PredictorLoader:
                         data["Time"], dayfirst=True, errors="coerce"
                     )
             else:
-                console.print(
-                    Panel(
-                        "✅ 時間欄位已為datetime格式，跳過轉換",
-                        title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                        border_style="#dbac30",
-                    )
-                )
+                show_success("DATALOADER", "時間欄位已為datetime格式，跳過轉換")
 
             if data["Time"].isna().sum() > 0:
-                console.print(
-                    Panel(
-                        f"⚠️ {data['Time'].isna().sum()} 個時間值無效，將移除\n"
-                        f"以下是檔案的前幾行數據：\n{data.head()}\n"
-                        f"建議：請檢查 '{file_path}' 的 'Time' 欄，"
-                        f"確保日期格式為 YYYY-MM-DD（如 31-12-2000）或其他一致格式",
-                        title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                        border_style="#8f1511",
-                    )
+                show_warning("DATALOADER",
+                    f"{data['Time'].isna().sum()} 個時間值無效，將移除\n"
+                    f"以下是檔案的前幾行數據：\n{data.head()}\n"
+                    f"建議：請檢查 '{file_path}' 的 'Time' 欄，"
+                    f"確保日期格式為 YYYY-MM-DD（如 31-12-2000）或其他一致格式"
                 )
                 data = data.dropna(subset=["Time"])
 
         except Exception as e:
-            console.print(
-                Panel(
-                    f"❌ 時間格式轉換失敗：{e}\n"
-                    f"以下是檔案的前幾行數據：\n{data.head()}\n"
-                    f"建議：請檢查 '{file_path}' 的 'Time' 欄，"
-                    f"確保日期格式為 YYYY-MM-DD（如 2023-01-01）或其他一致格式",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
+            show_error("DATALOADER",
+                f"時間格式轉換失敗：{e}\n"
+                f"以下是檔案的前幾行數據：\n{data.head()}\n"
+                f"建議：請檢查 '{file_path}' 的 'Time' 欄，"
+                f"確保日期格式為 YYYY-MM-DD（如 2023-01-01）或其他一致格式"
             )
             return None
 
@@ -486,15 +363,11 @@ class PredictorLoader:
     def _clean_and_merge_data(self, data: pd.DataFrame) -> Optional[pd.DataFrame]:
         """清洗並合併數據"""
         # 調試：顯示清洗前的Time欄位信息
-        console.print(
-            Panel(
-                f"🔍 清洗前Time欄位信息：\n"
-                f"   第一個值：{data['Time'].iloc[0]}\n"
-                f"   數據類型：{data['Time'].dtype}\n"
-                f"   是否為datetime：{pd.api.types.is_datetime64_any_dtype(data['Time'])}",
-                title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                border_style="#dbac30",
-            )
+        show_info("DATALOADER",
+            f"🔍 清洗前Time欄位信息：\n"
+            f"   第一個值：{data['Time'].iloc[0]}\n"
+            f"   數據類型：{data['Time'].dtype}\n"
+            f"   是否為datetime：{pd.api.types.is_datetime64_any_dtype(data['Time'])}"
         )
         
         # 清洗數據 - 使用絕對導入避免循環導入問題
@@ -509,25 +382,15 @@ class PredictorLoader:
         
         # 調試：顯示清洗後的Time欄位信息
         if cleaned_data is not None and not cleaned_data.empty:
-            console.print(
-                Panel(
-                    f"🔍 清洗後Time欄位信息：\n"
-                    f"   第一個值：{cleaned_data['Time'].iloc[0]}\n"
-                    f"   數據類型：{cleaned_data['Time'].dtype}\n"
-                    f"   是否為datetime：{pd.api.types.is_datetime64_any_dtype(cleaned_data['Time'])}",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
+            show_info("DATALOADER",
+                f"🔍 清洗後Time欄位信息：\n"
+                f"   第一個值：{cleaned_data['Time'].iloc[0]}\n"
+                f"   數據類型：{cleaned_data['Time'].dtype}\n"
+                f"   是否為datetime：{pd.api.types.is_datetime64_any_dtype(cleaned_data['Time'])}"
             )
 
         if cleaned_data is None or cleaned_data.empty:
-            console.print(
-                Panel(
-                    "❌ 資料清洗後為空",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+            show_error("DATALOADER", "資料清洗後為空")
             return None
 
         # 時間對齊與合併
@@ -546,13 +409,7 @@ class PredictorLoader:
 
     def _show_success_message(self, merged_data: pd.DataFrame) -> None:
         """顯示成功訊息"""
-        console.print(
-            Panel(
-                f"合併數據成功，行數：{len(merged_data)}",
-                title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                border_style="#dbac30",
-            )
-        )
+        show_success("DATALOADER", f"合併數據成功，行數：{len(merged_data)}")
 
     def get_diff_options(self, series: pd.Series) -> List[str]:
         """獲取差分選項"""
@@ -593,13 +450,7 @@ class PredictorLoader:
         diff_col_map = {predictor_col: factor_series}
 
         if has_zero:
-            console.print(
-                Panel(
-                    f"‼️ 檢測到 {predictor_col} 包含 0 值，只能進行減數差分",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+            show_warning("DATALOADER", f"檢測到 {predictor_col} 包含 0 值，只能進行減數差分")
             diff_series = factor_series.diff().fillna(0)
             diff_col_name = predictor_col + "_diff_sub"
             diff_cols.append(diff_col_name)
@@ -609,21 +460,9 @@ class PredictorLoader:
                 f"已產生減數差分欄位 {diff_col_name}\n"
                 f"差分處理完成，新增欄位：{[col for col in diff_cols if col != predictor_col]}"
             )
-            console.print(
-                Panel(
-                    diff_msg,
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
-            )
+            show_success("DATALOADER", diff_msg)
         else:
-            console.print(
-                Panel(
-                    f"{predictor_col} 無 0 值，同時產生減數差分和除數差分",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
-            )
+            show_info("DATALOADER", f"{predictor_col} 無 0 值，同時產生減數差分和除數差分")
             diff_series_sub = factor_series.diff().fillna(0)
             diff_series_div = factor_series.pct_change().fillna(0)
             diff_col_name_sub = predictor_col + "_diff_sub"
@@ -637,13 +476,7 @@ class PredictorLoader:
                 f"{diff_col_name_div}\n差分處理完成，新增欄位："
                 f"{[col for col in diff_cols if col != predictor_col]}"
             )
-            console.print(
-                Panel(
-                    diff_msg,
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
-            )
+            show_success("DATALOADER", diff_msg)
 
         # 將所有欄位合併到 df
         for col, series in diff_col_map.items():
@@ -701,13 +534,7 @@ class PredictorLoader:
                 for col in matched_cols:
                     if col.lower() == candidate:
                         if len(matched_cols) > 1:
-                            console.print(
-                                Panel(
-                                    f"ℹ️ 檢測到多個時間欄位：{matched_cols}，將使用 '{col}'",
-                                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                                    border_style="#dbac30",
-                                )
-                            )
+                            show_info("DATALOADER", f"檢測到多個時間欄位：{matched_cols}，將使用 '{col}'")
                         return col
         
         # 如果沒有完全匹配的，嘗試部分匹配（但排除帶數字後綴的）
@@ -719,20 +546,8 @@ class PredictorLoader:
                     return col
 
         # 自動識別失敗，詢問用戶
-        console.print(
-            Panel(
-                f"\n警告：無法自動識別 '{file_path}' 的時間欄位",
-                title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                border_style="#8f1511",
-            )
-        )
-        console.print(
-            Panel(
-                f"可用欄位：{list(columns)}",
-                title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                border_style="#dbac30",
-            )
-        )
+        show_warning("DATALOADER", f"無法自動識別 '{file_path}' 的時間欄位")
+        show_info("DATALOADER", f"可用欄位：{list(columns)}")
         console.print(
             "[bold #dbac30]請指定時間欄位（輸入欄位名稱，例如 'Date'）：[/bold #dbac30]"
         )
@@ -740,13 +555,7 @@ class PredictorLoader:
             user_col = input().strip()
             if user_col in columns:
                 return user_col
-            console.print(
-                Panel(
-                    f"錯誤：'{user_col}' 不在欄位中，請選擇以下欄位之一：{list(columns)}",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+            show_error("DATALOADER", f"錯誤：'{user_col}' 不在欄位中，請選擇以下欄位之一：{list(columns)}")
 
     def _align_and_merge(self, predictor_data: pd.DataFrame) -> Optional[pd.DataFrame]:
         """與價格數據進行時間對齊並合併"""
@@ -757,13 +566,7 @@ class PredictorLoader:
                 if "Time" in price_data.columns:
                     price_data = price_data.set_index("Time")
                 else:
-                    console.print(
-                        Panel(
-                            "❌ 錯誤：價格數據缺少 'Time' 欄位或索引",
-                            title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                            border_style="#8f1511",
-                        )
-                    )
+                    show_error("DATALOADER", "錯誤：價格數據缺少 'Time' 欄位或索引")
                     return None
 
             # 確保預測因子數據的 Time 為索引
@@ -771,31 +574,21 @@ class PredictorLoader:
                 if "Time" in predictor_data.columns:
                     predictor_data = predictor_data.set_index("Time")
                 else:
-                    console.print(
-                        Panel(
-                            "❌ 錯誤：預測因子數據缺少 'Time' 欄位或索引",
-                            title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                            border_style="#8f1511",
-                        )
-                    )
+                    show_error("DATALOADER", "錯誤：預測因子數據缺少 'Time' 欄位或索引")
                     return None
 
             # 顯示調試信息
-            console.print(
-                Panel(
-                    f"📅 價格數據時間範圍：\n"
-                    f"   起始：{price_data.index.min()}\n"
-                    f"   結束：{price_data.index.max()}\n"
-                    f"   筆數：{len(price_data)}\n"
-                    f"   類型：{price_data.index.dtype}\n\n"
-                    f"📅 預測因子時間範圍：\n"
-                    f"   起始：{predictor_data.index.min()}\n"
-                    f"   結束：{predictor_data.index.max()}\n"
-                    f"   筆數：{len(predictor_data)}\n"
-                    f"   類型：{predictor_data.index.dtype}",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
+            show_info("DATALOADER",
+                f"📅 價格數據時間範圍：\n"
+                f"   起始：{price_data.index.min()}\n"
+                f"   結束：{price_data.index.max()}\n"
+                f"   筆數：{len(price_data)}\n"
+                f"   類型：{price_data.index.dtype}\n\n"
+                f"📅 預測因子時間範圍：\n"
+                f"   起始：{predictor_data.index.min()}\n"
+                f"   結束：{predictor_data.index.max()}\n"
+                f"   筆數：{len(predictor_data)}\n"
+                f"   類型：{predictor_data.index.dtype}"
             )
 
             # 時間對齊（inner join）
@@ -804,39 +597,23 @@ class PredictorLoader:
             )
 
             if merged.empty:
-                console.print(
-                    Panel(
-                        "❌ 錯誤：價格數據與預測因子數據無時間交集，無法合併\n\n"
-                        "可能原因：\n"
-                        "1. 時間範圍沒有重疊\n"
-                        "2. 時間精度不同（一個精確到秒，一個只有日期）\n"
-                        "3. 時區不同\n\n"
-                        "建議：請檢查上方的時間範圍診斷信息",
-                        title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                        border_style="#8f1511",
-                    )
+                show_error("DATALOADER",
+                    "錯誤：價格數據與預測因子數據無時間交集，無法合併\n\n"
+                    "可能原因：\n"
+                    "1. 時間範圍沒有重疊\n"
+                    "2. 時間精度不同（一個精確到秒，一個只有日期）\n"
+                    "3. 時區不同\n\n"
+                    "建議：請檢查上方的時間範圍診斷信息"
                 )
                 return None
 
             # 重置索引以保持一致性
             merged = merged.reset_index()
             
-            console.print(
-                Panel(
-                    f"✅ 成功合併！交集筆數：{len(merged)}",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
-            )
+            show_success("DATALOADER", f"成功合併！交集筆數：{len(merged)}")
 
             return merged
 
         except Exception as e:
-            console.print(
-                Panel(
-                    f"❌ 時間對齊與合併錯誤：{e}",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+            show_error("DATALOADER", f"時間對齊與合併錯誤：{e}")
             return None

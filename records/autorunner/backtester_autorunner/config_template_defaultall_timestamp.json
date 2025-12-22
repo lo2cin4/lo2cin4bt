@@ -1,18 +1,18 @@
 {
     "_version": "1.0.0",
-    "_description": "5分鐘數據回測配置文件 - 專為高頻數據和Crypto Open Interest預測因子設計",
+    "_description": "此配置文件包含所有回測流程的配置選項（使用timestamp），用戶只需修改需要的部分即可運行自動化回測",
     "dataloader": {
         "_help": {
             "source": "數據來源：yfinance | binance | coinbase | file",
-            "frequency": "價格頻率，例如 5m、1h、1d",
+            "frequency": "價格頻率，例如 1d、1h",
             "start_date": "資料開始日期 (YYYY-MM-DD)",
             "end_date": "資料結束日期 (YYYY-MM-DD)，輸入 '/' 或留空則使用今天的日期",
             "handle_missing_values": "缺失值處理方式：目前僅支援 fill",
             "missing_value_strategy": "缺失值填充策略 (A=前向填充, B,N=前N期均值, C,x=固定值)"
         },
         "source": "binance",
-        "frequency": "5m",
-        "start_date": "2025-09-20",
+        "frequency": "1d",
+        "start_date": "2020-01-01",
         "end_date": "/",
         "handle_missing_values": "fill",
         "missing_value_strategy": "A",
@@ -20,19 +20,19 @@
             "_help": {
                 "symbol": "Yahoo Finance 代碼，例如 AAPL",
                 "period": "下載區間，例如 1y",
-                "interval": "k 線頻率，例如 5m"
+                "interval": "k 線頻率，例如 1d"
             },
             "symbol": "AAPL",
             "period": "1y",
-            "interval": "5m"
+            "interval": "1d"
         },
         "binance_config": {
             "_help": {
                 "symbol": "Binance 交易對，例如 BTCUSDT",
-                "interval": "k 線頻率，例如 5m"
+                "interval": "k 線頻率，例如 1d"
             },
             "symbol": "BTCUSDT",
-            "interval": "5m"
+            "interval": "1d"
         },
         "coinbase_config": {
             "_help": {
@@ -68,16 +68,16 @@
                 "time_format": "時間格式 (例如 %Y-%m-%d %H:%M:%S 或 %d/%m/%Y %H:%M:%S)。⚠️ 如果是Unix timestamp（純數字如1577750400），請留空讓系統自動檢測轉換！"
             },
             "predictor_source": "file",
-            "predictor_path": "records/dataloader/import/predicting_5min.csv",
-            "predictor_column": "Crypto Open Interest",
+            "predictor_path": "records/dataloader/import/predictor_example.xlsx",
+            "predictor_column": "X",
             "skip_predictor": false,
-            "time_column": "time",
-            "time_format": "%Y-%m-%d %H:%M:%S"
+            "time_column": "timestamp",
+            "time_format": ""
         }
     },
     "backtester": {
         "_help": {
-            "selected_predictor": "預測因子欄位，例如 Crypto Open Interest, factor_name_diff_div, factor_name_diff_sub",
+            "selected_predictor": "預測因子欄位，例如 X, factor_name_diff_div, factor_name_diff_sub",
             "condition_pairs": "開倉/平倉指標配對列表",
             "indicator_params": "每個指標的參數範圍 (依原 backtester 規則，目前必須輸入 range)",
             "trading_params.transaction_cost": "交易成本 (手續費)；以比例表示",
@@ -85,7 +85,7 @@
             "trading_params.trade_delay": "交易延遲 (0=當根，1=下一根)",
             "trading_params.trade_price": "成交價格類型：open / close"
         },
-        "selected_predictor": "Crypto Open Interest",
+        "selected_predictor": "X",
         "condition_pairs": [
             {
                 "entry": [
@@ -97,15 +97,6 @@
             },
             {
                 "entry": [
-                    "MA1",
-                    "MA9"
-                ],
-                "exit": [
-                    "MA4"
-                ]
-            },
-            {
-                "entry": [
                     "BOLL1"
                 ],
                 "exit": [
@@ -154,15 +145,6 @@
             },
             {
                 "entry": [
-                    "MA4",
-                    "MA12"
-                ],
-                "exit": [
-                    "MA1"
-                ]
-            },
-            {
-                "entry": [
                     "BOLL4"
                 ],
                 "exit": [
@@ -199,149 +181,107 @@
                 ],
                 "exit": [
                     "PERC3"
-                ]
-            },
-            {
-                "entry": [
-                    "HL4"
-                ],
-                "exit": [
-                    "HL1"
                 ]
             }
         ],
         "indicator_params": {
             "MA1_strategy_1": {
-              "ma_type": "SMA",
-              "ma_range": "10:200:20"
+                "ma_type": "SMA",
+                "ma_range": "10:200:20"
             },
             "MA4_strategy_1": {
-              "ma_type": "SMA",
-              "ma_range": "10:200:20"
+                "ma_type": "SMA",
+                "ma_range": "10:200:20"
             },
-            "MA1_strategy_2": {
-              "ma_type": "SMA",
-              "ma_range": "10:200:20"
+            "BOLL1_strategy_2": {
+                "ma_range": "10:200:20",
+                "sd_multi": "1,1.5,2"
             },
-            "MA9_strategy_2": {
-              "ma_type": "SMA",
-              "m_range": "1:1:1",
-              "n_range": "10:200:20"
+            "BOLL4_strategy_2": {
+                "ma_range": "10:200:20",
+                "sd_multi": "1,1.5,2"
             },
-            "MA4_strategy_2": {
-              "ma_type": "SMA",
-              "ma_range": "10:200:20"
+            "BOLL3_strategy_3": {
+                "ma_range": "10:200:20",
+                "sd_multi": "1,1.5,2"
             },
-            "BOLL1_strategy_3": {
-              "ma_range": "10:200:20",
-              "sd_multi": "1,1.5,2"
+            "BOLL2_strategy_3": {
+                "ma_range": "10:200:20",
+                "sd_multi": "1,1.5,2"
             },
-            "BOLL4_strategy_3": {
-              "ma_range": "10:200:20",
-              "sd_multi": "1,1.5,2"
+            "HL1_strategy_4": {
+                "n_range": "1:5:2",
+                "m_range": "10:200:20"
             },
-            "BOLL3_strategy_4": {
-              "ma_range": "10:200:20",
-              "sd_multi": "1,1.5,2"
+            "HL4_strategy_4": {
+                "n_range": "1:5:2",
+                "m_range": "10:200:20"
             },
-            "BOLL2_strategy_4": {
-              "ma_range": "10:200:20",
-              "sd_multi": "1,1.5,2"
+            "PERC1_strategy_5": {
+                "window_range": "10:200:20",
+                "percentile_range": "90:100:10"
             },
-            "HL1_strategy_5": {
-              "n_range": "1:5:2",
-              "m_range": "10:200:20"
+            "PERC4_strategy_5": {
+                "window_range": "10:200:20",
+                "percentile_range": "90:100:10"
             },
-            "HL4_strategy_5": {
-              "n_range": "1:5:2",
-              "m_range": "10:200:20"
+            "PERC3_strategy_6": {
+                "window_range": "10:200:20",
+                "percentile_range": "0:10:10"
             },
-            "PERC1_strategy_6": {
-              "window_range": "10:200:20",
-              "percentile_range": "90:100:10"
+            "PERC2_strategy_6": {
+                "window_range": "10:200:20",
+                "percentile_range": "0:10:10"
             },
-            "PERC4_strategy_6": {
-              "window_range": "10:200:20",
-              "percentile_range": "90:100:10"
+            "MA4_strategy_7": {
+                "ma_type": "SMA",
+                "ma_range": "10:200:20"
             },
-            "PERC3_strategy_7": {
-              "window_range": "10:200:20",
-              "percentile_range": "0:10:10"
+            "MA1_strategy_7": {
+                "ma_type": "SMA",
+                "ma_range": "10:200:20"
             },
-            "PERC2_strategy_7": {
-              "window_range": "10:200:20",
-              "percentile_range": "0:10:10"
+            "BOLL4_strategy_8": {
+                "ma_range": "10:200:20",
+                "sd_multi": "1,1.5,2"
             },
-            "MA4_strategy_8": {
-              "ma_type": "SMA",
-              "ma_range": "10:200:20"
+            "BOLL1_strategy_8": {
+                "ma_range": "10:200:20",
+                "sd_multi": "1,1.5,2"
             },
-            "MA1_strategy_8": {
-              "ma_type": "SMA",
-              "ma_range": "10:200:20"
+            "BOLL2_strategy_9": {
+                "ma_range": "10:200:20",
+                "sd_multi": "1,1.5,2"
             },
-            "MA4_strategy_9": {
-              "ma_type": "SMA",
-              "ma_range": "10:200:20"
+            "BOLL3_strategy_9": {
+                "ma_range": "10:200:20",
+                "sd_multi": "1,1.5,2"
             },
-            "MA12_strategy_9": {
-              "ma_type": "SMA",
-              "m_range": "1:1:1",
-              "n_range": "10:200:20"
+            "HL4_strategy_10": {
+                "n_range": "1:5:2",
+                "m_range": "10:200:20"
             },
-            "MA1_strategy_9": {
-              "ma_type": "SMA",
-              "ma_range": "10:200:20"
+            "HL1_strategy_10": {
+                "n_range": "1:5:2",
+                "m_range": "10:200:20"
             },
-            "BOLL4_strategy_10": {
-              "ma_range": "10:200:20",
-              "sd_multi": "1,1.5,2"
+            "PERC4_strategy_11": {
+                "window_range": "10:200:20",
+                "percentile_range": "90:100:10"
             },
-            "BOLL1_strategy_10": {
-              "ma_range": "10:200:20",
-              "sd_multi": "1,1.5,2"
+            "PERC1_strategy_11": {
+                "window_range": "10:200:20",
+                "percentile_range": "90:100:10"
             },
-            "BOLL2_strategy_11": {
-              "ma_range": "10:200:20",
-              "sd_multi": "1,1.5,2"
+            "PERC2_strategy_12": {
+                "window_range": "10:200:20",
+                "percentile_range": "0:10:10"
             },
-            "BOLL3_strategy_11": {
-              "ma_range": "10:200:20",
-              "sd_multi": "1,1.5,2"
-            },
-            "HL4_strategy_12": {
-              "n_range": "1:5:2",
-              "m_range": "10:200:20"
-            },
-            "HL1_strategy_12": {
-              "n_range": "1:5:2",
-              "m_range": "10:200:20"
-            },
-            "PERC4_strategy_13": {
-              "window_range": "10:200:20",
-              "percentile_range": "90:100:10"
-            },
-            "PERC1_strategy_13": {
-              "window_range": "10:200:20",
-              "percentile_range": "90:100:10"
-            },
-            "PERC2_strategy_14": {
-              "window_range": "10:200:20",
-              "percentile_range": "0:10:10"
-            },
-            "PERC3_strategy_14": {
-              "window_range": "10:200:20",
-              "percentile_range": "0:10:10"
-            },
-            "HL4_strategy_15": {
-              "n_range": "1:5:2",
-              "m_range": "10:200:20"
-            },
-            "HL1_strategy_15": {
-              "n_range": "1:5:2",
-              "m_range": "10:200:20"
+            "PERC3_strategy_12": {
+                "window_range": "10:200:20",
+                "percentile_range": "0:10:10"
             }
-          },
+        },
         "trading_params": {
             "transaction_cost": 0.001,
             "slippage": 0.0005,
@@ -356,12 +296,12 @@
         "_help": {
             "enable_metrics_analysis": "是否啟用績效分析",
             "risk_free_rate": "無風險利率 (例如 0.04 = 4%，或直接輸入 4 表示 4%)",
-            "time_unit": "年化時間單位：日線股票252，日線幣365，5分鐘線365*24*12=105120",
+            "time_unit": "年化時間單位：日線股票252，日線幣365，或直接輸入數字",
             "file_selection_mode": "選擇 Parquet 模式：auto=最新一個 / all=全部"
         },
         "enable_metrics_analysis": true,
         "risk_free_rate": 0.04,
-        "time_unit": 105120,
+        "time_unit": 365,
         "file_selection_mode": "auto"
     }
 }

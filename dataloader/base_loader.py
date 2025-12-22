@@ -67,63 +67,42 @@ from datetime import datetime
 from typing import List, Optional, Tuple, Union
 
 import pandas as pd
-from rich.console import Console
-from rich.panel import Panel
-from rich.text import Text
 
 from dataloader.validator_loader import print_dataframe_table
+from utils import (
+    show_error,
+    show_info,
+    show_success,
+    show_step_panel,
+    show_warning,
+    get_console,
+)
 
-console = Console()
+# 為了向後兼容，保留 console 變數
+console = get_console()
 
 
 class AbstractDataLoader(ABC):
     """Abstract base class for all data loaders with common functionality"""
 
     def __init__(self) -> None:
-        self.console = Console()
-        self.panel_title = "[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]"
-        self.panel_error_style = "#8f1511"
-        self.panel_success_style = "#dbac30"
+        self.console = get_console()
 
     def show_error(self, message: str) -> None:
         """Display error message in standardised panel"""
-        self.console.print(
-            Panel(
-                f"❌ {message}",
-                title=self.panel_title,
-                border_style=self.panel_error_style,
-            )
-        )
+        show_error("DATALOADER", message)
 
     def show_success(self, message: str) -> None:
         """Display success message in standardised panel"""
-        self.console.print(
-            Panel(
-                message,
-                title=self.panel_title,
-                border_style=self.panel_success_style,
-            )
-        )
+        show_success("DATALOADER", message)
 
     def show_warning(self, message: str) -> None:
         """Display warning message in standardised panel"""
-        self.console.print(
-            Panel(
-                f"⚠️ {message}",
-                title=self.panel_title,
-                border_style=self.panel_error_style,
-            )
-        )
+        show_warning("DATALOADER", message)
 
     def show_info(self, message: str) -> None:
         """Display informational message in standardised panel"""
-        self.console.print(
-            Panel(
-                message,
-                title=self.panel_title,
-                border_style=self.panel_success_style,
-            )
-        )
+        show_info("DATALOADER", message)
 
     def get_user_input(self, prompt: str, default: Optional[str] = None) -> str:
         """Get user input with optional default value
@@ -182,13 +161,7 @@ class AbstractDataLoader(ABC):
                 missing_msgs.append(f"{col} 缺失值比例：{missing_ratio:.2%}")
 
         if missing_msgs:
-            self.console.print(
-                Panel(
-                    "\n".join(missing_msgs),
-                    title=self.panel_title,
-                    border_style=self.panel_success_style,
-                )
-            )
+                self.show_info("\n".join(missing_msgs))
 
     def standardize_columns(self, data: pd.DataFrame) -> pd.DataFrame:
         """Standardize column names to expected format"""
@@ -398,13 +371,7 @@ class BaseDataLoader:
                 )
                 return data, None, None
             if predictor_col not in available_factors:
-                console.print(
-                    Panel(
-                        f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}，或輸入 'price' 僅使用價格數據）",
-                        title=Text("📊 數據載入 Dataloader", style="bold #8f1511"),
-                        border_style="#8f1511",
-                    )
-                )
+                show_error("DATALOADER", f"輸入錯誤，請重新輸入（可選: {available_factors}，預設 {default}，或輸入 'price' 僅使用價格數據）")
                 continue
             break
 
@@ -421,17 +388,7 @@ class BaseDataLoader:
     def print_step_panel(current_step: int, desc: str = "") -> None:
         """Print a step panel with progress information."""
         steps = BaseDataLoader.get_steps()
-        step_content = ""
-        for idx, step in enumerate(steps):
-            if idx < current_step:
-                step_content += f"🟢 {step}\n"
-            else:
-                step_content += f"🔴 {step}\n"
-        content = step_content.strip()
-        if desc:
-            content += f"\n\n[bold #dbac30]說明[/bold #dbac30]\n{desc}"
-        panel_title = f"[bold #dbac30]📊 數據載入 Dataloader 步驟：{steps[current_step - 1]}[/bold #dbac30]"
-        console.print(Panel(content.strip(), title=panel_title, border_style="#dbac30"))
+        show_step_panel("DATALOADER", current_step, steps, desc)
 
     def _print_step_panel(self, current_step: int, desc: str = "") -> None:
         # 已被靜態方法取代，保留兼容性
@@ -453,15 +410,8 @@ class BaseDataLoader:
                 "Volume(可選)（首字母大寫）[/bold yellow]",
             )
 
-            # 數據來源選單 Panel
-            console.print(
-                Panel(
-                    "[bold white]請選擇價格數據來源：\n1. Excel/CSV 文件\n"
-                    "2. Yahoo Finance\n3. Binance API\n4. Coinbase API[/bold white]",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
-            )
+            # 數據來源選單
+            show_info("DATALOADER", "[bold white]請選擇價格數據來源：\n1. Excel/CSV 文件\n2. Yahoo Finance\n3. Binance API\n4. Coinbase API[/bold white]")
 
             while True:
                 console.print(
@@ -471,13 +421,7 @@ class BaseDataLoader:
                 if choice in ["1", "2", "3", "4"]:
                     self.source = choice
                     break
-                console.print(
-                    Panel(
-                        "錯誤：請輸入 1, 2, 3 或 4。",
-                        title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                        border_style="#8f1511",
-                    )
-                )
+                show_error("DATALOADER", "錯誤：請輸入 1, 2, 3 或 4。")
 
             # 載入價格數據
             while True:
@@ -515,13 +459,7 @@ class BaseDataLoader:
             validator = DataValidator(self.data)
             self.data = validator.validate_and_clean()
             if self.data is None:
-                console.print(
-                    Panel(
-                        "[bold #8f1511]價格數據清洗失敗，程式終止[/bold #8f1511]",
-                        title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                        border_style="#8f1511",
-                    )
-                )
+                show_error("DATALOADER", "價格數據清洗失敗，程式終止")
                 return None
 
             # 計算收益率
@@ -568,13 +506,7 @@ class BaseDataLoader:
             elif predictor_data is not None:
                 self.data = predictor_data
             else:
-                console.print(
-                    Panel(
-                        "[bold #8f1511]未載入預測因子，僅使用價格數據。[/bold #8f1511]",
-                        title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                        border_style="#8f1511",
-                    )
-                )
+                show_info("DATALOADER", "未載入預測因子，僅使用價格數據。")
                 self.data = price_data
 
             # 重新驗證合併數據
@@ -583,13 +515,7 @@ class BaseDataLoader:
             validator = DataValidator(self.data)
             self.data = validator.validate_and_clean()
             if self.data is None:
-                console.print(
-                    Panel(
-                        "[bold #8f1511]合併數據清洗失敗，程式終止[/bold #8f1511]",
-                        title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                        border_style="#8f1511",
-                    )
-                )
+                show_error("DATALOADER", "合併數據清洗失敗，程式終止")
                 return None
 
             # 最終數據載入完成 Panel
@@ -615,25 +541,13 @@ class BaseDataLoader:
                 exporter = DataExporter(self.data)
                 exporter.export()
             else:
-                console.print(
-                    Panel(
-                        "未導出合併後數據，數據將直接進入後續分析/回測流程。",
-                        title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                        border_style="#dbac30",
-                    )
-                )
+                show_info("DATALOADER", "未導出合併後數據，數據將直接進入後續分析/回測流程。")
 
             return self.data
 
         except Exception as err:  # pylint: disable=broad-exception-caught
             self.logger.error(f"數據載入失敗: {err}")
-            console.print(
-                Panel(
-                    f"[bold #8f1511]數據載入失敗: {err}[/bold #8f1511]",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+            show_error("DATALOADER", f"數據載入失敗: {err}")
             return None
 
 

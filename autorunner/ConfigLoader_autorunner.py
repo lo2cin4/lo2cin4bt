@@ -53,11 +53,12 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from rich.console import Console
-from rich.panel import Panel
 from rich.text import Text
 
-console = Console()
+from autorunner.utils import get_console
+from utils import show_error
+
+console = get_console()
 
 
 class ConfigData:
@@ -349,13 +350,7 @@ class ConfigLoader:
         if context:
             title += f" - {context}"
 
-        console.print(
-            Panel(
-                f"❌ {message}",
-                title=Text(title, style="bold #8f1511"),
-                border_style="#8f1511",
-            )
-        )
+        show_error("AUTORUNNER", message)
 
 
 if __name__ == "__main__":
@@ -365,7 +360,7 @@ if __name__ == "__main__":
     loader = ConfigLoader()
 
     # 測試載入功能
-    test_config = "records/autorunner/config_template.json"
+    test_config = "records/autorunner/backtester_autorunner/config_template.json"
     if Path(test_config).exists():
         config_data = loader.load_config(test_config)
         if config_data:

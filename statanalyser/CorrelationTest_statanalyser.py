@@ -48,9 +48,9 @@ from typing import Dict
 
 import numpy as np
 import pandas as pd
-from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
+
+from utils import show_error, show_info, show_step_panel, show_warning
 from scipy.stats import pearsonr, spearmanr
 
 from .Base_statanalyser import BaseStatAnalyser
@@ -124,10 +124,9 @@ class CorrelationTest(BaseStatAnalyser):
 
     def analyze(self) -> Dict:
         # 步驟說明
-        console = Console()
-        console.print(
-            Panel(
-                "🟢 選擇用於統計分析的預測因子\n"
+        from utils import get_console
+        console = get_console()
+        content = ("🟢 選擇用於統計分析的預測因子\n"
                 "🟢 收益率相關性檢驗[自動]\n"
                 "🔴 ADF/KPSS 平穩性檢驗[自動]\n"
                 "🔴 ACF/PACF 自相關性檢驗[自動]\n"
@@ -135,18 +134,11 @@ class CorrelationTest(BaseStatAnalyser):
                 "🔴 統計分佈檢驗[自動]\n"
                 "🔴 季節性檢驗[自動]\n\n"
                 "[bold #dbac30]說明[/bold #dbac30]\n"
-                "1.因子收益率相關性檢驗\n檢驗功能：通過計算因子與未來收益率的相關性，評估因子對資產收益的預測能力，避免後續分析無效因子。\n成功/失敗標準：\n   - |Spearman| < 0.2：因子預測能力微弱，建議更換因子。\n   - |Spearman| ≥ 0.2 且 < 0.4：因子具有輕微預測能力，適合輔助策略。\n   - |Spearman| ≥ 0.4 且 < 0.7：因子具有良好預測能力，可作為主要策略因子。\n   - |Spearman| ≥ 0.7：因子具有優秀預測能力，適合核心交易策略。\n   - 注意：Spearman 相關係數衡量因子與收益率的單調關係，適合非正態數據（如 BTC 收益率的尖峰厚尾特性）。\n           係數絕對值越大，預測能力越強；p 值 < 0.05 表示相關性統計顯著。\n   - Chatterjee 相關系數（ξ）檢測非線性相關性，值域 0-1，不受單調性限制。\n       - |ξ| < 0.2：非線性相關性極弱\n       - |ξ| ≥ 0.2 且 < 0.4：非線性相關性較弱\n       - |ξ| ≥ 0.4 且 < 0.7：非線性相關性中等\n       - |ξ| ≥ 0.7：非線性相關性強",
-                title="[bold #dbac30]🔬 統計分析 StatAnalyser 步驟：收益率相關性檢驗[自動][/bold #dbac30]",
-                border_style="#dbac30",
-            )
-        )
+                "1.因子收益率相關性檢驗\n檢驗功能：通過計算因子與未來收益率的相關性，評估因子對資產收益的預測能力，避免後續分析無效因子。\n成功/失敗標準：\n   - |Spearman| < 0.2：因子預測能力微弱，建議更換因子。\n   - |Spearman| ≥ 0.2 且 < 0.4：因子具有輕微預測能力，適合輔助策略。\n   - |Spearman| ≥ 0.4 且 < 0.7：因子具有良好預測能力，可作為主要策略因子。\n   - |Spearman| ≥ 0.7：因子具有優秀預測能力，適合核心交易策略。\n   - 注意：Spearman 相關係數衡量因子與收益率的單調關係，適合非正態數據（如 BTC 收益率的尖峰厚尾特性）。\n           係數絕對值越大，預測能力越強；p 值 < 0.05 表示相關性統計顯著。\n   - Chatterjee 相關系數（ξ）檢測非線性相關性，值域 0-1，不受單調性限制。\n       - |ξ| < 0.2：非線性相關性極弱\n       - |ξ| ≥ 0.2 且 < 0.4：非線性相關性較弱\n       - |ξ| ≥ 0.4 且 < 0.7：非線性相關性中等\n       - |ξ| ≥ 0.7：非線性相關性強")
+        show_step_panel("STATANALYSER", 1, ["收益率相關性檢驗[自動]"], content)
         # 數據完整性
-        console.print(
-            Panel(
-                f"數據完整性檢查\n原始數據行數：{len(self.data)}\n因子列（{self.predictor_col}）NaN 數：{self.data[self.predictor_col].isna().sum()}\n收益率列（{self.return_col}）NaN 數：{self.data[self.return_col].isna().sum()}",
-                title="[bold #8f1511]🔬 統計分析 StatAnalyser[/bold #8f1511]",
-                border_style="#dbac30",
-            )
+        show_info("STATANALYSER",
+            f"數據完整性檢查\n原始數據行數：{len(self.data)}\n因子列（{self.predictor_col}）NaN 數：{self.data[self.predictor_col].isna().sum()}\n收益率列（{self.return_col}）NaN 數：{self.data[self.return_col].isna().sum()}"
         )
         correlation_results = {}
         skipped_lags = []
@@ -184,12 +176,8 @@ class CorrelationTest(BaseStatAnalyser):
         for lag in skipped_lags:
             if lag in correlation_results:
                 continue
-            console.print(
-                Panel(
-                    f"滯後期 {lag} 日的數據不足（{len(self.data) if lag == 0 else len(self.data) - lag} 筆，需至少 30 筆），跳過此滯後期。",
-                    title="[bold yellow]資料不足[/bold yellow]",
-                    border_style="yellow",
-                )
+            show_warning("STATANALYSER",
+                f"滯後期 {lag} 日的數據不足（{len(self.data) if lag == 0 else len(self.data) - lag} 筆，需至少 30 筆），跳過此滯後期。"
             )
         # 結果表格
         corr_df = pd.DataFrame(correlation_results).T.round(4)
@@ -252,14 +240,7 @@ class CorrelationTest(BaseStatAnalyser):
                 else:
                     c_level = "強"
                 summary += f"Chatterjee 非線性相關性{c_level}（最佳 ξ = {best_chatterjee:.4f} @ lag={best_chatterjee_lag}）"
-        console = Console()
-        console.print(
-            Panel(
-                summary,
-                title="[bold #8f1511]🔬 統計分析 StatAnalyser[/bold #8f1511]",
-                border_style="#dbac30",
-            )
-        )
+        show_info("STATANALYSER", summary)
         self.results = {
             "correlation_results": correlation_results,
             "skipped_lags": skipped_lags,

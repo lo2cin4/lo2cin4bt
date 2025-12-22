@@ -53,12 +53,13 @@ import shutil
 from pathlib import Path
 from typing import List
 
-from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-console = Console()
+from autorunner.utils import get_console
+from utils import show_error, show_info
+
+console = get_console()
 
 
 class ConfigSelector:
@@ -172,15 +173,12 @@ class ConfigSelector:
         """
 
         while True:
-            console.print(
-                Panel(
-                    "[bold #dbac30]請選擇要執行的配置文件：[/bold #dbac30]\n\n"
-                    "• 輸入編號選擇單個文件（如：1）\n"
-                    "• 輸入多個編號用逗號分隔（如：1,2,3）\n"
-                    "• 輸入 'all' 選擇所有文件\n"
-                    "• 輸入 'q' 退出",
-                    border_style="#dbac30",
-                )
+            show_info("AUTORUNNER",
+                "[bold #dbac30]請選擇要執行的配置文件：[/bold #dbac30]\n\n"
+                "• 輸入編號選擇單個文件（如：1）\n"
+                "• 輸入多個編號用逗號分隔（如：1,2,3）\n"
+                "• 輸入 'all' 選擇所有文件\n"
+                "• 輸入 'q' 退出"
             )
 
             user_input = input().strip().lower()
@@ -241,13 +239,7 @@ class ConfigSelector:
             message: 錯誤信息
         """
 
-        console.print(
-            Panel(
-                f"❌ {message}",
-                title=Text("⚠️ 輸入錯誤", style="bold #8f1511"),
-                border_style="#8f1511",
-            )
-        )
+        show_error("AUTORUNNER", message)
 
     def get_config_info(self, config_file: str) -> dict:
         """
@@ -291,7 +283,7 @@ if __name__ == "__main__":
 
     # 設定測試路徑
     project_root = Path(__file__).parent.parent
-    configs_dir = project_root / "records" / "autorunner"
+    configs_dir = project_root / "records" / "autorunner" / "backtester_autorunner"
     templates_dir = project_root / "autorunner" / "templates"
 
     # 創建選擇器實例

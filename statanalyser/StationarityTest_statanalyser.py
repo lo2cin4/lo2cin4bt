@@ -48,8 +48,7 @@ import warnings
 from typing import Dict
 
 import pandas as pd
-from rich.console import Console
-from rich.panel import Panel
+from utils import show_info, show_step_panel
 from rich.table import Table
 from statsmodels.tsa.stattools import adfuller, kpss
 
@@ -76,15 +75,8 @@ class StationarityTest(BaseStatAnalyser):
             "檢驗功能：判斷序列是否為平穩過程，適合用於傳統時間序列建模。如序列非平穩，很多模型如自回歸 (AR)、ARIMA 模型、線性回歸分析等效果將大打折扣。\n"
             "成功/失敗標準：ADF p<0.05 為平穩，KPSS p>0.05 為平穩。"
         )
-        console = Console()
         # 步驟說明
-        console.print(
-            Panel(
-                step_content,
-                title="[bold #dbac30]統計分析 StatAnalyser 步驟：收益率相關性檢驗[自動][/bold #dbac30]",
-                border_style="#dbac30",
-            )
-        )
+        show_step_panel("STATANALYSER", 1, ["ADF/KPSS 平穩性檢驗[自動]"], step_content)
 
         # 執行檢定並存結果
         def run_stationarity_tests(series):
@@ -166,11 +158,5 @@ class StationarityTest(BaseStatAnalyser):
         else:
             summary += "[bold red]收益率序列非平穩[/bold red]，[bold]建議差分或轉換後再建模[/bold]"
         # 結論用紅色 Panel
-        console.print(
-            Panel(
-                summary,
-                title="[bold #8f1511]🔬 統計分析 StatAnalyser[/bold #8f1511]",
-                border_style="#dbac30",
-            )
-        )
+            show_info("STATANALYSER", summary)
         return self.results

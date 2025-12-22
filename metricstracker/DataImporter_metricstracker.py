@@ -48,11 +48,12 @@ flowchart TD
 import glob
 import os
 
-from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
 
-console = Console()
+from .utils import get_console
+from utils import show_error
+
+console = get_console()
 
 
 def list_parquet_files(directory):
@@ -93,20 +94,8 @@ def select_files(files, user_input):
         if selected:
             return selected
         else:
-            console.print(
-                Panel(
-                    "請輸入有效編號！\n建議：請確認編號在可用範圍內，或使用 'all' 選擇所有檔案。",
-                    title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+            show_error("METRICSTRACKER", "請輸入有效編號！\n建議：請確認編號在可用範圍內，或使用 'all' 選擇所有檔案。")
             return []
     except Exception:
-        console.print(
-            Panel(
-                "輸入格式錯誤，請重新輸入！\n建議：請使用數字編號（如 1,2,3）或 'all' 選擇所有檔案。",
-                title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
-                border_style="#8f1511",
-            )
-        )
+        show_error("METRICSTRACKER", "輸入格式錯誤，請重新輸入！\n建議：請使用數字編號（如 1,2,3）或 'all' 選擇所有檔案。")
         return []

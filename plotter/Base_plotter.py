@@ -72,9 +72,9 @@ from abc import ABC
 from typing import Any, Dict, Optional
 
 import pandas as pd
-from rich.console import Console
-from rich.panel import Panel
 from rich.text import Text
+
+from utils import show_step_panel
 
 
 class BasePlotter(ABC):
@@ -86,7 +86,7 @@ class BasePlotter(ABC):
     """
 
     def __init__(
-        self, data_path: Optional[str] = None, logger: Optional[logging.Logger] = None
+        self, data_path: Optional[str] = None, logger: Optional[logging.Logger] = None, url_base_pathname: Optional[str] = None
     ):
         """
         初始化可視化平台
@@ -94,6 +94,7 @@ class BasePlotter(ABC):
         Args:
             data_path: metricstracker 產生的 parquet 檔案路徑，預設為 records/metricstracker
             logger: 日誌記錄器，預設為 None
+            url_base_pathname: URL 路徑前綴（例如 "/lo2cin4bt/"），預設為 None
         """
         self.data_path = data_path or os.path.join(
             os.path.dirname(os.path.dirname(__file__)), "records", "metricstracker"
@@ -102,6 +103,7 @@ class BasePlotter(ABC):
         self.data = None
         self.app = None
         self.callback_handler = None
+        self.url_base_pathname = url_base_pathname
 
         # 初始化子模組
         self._init_components()
@@ -124,7 +126,8 @@ class BasePlotter(ABC):
 
     def load_data(self) -> Dict[str, Any]:
         """
-        載入和解析 metricstracker 產生的 parquet 檔案
+        載入和解析 metricstracker 和 WFA 產生的 parquet 檔案
+        無論是否跳過 metricstracker，都會詢問是否要載入 WFA 檔案
 
         Returns:
             Dict[str, Any]: 解析後的數據字典，包含：
@@ -132,13 +135,49 @@ class BasePlotter(ABC):
                 - 'parameters': 參數組合列表
                 - 'metrics': 績效指標數據
                 - 'equity_curves': 權益曲線數據
+                - 'wfa_data': WFA 數據列表（如果有）
         """
         try:
+            # 載入 metricstracker 數據
             self.logger.info("開始載入 metricstracker 數據")
             self.data = self.data_importer.load_and_parse_data()
-            self.logger.info(
-                f"數據載入完成，共 {len(self.data.get('dataframes', {}))} 個參數組合"
+            
+            # 檢查是否選擇了跳過（空數據結構）
+            is_skipped = (
+                len(self.data.get('dataframes', {})) == 0 and
+                len(self.data.get('parameters', [])) == 0
             )
+            
+            if not is_skipped:
+                self.logger.info(
+                    f"metricstracker 數據載入完成，共 {len(self.data.get('dataframes', {}))} 個參數組合"
+            )
+            else:
+                self.logger.info("用戶選擇跳過 metricstracker 檔案")
+            
+            # 無論是否跳過 metricstracker，都詢問是否要載入 WFA 檔案
+            try:
+                from .WFADataImporter_plotter import WFADataImporter
+                
+                wfa_data_path = os.path.join(
+                    os.path.dirname(os.path.dirname(__file__)), "records", "wfanalyser"
+                )
+                wfa_importer = WFADataImporter(wfa_data_path, self.data_path, self.logger)
+                wfa_data = wfa_importer.load_wfa_files_interactive()
+                
+                # 將 WFA 數據添加到 data 字典中
+                if wfa_data:
+                    self.data['wfa_data'] = wfa_data
+                    self.logger.info(f"WFA 數據載入完成，共 {len(wfa_data)} 個檔案")
+                else:
+                    self.logger.info("用戶選擇跳過 WFA 檔案")
+            except FileNotFoundError as e:
+                self.logger.warning(f"WFA 數據目錄不存在: {e}")
+                self.data['wfa_data'] = []
+            except Exception as e:
+                self.logger.warning(f"載入 WFA 數據失敗: {e}")
+                self.data['wfa_data'] = []
+            
             return self.data
         except Exception as e:
             self.logger.error(f"數據載入失敗: {e}")
@@ -156,7 +195,7 @@ class BasePlotter(ABC):
                 self.load_data()
 
             self.logger.info("開始生成 Dash 界面")
-            self.app = self.dashboard_generator.create_app(self.data)
+            self.app = self.dashboard_generator.create_app(self.data, url_base_pathname=self.url_base_pathname)
             self.logger.info("Dash 界面生成完成")
             return self.app
         except Exception as e:
@@ -184,6 +223,22 @@ class BasePlotter(ABC):
 
             plateau_plotter.register_callbacks(self.app, self.data)
 
+            # 如果有 WFA 數據，設置 WFA 回調函數
+            if self.data.get("wfa_data") and len(self.data.get("wfa_data", [])) > 0:
+                try:
+                    from .WFACallbackHandler_plotter import WFACallbackHandler
+                    from .WFAChartComponents_plotter import WFAChartComponents
+                    
+                    # 創建 WFAChartComponents 實例並傳遞給回調處理器
+                    wfa_chart_components = WFAChartComponents(self.logger)
+                    wfa_callback_handler = WFACallbackHandler(self.logger, wfa_chart_components)
+                    wfa_callback_handler.setup_callbacks(
+                        self.app, self.data.get("wfa_data", []), wfa_chart_components
+                    )
+                    self.logger.info("WFA 回調函數設置完成")
+                except Exception as e:
+                    self.logger.warning(f"設置 WFA 回調函數失敗: {e}")
+
             self.logger.info("回調函數設置完成")
         except Exception as e:
             self.logger.error(f"回調函數設置失敗: {e}")
@@ -205,8 +260,17 @@ class BasePlotter(ABC):
             # 強制每次都setup_callbacks，確保callback註冊
             self.setup_callbacks()
 
-            self.logger.info(f"啟動可視化平台於 http://{host}:{port}")
-            console = Console()
+            # 構建完整的 URL
+            base_path = self.url_base_pathname or ""
+            if base_path and not base_path.startswith("/"):
+                base_path = "/" + base_path
+            if base_path and not base_path.endswith("/"):
+                base_path = base_path + "/"
+            full_url = f"http://{host}:{port}{base_path}"
+            
+            self.logger.info(f"啟動可視化平台於 {full_url}")
+            from utils import get_console
+            console = get_console()
 
             # 第二步：生成可視化介面[自動] - 步驟說明
             step_content = (
@@ -216,21 +280,13 @@ class BasePlotter(ABC):
                 "[bold #dbac30]說明[/bold #dbac30]\n"
                 "可視化平台已成功啟動！請按照以下方式開啟界面：\n\n"
                 "[bold #dbac30]方式一：[/bold #dbac30] 直接點擊下方連結\n"
-                f"[bold #dbac30]方式二：[/bold #dbac30] 在瀏覽器中輸入：[underline]http://{host}:{port}[/underline]\n\n"
+                f"[bold #dbac30]方式二：[/bold #dbac30] 在瀏覽器中輸入：[underline]{full_url}[/underline]\n\n"
                 "[bold #dbac30]操作提示：[/bold #dbac30]\n"
                 "• 界面開啟後可進行參數篩選、圖表互動\n"
                 "• 支援多策略比較、績效分析\n"
                 "• 按 Ctrl+C 可停止服務"
             )
-            console.print(
-                Panel(
-                    step_content,
-                    title=Text(
-                        "👁️ 可視化 Plotter 步驟：生成可視化介面", style="bold #dbac30"
-                    ),
-                    border_style="#dbac30",
-                )
-            )
+            show_step_panel("PLOTTER", 1, ["生成可視化介面"], step_content)
 
             # 啟動 Dash 應用
             self.app.run(host=host, port=port, debug=debug)

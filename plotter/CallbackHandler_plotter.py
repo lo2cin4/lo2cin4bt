@@ -195,31 +195,63 @@ class CallbackHandler:
         )
 
     def setup_callbacks(self, app, data: Dict[str, Any]):
-        # 頁面切換回調函數
-        @app.callback(
-            [
-                Output("layout-asset-curve-with-panel", "style"),
-                Output("layout-parameter-landscape-full", "style"),
-            ],
-            [
-                Input("btn-asset-curve", "n_clicks"),
-                Input("btn-parameter-landscape", "n_clicks"),
-            ],
-            prevent_initial_call=False,
-        )
-        def switch_page(asset_curve_clicks, parameter_landscape_clicks):
-            """切換頁面顯示"""
-            if not ctx.triggered_id:
-                # 初始狀態：顯示資產曲線頁面
-                return {"display": "block"}, {"display": "none"}
+        # 頁面切換回調函數（包括 WFA 可視化）
+        has_wfa_data = data.get("wfa_data") and len(data.get("wfa_data", [])) > 0
+        
+        if has_wfa_data:
+            @app.callback(
+                [
+                    Output("layout-asset-curve-with-panel", "style"),
+                    Output("layout-parameter-landscape-full", "style"),
+                    Output("layout-wfa-visualization", "style"),
+                ],
+                [
+                    Input("btn-asset-curve", "n_clicks"),
+                    Input("btn-parameter-landscape", "n_clicks"),
+                    Input("btn-wfa-visualization", "n_clicks"),
+                ],
+                prevent_initial_call=False,
+            )
+            def switch_page(asset_curve_clicks, parameter_landscape_clicks, wfa_clicks):
+                """切換頁面顯示（包含 WFA 可視化）"""
+                if not ctx.triggered_id:
+                    # 初始狀態：顯示資產曲線頁面
+                    return {"display": "block"}, {"display": "none"}, {"display": "none"}
 
-            if ctx.triggered_id == "btn-asset-curve":
-                return {"display": "block"}, {"display": "none"}
-            elif ctx.triggered_id == "btn-parameter-landscape":
-                return {"display": "none"}, {"display": "block"}
+                if ctx.triggered_id == "btn-asset-curve":
+                    return {"display": "block"}, {"display": "none"}, {"display": "none"}
+                elif ctx.triggered_id == "btn-parameter-landscape":
+                    return {"display": "none"}, {"display": "block"}, {"display": "none"}
+                elif ctx.triggered_id == "btn-wfa-visualization":
+                    return {"display": "none"}, {"display": "none"}, {"display": "block"}
 
-            # 預設顯示資產曲線頁面
-            return {"display": "block"}, {"display": "none"}
+                # 預設顯示資產曲線頁面
+                return {"display": "block"}, {"display": "none"}, {"display": "none"}
+        else:
+            @app.callback(
+                [
+                    Output("layout-asset-curve-with-panel", "style"),
+                    Output("layout-parameter-landscape-full", "style"),
+                ],
+                [
+                    Input("btn-asset-curve", "n_clicks"),
+                    Input("btn-parameter-landscape", "n_clicks"),
+                ],
+                prevent_initial_call=False,
+            )
+            def switch_page(asset_curve_clicks, parameter_landscape_clicks):
+                """切換頁面顯示"""
+                if not ctx.triggered_id:
+                    # 初始狀態：顯示資產曲線頁面
+                    return {"display": "block"}, {"display": "none"}
+
+                if ctx.triggered_id == "btn-asset-curve":
+                    return {"display": "block"}, {"display": "none"}
+                elif ctx.triggered_id == "btn-parameter-landscape":
+                    return {"display": "none"}, {"display": "block"}
+
+                # 預設顯示資產曲線頁面
+                return {"display": "block"}, {"display": "none"}
 
         # ⚠️ 以下 callback 為動態展開/收合 collapsible，支援多指標自動擴充，勿隨意更動！
         @app.callback(

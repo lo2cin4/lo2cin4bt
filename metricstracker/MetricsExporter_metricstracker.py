@@ -51,12 +51,11 @@ import os
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
-from rich.console import Console
-from rich.panel import Panel
-
 from .MetricsCalculator_metricstracker import MetricsCalculatorMetricTracker
+from .utils import get_console
+from utils import show_error, show_info, show_success, show_warning
 
-console = Console()
+console = get_console()
 
 
 class MetricsExporter:
@@ -89,23 +88,13 @@ class MetricsExporter:
             orig_table = pq.read_table(orig_parquet_path)
             orig_meta = orig_table.schema.metadata or {}
         except Exception as e:
-            console.print(
-                Panel(
-                    f"⚠️ 讀取 Parquet 檔案時發生錯誤: {e}\n"
-                    "這可能是由於 metadata 過大導致的。嘗試使用簡化模式...",
-                    title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
+            show_warning("METRICSTRACKER",
+                f"讀取 Parquet 檔案時發生錯誤: {e}\n"
+                "這可能是由於 metadata 過大導致的。嘗試使用簡化模式..."
             )
             # 使用簡化模式，不讀取 metadata
             orig_meta = {}
-            console.print(
-                Panel(
-                    "✅ 已切換到簡化模式，將忽略舊的 metadata",
-                    title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
-            )
+            show_success("METRICSTRACKER", "已切換到簡化模式，將忽略舊的 metadata")
 
         # 先讀取舊的 batch_metadata（從分離的 JSON 檔案）
         old_batch_metadata = []
@@ -121,13 +110,7 @@ class MetricsExporter:
                 with open(metadata_json_path, "r", encoding="utf-8") as f:
                     old_batch_metadata = json.load(f)
             except Exception as e:
-                console.print(
-                    Panel(
-                        f"⚠️ 無法讀取舊的 metadata JSON 檔案: {e}",
-                        title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
-                        border_style="#8f1511",
-                    )
-                )
+                show_warning("METRICSTRACKER", f"無法讀取舊的 metadata JSON 檔案: {e}")
 
         # 如果 JSON 檔案不存在，嘗試從 Parquet metadata 讀取（向後相容）
         if not old_batch_metadata and b"batch_metadata" in orig_meta:
@@ -137,21 +120,9 @@ class MetricsExporter:
                 os.makedirs(out_dir, exist_ok=True)
                 with open(metadata_json_path, "w", encoding="utf-8") as f:
                     json.dump(old_batch_metadata, f, ensure_ascii=False, indent=2)
-                console.print(
-                    Panel(
-                        f"✅ 已將舊的 batch_metadata 遷移到 JSON 檔案",
-                        title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
-                        border_style="#dbac30",
-                    )
-                )
+                show_success("METRICSTRACKER", "已將舊的 batch_metadata 遷移到 JSON 檔案")
             except Exception as e:
-                console.print(
-                    Panel(
-                        f"⚠️ 無法讀取舊的 Parquet metadata: {e}",
-                        title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
-                        border_style="#8f1511",
-                    )
-                )
+                show_warning("METRICSTRACKER", f"無法讀取舊的 Parquet metadata: {e}")
         
         # 統一 batch_metadata 寫入，不論單/多策略
         # 優化：先添加 drawdown 欄位到整個 DataFrame，避免每個 group 都複製
@@ -164,12 +135,8 @@ class MetricsExporter:
             batch_metadata = []
             
             if unique_backtest_ids > 10000:
-                console.print(
-                    Panel(
-                        f"⚠️ 檢測到大量策略組合 ({unique_backtest_ids} 個)，將使用批次處理以優化記憶體使用（每批 1000 個）",
-                        title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
-                        border_style="#8f1511",
-                    )
+                show_warning("METRICSTRACKER",
+                    f"檢測到大量策略組合 ({unique_backtest_ids} 個)，將使用批次處理以優化記憶體使用（每批 1000 個）"
                 )
                 # 分批處理，每批處理 1000 個
                 batch_size = 1000
@@ -181,12 +148,8 @@ class MetricsExporter:
                     end_idx = min(start_idx + batch_size, len(all_backtest_ids))
                     batch_ids = all_backtest_ids[start_idx:end_idx]
                     
-                    console.print(
-                        Panel(
-                            f"處理批次 {batch_idx + 1}/{total_batches} (策略 {start_idx + 1}-{end_idx}/{unique_backtest_ids})",
-                            title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
-                            border_style="#dbac30",
-                        )
+                    show_info("METRICSTRACKER",
+                        f"處理批次 {batch_idx + 1}/{total_batches} (策略 {start_idx + 1}-{end_idx}/{unique_backtest_ids})"
                     )
                     
                     for Backtest_id in batch_ids:
@@ -282,51 +245,25 @@ class MetricsExporter:
         # 移除 batch_metadata 以避免 Parquet 檔案過大
         if b"batch_metadata" in new_meta:
             del new_meta[b"batch_metadata"]
-            console.print(
-                Panel(
-                    "✅ 已將 batch_metadata 從 Parquet 檔案中移除，改為儲存在 JSON 檔案中",
-                    title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
-            )
+            show_success("METRICSTRACKER", "已將 batch_metadata 從 Parquet 檔案中移除，改為儲存在 JSON 檔案中")
 
         table = pa.Table.from_pandas(df_out)
         table = table.replace_schema_metadata(new_meta)
         out_path = os.path.join(out_dir, f"{orig_name}_metrics.parquet")
         pq.write_table(table, out_path)
 
-        console.print(
-            Panel(
-                f"batch_metadata 已計算並輸出：\n📊 Parquet 檔案: {out_path}\n📋 Metadata JSON: {metadata_json_path}",
-                title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
-                border_style="#dbac30",
-            )
+        show_success("METRICSTRACKER",
+            f"batch_metadata 已計算並輸出：\n📊 Parquet 檔案: {out_path}\n📋 Metadata JSON: {metadata_json_path}"
         )
 
         # 立即讀回檢查
         try:
             pq.read_table(out_path)
-            console.print(
-                Panel(
-                    "✅ Parquet 檔案驗證成功！",
-                    title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
-            )
+            show_success("METRICSTRACKER", "Parquet 檔案驗證成功！")
         except Exception as e:
-            console.print(
-                Panel(
-                    f"⚠️ Parquet 檔案驗證失敗: {e}\n"
-                    "但檔案已成功寫入，metadata 已分離到 JSON 檔案中",
-                    title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
+            show_warning("METRICSTRACKER",
+                f"Parquet 檔案驗證失敗: {e}\n"
+                "但檔案已成功寫入，metadata 已分離到 JSON 檔案中"
             )
 
-        console.print(
-            Panel(
-                "✅ 交易績效分析完成！",
-                title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
-                border_style="#dbac30",
-            )
-        )
+        show_success("METRICSTRACKER", "交易績效分析完成！")

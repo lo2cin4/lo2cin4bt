@@ -200,14 +200,6 @@
         "exit": [
           "PERC3"
         ]
-      },
-      {
-        "entry": [
-          "HL4"
-        ],
-        "exit": [
-          "HL1"
-        ]
       }
     ],
     "indicator_params": {
@@ -332,14 +324,6 @@
       "PERC3_strategy_14": {
         "window_range": "10:200:20",
         "percentile_range": "10:10:1"
-      },
-      "HL4_strategy_15": {
-        "n_range": "1:1:1",
-        "m_range": "10:200:20"
-      },
-      "HL1_strategy_15": {
-        "n_range": "1:1:1",
-        "m_range": "10:200:20"
       }
     },
     "trading_params": {

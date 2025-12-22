@@ -18,10 +18,12 @@ import logging
 from typing import Any, Dict, Optional
 
 import pandas as pd
-from rich.console import Console
-from rich.panel import Panel
 
 from backtester.Base_backtester import BaseBacktester
+from autorunner.utils import get_console
+from utils import show_error, show_info, show_success
+
+console = get_console()
 
 
 class BacktestRunnerAutorunner:
@@ -29,7 +31,6 @@ class BacktestRunnerAutorunner:
 
     def __init__(self, logger: Optional[logging.Logger] = None):
         self.logger = logger or logging.getLogger("lo2cin4bt.autorunner.backtest")
-        self.console = Console()
 
     def run_backtest(
         self, data, config: Dict[str, Any]
@@ -126,13 +127,7 @@ class BacktestRunnerAutorunner:
 
         except Exception as e:
             print(f"❌ [ERROR] 回測執行失敗: {e}")
-            self.console.print(
-                Panel(
-                    f"回測執行失敗: {e}",
-                    title="[bold #8f1511]❌ 回測錯誤[/bold #8f1511]",
-                    border_style="#8f1511"
-                )
-            )
+            show_error("BACKTESTER", f"回測執行失敗: {e}")
             return None
 
     def _convert_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
@@ -195,10 +190,4 @@ class BacktestRunnerAutorunner:
 
     def _display_error(self, message: str):
         """顯示錯誤信息"""
-        self.console.print(
-            Panel(
-                message,
-                title="[bold #8f1511]❌ 回測錯誤[/bold #8f1511]",
-                border_style="#8f1511"
-            )
-        )
+        show_error("BACKTESTER", message)

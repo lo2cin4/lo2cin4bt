@@ -50,8 +50,6 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-from rich.console import Console
-from rich.panel import Panel
 from statsmodels.tsa.stattools import acf, pacf
 
 from .Base_statanalyser import BaseStatAnalyser
@@ -71,7 +69,8 @@ class AutocorrelationTest(BaseStatAnalyser):
 
     def analyze(self) -> Dict:
         """執行 ACF 和 PACF 分析"""
-        console = Console()
+        from utils import get_console
+        console = get_console()
         series = self.data[self.predictor_col].dropna()
         if len(series) < 5:
             print(f"3. 檢驗結果：數據點不足（{len(series)}個）")
@@ -96,12 +95,8 @@ class AutocorrelationTest(BaseStatAnalyser):
             "檢驗功能：檢測序列的記憶效應和週期性。如有記憶效應，代表可用歷史數據預測未來數值，用家可嘗試發掘背後原因是否具備邏輯。小心過擬合。\n"
             f"檢測最大滯後期數：{lags}（頻率={self.freq}）"
         )
-        panel = Panel(
-            panel_content,
-            title="[bold #dbac30]🔬 統計分析 StatAnalyser 步驟：自相關性檢驗[自動][/bold #dbac30]",
-            border_style="#dbac30",
-        )
-        console.print(panel)
+        from utils import show_step_panel
+        show_step_panel("STATANALYSER", 1, ["自相關性檢驗[自動]"], panel_content)
 
         # 計算 ACF 和 PACF
         acf_result = acf(series, nlags=lags, alpha=0.05, fft=True)
@@ -234,12 +229,7 @@ class AutocorrelationTest(BaseStatAnalyser):
             "ACF不顯著，PACF顯著：股票交易量，突發事件短期影響。\n"
             "ACF顯著，PACF顯著：聖誕飾品銷售，趨勢+直接推動。\n"
         )
-        panel = Panel(
-            panel_content,
-            title="[bold #dbac30]🔬 統計分析 StatAnalyser 步驟：ACF/PACF 圖片生成[互動][/bold #dbac30]",
-            border_style="#dbac30",
-        )
-        console.print(panel)
+        show_step_panel("STATANALYSER", 1, ["ACF/PACF 圖片生成[互動]"], panel_content)
         console.print(
             "[bold #dbac30]輸出 ACF 或 PACF 互動圖片？(輸入 y 生成，n 跳過，預設 n)[/bold #dbac30]"
         )
@@ -347,13 +337,7 @@ class AutocorrelationTest(BaseStatAnalyser):
                 "- 嘗試其他特徵工程（如外部因子、非線性轉換）。\n"
                 "- 檢查資料品質或資料頻率是否合適。"
             )
-        console.print(
-            Panel(
-                suggestion,
-                title="[bold #8f1511]🔬 統計分析 StatAnalyser[/bold #8f1511]",
-                border_style="#dbac30",
-            )
-        )
+        show_info("STATANALYSER", suggestion)
         console.print("\n")
 
         self.results = {

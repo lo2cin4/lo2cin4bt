@@ -61,8 +61,6 @@ flowchart TD
 import os
 
 import pandas as pd
-from rich.console import Console
-from rich.panel import Panel
 
 from .DataImporter_metricstracker import (
     list_parquet_files,
@@ -70,8 +68,10 @@ from .DataImporter_metricstracker import (
     show_parquet_files,
 )
 from .MetricsExporter_metricstracker import MetricsExporter
+from .utils import get_console
+from utils import show_error, show_info, show_step_panel
 
-console = Console()
+console = get_console()
 
 
 class BaseMetricTracker:
@@ -91,17 +91,7 @@ class BaseMetricTracker:
     def print_step_panel(current_step: int, desc: str = ""):
         """顯示步驟進度 Panel"""
         steps = BaseMetricTracker.get_steps()
-        step_content = ""
-        for idx, step in enumerate(steps):
-            if idx < current_step:
-                step_content += f"🟢{step}\n"
-            else:
-                step_content += f"🔴{step}\n"
-        content = step_content.strip()
-        if desc:
-            content += f"\n\n[bold #dbac30]說明[/bold #dbac30]\n{desc}"
-        panel_title = f"[bold #dbac30]🚦 Metricstracker 交易分析 步驟：{steps[current_step - 1]}[/bold #dbac30]"
-        console.print(Panel(content.strip(), title=panel_title, border_style="#dbac30"))
+        show_step_panel("METRICSTRACKER", current_step, steps, desc)
 
     def _print_step_panel(self, current_step: int, desc: str = ""):
         """實例方法，調用靜態方法"""
@@ -130,13 +120,7 @@ class BaseMetricTracker:
 
         files = list_parquet_files(directory)
         if not files:
-            console.print(
-                Panel(
-                    f"❌ 找不到任何parquet檔案於 {directory}",
-                    title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+            show_error("METRICSTRACKER", f"找不到任何parquet檔案於 {directory}")
             return False
 
         show_parquet_files(files)
@@ -149,34 +133,16 @@ class BaseMetricTracker:
         selected_files = select_files(files, user_input)
 
         if not selected_files:
-            console.print(
-                Panel(
-                    "未選擇任何檔案，返回主選單。",
-                    title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+            show_error("METRICSTRACKER", "未選擇任何檔案，返回主選單。")
             return False
 
         # 顯示已選擇的檔案
         file_list = "\n".join([f"  - {f}" for f in selected_files])
-        console.print(
-            Panel(
-                f"已選擇檔案：\n{file_list}",
-                title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
-                border_style="#dbac30",
-            )
-        )
+        show_info("METRICSTRACKER", f"已選擇檔案：\n{file_list}")
 
         # 分析每個選中的檔案
         for orig_parquet_path in selected_files:
-            console.print(
-                Panel(
-                    f"正在分析檔案：{orig_parquet_path}",
-                    title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
-            )
+            show_info("METRICSTRACKER", f"正在分析檔案：{orig_parquet_path}")
 
             # 步驟2：設定分析參數
             self._print_step_panel(
@@ -229,13 +195,7 @@ class BaseMetricTracker:
 
     def analyze(self, file_list):
         """分析檔案列表"""
-        console.print(
-            Panel(
-                "收到以下檔案進行分析：\n" + "\n".join([f"  - {f}" for f in file_list]),
-                title="[bold #8f1511]🚦 Metricstracker 交易分析[/bold #8f1511]",
-                border_style="#dbac30",
-            )
-        )
+        show_info("METRICSTRACKER", "收到以下檔案進行分析：\n" + "\n".join([f"  - {f}" for f in file_list]))
 
     def load_data(self, file_path: str):
         """讀取 parquet 或其他格式的原始回測資料"""

@@ -26,6 +26,8 @@ records/**/*.json
 
 # 不要忽略 config template 文件
 !records/autorunner/config_template*.json
+!records/autorunner/**/config_template*.json
+!records/autorunner/**/config_anchored_template.json
 
 # 忽略 plotter 下载的图表文件
 records/plotter/

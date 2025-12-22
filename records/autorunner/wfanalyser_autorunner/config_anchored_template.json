@@ -1,0 +1,143 @@
+{
+  "_version": "1.0.0",
+  "_description": "Anchored Walk-Forward Analysis 配置範例 - 定點起點、不斷延長的WFA回測模式",
+  "wfa_config": {
+    "_help": {
+      "mode": "WFA 模式：anchored (固定起點滾動) - 訓練集從測試集大小開始逐步增長",
+      "train_set_percentage": "最大訓練集(IS)長度百分比 (0-1)，例如 0.6 表示最大 60%。初始訓練集大小 = 測試集大小，然後每次增長 step_size",
+      "test_set_percentage": "測試集(OOS)長度百分比 (0-1)，例如 0.2 表示 20%，固定不變。同時也是初始訓練集大小",
+      "step_size": "訓練集增長步長（數據點數），例如 216 表示每次訓練集增長 216 個數據點（約 216 天，相當於約 1 年的日線數據）",
+      "optimization_objectives": "優化目標列表：['sharpe', 'calmar']，會分別計算兩個 WFA",
+      "output_csv": "是否導出 CSV 文件：true 導出 CSV 和 Parquet，false 只導出 Parquet"
+    },
+    "mode": "anchored",
+    "train_set_percentage": 0.6,
+    "test_set_percentage": 0.2,
+    "step_size": 216,
+    "optimization_objectives": ["sharpe", "calmar"],
+    "output_csv": true
+  },
+  "dataloader": {
+    "_help": {
+      "source": "數據來源：yfinance | binance | coinbase | file",
+      "frequency": "價格頻率，例如 1d、1h",
+      "start_date": "資料開始日期 (YYYY-MM-DD)，建議從較早日期開始以確保有足夠數據進行 anchored WFA",
+      "end_date": "資料結束日期 (YYYY-MM-DD)，可選。如果不設置，將使用當前日期。設置此參數可以固定回測的結束日期，提高結果可重現性",
+      "handle_missing_values": "缺失值處理方式：目前僅支援 fill",
+      "missing_value_strategy": "缺失值填充策略 (A=前向填充, B,N=前N期均值, C,x=固定值)"
+    },
+    "source": "binance",
+    "frequency": "1d",
+    "start_date": "2020-01-01",
+    "end_date": null,
+    "handle_missing_values": "fill",
+    "missing_value_strategy": "A",
+    "yfinance_config": {
+      "_help": {
+        "symbol": "Yahoo Finance 代碼，例如 AAPL",
+        "period": "下載區間，例如 1y",
+        "interval": "k 線頻率，例如 1d"
+      },
+      "symbol": "AAPL",
+      "period": "1y",
+      "interval": "1d"
+    },
+    "binance_config": {
+      "_help": {
+        "symbol": "Binance 交易對，例如 BTCUSDT",
+        "interval": "k 線頻率，例如 1d"
+      },
+      "symbol": "BTCUSDT",
+      "interval": "1d"
+    },
+    "coinbase_config": {
+      "_help": {
+        "symbol": "Coinbase 交易對，例如 BTC-USD"
+      },
+      "symbol": "BTC-USD"
+    },
+    "file_config": {
+      "_help": {
+        "file_path": "本地 CSV/Excel 路徑",
+        "time_column": "時間欄位名稱",
+        "time_format": "時間格式 (例如 %d/%m/%Y %H:%M:%S，小時:分鐘:秒可不填，留空自動推斷)",
+        "open_column": "開盤價欄位名稱",
+        "high_column": "最高價欄位名稱",
+        "low_column": "最低價欄位名稱",
+        "close_column": "收盤價欄位名稱"
+      },
+      "file_path": "records/dataloader/import/BATS_QQQ, 1D.csv",
+      "time_column": "time",
+      "time_format": "%Y-%m-%d %H:%M:%S",
+      "open_column": "open",
+      "high_column": "high",
+      "low_column": "low",
+      "close_column": "close"
+    },
+    "predictor_config": {
+      "_help": {
+        "predictor_source": "預測因子來源：file 等",
+        "predictor_path": "預測因子檔案路徑",
+        "predictor_column": "需要載入的預測因子欄位",
+        "skip_predictor": "是否跳過預測因子載入",
+        "time_column": "時間欄位名稱 (例如 timestamp, time, Date)",
+        "time_format": "時間格式 (例如 %Y-%m-%d %H:%M:%S 或 %d/%m/%Y %H:%M:%S)。⚠️ 如果是Unix timestamp（純數字如1577750400），請留空讓系統自動檢測轉換！"
+      },
+      "predictor_source": "file",
+      "predictor_path": "records/dataloader/import/predictor_example.xlsx",
+      "predictor_column": "X",
+      "skip_predictor": true,
+      "time_column": "time",
+      "time_format": "%Y-%m-%d"
+    }
+  },
+  "backtester": {
+    "_help": {
+      "selected_predictor": "預測因子欄位，例如 X, factor_name_diff_div, factor_name_diff_sub",
+      "condition_pairs": "開倉/平倉指標配對列表",
+      "indicator_params": "每個指標的參數範圍 (依原 backtester 規則，目前必須輸入 range)。⚠️ 重要：每個指標最多只能有2個可變參數（範圍格式如 '10:200:10' 或逗號分隔如 '1,1.5,2'），其他參數必須為固定值。如果超過2個可變參數，WFA 將報錯。",
+      "trading_params.transaction_cost": "交易成本 (手續費)；以比例表示",
+      "trading_params.slippage": "滑點；以比例表示",
+      "trading_params.trade_delay": "交易延遲 (0=當根，1=下一根)",
+      "trading_params.trade_price": "成交價格類型：open / close"
+    },
+    "selected_predictor": "X",
+    "condition_pairs": [
+      {
+        "entry": ["MA1"],
+        "exit": ["MA4"]
+      }
+    ],
+    "indicator_params": {
+      "_help": "指標參數配置。⚠️ 重要：每個指標最多只能有2個可變參數（範圍格式如 '10:200:10' 或逗號分隔如 '1,1.5,2'），其他參數必須為固定值。如果超過2個可變參數，WFA 將報錯。",
+      "MA1_strategy_1": {
+        "ma_type": "SMA",
+        "ma_range": "50:150:20"
+      },
+      "MA4_strategy_1": {
+        "ma_type": "SMA",
+        "ma_range": "50:150:20"
+      }
+    },
+    "trading_params": {
+      "transaction_cost": 0.001,
+      "slippage": 0.0005,
+      "trade_delay": 0,
+      "trade_price": "close"
+    },
+    "initial_capital": 1000000
+  },
+  "metricstracker": {
+    "_help": {
+      "enable_metrics_analysis": "是否啟用指標分析",
+      "export_format": "導出格式：csv, excel, json",
+      "include_charts": "是否包含圖表"
+    },
+    "enable_metrics_analysis": true,
+    "export_format": "excel",
+    "include_charts": false,
+    "time_unit": 365,
+    "risk_free_rate": 0.04
+  }
+}
+

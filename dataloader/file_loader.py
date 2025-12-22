@@ -52,7 +52,6 @@ import os  # 用於檢查文件是否存在（os.path.exists）
 from typing import List, Optional, Tuple
 
 import pandas as pd  # 用於讀取 Excel/CSV 文件、數據處理（如重命名欄位、填充缺失值）
-from rich.panel import Panel
 from rich.table import Table
 
 from dataloader.validator_loader import print_dataframe_table
@@ -106,13 +105,7 @@ class FileLoader(AbstractDataLoader):
             import_dir: 預設目錄路徑
         返回: 文件路徑或 None
         """
-        self.console.print(
-            Panel(
-                "[bold white]請選擇文件來源：\n1. 從預設目錄選擇文件\n2. 輸入完整文件路徑[/bold white]",
-                title=self.panel_title,
-                border_style=self.panel_success_style,
-            )
-        )
+        self.show_info("[bold white]請選擇文件來源：\n1. 從預設目錄選擇文件\n2. 輸入完整文件路徑[/bold white]")
 
         while True:
             source_choice = self.get_user_input("請選擇（1 或 2", "1")

@@ -1,19 +1,35 @@
 {
   "_version": "1.0.0",
-  "_description": "此配置文件包含所有回測流程的配置選項，用戶只需修改需要的部分即可運行自動化回測",
+  "_description": "WFA 滾動前向分析配置文件模板",
+  "wfa_config": {
+    "_help": {
+      "mode": "WFA 模式：standard (標準滾動) 或 anchored (固定起點滾動)",
+      "train_set_percentage": "訓練集(IS)長度百分比 (0-1)，例如 0.6 表示 60%",
+      "test_set_percentage": "測試集(OOS)長度百分比 (0-1)，例如 0.2 表示 20%",
+      "step_size": "步長（數據點數），例如 30 表示每次向前移動 30 個數據點",
+      "optimization_objectives": "優化目標列表：['sharpe', 'calmar']，會分別計算兩個 WFA",
+      "output_csv": "是否導出 CSV 文件：true 導出 CSV 和 Parquet，false 只導出 Parquet"
+    },
+    "mode": "standard",
+    "train_set_percentage": 0.6,
+    "test_set_percentage": 0.2,
+    "step_size": 216,
+    "optimization_objectives": ["sharpe", "calmar"],
+    "output_csv": true
+  },
   "dataloader": {
     "_help": {
       "source": "數據來源：yfinance | binance | coinbase | file",
       "frequency": "價格頻率，例如 1d、1h",
       "start_date": "資料開始日期 (YYYY-MM-DD)",
-      "end_date": "資料結束日期 (YYYY-MM-DD)，輸入 '/' 或留空則使用今天的日期",
+      "end_date": "資料結束日期 (YYYY-MM-DD)，可選。如果不設置，將使用當前日期。設置此參數可以固定回測的結束日期，提高結果可重現性",
       "handle_missing_values": "缺失值處理方式：目前僅支援 fill",
       "missing_value_strategy": "缺失值填充策略 (A=前向填充, B,N=前N期均值, C,x=固定值)"
     },
     "source": "binance",
     "frequency": "1d",
     "start_date": "2020-01-01",
-    "end_date": "/",
+    "end_date": null,
     "handle_missing_values": "fill",
     "missing_value_strategy": "A",
     "yfinance_config": {
@@ -70,16 +86,16 @@
       "predictor_source": "file",
       "predictor_path": "records/dataloader/import/predictor_example.xlsx",
       "predictor_column": "X",
-      "skip_predictor": false,
+      "skip_predictor": true,
       "time_column": "time",
-      "time_format": "%Y-%m-%d %H:%M:%S"
+      "time_format": "%Y-%m-%d"
     }
   },
   "backtester": {
     "_help": {
       "selected_predictor": "預測因子欄位，例如 X, factor_name_diff_div, factor_name_diff_sub",
       "condition_pairs": "開倉/平倉指標配對列表",
-      "indicator_params": "每個指標的參數範圍 (依原 backtester 規則，目前必須輸入 range)",
+      "indicator_params": "每個指標的參數範圍 (依原 backtester 規則，目前必須輸入 range)。⚠️ 重要：每個指標最多只能有2個可變參數（範圍格式如 '10:200:10' 或逗號分隔如 '1,1.5,2'），其他參數必須為固定值。如果超過2個可變參數，WFA 將報錯。",
       "trading_params.transaction_cost": "交易成本 (手續費)；以比例表示",
       "trading_params.slippage": "滑點；以比例表示",
       "trading_params.trade_delay": "交易延遲 (0=當根，1=下一根)",
@@ -88,236 +104,172 @@
     "selected_predictor": "X",
     "condition_pairs": [
       {
-        "entry": [
-          "MA1"
-        ],
-        "exit": [
-          "MA4"
-        ]
+        "entry": ["MA1"],
+        "exit": ["MA4"]
       },
       {
-        "entry": [
-          "BOLL1"
-        ],
-        "exit": [
-          "BOLL4"
-        ]
+        "entry": ["BOLL1"],
+        "exit": ["BOLL4"]
       },
       {
-        "entry": [
-          "BOLL3"
-        ],
-        "exit": [
-          "BOLL2"
-        ]
+        "entry": ["BOLL3"],
+        "exit": ["BOLL2"]
       },
       {
-        "entry": [
-          "HL1"
-        ],
-        "exit": [
-          "HL4"
-        ]
+        "entry": ["HL1"],
+        "exit": ["HL4"]
       },
       {
-        "entry": [
-          "PERC1"
-        ],
-        "exit": [
-          "PERC4"
-        ]
+        "entry": ["PERC1"],
+        "exit": ["PERC4"]
       },
       {
-        "entry": [
-          "PERC3"
-        ],
-        "exit": [
-          "PERC2"
-        ]
+        "entry": ["PERC3"],
+        "exit": ["PERC2"]
       },
       {
-        "entry": [
-          "MA4"
-        ],
-        "exit": [
-          "MA1"
-        ]
+        "entry": ["MA4"],
+        "exit": ["MA1"]
       },
       {
-        "entry": [
-          "BOLL4"
-        ],
-        "exit": [
-          "BOLL1"
-        ]
+        "entry": ["BOLL4"],
+        "exit": ["BOLL1"]
       },
       {
-        "entry": [
-          "BOLL2"
-        ],
-        "exit": [
-          "BOLL3"
-        ]
+        "entry": ["BOLL2"],
+        "exit": ["BOLL3"]
       },
       {
-        "entry": [
-          "HL4"
-        ],
-        "exit": [
-          "HL1"
-        ]
+        "entry": ["HL4"],
+        "exit": ["HL1"]
       },
       {
-        "entry": [
-          "PERC4"
-        ],
-        "exit": [
-          "PERC1"
-        ]
+        "entry": ["PERC4"],
+        "exit": ["PERC1"]
       },
       {
-        "entry": [
-          "PERC2"
-        ],
-        "exit": [
-          "PERC3"
-        ]
-      },
-      {
-        "entry": [
-          "HL4"
-        ],
-        "exit": [
-          "HL1"
-        ]
+        "entry": ["PERC2"],
+        "exit": ["PERC3"]
       }
     ],
     "indicator_params": {
+      "_help": "指標參數配置。⚠️ 重要：每個指標最多只能有2個可變參數（範圍格式如 '10:200:10' 或逗號分隔如 '1,1.5,2'），其他參數必須為固定值。如果超過2個可變參數，WFA 將報錯。",
       "MA1_strategy_1": {
         "ma_type": "SMA",
-        "ma_range": "10:200:20"
+        "ma_range": "50:150:20"
       },
       "MA4_strategy_1": {
         "ma_type": "SMA",
-        "ma_range": "10:200:20"
+        "ma_range": "50:150:20"
       },
       "BOLL1_strategy_2": {
-        "ma_range": "10:200:20",
-        "sd_multi": "2"
+        "ma_range": "50:150:20",
+        "sd_multi": "2.0"
       },
       "BOLL4_strategy_2": {
-        "ma_range": "10:200:20",
-        "sd_multi": "2"
+        "ma_range": "50:150:20",
+        "sd_multi": "2.0"
       },
       "BOLL3_strategy_3": {
-        "ma_range": "10:200:20",
-        "sd_multi": "2"
+        "ma_range": "50:150:20",
+        "sd_multi": "2.0"
       },
       "BOLL2_strategy_3": {
-        "ma_range": "10:200:20",
-        "sd_multi": "2"
+        "ma_range": "50:150:20",
+        "sd_multi": "2.0"
       },
       "HL1_strategy_4": {
         "n_range": "1:1:1",
-        "m_range": "10:200:20"
+        "m_range": "50:150:20"
       },
       "HL4_strategy_4": {
         "n_range": "1:1:1",
-        "m_range": "10:200:20"
+        "m_range": "50:150:20"
       },
       "PERC1_strategy_5": {
-        "window_range": "10:200:20",
+        "window_range": "50:150:20",
         "percentile_range": "90:90:1"
       },
       "PERC4_strategy_5": {
-        "window_range": "10:200:20",
+        "window_range": "50:150:20",
         "percentile_range": "90:90:1"
       },
       "PERC3_strategy_6": {
-        "window_range": "10:200:20",
+        "window_range": "50:150:20",
         "percentile_range": "10:10:1"
       },
       "PERC2_strategy_6": {
-        "window_range": "10:200:20",
+        "window_range": "50:150:20",
         "percentile_range": "10:10:1"
       },
       "MA4_strategy_7": {
         "ma_type": "SMA",
-        "ma_range": "10:200:20"
+        "ma_range": "50:150:20"
       },
       "MA1_strategy_7": {
         "ma_type": "SMA",
-        "ma_range": "10:200:20"
+        "ma_range": "50:150:20"
       },
       "BOLL4_strategy_8": {
-        "ma_range": "10:200:20",
-        "sd_multi": "2"
+        "ma_range": "50:150:20",
+        "sd_multi": "2.0"
       },
       "BOLL1_strategy_8": {
-        "ma_range": "10:200:20",
-        "sd_multi": "2"
+        "ma_range": "50:150:20",
+        "sd_multi": "2.0"
       },
       "BOLL2_strategy_9": {
-        "ma_range": "10:200:20",
-        "sd_multi": "2"
+        "ma_range": "50:150:20",
+        "sd_multi": "2.0"
       },
       "BOLL3_strategy_9": {
-        "ma_range": "10:200:20",
-        "sd_multi": "2"
+        "ma_range": "50:150:20",
+        "sd_multi": "2.0"
       },
       "HL4_strategy_10": {
         "n_range": "1:1:1",
-        "m_range": "10:200:20"
+        "m_range": "50:150:20"
       },
       "HL1_strategy_10": {
         "n_range": "1:1:1",
-        "m_range": "10:200:20"
+        "m_range": "50:150:20"
       },
       "PERC4_strategy_11": {
-        "window_range": "10:200:20",
+        "window_range": "50:150:20",
         "percentile_range": "90:90:1"
       },
       "PERC1_strategy_11": {
-        "window_range": "10:200:20",
+        "window_range": "50:150:20",
         "percentile_range": "90:90:1"
       },
       "PERC2_strategy_12": {
-        "window_range": "10:200:20",
+        "window_range": "50:150:20",
         "percentile_range": "10:10:1"
       },
       "PERC3_strategy_12": {
-        "window_range": "10:200:20",
+        "window_range": "50:150:20",
         "percentile_range": "10:10:1"
-      },
-      "HL4_strategy_13": {
-        "n_range": "1:1:1",
-        "m_range": "10:200:20"
-      },
-      "HL1_strategy_13": {
-        "n_range": "1:1:1",
-        "m_range": "10:200:20"
       }
     },
     "trading_params": {
       "transaction_cost": 0.001,
       "slippage": 0.0005,
-      "trade_delay": 1,
-      "trade_price": "open"
+      "trade_delay": 0,
+      "trade_price": "close"
     },
-    "export_config": {
-      "export_csv": false
-    }
+    "initial_capital": 1000000
   },
   "metricstracker": {
     "_help": {
-      "enable_metrics_analysis": "是否啟用績效分析",
-      "risk_free_rate": "無風險利率 (例如 0.04 = 4%，或直接輸入 4 表示 4%)",
-      "time_unit": "年化時間單位：日線股票252，日線幣365，或直接輸入數字",
-      "file_selection_mode": "選擇 Parquet 模式：auto=最新一個 / all=全部"
+      "enable_metrics_analysis": "是否啟用指標分析",
+      "export_format": "導出格式：csv, excel, json",
+      "include_charts": "是否包含圖表"
     },
     "enable_metrics_analysis": true,
-    "risk_free_rate": 0.04,
+    "export_format": "excel",
+    "include_charts": false,
     "time_unit": 365,
-    "file_selection_mode": "auto"
+    "risk_free_rate": 0.04
   }
 }
+

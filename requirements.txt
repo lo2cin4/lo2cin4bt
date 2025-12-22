@@ -18,6 +18,7 @@ flask>=2.3.0
 frozendict>=2.3.8
 importlib_metadata>=6.7.0
 kaleido>=0.2.1
+Pillow>=10.0.0
 
 # numba-related dependencies
 llvmlite>=0.41.0

@@ -81,17 +81,17 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 
-# 新增 rich 匯入
-from rich.console import Console, Group
-from rich.panel import Panel
+from rich.console import Group
 
 from .DataImporter_backtester import DataImporter
 from .Indicators_backtester import IndicatorsBacktester
 from .TradeRecordExporter_backtester import TradeRecordExporter_backtester
 from .VectorBacktestEngine_backtester import VectorBacktestEngine as BacktestEngine
+from .utils import get_console
+from utils import show_error, show_info, show_success, show_step_panel, show_warning
 
 logger = logging.getLogger("lo2cin4bt")
-console = Console()
+console = get_console()
 
 
 def convert_single_value_to_range(value: str) -> str:
@@ -186,13 +186,7 @@ class BaseBacktester:
         config = self.get_user_config([])
 
         if not config:
-            console.print(
-                Panel(
-                    "[bold #8f1511]用戶取消操作，程式終止。[/bold #8f1511]",
-                    title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+            show_error("BACKTESTER", "用戶取消操作，程式終止。")
             return
 
         # Step 5: 開始回測[自動]
@@ -220,18 +214,7 @@ class BaseBacktester:
     @staticmethod
     def print_step_panel(current_step: int, desc: str = "") -> None:
         steps = BaseBacktester.get_steps()
-        step_content = ""
-        for idx, step in enumerate(steps):
-            if idx < current_step:
-                step_content += f"🟢{step}\n"
-            else:
-                step_content += f"🔴{step}\n"
-        content = step_content.strip()
-        if desc:
-            content += f"\n\n[bold #dbac30]說明[/bold #dbac30]\n{desc}"
-        panel_title = f"[bold #dbac30]👨‍💻 交易回測 Backtester 步驟：{steps[current_step - 1]}[/bold #dbac30]"
-        console = Console()
-        console.print(Panel(content.strip(), title=panel_title, border_style="#dbac30"))
+        show_step_panel("BACKTESTER", current_step, steps, desc)
 
     def _print_step_panel(self, current_step: int, desc: str = "") -> None:
         # 已被靜態方法取代，保留兼容性
@@ -247,21 +230,9 @@ class BaseBacktester:
             col for col in self.data.columns if col not in ["Time", "High", "Low"]
         ]
         if predictor_col is not None and predictor_col in all_predictors:
-            console.print(
-                Panel(
-                    f"已選擇欄位: [bold #dbac30]{predictor_col}[/bold #dbac30]",
-                    title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
-            )
+            show_info("BACKTESTER", f"已選擇欄位: {predictor_col}")
             return predictor_col
-        console.print(
-            Panel(
-                f"可用欄位：{all_predictors}",
-                title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
-                border_style="#dbac30",
-            )
-        )
+        show_info("BACKTESTER", f"可用欄位：{all_predictors}")
         columns = list(self.data.columns)
         if "close_logreturn" in columns:
             idx = columns.index("close_logreturn")
@@ -281,21 +252,9 @@ class BaseBacktester:
             )
             selected = input().strip() or default
             if selected not in all_predictors:
-                console.print(
-                    Panel(
-                        f"輸入錯誤，請重新輸入（可選: {all_predictors}，預設 {default}）",
-                        title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
-                        border_style="#8f1511",
-                    )
-                )
+                show_error("BACKTESTER", f"輸入錯誤，請重新輸入（可選: {all_predictors}，預設 {default}）")
                 continue
-            console.print(
-                Panel(
-                    f"已選擇欄位: [bold #dbac30]{selected}[/bold #dbac30]",
-                    title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
-            )
+            show_success("BACKTESTER", f"已選擇欄位: {selected}")
             # 存儲 predictor_column 供後續使用
             self.predictor_column = str(selected)
             return selected
@@ -513,13 +472,7 @@ class BaseBacktester:
             entry_indicators = self._get_indicator_input(entry_prompt, all_aliases)
             if not entry_indicators:
                 if pair_count == 1:
-                    console.print(
-                        Panel(
-                            "至少需要設定一組條件，請重新輸入。",
-                            title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
-                            border_style="#8f1511",
-                        )
-                    )
+                    show_error("BACKTESTER", "至少需要設定一組條件，請重新輸入。")
                     continue
                 else:
                     break
@@ -567,22 +520,10 @@ class BaseBacktester:
                     else:
                         exit_list = [exit]
                     condition_pairs.append({"entry": entry_list, "exit": exit_list})
-                console.print(
-                    Panel(
-                        f"已自動批次產生 {len(default_strategy_pairs)} 組{default_type}策略條件。",
-                        title="[bold #dbac30]👨‍💻 交易回測 Backtester[/bold #dbac30]",
-                        border_style="#dbac30",
-                    )
-                )
+                show_success("BACKTESTER", f"已自動批次產生 {len(default_strategy_pairs)} 組{default_type}策略條件。")
                 break
             condition_pairs.append({"entry": entry_indicators, "exit": exit_indicators})
-            console.print(
-                Panel(
-                    f"第 {pair_count} 組條件設定完成：開倉={entry_indicators}, 平倉={exit_indicators}",
-                    title="[bold #dbac30]👨‍💻 交易回測 Backtester[/bold #dbac30]",
-                    border_style="#dbac30",
-                )
-            )
+            show_success("BACKTESTER", f"第 {pair_count} 組條件設定完成：開倉={entry_indicators}, 平倉={exit_indicators}")
             pair_count += 1
             # 詢問是否繼續
             while True:
@@ -598,13 +539,7 @@ class BaseBacktester:
                 if continue_input in ["y", "n"]:
                     break
                 else:
-                    console.print(
-                        Panel(
-                            f"❌ 請輸入 y 或 n！當前輸入：{continue_input}",
-                            title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
-                            border_style="#8f1511",
-                        )
-                    )
+                    show_error("BACKTESTER", f"請輸入 y 或 n！當前輸入：{continue_input}")
             if continue_input != "y":
                 break
         return condition_pairs
@@ -618,13 +553,7 @@ class BaseBacktester:
 
         # 顯示一次所有策略條件摘要
         for strategy_idx, pair in enumerate(condition_pairs):
-            console.print(
-                Panel(
-                    f"策略 {strategy_idx + 1} 條件摘要\n開倉指標：{pair['entry']}\n平倉指標：{pair['exit']}",
-                    title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
-                    border_style="#dbac30",
-                )
-            )
+            show_info("BACKTESTER", f"策略 {strategy_idx + 1} 條件摘要\n開倉指標：{pair['entry']}\n平倉指標：{pair['exit']}")
 
         # 增加參數或修改預設值
         for strategy_idx, pair in enumerate(condition_pairs):
@@ -866,13 +795,9 @@ class BaseBacktester:
                             lines.append(
                                 f"[white]{label}[/white] [grey62](待輸入)[/grey62]"
                             )
-                    console.print(
-                        Panel(
-                            Group(*lines),
-                            title="[bold #dbac30]👨‍💻 交易回測 Backtester[/bold #dbac30]",
-                            border_style="#dbac30",
-                        )
-                    )
+                    # 將 Group 轉換為字符串以顯示在 info panel 中
+                    content = "\n".join(str(line) for line in lines)
+                    show_info("BACKTESTER", content)
 
                     try:
                         value = console.input(
@@ -893,60 +818,24 @@ class BaseBacktester:
                                         start, end, step = map(int, parts)
                                         # 驗證 start <= end
                                         if start > end:
-                                            console.print(
-                                                Panel(
-                                                    f"❌ {alias} - {question} 範圍錯誤：{start} > {end}",
-                                                    title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
-                                                    border_style="#8f1511",
-                                                )
-                                            )
+                                            show_error("BACKTESTER", f"{alias} - {question} 範圍錯誤：{start} > {end}")
                                             continue
                                         # 驗證 step > 0
                                         if step <= 0:
-                                            console.print(
-                                                Panel(
-                                                    f"❌ {alias} - {question} 步長必須大於0！當前：{step}",
-                                                    title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
-                                                    border_style="#8f1511",
-                                                )
-                                            )
+                                            show_error("BACKTESTER", f"{alias} - {question} 步長必須大於0！當前：{step}")
                                             continue
                                     except Exception:
-                                        console.print(
-                                            Panel(
-                                                f"❌ {alias} - {question} 內容必須為整數，請重新輸入！",
-                                                title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
-                                                border_style="#8f1511",
-                                            )
-                                        )
+                                        show_error("BACKTESTER", f"{alias} - {question} 內容必須為整數，請重新輸入！")
                                         continue
                                     param_values[(alias, key)] = value
                                     break
                                 else:
-                                    console.print(
-                                        Panel(
-                                            f"❌ {alias} - {question} 請用 '開始:結束:步長' 格式，且三段都需為整數！",
-                                            title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
-                                            border_style="#8f1511",
-                                        )
-                                    )
+                                    show_error("BACKTESTER", f"{alias} - {question} 請用 '開始:結束:步長' 格式，且三段都需為整數！")
                             else:
                                 # 檢查是否為逗號格式（錯誤格式）
                                 if "," in value:
-                                    console.print(
-                                        Panel(
-                                            f"❌ {alias} - {question} 格式錯誤！請使用冒號分隔格式 '開始:結束:步長'，而不是逗號分隔！",
-                                            title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
-                                            border_style="#8f1511",
-                                        )
-                                    )
-                                    console.print(
-                                        Panel(
-                                            "正確格式示例：10 : 50 : 10",
-                                            title="[bold #dbac30]👨‍💻 交易回測 Backtester[/bold #dbac30]",
-                                            border_style="#dbac30",
-                                        )
-                                    )
+                                    show_error("BACKTESTER", f"{alias} - {question} 格式錯誤！請使用冒號分隔格式 '開始:結束:步長'，而不是逗號分隔！")
+                                    show_info("BACKTESTER", "正確格式示例：10 : 50 : 10")
                                     continue
                                 else:
                                     # 檢查是否為單一數值
@@ -955,20 +844,8 @@ class BaseBacktester:
                                         param_values[(alias, key)] = convert_single_value_to_range(value)
                                         break
                                     else:
-                                        console.print(
-                                            Panel(
-                                                f"❌ {alias} - {question} 格式錯誤！請使用 '開始:結束:步長' 格式或單一數值！",
-                                                title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
-                                                border_style="#8f1511",
-                                            )
-                                        )
-                                        console.print(
-                                            Panel(
-                                                "正確格式示例：10 : 50 : 10 或 20",
-                                                title="[bold #dbac30]👨‍💻 交易回測 Backtester[/bold #dbac30]",
-                                                border_style="#dbac30",
-                                            )
-                                        )
+                                        show_error("BACKTESTER", f"{alias} - {question} 格式錯誤！請使用 '開始:結束:步長' 格式或單一數值！")
+                                        show_info("BACKTESTER", "正確格式示例：10 : 50 : 10 或 20")
                                         continue
                         else:
                             # 驗證 MA 型態
@@ -977,25 +854,13 @@ class BaseBacktester:
                                 if value.upper() not in [
                                     t.upper() for t in valid_types
                                 ]:
-                                    console.print(
-                                        Panel(
-                                            f"❌ {alias} - {question} 必須為 SMA、EMA 或 WMA 其中之一！",
-                                            title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
-                                            border_style="#8f1511",
-                                        )
-                                    )
+                                    show_error("BACKTESTER", f"{alias} - {question} 必須為 SMA、EMA 或 WMA 其中之一！")
                                     continue
                                 value = value.upper()
                             param_values[(alias, key)] = value
                             break
                     except Exception as e:
-                        console.print(
-                            Panel(
-                                f"❌ {alias} - {question} 輸入錯誤：{e}",
-                                title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
-                                border_style="#8f1511",
-                            )
-                        )
+                        show_error("BACKTESTER", f"{alias} - {question} 輸入錯誤：{e}")
                         continue
 
             # 處理參數並添加到最終結果
@@ -1012,13 +877,7 @@ class BaseBacktester:
                 )
                 strategy_alias = f"{alias}_strategy_{strategy_idx + 1}"
                 indicator_params[strategy_alias] = param_list
-                console.print(
-                    Panel(
-                        f"{alias} (策略 {strategy_idx + 1}) 參數設定完成，產生 {len(param_list)} 組參數",
-                        title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
-                        border_style="#dbac30",
-                    )
-                )
+                show_success("BACKTESTER", f"{alias} (策略 {strategy_idx + 1}) 參數設定完成，產生 {len(param_list)} 組參數")
 
         return indicator_params
 
@@ -1043,13 +902,7 @@ class BaseBacktester:
                     raise ValueError("買賣交易手續費必須為非負數")
                 break
             except ValueError as e:
-                console.print(
-                    Panel(
-                        f"輸入錯誤：{e}，請重新輸入。",
-                        title="[bold #8f1511]👨‍💻 用戶互動 - 回測環境參數[/bold #8f1511]",
-                        border_style="#8f1511",
-                    )
-                )
+                show_error("BACKTESTER", f"輸入錯誤：{e}，請重新輸入。")
         # 滑點
         while True:
             try:
@@ -1063,13 +916,7 @@ class BaseBacktester:
                     raise ValueError("買賣買賣滑點必須為非負數")
                 break
             except ValueError as e:
-                console.print(
-                    Panel(
-                        f"輸入錯誤：{e}，請重新輸入。",
-                        title="[bold #8f1511]👨‍💻 用戶互動 - 回測環境參數[/bold #8f1511]",
-                        border_style="#8f1511",
-                    )
-                )
+                show_error("BACKTESTER", f"輸入錯誤：{e}，請重新輸入。")
         # 交易延遲
         while True:
             try:
@@ -1083,13 +930,7 @@ class BaseBacktester:
                     raise ValueError("交易延遲必須為 0 或以上")
                 break
             except ValueError as e:
-                console.print(
-                    Panel(
-                        f"輸入錯誤：{e}，請重新輸入。",
-                        title="[bold #8f1511]👨‍💻 用戶互動 - 回測環境參數[/bold #8f1511]",
-                        border_style="#8f1511",
-                    )
-                )
+                show_error("BACKTESTER", f"輸入錯誤：{e}，請重新輸入。")
         # 交易價格
         trade_price_input = (
             console.input(
@@ -1131,29 +972,11 @@ class BaseBacktester:
                 ind for ind in indicators if ind not in valid_indicators
             ]
             if invalid_indicators:
-                console.print(
-                    Panel(
-                        f"❌ 無效的指標: {invalid_indicators}",
-                        title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
-                        border_style="#8f1511",
-                    )
-                )
-                console.print(
-                    Panel(
-                        f"請重新輸入，有效指標包括: {valid_indicators}",
-                        title="[bold #dbac30]👨‍💻 交易回測 Backtester[/bold #dbac30]",
-                        border_style="#dbac30",
-                    )
-                )
+                show_error("BACKTESTER", f"無效的指標: {invalid_indicators}")
+                show_info("BACKTESTER", f"請重新輸入，有效指標包括: {valid_indicators}")
                 continue
             if not indicators:
-                console.print(
-                    Panel(
-                        "請至少輸入一個有效的指標",
-                        title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
-                        border_style="#8f1511",
-                    )
-                )
+                show_error("BACKTESTER", "請至少輸入一個有效的指標")
                 continue
             return indicators
 
@@ -1174,20 +997,8 @@ class BaseBacktester:
                 try:
                     return float(user_input)
                 except ValueError:
-                    console.print(
-                        Panel(
-                            f"輸入 '{user_input}' 無效，請輸入數字。",
-                            title="[bold #8f1511]👨‍💻 用戶互動 - 回測環境參數[/bold #8f1511]",
-                            border_style="#8f1511",
-                        )
-                    )
-            console.print(
-                Panel(
-                    "輸入不能為空，請重新輸入。",
-                    title="[bold #8f1511]👨‍💻 用戶互動 - 回測環境參數[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+                    show_error("BACKTESTER", f"輸入 '{user_input}' 無效，請輸入數字。")
+            show_error("BACKTESTER", "輸入不能為空，請重新輸入。")
 
     def get_results(self) -> List[Dict]:
         """

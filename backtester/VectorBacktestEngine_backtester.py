@@ -99,9 +99,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from rich.console import Console
-from rich.panel import Panel
 from rich.text import Text
+
+from .utils import get_console
+from utils import show_error, show_info, show_warning
 
 from .BollingerBand_Indicator_backtester import BollingerBandIndicator
 from .HL_Indicator_backtester import HLIndicator
@@ -351,18 +352,13 @@ class VectorBacktestEngine:
 
         total_backtests = len(all_combinations) * len(predictors)
 
-        console = Console()
+        console = get_console()
 
-        console.print(
-            Panel(
-                (
-                    f"將執行向量化回測：{len(all_combinations)} 種參數組合 x "
-                    f"{len(predictors)} 個預測因子 = {total_backtests} 次回測\n"
-                    f"交易參數：{trading_params}"
-                ),
-                title="[bold #8f1511]🚀 向量化回測引擎[/bold #8f1511]",
-                border_style="#dbac30",
-            )
+        from utils import show_info
+        show_info("BACKTESTER",
+            f"將執行向量化回測：{len(all_combinations)} 種參數組合 x "
+            f"{len(predictors)} 個預測因子 = {total_backtests} 次回測\n"
+            f"交易參數：{trading_params}"
         )
 
         # 自動化模式：直接繼續，不詢問用戶
@@ -401,16 +397,10 @@ class VectorBacktestEngine:
                 if memory_thresholds["total_memory_gb"] > 0
                 else 0
             )
-            console.print(
-                Panel(
-                    (
-                        f"⚠️ 記憶體使用過高: {memory_used:.1f} MB "
-                        f"({memory_percent:.1f}% of "
-                        f"{memory_thresholds['total_memory_gb']:.1f}GB)，強制垃圾回收"
-                    ),
-                    title="[bold #dbac30]💾 記憶體管理[/bold #dbac30]",
-                    border_style="#dbac30",
-                )
+            show_warning("BACKTESTER",
+                f"記憶體使用過高: {memory_used:.1f} MB "
+                f"({memory_percent:.1f}% of "
+                f"{memory_thresholds['total_memory_gb']:.1f}GB)，強制垃圾回收"
             )
             gc.collect()
 
@@ -487,13 +477,7 @@ class VectorBacktestEngine:
 • 平均速度：{total_backtests / total_time:.0f} 任務/秒{diagnostic_info}
 """
 
-        console.print(
-            Panel(
-                summary_text,
-                title="[bold #dbac30]🎯 向量化回測結果[/bold #dbac30]",
-                border_style="#dbac30",
-            )
-        )
+        show_info("BACKTESTER", summary_text)
 
         self.results = all_results
         return all_results
@@ -519,7 +503,7 @@ class VectorBacktestEngine:
             TimeRemainingColumn,
         )
 
-        console = Console()
+        console = get_console()
         parallel_progress = Progress(
             SpinnerColumn(),
             TextColumn("[bold green]{task.description}"),
@@ -553,13 +537,7 @@ class VectorBacktestEngine:
         n_cores, _ = SpecMonitor.get_optimal_core_count()
         
         # 確認並行處理模式
-        console.print(
-            Panel(
-                f"🔧 並行處理模式: {n_tasks} 個任務, {n_cores} 核心",
-                title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
-                border_style="#dbac30",
-            )
-        )
+        show_info("BACKTESTER", f"🔧 並行處理模式: {n_tasks} 個任務, {n_cores} 核心")
 
         # 動態計算批次大小
         if n_tasks <= 100:
@@ -576,21 +554,9 @@ class VectorBacktestEngine:
 
         # 顯示批次配置
         if n_batches == 1:
-            console.print(
-                Panel(
-                    f"🔧 單進程處理: {n_tasks} 個任務",
-                    title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
-                    border_style="#dbac30",
-                )
-            )
+            show_info("BACKTESTER", f"🔧 單進程處理: {n_tasks} 個任務")
         else:
-            console.print(
-                Panel(
-                    f"🔧 批次配置: {n_batches} 個批次, 每批次約 {batch_size} 個任務",
-                    title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
-                    border_style="#dbac30",
-                )
-            )
+            show_info("BACKTESTER", f"🔧 批次配置: {n_batches} 個批次, 每批次約 {batch_size} 個任務")
 
         # 步驟4: 並行結果生成（帶進度條）
         with parallel_progress:
@@ -653,7 +619,6 @@ class VectorBacktestEngine:
         entry_signals = np.zeros((n_time, n_tasks))
         exit_signals = np.zeros((n_time, n_tasks))
 
-        from rich.console import Console
         from rich.progress import (
             BarColumn,
             Progress,
@@ -664,7 +629,7 @@ class VectorBacktestEngine:
             TimeRemainingColumn,
         )
 
-        console = Console()
+        console = get_console()
         
         # 創建信號生成進度條
         signal_progress = Progress(
@@ -822,7 +787,6 @@ class VectorBacktestEngine:
     ) -> Dict:
         """向量化交易模擬 - 處理單個numpy數組格式的信號，帶進度條"""
 
-        from rich.console import Console
         from rich.progress import (
             BarColumn,
             Progress,
@@ -833,7 +797,7 @@ class VectorBacktestEngine:
             TimeRemainingColumn,
         )
 
-        console = Console()
+        console = get_console()
         
         # 創建交易模擬進度條
         trade_progress = Progress(
@@ -941,9 +905,7 @@ class VectorBacktestEngine:
             batch_sizes.append(end_idx - i)
 
         # 創建改進的進度監控器
-        from rich.console import Console
-
-        console = Console()
+        console = get_console()
         progress_monitor = None
         if progress is not None and task is not None:
             progress_monitor = ProgressMonitor(
@@ -972,13 +934,7 @@ class VectorBacktestEngine:
                 progress_monitor.finish()
             else:
                 # 如果沒有進度監控器，直接顯示完成信息
-                console.print(
-                    Panel(
-                        f"✅ 單進程處理完成: {n_tasks} 個任務",
-                        title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
-                        border_style="#dbac30",
-                    )
-                )
+                show_success("BACKTESTER", f"單進程處理完成: {n_tasks} 個任務")
 
             # 單進程處理完成後進行記憶體檢查
             current_memory = SpecMonitor.get_memory_usage()
@@ -989,16 +945,10 @@ class VectorBacktestEngine:
                     if memory_thresholds["total_memory_gb"] > 0
                     else 0
                 )
-                console.print(
-                    Panel(
-                        (
-                            f"⚠️ 記憶體使用過高: {memory_used:.1f} MB "
-                            f"({memory_percent:.1f}% of "
-                            f"{memory_thresholds['total_memory_gb']:.1f}GB)，強制垃圾回收"
-                        ),
-                        title=Text("💾 記憶體管理", style="bold #8f1511"),
-                        border_style="#dbac30",
-                    )
+                show_warning("BACKTESTER",
+                    f"記憶體使用過高: {memory_used:.1f} MB "
+                    f"({memory_percent:.1f}% of "
+                    f"{memory_thresholds['total_memory_gb']:.1f}GB)，強制垃圾回收"
                 )
                 gc.collect()
         else:
@@ -1054,19 +1004,11 @@ class VectorBacktestEngine:
                                     if memory_thresholds["total_memory_gb"] > 0
                                     else 0
                                 )
-                                console.print(
-                                    Panel(
-                                        (
-                                            f"⚠️ 記憶體使用過高: {memory_used:.1f} MB "
-                                            f"({memory_percent:.1f}% of "
-                                            f"{memory_thresholds['total_memory_gb']:.1f}GB)，"
-                                            f"強制垃圾回收"
-                                        ),
-                                        title=Text(
-                                            "💾 記憶體管理", style="bold #8f1511"
-                                        ),
-                                        border_style="#dbac30",
-                                    )
+                                show_warning("BACKTESTER",
+                                    f"記憶體使用過高: {memory_used:.1f} MB "
+                                    f"({memory_percent:.1f}% of "
+                                    f"{memory_thresholds['total_memory_gb']:.1f}GB)，"
+                                    f"強制垃圾回收"
                                 )
                                 gc.collect()
                             else:
@@ -1074,13 +1016,7 @@ class VectorBacktestEngine:
                                 gc.collect()
 
                     except Exception as batch_error:
-                        console.print(
-                            Panel(
-                                f"批次 {batch_idx + 1} 處理失敗: {batch_error}",
-                                title=Text("⚠️ 處理錯誤", style="bold #8f1511"),
-                                border_style="#dbac30",
-                            )
-                        )
+                        show_error("BACKTESTER", f"批次 {batch_idx + 1} 處理失敗: {batch_error}")
 
                         # 為失敗的批次添加錯誤結果
                         batch_size = (
@@ -1114,21 +1050,9 @@ class VectorBacktestEngine:
                     progress_monitor.finish()
 
             except Exception as e:
-                console.print(
-                    Panel(
-                        f"並行處理失敗: {e}",
-                        title=Text("❌ 處理錯誤", style="bold #8f1511"),
-                        border_style="#dbac30",
-                    )
-                )
+                show_error("BACKTESTER", f"並行處理失敗: {e}")
                 # 如果並行處理完全失敗，使用簡化的串行處理
-                console.print(
-                    Panel(
-                        "回退到簡化串行處理...",
-                        title="⚠️ 處理警告",
-                        border_style="#8f1511",
-                    )
-                )
+                show_warning("BACKTESTER", "回退到簡化串行處理...")
                 return self._generate_all_results_simple(
                     all_tasks,
                     all_trade_results,
@@ -1246,6 +1170,8 @@ class VectorBacktestEngine:
                         exit_params,
                         trading_params,  # 使用完整的 trading_params
                     )
+                    # 確保 strategy_id 是正確的格式（從 task_data 獲取，而不是從 TradeSimulator）
+                    result["strategy_id"] = strategy_id
                     results.append(result)
 
                 except Exception as e:
@@ -1306,16 +1232,8 @@ class VectorBacktestEngine:
         memory_thresholds = SpecMonitor.get_memory_thresholds()
         warning_threshold = memory_thresholds["warning"]
 
-        from rich.console import Console
-
-        console = Console()
-        console.print(
-            Panel(
-                f"🔧 簡化串行處理: {n_tasks} 個任務",
-                title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
-                border_style="#dbac30",
-            )
-        )
+        console = get_console()
+        show_info("BACKTESTER", f"🔧 簡化串行處理: {n_tasks} 個任務")
 
         # 直接使用單個numpy數組格式的信號
         entry_signals = all_signals["entry_signals"]
@@ -1375,6 +1293,8 @@ class VectorBacktestEngine:
                     exit_params,
                     {"transaction_cost": 0.001, "slippage": 0.0005},
                 )
+                # 確保 strategy_id 是正確的格式（從 all_tasks 獲取，而不是從 TradeSimulator）
+                result["strategy_id"] = strategy_id
                 results.append(result)
 
                 # 通知進度監控器任務完成
@@ -1397,16 +1317,10 @@ class VectorBacktestEngine:
                             if memory_thresholds["total_memory_gb"] > 0
                             else 0
                         )
-                        console.print(
-                            Panel(
-                                (
-                                    f"⚠️ 記憶體使用過高: {memory_used:.1f} MB "
-                                    f"({memory_percent:.1f}% of "
-                                    f"{memory_thresholds['total_memory_gb']:.1f}GB)，強制垃圾回收"
-                                ),
-                                title=Text("💾 記憶體管理", style="bold #8f1511"),
-                                border_style="#dbac30",
-                            )
+                        show_warning("BACKTESTER",
+                            f"記憶體使用過高: {memory_used:.1f} MB "
+                            f"({memory_percent:.1f}% of "
+                            f"{memory_thresholds['total_memory_gb']:.1f}GB)，強制垃圾回收"
                         )
                         gc.collect()
                     else:
@@ -1447,13 +1361,7 @@ class VectorBacktestEngine:
         if progress_monitor is not None:
             progress_monitor.finish()
 
-        console.print(
-            Panel(
-                f"串行處理完成，總共返回 {len(results)} 個結果",
-                title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
-                border_style="#dbac30",
-            )
-        )
+        show_success("BACKTESTER", f"串行處理完成，總共返回 {len(results)} 個結果")
 
         return results
 

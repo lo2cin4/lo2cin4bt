@@ -47,8 +47,6 @@ flowchart TD
 from typing import Dict
 
 import numpy as np
-from rich.console import Console
-from rich.panel import Panel
 
 from .Base_statanalyser import BaseStatAnalyser
 
@@ -57,7 +55,8 @@ class SeasonalAnalysis(BaseStatAnalyser):
     """季節性分析模組，檢測時間序列的週期性模式"""
 
     def analyze(self) -> Dict:
-        console = Console()
+        from utils import get_console
+        console = get_console()
         # 步驟說明 Panel
         panel_content = (
             "🟢 選擇用於統計分析的預測因子\n"
@@ -72,25 +71,13 @@ class SeasonalAnalysis(BaseStatAnalyser):
             "檢驗功能：檢測時間序列中的週期性模式，判斷是否存在顯著季節性。\n"
             "成功/失敗標準：檢測到顯著季節性（強度>0.1且週期>1）視為有季節性。"
         )
-        console.print(
-            Panel(
-                panel_content,
-                title="[bold #dbac30]🔬 統計分析 StatAnalyser 步驟：季節性分析[自動][/bold #dbac30]",
-                border_style="#dbac30",
-            )
-        )
+        show_step_panel("STATANALYSER", 1, ["季節性分析[自動]"], panel_content)
 
         series = self.data[self.predictor_col].dropna()
         min_lags = 100
         if len(series) < min_lags:
             msg = f"資料點數不足（{len(series)} < {min_lags}），無法進行季節性分析。建議補充更多數據。"
-            console.print(
-                Panel(
-                    msg,
-                    title="[bold #8f1511]🔬 統計分析 StatAnalyser[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+            show_error("STATANALYSER", msg)
             return {"success": False, "has_seasonal": False, "period": 0}
 
         # 檢測週期
@@ -113,25 +100,13 @@ class SeasonalAnalysis(BaseStatAnalyser):
 
         if best_period <= 1:
             msg = f"未檢測到有效週期（best_period={best_period}），無法進行季節性分析。可忽略季節性因子。"
-            console.print(
-                Panel(
-                    msg,
-                    title="[bold #8f1511]🔬 統計分析 StatAnalyser[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+            show_error("STATANALYSER", msg)
             return {"success": False, "has_seasonal": False, "period": 0}
 
         min_data_length = best_period * 3
         if len(series) < min_data_length:
             msg = f"資料長度不足以支持週期 {best_period}（需至少 {min_data_length} 點，實際 {len(series)} 點），建議補充更多數據。"
-            console.print(
-                Panel(
-                    msg,
-                    title="[bold #8f1511]🔬 統計分析 StatAnalyser[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+            show_error("STATANALYSER", msg)
             return {"success": False, "has_seasonal": False, "period": 0}
 
         from statsmodels.tsa.seasonal import seasonal_decompose
@@ -145,13 +120,7 @@ class SeasonalAnalysis(BaseStatAnalyser):
             )
         except ValueError as e:
             msg = f"分解失敗，錯誤訊息：{e}。請檢查數據品質或週期設置。"
-            console.print(
-                Panel(
-                    msg,
-                    title="[bold #8f1511]🔬 統計分析 StatAnalyser[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+            show_error("STATANALYSER", msg)
             return {"success": False, "has_seasonal": False, "period": 0}
 
         has_seasonal = seasonal_strength > 0.1
@@ -176,12 +145,6 @@ class SeasonalAnalysis(BaseStatAnalyser):
                 merged_content += f"[bold yellow]季節性（週期={best_period}），可考慮納入策略模型[/bold yellow]"
         else:
             merged_content += "[bold]無顯著季節性，可忽略季節性因子[/bold]"
-        console.print(
-            Panel(
-                merged_content,
-                title="[bold #8f1511]🔬 統計分析 StatAnalyser[/bold #8f1511]",
-                border_style="#dbac30",
-            )
-        )
+        show_info("STATANALYSER", merged_content)
 
         return self.results

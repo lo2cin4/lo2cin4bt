@@ -49,10 +49,10 @@ flowchart TD
 import numpy as np
 import pandas as pd
 from numba import jit
-from rich.console import Console
-from rich.panel import Panel
 
-console = Console()
+from utils import show_error, show_success, get_console
+
+console = get_console()
 
 
 class ReturnCalculator:
@@ -73,13 +73,7 @@ class ReturnCalculator:
                 close_col = cand
                 break
         if open_col is None or close_col is None:
-            console.print(
-                Panel(
-                    "❌ 錯誤：缺少 open/Open 或 close/Close 欄位，無法計算收益率",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="#8f1511",
-                )
-            )
+            show_error("DATALOADER", "錯誤：缺少 open/Open 或 close/Close 欄位，無法計算收益率")
             return self.data
 
         # 使用 numpy 向量化計算
@@ -93,13 +87,7 @@ class ReturnCalculator:
         # 計算對數收益率
         self.data["open_logreturn"] = self._calc_log_return(open_prices)
         self.data["close_logreturn"] = self._calc_log_return(close_prices)
-        console.print(
-            Panel(
-                "已計算收益率：open_return, close_return, open_logreturn, close_logreturn",
-                title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                border_style="#dbac30",
-            )
-        )
+        show_success("DATALOADER", "已計算收益率：open_return, close_return, open_logreturn, close_logreturn")
         return self.data
 
     @staticmethod

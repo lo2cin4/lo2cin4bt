@@ -67,11 +67,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
-from rich.console import Console
-from rich.panel import Panel
 from rich.text import Text
 
 from autorunner.BacktestRunner_autorunner import BacktestRunnerAutorunner
+from autorunner.utils import get_console
+from utils import show_error, show_info, show_success, show_warning, show_welcome
 
 # 導入 autorunner 模組
 from autorunner.ConfigLoader_autorunner import ConfigLoader
@@ -82,7 +82,7 @@ from autorunner.MetricsRunner_autorunner import MetricsRunnerAutorunner
 
 # from rich.progress import Progress, SpinnerColumn, TextColumn  # 暫時註釋，後續使用
 
-console = Console()
+console = get_console()
 
 
 class BaseAutorunner:
@@ -105,11 +105,11 @@ class BaseAutorunner:
         self.logger.info("BaseAutorunner 初始化開始")
 
         # 建立 Rich Console 供全域輸出使用
-        self.console = Console()
+        self.console = get_console()
 
         # 設定基本路徑
         self.project_root = Path(__file__).parent.parent
-        self.configs_dir = self.project_root / "records" / "autorunner"
+        self.configs_dir = self.project_root / "records" / "autorunner" / "backtester_autorunner"
         self.templates_dir = self.project_root / "autorunner" / "templates"
 
         # 確保目錄存在
@@ -200,14 +200,7 @@ class BaseAutorunner:
             "[bold yellow]準備開始自動化回測流程...[/bold yellow]"
         )
 
-        console.print(
-            Panel(
-                welcome_content,
-                title=Text("🚀 Autorunner", style="bold #dbac30"),
-                border_style="#dbac30",
-                padding=(1, 2),
-            )
-        )
+        show_welcome("🚀 Autorunner", welcome_content)
 
     def _select_configs(self) -> List[str]:
         """
@@ -447,24 +440,12 @@ class BaseAutorunner:
             f"[green]進度: {'█' * current}{'░' * (total - current)} {current}/{total}[/green]"
         )
 
-        console.print(
-            Panel(
-                progress_content,
-                title=Text("🚀 執行進度", style="bold #dbac30"),
-                border_style="#dbac30",
-            )
-        )
+        show_info("AUTORUNNER", progress_content)
 
     def _display_error(self, message: str) -> None:
         """顯示錯誤信息"""
 
-        console.print(
-            Panel(
-                f"❌ {message}",
-                title=Text("👨‍💻 交易回測 Backtester", style="bold #8f1511"),
-                border_style="#8f1511",
-            )
-        )
+        show_error("AUTORUNNER", message)
 
     def _execute_metrics(
         self, backtest_results: Dict[str, Any], metrics_config: Dict[str, Any]

@@ -56,12 +56,13 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-console = Console()
+from autorunner.utils import get_console
+from utils import show_error, show_success, show_warning
+
+console = get_console()
 
 
 class ConfigValidator:
@@ -418,13 +419,7 @@ class ConfigValidator:
         if context:
             title += f" - {context}"
 
-        console.print(
-            Panel(
-                f"❌ {message}",
-                title=Text(title, style="bold #8f1511"),
-                border_style="#8f1511",
-            )
-        )
+        show_error("AUTORUNNER", message)
 
     def display_validation_summary(
         self, config_files: List[str], results: List[bool]
@@ -466,21 +461,11 @@ class ConfigValidator:
 
         # 顯示摘要信息
         if success_count == total_count:
-            console.print(
-                Panel(
-                    f"✅ 所有 {total_count} 個配置文件驗證通過！",
-                    title=Text("🎉 驗證成功", style="bold green"),
-                    border_style="green",
-                )
-            )
+            show_success("AUTORUNNER", f"所有 {total_count} 個配置文件驗證通過！")
         else:
-            console.print(
-                Panel(
-                    f"⚠️ {success_count}/{total_count} 個配置文件驗證通過\n"
-                    f"❌ {total_count - success_count} 個配置文件需要修正",
-                    title=Text("⚠️ 驗證結果", style="bold #8f1511"),
-                    border_style="#8f1511",
-                )
+            show_warning("AUTORUNNER",
+                f"{success_count}/{total_count} 個配置文件驗證通過\n"
+                f"{total_count - success_count} 個配置文件需要修正"
             )
 
 
@@ -491,6 +476,6 @@ if __name__ == "__main__":
     validator = ConfigValidator()
 
     # 測試驗證功能
-    test_config = "records/autorunner/config_template.json"
+    test_config = "records/autorunner/backtester_autorunner/config_template.json"
     if Path(test_config).exists():
         result = validator.validate_config(test_config)

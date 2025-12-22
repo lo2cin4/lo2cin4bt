@@ -49,10 +49,10 @@ flowchart TD
 import os  # 用於檔案路徑操作（本例中未直接使用，但可能用於後續擴展）
 
 import pandas as pd
-from rich.console import Console
-from rich.panel import Panel
 
-console = Console()
+from utils import show_error, show_success, get_console
+
+console = get_console()
 
 
 class DataExporter:
@@ -74,13 +74,7 @@ class DataExporter:
                 choice = input().strip()
                 if choice in ["1", "2", "3"]:
                     break
-                console.print(
-                    Panel(
-                        "❌ 錯誤：請輸入 1, 2 或 3。",
-                        title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                        border_style="#8f1511",
-                    )
-                )
+                show_error("DATALOADER", "錯誤：請輸入 1, 2 或 3。")
 
             # 獲取輸出檔案名稱
             default_name = "output_data"
@@ -98,49 +92,19 @@ class DataExporter:
             if choice == "1":
                 file_path = os.path.join(records_dir, f"{file_name}.csv")
                 self.data.to_csv(file_path, index=False)
-                console.print(
-                    Panel(
-                        f"✅ 數據成功導出為 CSV：{file_path}",
-                        title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                        border_style="green",
-                    )
-                )
+                show_success("DATALOADER", f"數據成功導出為 CSV：{file_path}")
             elif choice == "2":
                 file_path = os.path.join(records_dir, f"{file_name}.xlsx")
                 self.data.to_excel(file_path, index=False, engine="openpyxl")
-                console.print(
-                    Panel(
-                        f"✅ 數據成功導出為 XLSX：{file_path}",
-                        title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                        border_style="green",
-                    )
-                )
+                show_success("DATALOADER", f"數據成功導出為 XLSX：{file_path}")
             else:
                 file_path = os.path.join(records_dir, f"{file_name}.json")
                 self.data.to_json(
                     file_path, orient="records", lines=True, date_format="iso"
                 )
-                console.print(
-                    Panel(
-                        f"✅ 數據成功導出為 JSON：{file_path}",
-                        title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                        border_style="green",
-                    )
-                )
+                show_success("DATALOADER", f"數據成功導出為 JSON：{file_path}")
 
         except PermissionError:
-            console.print(
-                Panel(
-                    f"❌ 錯誤：無法寫入檔案 '{file_path}'，請檢查權限或關閉已開啟的檔案",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="red",
-                )
-            )
+            show_error("DATALOADER", f"錯誤：無法寫入檔案 '{file_path}'，請檢查權限或關閉已開啟的檔案")
         except Exception as e:
-            console.print(
-                Panel(
-                    f"❌ 數據導出錯誤：{e}",
-                    title="[bold #8f1511]📊 數據載入 Dataloader[/bold #8f1511]",
-                    border_style="red",
-                )
-            )
+            show_error("DATALOADER", f"數據導出錯誤：{e}")

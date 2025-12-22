@@ -47,8 +47,6 @@ flowchart TD
 from typing import Dict
 
 import pandas as pd
-from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
 from scipy.stats import anderson, kstest
 
@@ -59,7 +57,8 @@ class DistributionTest(BaseStatAnalyser):
     """分佈檢驗模組，評估數據是否符合正態分佈"""
 
     def analyze(self) -> Dict:
-        console = Console()
+        from utils import get_console
+        console = get_console()
         # 美化步驟說明 Panel
         panel_content = (
             "🟢 選擇用於統計分析的預測因子\n"
@@ -77,12 +76,7 @@ class DistributionTest(BaseStatAnalyser):
             "- AD統計量 < 臨界值（通過Anderson-Darling常態性檢驗）\n"
             "- 偏度、峰度在合理範圍內（偏度約-1~1，峰度約2.5~3.5）"
         )
-        panel = Panel(
-            panel_content,
-            title="[bold #dbac30]🔬 統計分析 StatAnalyser 步驟：分布檢驗[自動][/bold #dbac30]",
-            border_style="#dbac30",
-        )
-        console.print(panel)
+        show_step_panel("STATANALYSER", 1, ["分布檢驗[自動]"], panel_content)
         # robust 計算 skewness/kurtosis 並存入 self.results
         from scipy.stats import kurtosis, skew
 
@@ -178,11 +172,5 @@ class DistributionTest(BaseStatAnalyser):
                     "[bold yellow]非正態分佈，建議分位數分析或觀察資料分布圖。[/bold yellow]"
                 )
         summary += "\n".join(suggestions)
-        console.print(
-            Panel(
-                summary,
-                title="[bold #8f1511]🔬 統計分析 StatAnalyser[/bold #8f1511]",
-                border_style="#dbac30",
-            )
-        )
+        show_info("STATANALYSER", summary)
         return self.results

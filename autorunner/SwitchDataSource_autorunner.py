@@ -28,7 +28,7 @@ python autorunner/SwitchDataSource_autorunner.py file
 
 【與其他模組的關聯】
 ------------------------------------------------------------
-- 依賴 records/autorunner/config_template.json 配置文件
+- 依賴 records/autorunner/backtester_autorunner/config_template.json 配置文件
 - 為 autorunner 系統提供數據源切換功能
 - 與 DataLoader_autorunner.py 協同工作
 """
@@ -40,10 +40,10 @@ from pathlib import Path
 
 def switch_data_source(source: str) -> bool:
     """切換配置文件中的數據源"""
-    config_path = Path("records/autorunner/config_template.json")
+    config_path = Path("records/autorunner/backtester_autorunner/config_template.json")
 
     if not config_path.exists():
-        print("❌ 配置文件不存在: records/autorunner/config_template.json")
+        print("❌ 配置文件不存在: records/autorunner/backtester_autorunner/config_template.json")
         return False
 
     # 讀取配置文件

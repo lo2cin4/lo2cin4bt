@@ -79,9 +79,9 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 import pyarrow.parquet as pq
-from rich.console import Console
-from rich.panel import Panel
 from rich.text import Text
+
+from utils import show_step_panel, show_warning, show_info
 
 warnings.filterwarnings("ignore")
 
@@ -161,19 +161,9 @@ class DataImporterPlotter:
         Returns:
             List[str]: parquet 檔案路徑列表
         """
-        try:
-            pattern = os.path.join(self.data_path, "*.parquet")
-            parquet_files = glob.glob(pattern)
-
-            if not parquet_files:
-                self.logger.warning(f"在目錄 {self.data_path} 中未找到 parquet 檔案")
-                return []
-
-            return sorted(parquet_files)
-
-        except Exception as e:
-            self.logger.error(f"掃描 parquet 檔案失敗: {e}")
-            raise
+        from .utils.FileUtils_utils_plotter import scan_parquet_files as scan_files
+        
+        return scan_files(self.data_path, self.logger)
 
     def parse_parameters_from_filename(self, filename: str) -> Dict[str, Any]:
         """
@@ -582,7 +572,8 @@ class DataImporterPlotter:
                 raise FileNotFoundError("未找到任何 parquet 檔案")
 
             # 互動式選單
-            console = Console()
+            from utils import get_console
+            console = get_console()
             # 步驟說明框
             step_content = (
                 "🟢 選擇要載入的檔案\n"
@@ -592,14 +583,15 @@ class DataImporterPlotter:
                 "此步驟用於選擇要載入的 parquet 檔案，支援多檔案同時載入。\n"
                 "檔案包含回測結果的績效指標和權益曲線數據。\n\n"
                 "[bold #dbac30]檔案選擇格式：[/bold #dbac30]\n"
+                "• 不導入：輸入 0\n"
                 "• 單一檔案：輸入數字（如 1）\n"
                 "• 多檔案：用逗號分隔（如 1,2,3）\n"
                 "• 全部檔案：直接按 Enter\n\n"
                 "[bold #dbac30]可選擇的 parquet 檔案：[/bold #dbac30]"
             )
 
-            # 準備檔案列表
-            file_list = ""
+            # 準備檔案列表（添加 0：不導入 選項）
+            file_list = "  [bold #dbac30]0.[/bold #dbac30] 跳過\n"
             for i, f in enumerate(parquet_files, 1):
                 file_list += (
                     f"  [bold #dbac30]{i}.[/bold #dbac30] {os.path.basename(f)}\n"
@@ -607,18 +599,26 @@ class DataImporterPlotter:
 
             # 組合完整內容並用 Group 顯示
             complete_content = step_content + "\n" + file_list
-            console.print(
-                Panel(
-                    complete_content,
-                    title=Text("👁️ 可視化 Plotter 步驟：數據選擇", style="bold #dbac30"),
-                    border_style="#dbac30",
-                )
-            )
+            show_step_panel("PLOTTER", 1, ["數據選擇"], complete_content)
 
             # 用戶輸入提示（金色+BOLD格式）
             console.print("[bold #dbac30]輸入可視化檔案號碼：[/bold #dbac30]")
             file_input = input().strip() or "all"
-            if not file_input:  # 如果輸入為空，載入全部檔案
+            
+            # 處理「0：跳過」選項
+            if file_input == "0":
+                # 不導入檔案，返回空數據結構
+                return {
+                    "dataframes": {},
+                    "parameters": [],
+                    "metrics": {},
+                    "equity_curves": {},
+                    "bah_curves": {},
+                    "file_paths": {},
+                    "backtest_ids": [],
+                }
+            
+            if not file_input or file_input.lower() == "all":  # 如果輸入為空或 "all"，載入全部檔案
                 selected_files = parquet_files
             else:
                 try:
@@ -630,22 +630,10 @@ class DataImporterPlotter:
                         if 1 <= i <= len(parquet_files)
                     ]
                     if not selected_files:
-                        console.print(
-                            Panel(
-                                "❌ 沒有選擇有效的檔案，預設載入全部檔案。",
-                                title=Text("⚠️ 警告", style="bold #8f1511"),
-                                border_style="#8f1511",
-                            )
-                        )
+                        show_warning("PLOTTER", "沒有選擇有效的檔案，預設載入全部檔案。")
                         selected_files = parquet_files
                 except (ValueError, IndexError):
-                    console.print(
-                        Panel(
-                            "🔔 已自動載入全部檔案。",
-                            title=Text("👁️ 可視化 Plotter", style="bold #8f1511"),
-                            border_style="#dbac30",
-                        )
-                    )
+                    show_info("PLOTTER", "🔔 已自動載入全部檔案。")
                     selected_files = parquet_files
 
             # 載入所有選定檔案
@@ -834,36 +822,6 @@ class DataImporterPlotter:
             self.logger.warning(f"參數篩選失敗: {e}")
             return data
 
-    @staticmethod
-    def parse_all_parameters(parameters: list) -> dict:
-        """
-        動態展開所有 Entry_params/Exit_params，回傳 {參數名: [所有值]}，同一參數只列一次。
-        """
-        from .utils.ParameterParser_utils_plotter import ParameterParser
-
-        return ParameterParser.parse_all_parameters(parameters)
-
-    @staticmethod
-    def parse_entry_exit_parameters(parameters: list):
-        """
-        分別展開 Entry_params/Exit_params，回傳 (entry_param_values, exit_param_values)
-        """
-        from .utils.ParameterParser_utils_plotter import ParameterParser
-
-        return ParameterParser.parse_entry_exit_parameters(parameters)
-
-    @staticmethod
-    def parse_indicator_param_structure(parameters: list):
-        """
-        統計所有 entry/exit 下 indicator_type 及其所有參數名與值：
-        回傳 {
-            'entry': {indicator_type: {param: [值]}},
-            'exit': {indicator_type: {param: [值]}}
-        }
-        """
-        from .utils.ParameterParser_utils_plotter import ParameterParser
-
-        return ParameterParser.parse_indicator_param_structure(parameters)
 
     @staticmethod
     def identify_strategy_groups(parameters: list, file_paths: Dict[str, str] = None) -> Dict[str, Any]:
