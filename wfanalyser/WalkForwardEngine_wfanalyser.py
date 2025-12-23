@@ -270,13 +270,13 @@ class WalkForwardEngine:
 
         elif mode == "anchored":
             # Anchored Walk-Forward：固定起點，訓練集逐步增長
-            # 初始訓練集大小應該等於測試集大小（這樣第一個窗口是 1個測試集長度 IS → 1個測試集長度 OOS）
+            # 初始訓練集大小使用 train_set_percentage 設定（作為第一個窗口的訓練集大小）
+            # 訓練集每次增長 step_size，可以持續增長直到數據不足
             train_start = 0
-            initial_train_size = test_size  # 初始訓練集 = 測試集大小
+            initial_train_size = train_size  # 初始訓練集 = train_set_percentage 設定的訓練集大小
             current_train_size = initial_train_size
-            # 注意：train_set_percentage 僅作為參考，實際窗口生成以數據可用性為準
-            # 只要數據足夠，訓練集可以繼續增長，不受 train_set_percentage 硬性限制
 
+            # 從初始訓練集大小開始，逐步增長，直到數據不足
             while train_start + current_train_size + test_size <= total_points:
                 train_end = train_start + current_train_size
                 test_start = train_end
@@ -359,6 +359,53 @@ class WalkForwardEngine:
                     # 獲取失敗原因
                     failure_reason = optimizer.get_last_failure_reason()
                     status[f"{objective}_failure_reason"] = failure_reason or "未知原因"
+                    
+                    # 即使優化失敗，也保留窗口信息（至少顯示 IS 的格子）
+                    # 嘗試獲取 grid_regions（即使優化失敗，可能還有部分結果）
+                    all_grid_regions = optimizer.get_all_grid_regions()
+                    if all_grid_regions and train_metrics:
+                        # 使用第一個可用的 grid_region
+                        first_strategy_idx = min(all_grid_regions.keys())
+                        first_grid_region = all_grid_regions[first_strategy_idx]
+                        
+                        window_results[objective] = {
+                            "optimal_params": {},
+                            "grid_region": first_grid_region,
+                            "all_grid_regions": all_grid_regions,
+                            "train_metrics": train_metrics,  # IS 績效
+                            "test_result": {
+                                "metrics": {},
+                                "individual_results": [],
+                                "all_condition_pair_results": {},
+                            },
+                            "window_info": {
+                                "window_id": window["window_id"],
+                                "train_start": window["train_start"],
+                                "train_end": window["train_end"],
+                                "test_start": window["test_start"],
+                                "test_end": window["test_end"],
+                            },
+                        }
+                    elif train_metrics:
+                        # 即使沒有 grid_region，也保留窗口信息和 IS 績效
+                        window_results[objective] = {
+                            "optimal_params": {},
+                            "grid_region": {},
+                            "all_grid_regions": {},
+                            "train_metrics": train_metrics,  # IS 績效
+                            "test_result": {
+                                "metrics": {},
+                                "individual_results": [],
+                                "all_condition_pair_results": {},
+                            },
+                            "window_info": {
+                                "window_id": window["window_id"],
+                                "train_start": window["train_start"],
+                                "train_end": window["train_end"],
+                                "test_start": window["test_start"],
+                                "test_end": window["test_end"],
+                            },
+                        }
                     continue
 
                 # 獲取所有 condition_pair 的 grid_regions
@@ -436,9 +483,34 @@ class WalkForwardEngine:
                         }
                         all_condition_pair_test_results[strategy_idx] = test_result
                     else:
+                        # 獲取失敗原因（從 test_result 中提取，如果有的話）
+                        failure_reason = "未知原因"
+                        if hasattr(test_result, 'get') and test_result:
+                            failure_reason = test_result.get('failure_reason', '未知原因')
+                        elif test_result is None:
+                            failure_reason = "回測返回 None"
+                        
                         self.logger.warning(
-                            f"[DEBUG] condition_pair {strategy_idx + 1} OOS 測試失敗"
+                            f"[DEBUG] condition_pair {strategy_idx + 1} OOS 測試失敗: {failure_reason}"
                         )
+                        # 即使 OOS 測試失敗，也保留該 condition_pair 的信息（至少顯示 IS 的格子）
+                        # 提取該 condition_pair 的參數（從 optimal_params 中過濾）
+                        pair_params = {}
+                        strategy_idx_1based = strategy_idx + 1
+                        for key, value in optimal_params.items():
+                            if f"_strategy_{strategy_idx_1based}" in key:
+                                pair_params[key] = value
+                        
+                        all_condition_pair_results[strategy_idx] = {
+                            "grid_region": grid_region,
+                            "optimal_params": pair_params,
+                            "test_result": {
+                                "metrics": {},
+                                "individual_results": [],
+                                "all_condition_pair_results": {},
+                            },
+                        }
+                        # 不添加到 all_condition_pair_test_results，因為 OOS 測試失敗
                 
                 # 合併所有 condition_pair 的結果
                 # 計算平均績效（所有 condition_pair 的平均）
@@ -525,6 +597,59 @@ class WalkForwardEngine:
                 else:
                     status[f"{objective}_status"] = "失敗"
                     status[f"{objective}_failure_reason"] = "所有 condition_pairs 的測試回測都失敗"
+                    
+                    # 即使 OOS 測試失敗，也保留窗口信息和 IS 績效（至少顯示 IS 的格子）
+                    if train_metrics:
+                        # 為每個 condition_pair 創建結果（即使 OOS 測試失敗）
+                        # 這樣導出時才能正確處理每個 condition_pair
+                        if not all_condition_pair_results and all_grid_regions:
+                            # 如果 all_condition_pair_results 為空，但 all_grid_regions 不為空，
+                            # 為每個 condition_pair 創建結果
+                            condition_pairs = self.config_data.backtester_config.get("condition_pairs", [])
+                            for strategy_idx, pair in enumerate(condition_pairs):
+                                grid_region = all_grid_regions.get(strategy_idx)
+                                if grid_region:
+                                    # 提取該 condition_pair 的參數（從 optimal_params 中過濾）
+                                    pair_params = {}
+                                    strategy_idx_1based = strategy_idx + 1
+                                    for key, value in (optimal_params or {}).items():
+                                        if f"_strategy_{strategy_idx_1based}" in key:
+                                            pair_params[key] = value
+                                    
+                                    all_condition_pair_results[strategy_idx] = {
+                                        "grid_region": grid_region,
+                                        "optimal_params": pair_params,
+                                        "test_result": {
+                                            "metrics": {},
+                                            "individual_results": [],
+                                            "all_condition_pair_results": {},
+                                        },
+                                    }
+                        
+                        # 使用第一個可用的 grid_region（如果有的話）
+                        first_grid_region = None
+                        if all_grid_regions:
+                            first_strategy_idx = min(all_grid_regions.keys())
+                            first_grid_region = all_grid_regions[first_strategy_idx]
+                        
+                        window_results[objective] = {
+                            "optimal_params": optimal_params if optimal_params else {},
+                            "grid_region": first_grid_region if first_grid_region else {},
+                            "all_grid_regions": all_grid_regions if all_grid_regions else {},
+                            "train_metrics": train_metrics,  # IS 績效
+                            "test_result": {
+                                "metrics": {},
+                                "individual_results": [],
+                                "all_condition_pair_results": all_condition_pair_results,  # 包含所有 condition_pair 的結果（即使 OOS 失敗）
+                            },
+                            "window_info": {
+                                "window_id": window["window_id"],
+                                "train_start": window["train_start"],
+                                "train_end": window["train_end"],
+                                "test_start": window["test_start"],
+                                "test_end": window["test_end"],
+                            },
+                        }
 
             return (window_results if window_results else None, status)
 
@@ -574,8 +699,11 @@ class WalkForwardEngine:
             all_returns = []
             all_individual_results = []  # 保存每個參數組合的完整結果（包括失敗的）
             valid_count = 0
+            failure_reasons = []  # 記錄失敗原因
 
             for param_idx, params in enumerate(all_params):
+                failure_reason = None
+                
                 # 構建回測配置
                 backtest_config = self._build_backtest_config(params)
 
@@ -597,27 +725,77 @@ class WalkForwardEngine:
                     results = engine.run_backtests(backtest_config)
 
                 if not results or len(results) == 0:
+                    failure_reason = "回測結果為空"
+                    failure_reasons.append(f"參數組合 {param_idx + 1}: {failure_reason}")
+                    all_individual_results.append({
+                        "param_index": param_idx,
+                        "params": params,
+                        "metric": None,
+                        "return": None,
+                        "success": False,
+                        "failure_reason": failure_reason,
+                    })
                     continue
-
+                
                 # 使用第一個結果
                 result = results[0]
                 
                 # 檢查是否有錯誤
                 if result.get("error") is not None:
+                    failure_reason = f"回測錯誤: {result.get('error')}"
+                    failure_reasons.append(f"參數組合 {param_idx + 1}: {failure_reason}")
+                    all_individual_results.append({
+                        "param_index": param_idx,
+                        "params": params,
+                        "metric": None,
+                        "return": None,
+                        "success": False,
+                        "failure_reason": failure_reason,
+                    })
                     continue
                 
                 # 檢查是否有交易記錄
                 if "records" not in result:
+                    failure_reason = "沒有交易記錄"
+                    failure_reasons.append(f"參數組合 {param_idx + 1}: {failure_reason}")
+                    all_individual_results.append({
+                        "param_index": param_idx,
+                        "params": params,
+                        "metric": None,
+                        "return": None,
+                        "success": False,
+                        "failure_reason": failure_reason,
+                    })
                     continue
                 
                 records = result["records"]
                 if not isinstance(records, pd.DataFrame) or records.empty:
+                    failure_reason = "交易記錄為空"
+                    failure_reasons.append(f"參數組合 {param_idx + 1}: {failure_reason}")
+                    all_individual_results.append({
+                        "param_index": param_idx,
+                        "params": params,
+                        "metric": None,
+                        "return": None,
+                        "success": False,
+                        "failure_reason": failure_reason,
+                    })
                     continue
                 
                 # 檢查是否有實際交易
                 if "Trade_action" in records.columns:
                     trade_count = (records["Trade_action"] == 1).sum()
                     if trade_count == 0:
+                        failure_reason = f"沒有交易（記錄數: {len(records)}）"
+                        failure_reasons.append(f"參數組合 {param_idx + 1}: {failure_reason}")
+                        all_individual_results.append({
+                            "param_index": param_idx,
+                            "params": params,
+                            "metric": None,
+                            "return": None,
+                            "success": False,
+                            "failure_reason": failure_reason,
+                        })
                         continue
 
                 # 計算績效指標
@@ -682,8 +860,26 @@ class WalkForwardEngine:
                 })
 
             if not all_metrics:
-                # 如果所有參數組合都失敗，回退到單一參數
-                return self._run_single_test_backtest(test_data, fallback_params, objective, silent)
+                # 如果所有參數組合都失敗，記錄失敗原因並回退到單一參數
+                if failure_reasons:
+                    failure_summary = "; ".join(failure_reasons[:5])  # 只記錄前5個失敗原因
+                    if len(failure_reasons) > 5:
+                        failure_summary += f" ... (共 {len(failure_reasons)} 個參數組合失敗)"
+                    self.logger.warning(
+                        f"[DEBUG] 所有參數組合的 OOS 測試都失敗。失敗原因: {failure_summary}"
+                    )
+                else:
+                    self.logger.warning(
+                        f"[DEBUG] 所有參數組合的 OOS 測試都失敗（未記錄具體原因）"
+                    )
+                # 回退到單一參數
+                single_result = self._run_single_test_backtest(test_data, fallback_params, objective, silent)
+                if single_result is None and failure_reasons:
+                    # 如果單一參數測試也失敗，記錄失敗原因
+                    self.logger.warning(
+                        f"[DEBUG] 單一參數回退測試也失敗。之前失敗原因: {failure_summary if failure_reasons else '未知'}"
+                    )
+                return single_result
 
             # 計算平均績效
             avg_metric = sum(all_metrics) / len(all_metrics)

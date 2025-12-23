@@ -175,17 +175,22 @@ class ResultsExporter:
                 
                 # 統一使用 all_condition_pair_results 處理（即使只有一個 condition_pair）
                 # 因為即使只有一個，all_condition_pair_results 也會是 {0: {...}} 的結構
-                if all_condition_pair_results and all_grid_regions:
+                # 即使 OOS 測試失敗（all_condition_pair_results 為空），只要有 grid_regions，也應該導出 IS 結果
+                if all_grid_regions:
                     self.logger.info(
                         f"[DEBUG] 發現 {len(all_condition_pair_results)} 個 condition_pair 的結果，將分別處理"
                     )
                     # 為每個 condition_pair 分別處理
-                    for strategy_idx, condition_pair_result in all_condition_pair_results.items():
+                    # 如果 all_condition_pair_results 為空，則遍歷 all_grid_regions
+                    condition_pairs_to_process = all_condition_pair_results if all_condition_pair_results else all_grid_regions
+                    
+                    for strategy_idx in condition_pairs_to_process.keys():
                         self.logger.info(
                             f"[DEBUG] 處理 condition_pair {strategy_idx + 1} 的結果"
                         )
                         
                         # 獲取該 condition_pair 的 grid_region（優先從 condition_pair_result 中獲取，否則從 all_grid_regions 中獲取）
+                        condition_pair_result = all_condition_pair_results.get(strategy_idx, {}) if all_condition_pair_results else {}
                         pair_grid_region = condition_pair_result.get("grid_region")
                         if not pair_grid_region:
                             pair_grid_region = all_grid_regions.get(strategy_idx, {})
@@ -197,9 +202,10 @@ class ResultsExporter:
                             continue
                         
                         # 獲取該 condition_pair 的 OOS 結果（從 test_result 中獲取）
-                        test_result = condition_pair_result.get("test_result", {})
-                        pair_oos_results = test_result.get("individual_results", [])
-                        pair_test_metrics = test_result.get("metrics", {})
+                        # 如果 OOS 測試失敗，test_result 可能為空
+                        test_result = condition_pair_result.get("test_result", {}) if condition_pair_result else {}
+                        pair_oos_results = test_result.get("individual_results", []) if test_result else []
+                        pair_test_metrics = test_result.get("metrics", {}) if test_result else {}
                         
                         # 從 grid_region 中獲取參數和指標
                         pair_all_params = pair_grid_region.get("all_params", [])

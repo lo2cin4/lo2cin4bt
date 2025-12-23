@@ -232,11 +232,12 @@ class DataLoaderWFAAnalyser:
                     self.using_price_predictor_only = True
                 return self.data
 
-            # 合併預測因子到主數據
+            # predictor_data 已經是 PredictorLoader._clean_and_merge_data 返回的交集數據
+            # 直接使用它，不需要再次合併
             predictor_column = predictor_config.get("predictor_column", "X")
             if predictor_column in predictor_data.columns:
-                # 合併邏輯（根據時間對齊）
-                self.data = self._merge_predictor_data(predictor_data, predictor_column)
+                # 直接使用交集數據
+                self.data = predictor_data
                 self.current_predictor_column = predictor_column
             else:
                 show_warning("WFANALYSER", f"預測因子欄位 {predictor_column} 不存在，將使用價格數據")

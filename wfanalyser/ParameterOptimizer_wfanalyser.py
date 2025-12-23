@@ -47,9 +47,229 @@ ParameterOptimizer_wfanalyser.py
 
 import logging
 from typing import Any, Dict, List, Optional, Tuple
+from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
+
+
+@dataclass
+class OptimizationDiagnostics:
+    """
+    通用的優化診斷類，自動分析所有回測結果的失敗原因
+    
+    適用於所有技術指標類型，無需為每個指標單獨編寫診斷代碼
+    """
+    total_results: int = 0
+    error_results: List[Dict[str, Any]] = field(default_factory=list)
+    no_records_results: List[Dict[str, Any]] = field(default_factory=list)
+    empty_records_results: List[Dict[str, Any]] = field(default_factory=list)
+    no_trade_action_results: List[Dict[str, Any]] = field(default_factory=list)
+    no_trade_results: List[Dict[str, Any]] = field(default_factory=list)
+    invalid_metric_results: List[Dict[str, Any]] = field(default_factory=list)
+    valid_results: List[Dict[str, Any]] = field(default_factory=list)
+    
+    def analyze_results(
+        self, 
+        results: List[Dict[str, Any]], 
+        objective: str, 
+        strategy_idx: Optional[int] = None,
+        logger: Optional[logging.Logger] = None
+    ) -> Dict[str, Any]:
+        """
+        通用分析所有回測結果，自動分類失敗原因
+        
+        Args:
+            results: 回測結果列表
+            objective: 優化目標（"sharpe" 或 "calmar"）
+            strategy_idx: 可選的策略索引
+            logger: 日誌記錄器
+            
+        Returns:
+            Dict[str, Any]: 診斷結果摘要
+        """
+        from metricstracker.MetricsCalculator_metricstracker import MetricsCalculatorMetricTracker
+        
+        # 重置統計
+        self.total_results = len(results)
+        self.error_results = []
+        self.no_records_results = []
+        self.empty_records_results = []
+        self.no_trade_action_results = []
+        self.no_trade_results = []
+        self.invalid_metric_results = []
+        self.valid_results = []
+        
+        log = logger or logging.getLogger("lo2cin4bt.wfanalyser.optimizer.diagnostics")
+        
+        for result in results:
+            # 過濾 strategy_idx
+            if strategy_idx is not None:
+                if not self._matches_strategy_idx(result, strategy_idx):
+                    continue
+            
+            # 分類 1: 錯誤結果
+            if result.get("error") is not None:
+                self.error_results.append(result)
+                continue
+            
+            # 分類 2: 沒有 records
+            if "records" not in result:
+                self.no_records_results.append(result)
+                continue
+            
+            records = result["records"]
+            
+            # 分類 3: records 為空
+            if not isinstance(records, pd.DataFrame) or records.empty:
+                self.empty_records_results.append(result)
+                continue
+            
+            # 分類 4: 沒有 Trade_action 欄位
+            if "Trade_action" not in records.columns:
+                self.no_trade_action_results.append(result)
+                continue
+            
+            # 分類 5: 沒有交易
+            trade_count = (records["Trade_action"] == 1).sum()
+            if trade_count == 0:
+                self.no_trade_results.append(result)
+                continue
+            
+            # 分類 6: 計算績效指標
+            try:
+                metrics_calc = MetricsCalculatorMetricTracker(
+                    records,
+                    time_unit=365,
+                    risk_free_rate=0.04,
+                )
+                
+                if objective == "sharpe":
+                    metric_value = metrics_calc.sharpe()
+                elif objective == "calmar":
+                    metric_value = metrics_calc.calmar()
+                else:
+                    self.invalid_metric_results.append(result)
+                    continue
+                
+                # 分類 7: 無效指標值
+                if pd.isna(metric_value) or metric_value == float("inf") or metric_value == float("-inf"):
+                    self.invalid_metric_results.append(result)
+                    continue
+                
+                # 有效結果
+                result["optimal_metric"] = metric_value
+                result["trade_count"] = trade_count
+                self.valid_results.append(result)
+                
+            except Exception as e:
+                log.warning(f"計算績效指標失敗: {e}")
+                self.invalid_metric_results.append(result)
+        
+        # 生成診斷摘要
+        summary = {
+            "total_results": self.total_results,
+            "error_count": len(self.error_results),
+            "no_records_count": len(self.no_records_results),
+            "empty_records_count": len(self.empty_records_results),
+            "no_trade_action_count": len(self.no_trade_action_results),
+            "no_trade_count": len(self.no_trade_results),
+            "invalid_metric_count": len(self.invalid_metric_results),
+            "valid_count": len(self.valid_results),
+        }
+        
+        return summary
+    
+    def _matches_strategy_idx(self, result: Dict[str, Any], strategy_idx: int) -> bool:
+        """檢查結果是否匹配指定的 strategy_idx"""
+        result_strategy_id = result.get("strategy_id", "")
+        if not result_strategy_id:
+            # 如果沒有 strategy_id，且 strategy_idx 是 0，則包含（向後兼容）
+            return strategy_idx == 0
+        
+        try:
+            if "_" in result_strategy_id:
+                parts = result_strategy_id.split("_")
+                result_strategy_idx = None
+                for part in reversed(parts):
+                    if part.isdigit():
+                        result_strategy_idx = int(part) - 1
+                        break
+                
+                if result_strategy_idx is None:
+                    return strategy_idx == 0
+                return result_strategy_idx == strategy_idx
+            elif result_strategy_id.isdigit():
+                return int(result_strategy_id) - 1 == strategy_idx
+            else:
+                return strategy_idx == 0
+        except (ValueError, IndexError):
+            return strategy_idx == 0
+    
+    def get_failure_reason(self, objective: str, strategy_idx: Optional[int] = None) -> str:
+        """
+        生成失敗原因的詳細描述
+        
+        Args:
+            objective: 優化目標
+            strategy_idx: 策略索引
+            
+        Returns:
+            str: 失敗原因描述
+        """
+        reasons = []
+        
+        if self.error_results:
+            reasons.append(f"錯誤結果: {len(self.error_results)} 個")
+        
+        if self.no_records_results:
+            reasons.append(f"無記錄結果: {len(self.no_records_results)} 個")
+        
+        if self.empty_records_results:
+            reasons.append(f"空記錄結果: {len(self.empty_records_results)} 個")
+        
+        if self.no_trade_action_results:
+            reasons.append(f"無 Trade_action 欄位: {len(self.no_trade_action_results)} 個")
+        
+        if self.no_trade_results:
+            reasons.append(f"無交易結果: {len(self.no_trade_results)} 個")
+        
+        if self.invalid_metric_results:
+            reasons.append(f"無效指標結果: {len(self.invalid_metric_results)} 個")
+        
+        if reasons:
+            strategy_info = f" (condition_pair {strategy_idx + 1})" if strategy_idx is not None else ""
+            return f"{objective.upper()}{strategy_info} 優化失敗: " + ", ".join(reasons)
+        else:
+            return f"{objective.upper()} 優化失敗: 未知原因"
+    
+    def log_diagnostics(self, objective: str, strategy_idx: Optional[int] = None, logger: Optional[logging.Logger] = None):
+        """
+        記錄診斷信息到日誌
+        
+        Args:
+            objective: 優化目標
+            strategy_idx: 策略索引
+            logger: 日誌記錄器
+        """
+        log = logger or logging.getLogger("lo2cin4bt.wfanalyser.optimizer.diagnostics")
+        
+        strategy_info = f"condition_pair {strategy_idx + 1}" if strategy_idx is not None else "所有策略"
+        
+        log.info(
+            f"[診斷] {objective.upper()} {strategy_info} 結果分析: "
+            f"總數={self.total_results}, "
+            f"錯誤={len(self.error_results)}, "
+            f"無記錄={len(self.no_records_results)}, "
+            f"空記錄={len(self.empty_records_results)}, "
+            f"無Trade_action={len(self.no_trade_action_results)}, "
+            f"無交易={len(self.no_trade_results)}, "
+            f"無效指標={len(self.invalid_metric_results)}, "
+            f"有效={len(self.valid_results)}"
+        )
+        
+        if len(self.valid_results) == 0:
+            log.warning(self.get_failure_reason(objective, strategy_idx))
 
 
 class ParameterOptimizer:
@@ -165,21 +385,15 @@ class ParameterOptimizer:
                 self._last_failure_reason = "回測執行返回空結果"
                 return None, None
 
-            # 診斷：檢查結果狀態
-            error_count = sum(1 for r in results if r.get("error") is not None)
-            no_trade_count = 0
-            valid_count = 0
+            # 使用通用診斷機制檢查結果狀態（適用於所有指標類型）
+            diagnostics = OptimizationDiagnostics()
+            summary = diagnostics.analyze_results(results, objective, strategy_idx=None, logger=self.logger)
             
-            for r in results:
-                if r.get("error") is None:
-                    records = r.get("records", pd.DataFrame())
-                    if isinstance(records, pd.DataFrame) and not records.empty:
-                        if "Trade_action" in records.columns:
-                            trade_count = (records["Trade_action"] == 1).sum()
-                            if trade_count > 0:
-                                valid_count += 1
-                            else:
-                                no_trade_count += 1
+            # 記錄詳細診斷信息
+            diagnostics.log_diagnostics(objective, strategy_idx=None, logger=self.logger)
+            
+            # 保存診斷摘要供後續使用
+            self._last_diagnostics_summary = summary
 
 
             # 為每個 condition_pair 分別進行優化
@@ -325,6 +539,12 @@ class ParameterOptimizer:
             
             # 如果沒有任何有效的 condition_pair，返回失敗
             if not all_optimal_params:
+                # 使用診斷摘要生成失敗原因
+                summary = getattr(self, '_last_diagnostics_summary', {})
+                error_count = summary.get('error_count', 0)
+                no_trade_count = summary.get('no_trade_count', 0)
+                valid_count = summary.get('valid_count', 0)
+                
                 failure_reason = (
                     f"所有 condition_pairs 都未找到有效的 {objective.upper()} 結果。"
                     f"錯誤: {error_count}, 無交易: {no_trade_count}, 有效: {valid_count}"
@@ -599,7 +819,7 @@ class ParameterOptimizer:
         self, results: List[Dict[str, Any]], objective: str, strategy_idx: Optional[int] = None
     ) -> Optional[Dict[str, Any]]:
         """
-        從回測結果中找到最優結果
+        從回測結果中找到最優結果（使用通用診斷機制）
 
         Args:
             results: 回測結果列表
@@ -609,101 +829,22 @@ class ParameterOptimizer:
         Returns:
             Optional[Dict[str, Any]]: 最優結果，如果未找到則返回 None
         """
-        from metricstracker.MetricsCalculator_metricstracker import (
-            MetricsCalculatorMetricTracker,
-        )
-
-        valid_results = []
-
-        for result in results:
-            # 如果指定了 strategy_idx，只處理該策略的結果
-            if strategy_idx is not None:
-                result_strategy_id = result.get("strategy_id", "")
-                # strategy_id 格式為 "strategy_1", "strategy_2" 等
-                if result_strategy_id:
-                    try:
-                        # 解析 strategy_id：可能是 "strategy_1" 或 "strategy_1_xxx"
-                        if "_" in result_strategy_id:
-                            # 提取最後一個數字部分
-                            parts = result_strategy_id.split("_")
-                            # 找到最後一個數字
-                            result_strategy_idx = None
-                            for part in reversed(parts):
-                                if part.isdigit():
-                                    result_strategy_idx = int(part) - 1
-                                    break
-                            
-                            if result_strategy_idx is None:
-                                # 如果無法解析，且 strategy_idx 是 0，則包含（向後兼容）
-                                if strategy_idx != 0:
-                                    continue
-                            elif result_strategy_idx != strategy_idx:
-                                continue
-                        else:
-                            # 如果無法解析，跳過
-                            continue
-                    except (ValueError, IndexError):
-                        # 如果無法解析 strategy_id，跳過
-                        continue
-                else:
-                    # 如果沒有 strategy_id，且 strategy_idx 不是 0，跳過
-                    # （因為舊的結果可能沒有 strategy_id，假設是第一個策略）
-                    if strategy_idx != 0:
-                        continue
-
-            # 檢查是否有錯誤
-            if result.get("error") is not None:
-                continue
-
-            # 檢查是否有交易記錄
-            if "records" not in result:
-                continue
-
-            records = result["records"]
-            if not isinstance(records, pd.DataFrame) or records.empty:
-                continue
-
-            # 檢查是否有實際交易（開倉交易）
-            if "Trade_action" not in records.columns:
-                continue
-
-            trade_count = (records["Trade_action"] == 1).sum()
-            if trade_count == 0:
-                # 無交易，跳過
-                continue
-
-            # 計算績效指標
-            try:
-                metrics_calc = MetricsCalculatorMetricTracker(
-                    records,
-                    time_unit=365,
-                    risk_free_rate=0.04,
-                )
-
-                if objective == "sharpe":
-                    metric_value = metrics_calc.sharpe()
-                elif objective == "calmar":
-                    metric_value = metrics_calc.calmar()
-                else:
-                    continue
-
-                # 跳過無效值
-                if pd.isna(metric_value) or metric_value == float("inf") or metric_value == float("-inf"):
-                    continue
-
-                result["optimal_metric"] = metric_value
-                result["trade_count"] = trade_count
-                valid_results.append(result)
-
-            except Exception as e:
-                self.logger.warning(f"計算績效指標失敗: {e}")
-                continue
-
-        if not valid_results:
+        # 使用通用診斷機制分析結果
+        diagnostics = OptimizationDiagnostics()
+        diagnostics.analyze_results(results, objective, strategy_idx, self.logger)
+        
+        # 記錄診斷信息
+        diagnostics.log_diagnostics(objective, strategy_idx, self.logger)
+        
+        # 如果沒有有效結果，記錄失敗原因並返回 None
+        if not diagnostics.valid_results:
+            failure_reason = diagnostics.get_failure_reason(objective, strategy_idx)
+            self._last_failure_reason = failure_reason
+            self.logger.warning(failure_reason)
             return None
 
         # 選擇最優結果（最大化目標指標）
-        optimal_result = max(valid_results, key=lambda x: x.get("optimal_metric", float("-inf")))
+        optimal_result = max(diagnostics.valid_results, key=lambda x: x.get("optimal_metric", float("-inf")))
 
         return optimal_result
 
