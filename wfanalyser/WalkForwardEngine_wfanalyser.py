@@ -140,11 +140,58 @@ class WalkForwardEngine:
             # 步驟 5: 收集結果（方案 A）
             final_results = self._collect_results(all_window_results)
             
-            show_success("WFANALYSER",
-                f"WFA 執行完成\n"
-                f"   窗口數: {len(windows)}\n"
-                f"   成功處理: {len(all_window_results)} 個窗口結果"
-            )
+            # 檢查是否有成功的窗口
+            if len(all_window_results) == 0:
+                # 所有窗口都失敗，顯示詳細的失敗原因
+                failure_summary = []
+                failure_summary.append(f"⚠️ 所有 {len(windows)} 個窗口處理都失敗")
+                
+                # 統計失敗原因
+                failure_reasons = {}
+                for status in all_window_status:
+                    # 檢查 sharpe 和 calmar 的失敗原因
+                    for objective in ["sharpe", "calmar"]:
+                        reason = status.get(f"{objective}_failure_reason")
+                        if reason:
+                            if reason not in failure_reasons:
+                                failure_reasons[reason] = 0
+                            failure_reasons[reason] += 1
+                    
+                    # 檢查是否有異常錯誤
+                    if status.get("error"):
+                        error_msg = status.get("error", "未知錯誤")
+                        if error_msg not in failure_reasons:
+                            failure_reasons[error_msg] = 0
+                        failure_reasons[error_msg] += 1
+                
+                if failure_reasons:
+                    failure_summary.append("\n失敗原因統計：")
+                    for reason, count in failure_reasons.items():
+                        failure_summary.append(f"  • {reason}: {count} 次")
+                else:
+                    failure_summary.append("\n未找到具體失敗原因，請檢查日誌文件")
+                
+                # 顯示前幾個窗口的詳細狀態
+                failure_summary.append(f"\n前 3 個窗口狀態：")
+                for idx, status in enumerate(all_window_status[:3], 1):
+                    window_id = status.get("window_id", f"窗口 {idx}")
+                    train_size = status.get("train_size", "N/A")
+                    test_size = status.get("test_size", "N/A")
+                    sharpe_status = status.get("sharpe_status", "未執行")
+                    calmar_status = status.get("calmar_status", "未執行")
+                    failure_summary.append(
+                        f"  {window_id}: 訓練集={train_size}, 測試集={test_size}, "
+                        f"Sharpe={sharpe_status}, Calmar={calmar_status}"
+                    )
+                
+                show_warning("WFANALYSER", "\n".join(failure_summary))
+                self.logger.warning(f"WFA 執行完成但所有窗口都失敗: {failure_reasons}")
+            else:
+                show_success("WFANALYSER",
+                    f"WFA 執行完成\n"
+                    f"   窗口數: {len(windows)}\n"
+                    f"   成功處理: {len(all_window_results)} 個窗口結果"
+                )
 
             return final_results
 
