@@ -41,6 +41,9 @@ records/plotter/
 .DS_Store
 Thumbs.db
 
+# 影片資料夾
+影片/
+
 # Build
 *.egg-info/
 *.egg
