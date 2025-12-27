@@ -356,8 +356,6 @@ class BollingerBandIndicator:
         if global_boll_cache is None:
             global_boll_cache = {}
 
-        # print(f"🔧 BollingerBand 向量化計算: {len(tasks)} 個任務")  # 移除重複輸出
-
         # 提取所有BOLL參數
         ma_lengths = []
         std_multipliers = []
@@ -385,8 +383,6 @@ class BollingerBandIndicator:
 
         # 批量計算所有參數的布林帶 - 使用Numba優化
         unique_combinations = list(set(zip(ma_lengths, std_multipliers)))
-
-        # print(f"🔧 計算 {len(unique_combinations)} 個唯一參數組合")  # 移除重複輸出
 
         for ma_length, std_multiplier in unique_combinations:
             if ma_length <= len(data):

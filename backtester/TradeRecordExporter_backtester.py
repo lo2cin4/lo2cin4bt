@@ -1044,9 +1044,6 @@ class TradeRecordExporter_backtester:
             )
 
         console.print(table)
-        # console.print(Panel("⌨️ 按 Enter 回到選單",
-        #                     title="[bold #8f1511]👨‍💻 交易回測 Backtester[/bold #8f1511]",
-        #                     border_style="#dbac30"))
         console.print("[bold #dbac30]按 Enter 返回選單: [/bold #dbac30]", end="")
         input()
 
@@ -1105,9 +1102,6 @@ class TradeRecordExporter_backtester:
             strategy = self._get_strategy_name(params) if params else "N/A"
 
             status = "❌ 失敗"
-            # 可以選擇是否顯示錯誤信息
-            # error_msg = result.get("error", "未知錯誤")
-            # console.print(f"錯誤詳情: {error_msg}")
 
             table.add_row(str(i), result["Backtest_id"], strategy, status)
 

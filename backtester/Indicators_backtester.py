@@ -259,15 +259,12 @@ class IndicatorsBacktester:
             ValueError: 當指標類型不支援或未實作 get_params 方法時
         """
         alias = self.indicator_alias_map.get(indicator_type.upper())
-        # print(f"[DEBUG] indicator_type={indicator_type}, alias={alias}")
         if alias:
             main_type: str
             strat_idx: int
             main_type, strat_idx = alias
             module_name = self.new_indicators[main_type]
-            # print(f"[DEBUG] main_type={main_type}, strat_idx={strat_idx}, module_name={module_name}")
             module = importlib.import_module(f"backtester.{module_name}")
-            # print(f"[DEBUG] dir(module): {dir(module)}")
             # 修正 class 名稱取得，避免大小寫錯誤
             indicator_cls_name_map = {
                 "MA": "MovingAverageIndicator",
@@ -283,7 +280,6 @@ class IndicatorsBacktester:
                 raise ValueError(f"無法取得 {main_type} 的指標 class 名稱")
             if hasattr(module, indicator_cls_name):
                 indicator_cls = getattr(module, indicator_cls_name)
-                # print(f"[DEBUG] indicator_cls={indicator_cls}, dir={dir(indicator_cls)}")
                 if hasattr(indicator_cls, "get_params"):
                     # 優先使用 params_config 中的 strat_idx，如果沒有則使用指標類型的 strat_idx
                     actual_strat_idx = strat_idx
@@ -401,25 +397,16 @@ class IndicatorsBacktester:
     def _calculate_ma_signals(
         self, data: pd.DataFrame, params: "IndicatorParams", predictor: Optional[str] = None
     ) -> np.ndarray:  # pylint: disable=unused-argument
-        # print(f"[DEBUG] _calculate_ma_signals 開始")
-        # print(f"[DEBUG] 數據形狀：{data.shape}")
-        # print(f"[DEBUG] 預測因子：{predictor}")
-        # print(f"[DEBUG] 預測因子存在於數據中：{predictor in data.columns if predictor else False}")
-
         try:
             # 動態導入模組
             module = importlib.import_module(
                 "backtester.MovingAverage_Indicator_backtester"
             )
             indicator_cls = getattr(module, "MovingAverageIndicator")
-            # print(f"[DEBUG] 成功導入 MovingAverageIndicator")
 
             indicator = indicator_cls(data, params, logger=self.logger)
-            # print(f"[DEBUG] 成功創建指標實例")
 
             signals = indicator.generate_signals(predictor)
-            # print(f"[DEBUG] 信號生成完成，信號形狀：{signals.shape}")
-            # print(f"[DEBUG] 信號分佈：{signals.value_counts().to_dict()}")
 
             return signals
         except Exception:
@@ -432,24 +419,16 @@ class IndicatorsBacktester:
     def _calculate_boll_signals(
         self, data: pd.DataFrame, params: "IndicatorParams", predictor: Optional[str] = None
     ) -> np.ndarray:  # pylint: disable=unused-argument
-        # print(f"[DEBUG] _calculate_boll_signals 開始")
-        # print(f"[DEBUG] 數據形狀：{data.shape}")
-        # print(f"[DEBUG] 預測因子：{predictor}")
-
         try:
             # 動態導入模組
             module = importlib.import_module(
                 "backtester.BollingerBand_Indicator_backtester"
             )
             indicator_cls = getattr(module, "BollingerBandIndicator")
-            # print(f"[DEBUG] 成功導入 BollingerBandIndicator")
 
             indicator = indicator_cls(data, params, logger=self.logger)
-            # print(f"[DEBUG] 成功創建指標實例")
 
             signals = indicator.generate_signals(predictor)
-            # print(f"[DEBUG] 信號生成完成，信號形狀：{signals.shape}")
-            # print(f"[DEBUG] 信號分佈：{signals.value_counts().to_dict()}")
 
             return signals
         except Exception:
@@ -462,22 +441,14 @@ class IndicatorsBacktester:
     def _calculate_hl_signals(
         self, data: pd.DataFrame, params: "IndicatorParams", predictor: Optional[str] = None
     ) -> np.ndarray:  # pylint: disable=unused-argument
-        # print(f"[DEBUG] _calculate_hl_signals 開始")
-        # print(f"[DEBUG] 數據形狀：{data.shape}")
-        # print(f"[DEBUG] 預測因子：{predictor}")
-
         try:
             # 動態導入模組
             module = importlib.import_module("backtester.HL_Indicator_backtester")
             indicator_cls = getattr(module, "HLIndicator")
-            # print(f"[DEBUG] 成功導入 HLIndicator")
 
             indicator = indicator_cls(data, params, logger=self.logger)
-            # print(f"[DEBUG] 成功創建指標實例")
 
             signals = indicator.generate_signals(predictor)
-            # print(f"[DEBUG] 信號生成完成，信號形狀：{signals.shape}")
-            # print(f"[DEBUG] 信號分佈：{signals.value_counts().to_dict()}")
 
             return signals
         except Exception:
@@ -490,22 +461,14 @@ class IndicatorsBacktester:
     def _calculate_value_signals(
         self, data: pd.DataFrame, params: "IndicatorParams", predictor: Optional[str] = None
     ) -> np.ndarray:  # pylint: disable=unused-argument
-        # print(f"[DEBUG] _calculate_value_signals 開始")
-        # print(f"[DEBUG] 數據形狀：{data.shape}")
-        # print(f"[DEBUG] 預測因子：{predictor}")
-
         try:
             # 動態導入模組
             module = importlib.import_module("backtester.VALUE_Indicator_backtester")
             indicator_cls = getattr(module, "VALUEIndicator")
-            # print(f"[DEBUG] 成功導入 VALUEIndicator")
 
             indicator = indicator_cls(data, params, logger=self.logger)
-            # print(f"[DEBUG] 成功創建指標實例")
 
             signals = indicator.generate_signals(predictor)
-            # print(f"[DEBUG] 信號生成完成，信號形狀：{signals.shape}")
-            # print(f"[DEBUG] 信號分佈：{signals.value_counts().to_dict()}")
 
             return signals
         except Exception:
@@ -518,24 +481,16 @@ class IndicatorsBacktester:
     def _calculate_percentile_signals(
         self, data: pd.DataFrame, params: "IndicatorParams", predictor: Optional[str] = None
     ) -> np.ndarray:  # pylint: disable=unused-argument
-        # print(f"[DEBUG] _calculate_percentile_signals 開始")
-        # print(f"[DEBUG] 數據形狀：{data.shape}")
-        # print(f"[DEBUG] 預測因子：{predictor}")
-
         try:
             # 動態導入模組
             module = importlib.import_module(
                 "backtester.Percentile_Indicator_backtester"
             )
             indicator_cls = getattr(module, "PercentileIndicator")
-            # print(f"[DEBUG] 成功導入 PercentileIndicator")
 
             indicator = indicator_cls(data, params, logger=self.logger)
-            # print(f"[DEBUG] 成功創建指標實例")
 
             signals = indicator.generate_signals(predictor)
-            # print(f"[DEBUG] 信號生成完成，信號形狀：{signals.shape}")
-            # print(f"[DEBUG] 信號分佈：{signals.value_counts().to_dict()}")
 
             return signals
         except Exception:
