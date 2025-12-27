@@ -48,7 +48,7 @@ import warnings
 from typing import Dict
 
 import pandas as pd
-from utils import show_info, show_step_panel
+from utils import get_console, show_info, show_step_panel
 from rich.table import Table
 from statsmodels.tsa.stattools import adfuller, kpss
 
@@ -124,6 +124,7 @@ class StationarityTest(BaseStatAnalyser):
             }
         )
         # 直接用 Rich Table 輸出
+        console = get_console()
         table = Table(title="平穩性檢驗結果", border_style="#dbac30", show_lines=True)
         for col in df.columns:
             table.add_column(str(col), style="bold white")

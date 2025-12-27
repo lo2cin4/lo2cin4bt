@@ -55,7 +55,7 @@ class SeasonalAnalysis(BaseStatAnalyser):
     """季節性分析模組，檢測時間序列的週期性模式"""
 
     def analyze(self) -> Dict:
-        from utils import get_console
+        from utils import get_console, show_info, show_step_panel
         console = get_console()
         # 步驟說明 Panel
         panel_content = (

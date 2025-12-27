@@ -69,7 +69,7 @@ class AutocorrelationTest(BaseStatAnalyser):
 
     def analyze(self) -> Dict:
         """執行 ACF 和 PACF 分析"""
-        from utils import get_console
+        from utils import get_console, show_info, show_step_panel
         console = get_console()
         series = self.data[self.predictor_col].dropna()
         if len(series) < 5:
@@ -95,7 +95,6 @@ class AutocorrelationTest(BaseStatAnalyser):
             "檢驗功能：檢測序列的記憶效應和週期性。如有記憶效應，代表可用歷史數據預測未來數值，用家可嘗試發掘背後原因是否具備邏輯。小心過擬合。\n"
             f"檢測最大滯後期數：{lags}（頻率={self.freq}）"
         )
-        from utils import show_step_panel
         show_step_panel("STATANALYSER", 1, ["自相關性檢驗[自動]"], panel_content)
 
         # 計算 ACF 和 PACF

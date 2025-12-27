@@ -57,7 +57,7 @@ class DistributionTest(BaseStatAnalyser):
     """分佈檢驗模組，評估數據是否符合正態分佈"""
 
     def analyze(self) -> Dict:
-        from utils import get_console
+        from utils import get_console, show_info, show_step_panel
         console = get_console()
         # 美化步驟說明 Panel
         panel_content = (
