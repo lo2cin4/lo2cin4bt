@@ -345,6 +345,110 @@ def select_parquet_file(parquet_dir):
     return parquet_files[idx]
 
 
+def _run_statistical_analysis(data, diff_cols, logger):
+    """
+    執行統計分析流程
+    
+    Args:
+        data: 數據DataFrame
+        diff_cols: 差分欄位列表
+        logger: 日誌記錄器
+        
+    Returns:
+        updated_data: 更新後的數據
+    """
+    selected_col = select_predictor_factor(
+        data, default_factor=diff_cols[0] if diff_cols else None
+    )
+    used_series = data[selected_col]
+    stats_data = standardize_data_for_stats(data)
+    updated_data = stats_data.copy()
+    updated_data[selected_col] = used_series
+
+    def infer_data_freq(df):
+        import pandas as pd
+
+        if not isinstance(df.index, pd.DatetimeIndex):
+            if "Time" in df.columns:
+                df["Time"] = pd.to_datetime(df["Time"])
+                df = df.set_index("Time")
+            else:
+                raise ValueError("資料必須有 DatetimeIndex 或 'Time' 欄位")
+        freq = pd.infer_freq(df.index)
+        if freq is None:
+            freq = "D"
+            print("⚠️ 無法自動判斷頻率，已預設為日線（D）")
+        return freq[0].upper()  # 只取第一個字母 D/H/T
+
+    freq = infer_data_freq(updated_data)
+    analyzers = [
+        CorrelationTest(updated_data, selected_col, "close_return"),
+        StationarityTest(updated_data, selected_col, "close_return"),
+        AutocorrelationTest(
+            updated_data, selected_col, "close_return", freq=freq
+        ),
+        DistributionTest(updated_data, selected_col, "close_return"),
+        SeasonalAnalysis(updated_data, selected_col, "close_return"),
+    ]
+    results = {}
+    for analyzer in analyzers:
+        test_name = (
+            f"{analyzer.__class__.__name__}_{analyzer.predictor_col}"
+        )
+        try:
+            analyzer.analyze()
+            results[test_name] = (
+                analyzer.results if hasattr(analyzer, "results") else None
+            )
+        except Exception as e:
+            ui_show_error("STATANALYSER", f"Error in {test_name}: {e}")
+            logger.error(f"統計分析失敗 {test_name}: {e}")
+            results[test_name] = {"error": str(e)}
+
+    reporter = ReportGenerator()
+    reporter.save_report(results)
+    reporter.save_data(updated_data, format="csv")
+    logger.info("統計分析完成")
+    
+    return updated_data
+
+
+def _run_backtest_and_analysis(data, frequency, data_loader, logger):
+    """
+    執行回測、交易分析和可視化平台的統一流程
+    
+    Args:
+        data: 數據DataFrame
+        frequency: 數據頻率
+        data_loader: BaseDataLoader實例
+        logger: 日誌記錄器
+    """
+    predictor_file_name = getattr(data_loader, "predictor_file_name", None)
+    symbol = getattr(data_loader, "symbol", "X")
+    
+    # 執行回測
+    backtester = BaseBacktester(data, frequency, logger, predictor_file_name, symbol)
+    backtester.run()
+    logger.info("回測完成")
+    ui_show_success("BACKTESTER", "回測完成！")
+
+    # 交易分析
+    metric_tracker = BaseMetricTracker()
+    metric_tracker.run_analysis()
+    
+    # 詢問是否啟動可視化平台
+    console.print(
+        "[bold #dbac30]是否啟動回測與 WFA 可視化平台？(y/n，預設y）：[/bold #dbac30]"
+    )
+    run_plotter = input().strip().lower() or "y"
+    if run_plotter == "y":
+        try:
+            from plotter.Base_plotter import BasePlotter
+
+            plotter = BasePlotter(logger=logger, url_base_pathname=PLOTTER_BASE_PATH)
+            plotter.run(host=PLOTTER_HOST, port=PLOTTER_PORT, debug=PLOTTER_DEBUG)
+        except Exception as e:
+            print(f"❌ 回測與 WFA 可視化平台啟動失敗: {e}")
 
 
 def main():
@@ -419,25 +523,16 @@ def main():
                 logger.error("數據載入失敗")
                 return
 
+            # 處理特殊情況：跳過統計分析
             if isinstance(data, str) and data == "__SKIP_STATANALYSER__":
-                if choice == "1":
-                    print("未輸入預測因子檔案，將跳過統計分析，僅使用價格數據。")
+                print("未輸入預測因子檔案，將跳過統計分析，僅使用價格數據。")
                 data = data_loader.data
                 frequency = data_loader.frequency
-                predictor_file_name = getattr(data_loader, "predictor_file_name", None)
-                backtester = BaseBacktester(
-                    data, frequency, logger, predictor_file_name
-                )
-                backtester.run()
-                analyze_backtest = "y"
-                if analyze_backtest == "y":
-                    # 調用 metricstracker 分析
-                    metric_tracker = BaseMetricTracker()
-                    metric_tracker.run_analysis()
+                _run_backtest_and_analysis(data, frequency, data_loader, logger)
                 return
-            else:
-                # 確保 frequency 被定義
-                frequency = data_loader.frequency
+
+            # 確保 frequency 被定義
+            frequency = data_loader.frequency
 
             # 處理差分步驟
             data, diff_cols, used_series = data_loader.process_difference(data)
@@ -450,111 +545,13 @@ def main():
                 ui_show_info("DATALOADER", "已選擇僅使用價格數據，跳過統計分析。")
                 logger.info("用戶選擇price，跳過統計分析")
                 # 直接進行回測，不進行統計分析
-                predictor_file_name = getattr(data_loader, "predictor_file_name", None)
-                backtester = BaseBacktester(
-                    data, frequency, logger, predictor_file_name
-                )
-                backtester.run()
-                logger.info("回測完成")
-                ui_show_success = __import__("utils", fromlist=["show_success"]).show_success
-                ui_show_success("BACKTESTER", "回測完成！")
-
-                # 交易分析
-                metric_tracker = BaseMetricTracker()
-                metric_tracker.run_analysis()
-                console.print(
-                    "[bold #dbac30]是否啟動回測與 WFA 可視化平台？(y/n，預設y）：[/bold #dbac30]"
-                )
-                run_plotter = input().strip().lower() or "y"
-                if run_plotter == "y":
-                    try:
-                        from plotter.Base_plotter import BasePlotter
-
-                        plotter = BasePlotter(logger=logger, url_base_pathname=PLOTTER_BASE_PATH)
-                        plotter.run(host=PLOTTER_HOST, port=PLOTTER_PORT, debug=PLOTTER_DEBUG)
-                    except Exception as e:
-                        print(f"❌ 回測與 WFA 可視化平台啟動失敗: {e}")
+                _run_backtest_and_analysis(data, frequency, data_loader, logger)
                 return
             else:
                 # 進行統計分析
-                selected_col = select_predictor_factor(
-                    data, default_factor=diff_cols[0] if diff_cols else None
-                )
-                used_series = data[selected_col]
-                stats_data = standardize_data_for_stats(data)
-                updated_data = stats_data.copy()
-                updated_data[selected_col] = used_series
-
-                def infer_data_freq(df):
-                    import pandas as pd
-
-                    if not isinstance(df.index, pd.DatetimeIndex):
-                        if "Time" in df.columns:
-                            df["Time"] = pd.to_datetime(df["Time"])
-                            df = df.set_index("Time")
-                        else:
-                            raise ValueError("資料必須有 DatetimeIndex 或 'Time' 欄位")
-                    freq = pd.infer_freq(df.index)
-                    if freq is None:
-                        freq = "D"
-                        print("⚠️ 無法自動判斷頻率，已預設為日線（D）")
-                    return freq[0].upper()  # 只取第一個字母 D/H/T
-
-                freq = infer_data_freq(updated_data)
-                analyzers = [
-                    CorrelationTest(updated_data, selected_col, "close_return"),
-                    StationarityTest(updated_data, selected_col, "close_return"),
-                    AutocorrelationTest(
-                        updated_data, selected_col, "close_return", freq=freq
-                    ),
-                    DistributionTest(updated_data, selected_col, "close_return"),
-                    SeasonalAnalysis(updated_data, selected_col, "close_return"),
-                ]
-                results = {}
-                for analyzer in analyzers:
-                    test_name = (
-                        f"{analyzer.__class__.__name__}_{analyzer.predictor_col}"
-                    )
-                    try:
-                        analyzer.analyze()
-                        results[test_name] = (
-                            analyzer.results if hasattr(analyzer, "results") else None
-                        )
-                    except Exception as e:
-                        ui_show_error("STATANALYSER", f"Error in {test_name}: {e}")
-                        logger.error(f"統計分析失敗 {test_name}: {e}")
-                        results[test_name] = {"error": str(e)}
-
-                reporter = ReportGenerator()
-                reporter.save_report(results)
-                reporter.save_data(updated_data, format="csv")
-                logger.info("統計分析完成")
-
-                # 回測
-                predictor_file_name = getattr(data_loader, "predictor_file_name", None)
-                backtester = BaseBacktester(
-                    data, frequency, logger, predictor_file_name
-                )
-                backtester.run()
-                logger.info("回測完成")
-                ui_show_success = __import__("utils", fromlist=["show_success"]).show_success
-                ui_show_success("BACKTESTER", "回測完成！")
-
-                # 交易分析
-                metric_tracker = BaseMetricTracker()
-                metric_tracker.run_analysis()
-                console.print(
-                    "[bold #dbac30]是否啟動回測與 WFA 可視化平台？(y/n，預設y）：[/bold #dbac30]"
-                )
-                run_plotter = input().strip().lower() or "y"
-                if run_plotter == "y":
-                    try:
-                        from plotter.Base_plotter import BasePlotter
-
-                        plotter = BasePlotter(logger=logger, url_base_pathname=PLOTTER_BASE_PATH)
-                        plotter.run(host=PLOTTER_HOST, port=PLOTTER_PORT, debug=PLOTTER_DEBUG)
-                    except Exception as e:
-                        print(f"❌ 回測與 WFA 可視化平台啟動失敗: {e}")
+                updated_data = _run_statistical_analysis(data, diff_cols, logger)
+                # 使用更新後的數據進行回測
+                _run_backtest_and_analysis(updated_data, frequency, data_loader, logger)
                 return
         elif choice == "2":
             # 回測交易
@@ -567,7 +564,7 @@ def main():
             data = data_loader.run()
 
             if data is None:
-                print("數據載入失敗，程式終止")
+                ui_show_error("DATALOADER", "數據載入失敗，程式終止")
                 logger.error("數據載入失敗")
                 return
             
@@ -585,29 +582,8 @@ def main():
                 ui_show_info("DATALOADER", "已選擇僅使用價格數據，跳過統計分析。")
                 logger.info("用戶選擇price，跳過統計分析")
 
-            # 回測
-            predictor_file_name = getattr(data_loader, "predictor_file_name", None)
-            symbol = getattr(data_loader, "symbol", "X")
-            backtester = BaseBacktester(data, frequency, logger, predictor_file_name, symbol)
-            backtester.run()
-            logger.info("回測完成")
-            ui_show_success("BACKTESTER", "回測完成！")
-
-            # 交易分析
-            metric_tracker = BaseMetricTracker()
-            metric_tracker.run_analysis()
-            console.print(
-                "[bold #dbac30]是否啟動回測與 WFA 可視化平台？(y/n，預設y)：[/bold #dbac30]"
-            )
-            run_plotter = input().strip().lower() or "y"
-            if run_plotter == "y":
-                try:
-                    from plotter.Base_plotter import BasePlotter
-
-                    plotter = BasePlotter(logger=logger, url_base_pathname=PLOTTER_BASE_PATH)
-                    plotter.run(host=PLOTTER_HOST, port=PLOTTER_PORT, debug=PLOTTER_DEBUG)
-                except Exception as e:
-                    print(f"❌ 回測與 WFA 可視化平台啟動失敗: {e}")
+            # 執行回測、交易分析和可視化
+            _run_backtest_and_analysis(data, frequency, data_loader, logger)
             return
         elif choice == "3":
             # 交易分析（metricstracker + 回測與 WFA 可視化平台）
@@ -696,10 +672,7 @@ def main():
             pass
     except Exception as e:
         ui_show_error("", f"程式執行過程中發生錯誤：{e}")
-        logger.error(f"程式執行錯誤：{e}")
-        import traceback
-
-        traceback.print_exc()
+        logger.error(f"程式執行錯誤：{e}", exc_info=True)
     finally:
         if listener:
             listener.stop()
