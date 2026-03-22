@@ -1,6 +1,6 @@
 <!-- markdownlint-disable MD041 -->
 <p align="center">
-  <img src="assets/lo2cin4btneon.jpg" alt="Lo2cin4BT" width="180"/>
+  <img src="assets/lo2cin4btneon.jpg" alt="Lo2cin4BT" />
 </p>
 <!-- markdownlint-enable MD041 -->
 
