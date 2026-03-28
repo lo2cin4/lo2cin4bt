@@ -1,0 +1,16 @@
+[
+  {
+    "Time": "2020-01-11",
+    "Trade_action": 1,
+    "Position_type": "new_long",
+    "Open_position_price": 110.0,
+    "Close_position_price": 0.0
+  },
+  {
+    "Time": "2020-01-21",
+    "Trade_action": 4,
+    "Position_type": "close_long",
+    "Open_position_price": 0.0,
+    "Close_position_price": 90.0
+  }
+]

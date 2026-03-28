@@ -92,6 +92,7 @@ flowchart TD
 import gc
 import itertools
 import logging
+import os
 import time
 import uuid
 from concurrent.futures import ProcessPoolExecutor
@@ -156,7 +157,7 @@ class ProgressMonitor:
 
             # 更新描述
             description = (
-                f"📊 [3/3] 生成回測結果 ({self.completed_batches}/{self.total_batches} 批次, "
+                f"[3/3] 生成回測結果 ({self.completed_batches}/{self.total_batches} 批次, "
                 f"{self.completed_tasks}/{self.total_backtests} 任務)"
             )
             self.progress.update(self.task, description=description)
@@ -168,7 +169,7 @@ class ProgressMonitor:
             self.progress.update(
                 self.task,
                 description=(
-                    f"📊 [3/3] 生成回測結果 ({self.total_batches}/{self.total_batches} 批次, "
+                    f"[3/3] 生成回測結果 ({self.total_batches}/{self.total_batches} 批次, "
                     f"{self.total_backtests}/{self.total_backtests} 任務)"
                 ),
             )
@@ -494,23 +495,23 @@ class VectorBacktestEngine:
                     entry_counts = np.unique(entry_signal, return_counts=True)
                     exit_counts = np.unique(exit_signal, return_counts=True)
                     diagnostic_info = (
-                        f"\n🔍 診斷信息：\n"
-                        f"• 開倉信號分布：{dict(zip(entry_counts[0], entry_counts[1]))}\n"
-                        f"• 平倉信號分布：{dict(zip(exit_counts[0], exit_counts[1]))}"
+                        f"\n診斷信息:\n"
+                        f"- 開倉信號分布: {dict(zip(entry_counts[0], entry_counts[1]))}\n"
+                        f"- 平倉信號分布: {dict(zip(exit_counts[0], exit_counts[1]))}"
                     )
 
 
         summary_text = f"""
-✅ 向量化回測完成！
+向量化回測完成!
 
-📊 最終統計：
-• 總任務數：{total_backtests}
-• 成功：{success_count} ({success_count / total_backtests * 100:.1f}%)
-• 失敗：{error_count} ({error_count / total_backtests * 100:.1f}%)
-• 無交易：{zero_trade_count} ({zero_trade_count / total_backtests * 100:.1f}%)
-• 總耗時：{total_time:.1f}秒
-• 記憶體使用：{memory_used:.1f} MB
-• 平均速度：{total_backtests / total_time:.0f} 任務/秒{diagnostic_info}
+最終統計:
+- 總任務數: {total_backtests}
+- 成功: {success_count} ({success_count / total_backtests * 100:.1f}%)
+- 失敗: {error_count} ({error_count / total_backtests * 100:.1f}%)
+- 無交易: {zero_trade_count} ({zero_trade_count / total_backtests * 100:.1f}%)
+- 總耗時: {total_time:.1f}秒
+- 記憶體使用: {memory_used:.1f} MB
+- 平均速度: {total_backtests / total_time:.0f} 任務/秒{diagnostic_info}
 """
 
         show_info("BACKTESTER", summary_text)
@@ -549,7 +550,7 @@ class VectorBacktestEngine:
             TaskProgressColumn(),
             TextColumn("({task.completed}/{task.total})"),
             TimeElapsedColumn(),
-            TextColumn("•"),
+            TextColumn("-"),
             TimeRemainingColumn(),
             console=console,
         )
@@ -598,7 +599,7 @@ class VectorBacktestEngine:
         with parallel_progress:
             # 創建進度條任務
             progress_task = parallel_progress.add_task(
-                "📊 [3/3] 生成回測結果", total=total_backtests
+                "[3/3] 生成回測結果", total=total_backtests
             )
             
             all_results = self._generate_all_results_vectorized(
@@ -675,7 +676,7 @@ class VectorBacktestEngine:
             TaskProgressColumn(),
             TextColumn("({task.completed}/{task.total})"),
             TimeElapsedColumn(),
-            TextColumn("•"),
+            TextColumn("-"),
             TimeRemainingColumn(),
             console=console,
         )
@@ -687,11 +688,11 @@ class VectorBacktestEngine:
             # 使用分組處理策略，解決維度衝突問題
             # total = 1 (分組) + len(strategy_groups) (處理每個分組)
             signal_task = signal_progress.add_task(
-                "🚀 信號生成 (分組處理)", total=1 + len(strategy_groups)
+                "信號生成 (分組處理)", total=1 + len(strategy_groups)
             )
             
             # 完成分組步驟
-            signal_progress.update(signal_task, completed=1, description=f"🚀 [1/{1 + len(strategy_groups)}] 信號生成 - 已分組 {len(strategy_groups)} 個策略組")
+            signal_progress.update(signal_task, completed=1, description=f"[1/{1 + len(strategy_groups)}] 信號生成 - 已分組 {len(strategy_groups)} 個策略組")
 
             # 步驟2: 處理每個策略分組
             completed_groups = 0
@@ -723,7 +724,7 @@ class VectorBacktestEngine:
                 signal_progress.update(
                     signal_task, 
                     completed=current_step, 
-                    description=f"🚀 [{current_step}/{total_steps}] 信號生成 - 已處理 {completed_groups}/{len(strategy_groups)} 個策略分組"
+                    description=f"[{current_step}/{total_steps}] 信號生成 - 已處理 {completed_groups}/{len(strategy_groups)} 個策略分組"
                 )
 
         # 返回單個numpy數組，與原版格式一致
@@ -843,7 +844,7 @@ class VectorBacktestEngine:
             TaskProgressColumn(),
             TextColumn("({task.completed}/{task.total})"),
             TimeElapsedColumn(),
-            TextColumn("•"),
+            TextColumn("-"),
             TimeRemainingColumn(),
             console=console,
         )
@@ -990,6 +991,71 @@ class VectorBacktestEngine:
         else:
             # 多批次並行處理
             results = []
+
+            # Test/CI support: avoid multiprocessing (Windows/pytest can be flaky with
+            # ProcessPool). Default behavior is unchanged unless this env var is set.
+            disable_multiprocess = (
+                os.environ.get("LO2CIN4BT_DISABLE_MULTIPROCESS", "").strip().lower()
+                in ("1", "true", "yes", "y")
+            )
+            if disable_multiprocess:
+                for batch_idx, batch_idx_list in enumerate(batch_indices):
+                    try:
+                        batch_data = self._prepare_batch_data(
+                            batch_idx_list,
+                            all_tasks,
+                            all_trade_results,
+                            all_signals,
+                            condition_pairs,
+                            trading_params,
+                        )
+                        batch_results = self._process_batch_results_optimized(batch_data)
+                        results.extend(batch_results)
+
+                        if progress_monitor is not None:
+                            progress_monitor.batch_completed(
+                                batch_idx=batch_idx,
+                                completed_tasks_in_batch=len(batch_results),
+                            )
+
+                        if (batch_idx + 1) % 3 == 0:
+                            gc.collect()
+
+                    except Exception as batch_error:
+                        show_error(
+                            "BACKTESTER",
+                            f"批次 {batch_idx + 1} 處理失敗 (no-multiprocess): {batch_error}",
+                        )
+                        batch_size = (
+                            len(batch_indices[batch_idx])
+                            if batch_idx < len(batch_indices)
+                            else 1
+                        )
+                        for j in range(batch_size):
+                            error_result = {
+                                "Backtest_id": f"error_batch_{batch_idx}_item_{j}",
+                                "strategy_id": "error",
+                                "params": {
+                                    "entry": [],
+                                    "exit": [],
+                                    "predictor": "error",
+                                },
+                                "records": pd.DataFrame(),
+                                "warning_msg": None,
+                                "error": f"批次處理失敗: {batch_error}",
+                            }
+                            results.append(error_result)
+
+                        if progress_monitor is not None:
+                            progress_monitor.batch_completed(
+                                batch_idx=batch_idx,
+                                completed_tasks_in_batch=batch_size,
+                            )
+
+                if progress_monitor is not None:
+                    progress_monitor.finish()
+                return results
+
             try:
                 with ProcessPoolExecutor(max_workers=n_cores) as executor:
                     futures = []

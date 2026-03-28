@@ -49,6 +49,7 @@ ConfigLoader_autorunner.py
 - config_template.json
 """
 
+import copy
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -231,7 +232,7 @@ class ConfigLoader:
             Dict[str, Any]: 合併後的配置字典
         """
 
-        merged_config = self.default_config.copy()
+        merged_config = copy.deepcopy(self.default_config)
 
         # 遞歸合併配置
         for key, value in config_dict.items():

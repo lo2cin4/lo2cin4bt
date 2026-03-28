@@ -1,0 +1,59 @@
+{
+  "_version": "1.0.0",
+  "_description": "Deterministic smoke fixture: file source + MA1 entry / MA4 exit with fixed ranges.",
+  "dataloader": {
+    "source": "file",
+    "frequency": "1d",
+    "start_date": "2020-01-01",
+    "end_date": "2020-01-30",
+    "handle_missing_values": "fill",
+    "missing_value_strategy": "A",
+    "file_config": {
+      "file_path": "tests/fixtures/smoke/price_data_ma_cross.csv",
+      "time_column": "time",
+      "time_format": "%Y-%m-%d",
+      "open_column": "open",
+      "high_column": "high",
+      "low_column": "low",
+      "close_column": "close",
+      "volume_column": "volume"
+    },
+    "predictor_config": {
+      "skip_predictor": true
+    }
+  },
+  "backtester": {
+    "selected_predictor": "X",
+    "condition_pairs": [
+      {
+        "entry": ["MA1"],
+        "exit": ["MA4"]
+      }
+    ],
+    "indicator_params": {
+      "MA1_strategy_1": {
+        "ma_type": "SMA",
+        "ma_range": "3:3:1"
+      },
+      "MA4_strategy_1": {
+        "ma_type": "SMA",
+        "ma_range": "3:3:1"
+      }
+    },
+    "trading_params": {
+      "transaction_cost": 0.0,
+      "slippage": 0.0,
+      "trade_delay": 0,
+      "trade_price": "open"
+    },
+    "export_config": {
+      "export_csv": false,
+      "export_excel": false
+    },
+    "initial_capital": 1000000
+  },
+  "metricstracker": {
+    "enable_metrics_analysis": false
+  }
+}
+

@@ -101,7 +101,14 @@ class BacktestRunnerAutorunner:
             backtester.results = results
             
             from backtester.TradeRecordExporter_backtester import TradeRecordExporter_backtester
-            
+
+            export_config = backtester_config.get("export_config", {})
+            output_dir = None
+            if isinstance(export_config, dict):
+                od = export_config.get("output_dir")
+                if isinstance(od, str) and od.strip():
+                    output_dir = od
+
             exporter = TradeRecordExporter_backtester(
                 trade_records=pd.DataFrame(),
                 frequency=dataloader_config.get("frequency", "1D"),
@@ -111,15 +118,29 @@ class BacktestRunnerAutorunner:
                 predictor_file_name=predictor_file_name,
                 predictor_column=predictor_column,
                 symbol=symbol,
+                output_dir=output_dir,
                 **backtester_config.get("trading_params", {})
             )
             exporter.export_to_parquet()
             
             # 根據配置導出 CSV 或 Excel
-            export_config = backtester_config.get("export_config", {})
-            if export_config.get("export_csv", False):
+
+            def _as_bool(value: Any) -> bool:
+                if isinstance(value, bool):
+                    return value
+                if isinstance(value, (int, float)) and value in (0, 1):
+                    return bool(value)
+                if isinstance(value, str):
+                    s = value.strip().lower()
+                    if s in ("1", "true", "yes", "y"):
+                        return True
+                    if s in ("0", "false", "no", "n", ""):
+                        return False
+                return False
+
+            if _as_bool(export_config.get("export_csv", False)):
                 exporter.export_to_csv()
-            if export_config.get("export_excel", False):
+            if _as_bool(export_config.get("export_excel", False)):
                 exporter.export_to_excel()
             
             # 步驟 5: 收集結果
@@ -127,13 +148,20 @@ class BacktestRunnerAutorunner:
                 "success": True,
                 "results": results,
                 "data_shape": data.shape,
-                "config": backtester_config
+                "config": backtester_config,
+                "trading_params": backtester_config.get("trading_params", {}),
+                "predictor_column": predictor_column,
+                "symbol": symbol,
+                "predictor_file_name": predictor_file_name,
+                "frequency": dataloader_config.get("frequency", "1D"),
+                "export_config": backtester_config.get("export_config", {}),
+                "Backtest_id": backtester_config.get("Backtest_id", ""),
             }
             
             return final_results
 
         except Exception as e:
-            print(f"❌ [ERROR] 回測執行失敗: {e}")
+            # Avoid emoji output that may crash legacy Windows consoles (cp950).
             show_error("BACKTESTER", f"回測執行失敗: {e}")
             return None
 
@@ -181,7 +209,7 @@ class BacktestRunnerAutorunner:
                 processed_indicator_params[param_key] = indicator_params_list
 
             except Exception as e:
-                print(f"❌ [ERROR] 處理參數 {param_key} 失敗: {e}")
+                self.logger.error("Failed to process indicator params %s: %s", param_key, e)
                 processed_indicator_params[param_key] = []
         
         # 構建最終配置
@@ -189,7 +217,9 @@ class BacktestRunnerAutorunner:
             "condition_pairs": condition_pairs,
             "indicator_params": processed_indicator_params,
             "trading_params": trading_params,
-            "predictors": predictors
+            "predictors": predictors,
+            "export_config": backtester_config.get("export_config", {}),
+            "Backtest_id": backtester_config.get("Backtest_id", ""),
         }
         
         

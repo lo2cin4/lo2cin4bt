@@ -409,13 +409,22 @@ class BaseAutorunner:
             # 創建導出器並顯示摘要
             exporter = TradeRecordExporter_backtester(
                 trade_records=pd.DataFrame(),
-                frequency=self.data_loader_frequency or "1D",
+                frequency=backtest_results.get(
+                    "frequency", self.data_loader_frequency or "1D"
+                ),
                 results=results,  # 直接使用 results 列表
                 data=pd.DataFrame(),  # 空的 DataFrame，因為我們只需要摘要
-                Backtest_id="",
-                predictor_file_name="",
-                predictor_column="",
-                **backtest_results.get("trading_params", {})
+                Backtest_id=backtest_results.get(
+                    "Backtest_id",
+                    backtest_results.get("config", {}).get("Backtest_id", ""),
+                ),
+                predictor_file_name=backtest_results.get("predictor_file_name", ""),
+                predictor_column=backtest_results.get("predictor_column", ""),
+                symbol=backtest_results.get("symbol"),
+                **backtest_results.get(
+                    "trading_params",
+                    backtest_results.get("config", {}).get("trading_params", {}),
+                )
             )
             
             # 直接調用原版方法，分支邏輯會自動判斷是否顯示用戶界面

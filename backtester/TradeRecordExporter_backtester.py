@@ -127,6 +127,7 @@ class TradeRecordExporter_backtester:
         predictor_file_name: Optional[str] = None,
         predictor_column: Optional[str] = None,
         symbol: Optional[str] = None,
+        output_dir: Optional[str] = None,
     ) -> None:
         self.trade_records = trade_records
         self.frequency = frequency
@@ -144,11 +145,14 @@ class TradeRecordExporter_backtester:
         self.symbol = symbol  # 添加 symbol 參數
         self.logger = logging.getLogger(self.__class__.__name__)
 
-        self.output_dir = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)),
-            "records",
-            "backtester",
-        )
+        if output_dir:
+            self.output_dir = os.fspath(output_dir)
+        else:
+            self.output_dir = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)),
+                "records",
+                "backtester",
+            )
         os.makedirs(self.output_dir, exist_ok=True)
         self.last_exported_path: Optional[str] = None
 
