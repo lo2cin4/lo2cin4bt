@@ -1,0 +1,10 @@
+{
+  "records_shape": [30, 26],
+  "trade_action_counts": {
+    "0": 30
+  },
+  "trade_action_sequence": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  "open_trade_rows": [],
+  "close_trade_rows": []
+}
+

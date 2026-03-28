@@ -1,0 +1,20 @@
+{
+  "records_shape": [30, 26],
+  "trade_action_counts": {
+    "0": 29,
+    "1": 1
+  },
+  "trade_action_sequence": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  "open_trade_rows": [
+    {
+      "Time": "2020-01-11",
+      "Trading_instrument": "X",
+      "Position_type": "new_long",
+      "Trade_action": 1,
+      "Parameter_set_id": "MA1_SMA(2)_X_MA2_SMA(100)",
+      "Open_position_price": 110.0,
+      "Close_position_price": 0.0
+    }
+  ],
+  "close_trade_rows": []
+}
