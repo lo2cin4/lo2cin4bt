@@ -332,6 +332,10 @@
       "trade_delay": 1,
       "trade_price": "open"
     },
+    "export_config": {
+      "export_csv": false,
+      "export_excel": false
+    },
     "initial_capital": 1000000
   },
   "metricstracker": {

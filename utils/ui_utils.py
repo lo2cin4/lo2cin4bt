@@ -23,6 +23,7 @@ show_step_panel(
 )
 """
 
+import sys
 from typing import Any, Dict, List, Optional, Tuple
 
 from rich.console import Console
@@ -59,6 +60,18 @@ COLOR_BLUE = "#1e90ff"  # 藍色（用於數值）
 _console_instance: Optional[Console] = None
 
 
+def _supports_emoji_titles() -> bool:
+    """
+    回傳目前 console 係咪適合用 emoji title。
+
+    Windows legacy console / 非 UTF-8 編碼下，Rich panel title 嘅 emoji
+    可能會觸發 UnicodeEncodeError，令原本成功嘅導出流程誤報失敗。
+    """
+
+    encoding = (getattr(sys.stdout, "encoding", None) or "").lower()
+    return encoding.startswith("utf")
+
+
 def get_console() -> Console:
     """
     獲取 Rich Console 實例（單例模式）
@@ -85,6 +98,8 @@ def _get_module_title(module: str, use_emoji: bool = True) -> str:
     """
     emoji = MODULE_EMOJI_MAP.get(module.upper(), "")
     name = MODULE_NAME_MAP.get(module.upper(), module)
+    if use_emoji and not _supports_emoji_titles():
+        use_emoji = False
     
     if use_emoji and emoji:
         return f"[bold #8f1511]{emoji} {name}[/bold #8f1511]"
@@ -105,6 +120,8 @@ def _get_step_title(module: str, step_name: str) -> str:
     """
     emoji = MODULE_EMOJI_MAP.get(module.upper(), "")
     name = MODULE_NAME_MAP.get(module.upper(), module)
+    if not _supports_emoji_titles():
+        emoji = ""
     
     if emoji:
         return f"[bold #dbac30]{emoji} {name} 步驟：{step_name}[/bold #dbac30]"
@@ -458,4 +475,3 @@ def show_statistics(
             border_style=COLOR_PRIMARY,
         )
     )
-

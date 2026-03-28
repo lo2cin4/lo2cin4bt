@@ -245,9 +245,45 @@ class VectorBacktestEngine:
     def _precompute_data(self) -> None:
         """預計算常用數據，避免重複計算"""
         # 預計算價格數據
+        required_cols = ["Open", "High", "Low", "Close", "Volume"]
+
+        # 1. 首先進行欄位標準化 (包含大小寫與常見 fallback)
+        rename_map = {}
         for col in self.data.columns:
-            if col in ["Open", "High", "Low", "Close", "Volume"]:
-                self._price_cache[col] = self.data[col].values.astype(np.float64)
+            for req in required_cols:
+                # 大小寫不敏感匹配
+                if col.lower() == req.lower():
+                    rename_map[col] = req
+        
+        # 2. 處理特定 fallback (如 Close_x)
+        if "Close" not in rename_map.values():
+            for fallback in ["Close_x", "close_x"]:
+                if fallback in self.data.columns:
+                    rename_map[fallback] = "Close"
+                    break
+        
+        if rename_map:
+            self.data.rename(columns=rename_map, inplace=True)
+
+        # 3. 進行預計算與數據清洗
+        for req_col in required_cols:
+            if req_col in self.data.columns:
+                col_data = self.data[req_col]
+                # 確保數值正確轉換，處理金融字串格式 (如 22.46K, 1.5M, 5%)
+                if not pd.api.types.is_numeric_dtype(col_data):
+                    s = col_data.astype(str).str.upper().str.replace(',', '', regex=False).str.strip()
+                    s = s.str.replace('K', 'E3', regex=False).str.replace('M', 'E6', regex=False).str.replace('B', 'E9', regex=False).str.replace('%', 'E-2', regex=False)
+                    col_data = pd.to_numeric(s, errors='coerce')
+                    # 同步回數據框，避免後續 TradeSimulator 報錯
+                    self.data[req_col] = col_data
+                
+                self._price_cache[req_col] = col_data.values.astype(np.float64)
+
+        # 4. 檢查必要欄位
+        if "Close" not in self._price_cache:
+            msg = f"數據中缺少 'Close' 欄位，可用欄位：{list(self.data.columns)}"
+            self.logger.error(msg)
+            raise KeyError(msg)
 
         # 預計算收益率
         self._price_cache["returns"] = np.zeros(len(self.data))
@@ -1176,6 +1212,7 @@ class VectorBacktestEngine:
 
                 except Exception as e:
                     error_msg = f"生成結果失敗 (task_idx={task_idx}): {str(e)}"
+                    self.logger.error(error_msg)
                     error_result = {
                         "Backtest_id": task_data[task_idx]["backtest_id"],
                         "strategy_id": (
@@ -1198,6 +1235,8 @@ class VectorBacktestEngine:
 
         except Exception as e:
             # 返回錯誤結果
+            error_msg = f"批次處理髮生重大錯誤: {str(e)}"
+            self.logger.error(error_msg)
             error_results = []
             for task_idx in batch_indices:
                 error_result = {
@@ -1329,6 +1368,7 @@ class VectorBacktestEngine:
 
             except Exception as e:
                 error_msg = f"生成結果失敗 (task_idx={task_idx}): {str(e)}"
+                self.logger.error(error_msg)
                 error_result = {
                     "Backtest_id": all_tasks["backtest_ids"][task_idx],
                     "strategy_id": (

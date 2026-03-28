@@ -288,10 +288,11 @@
             "trade_delay": 1,
             "trade_price": "open"
         },
-        "export_config": {
-            "export_csv": false
-        }
-    },
+    "export_config": {
+      "export_csv": false,
+      "export_excel": false
+    }
+  },
     "metricstracker": {
         "_help": {
             "enable_metrics_analysis": "是否啟用績效分析",

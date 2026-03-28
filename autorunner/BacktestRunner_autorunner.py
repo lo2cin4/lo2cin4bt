@@ -115,6 +115,13 @@ class BacktestRunnerAutorunner:
             )
             exporter.export_to_parquet()
             
+            # 根據配置導出 CSV 或 Excel
+            export_config = backtester_config.get("export_config", {})
+            if export_config.get("export_csv", False):
+                exporter.export_to_csv()
+            if export_config.get("export_excel", False):
+                exporter.export_to_excel()
+            
             # 步驟 5: 收集結果
             final_results = {
                 "success": True,

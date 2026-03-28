@@ -88,6 +88,15 @@ class DataValidator:
 
         # 動態識別數值欄位（排除 Time）
         numeric_cols = [col for col in self.data.columns if col != "Time"]
+
+        # 清洗數值欄位，處理金融字串格式 (如 22.46K, 1.5M, 5%)
+        for col in numeric_cols:
+            if not pd.api.types.is_numeric_dtype(self.data[col]):
+                s = self.data[col].astype(str).str.upper().str.replace(',', '', regex=False).str.strip()
+                # 處理 K, M, B, % 並轉換為科學記數法格式供 to_numeric 解析
+                s = s.str.replace('K', 'E3', regex=False).str.replace('M', 'E6', regex=False).str.replace('B', 'E9', regex=False).str.replace('%', 'E-2', regex=False)
+                self.data[col] = pd.to_numeric(s, errors='coerce')
+
         missing_df = pd.DataFrame(
             {
                 "欄位": numeric_cols,

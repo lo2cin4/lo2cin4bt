@@ -183,7 +183,7 @@ class AbstractDataLoader(ABC):
                 col_map[col] = "Low"
             elif col_lower in ["close", "c"]:
                 col_map[col] = "Close"
-            elif col_lower in ["volume", "vol", "v"]:
+            elif col_lower in ["volume", "vol", "v", "vol."]:
                 col_map[col] = "Volume"
 
         return data.rename(columns=col_map)
@@ -215,7 +215,13 @@ class AbstractDataLoader(ABC):
         for col in numeric_cols:
             if col in data.columns:
                 try:
-                    data[col] = pd.to_numeric(data[col], errors="coerce")
+                    # 支援金融符號轉換
+                    if not pd.api.types.is_numeric_dtype(data[col]):
+                        s = data[col].astype(str).str.upper().str.replace(',', '', regex=False).str.strip()
+                        s = s.str.replace('K', 'E3', regex=False).str.replace('M', 'E6', regex=False).str.replace('B', 'E9', regex=False).str.replace('%', 'E-2', regex=False)
+                        data[col] = pd.to_numeric(s, errors="coerce")
+                    else:
+                        data[col] = pd.to_numeric(data[col], errors="coerce")
                 except Exception as e:
                     self.show_warning(f"無法轉換欄位 '{col}' 為數值：{e}")
                     data[col] = pd.NA

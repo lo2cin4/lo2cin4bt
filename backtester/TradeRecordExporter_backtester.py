@@ -369,6 +369,76 @@ class TradeRecordExporter_backtester:
             )
             raise
 
+    def export_to_excel(self, backtest_id: Optional[str] = None) -> None:
+        """
+        導出交易記錄至 Excel
+
+        Args:
+            backtest_id (str, optional): 指定要導出的回測ID，如果為None則導出所有結果
+        """
+        try:
+            if not self.results:
+                show_warning("BACKTESTER", "無回測結果可導出為Excel")
+                return
+
+            # 如果指定了backtest_id，只導出該回測結果
+            if backtest_id:
+                results_to_export = [
+                    r for r in self.results if r.get("Backtest_id") == backtest_id
+                ]
+                if not results_to_export:
+                    show_error("BACKTESTER", f"找不到Backtest_id為 {backtest_id} 的回測結果")
+                    return
+            else:
+                results_to_export = self.results
+
+            exported_count = 0
+            msg_lines = []
+            for result in results_to_export:
+                if result.get("error") is not None:
+                    continue
+
+                if (
+                    "records" not in result
+                    or not isinstance(result["records"], pd.DataFrame)
+                    or result["records"].empty
+                    or (result["records"]["Trade_action"] == 1).sum() == 0
+                ):
+                    continue
+
+                date_str = datetime.now().strftime("%Y%m%d")
+                Backtest_id = result["Backtest_id"]
+                params = result.get("params")
+                if params is None:
+                    continue
+                
+                predictor = params.get("predictor", "unknown")
+                strategy = self._get_strategy_name(params)
+
+                # 生成文件名
+                filename = f"{date_str}_{self.frequency}_{strategy}_{predictor}_{Backtest_id[:8]}.xlsx"
+                filepath = os.path.join(self.output_dir, filename)
+
+                # 導出Excel
+                if "Backtest_id" not in result["records"].columns:
+                    records_to_export = result["records"].copy()
+                    records_to_export["Backtest_id"] = Backtest_id
+                else:
+                    records_to_export = result["records"]
+                
+                records_to_export.to_excel(filepath, index=False)
+                msg_lines.append(f"已導出 Excel: {filename}")
+                exported_count += 1
+
+            if exported_count > 0:
+                show_success("BACKTESTER", f"Excel 導出完成，共導出 {exported_count} 個文件")
+            else:
+                show_warning("BACKTESTER", "沒有成功導出任何Excel文件")
+                
+        except Exception as e:
+            self.logger.error(f"Excel 導出失敗: {e}")
+            show_error("BACKTESTER", f"Excel 導出失敗: {e}")
+
     def _create_parquet_filename(self) -> tuple[str, str]:
         """創建 Parquet 文件名和路徑
 

@@ -71,12 +71,17 @@ class FileLoader(AbstractDataLoader):
         """
         while True:
             # 獲取文件路徑
-            file_name = self._get_file_path()
+            file_name = getattr(self, "file_path", None)
+            if not file_name:
+                file_name = self._get_file_path()
+            
             if file_name is None:
                 continue
 
             # 獲取頻率設定
-            frequency = self._get_frequency()
+            frequency = getattr(self, "interval", None)
+            if not frequency:
+                frequency = self._get_frequency()
 
             # 讀取並處理文件
             result = self._read_and_process_file(file_name, frequency)

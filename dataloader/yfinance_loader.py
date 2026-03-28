@@ -113,14 +113,24 @@ class YahooFinanceLoader(AbstractDataLoader):
 
     def _get_ticker(self) -> str:
         """Get ticker symbol from user input"""
+        ticker = getattr(self, "symbol", None)
+        if ticker:
+            return ticker
         return self.get_user_input("請輸入股票或指數代碼（例如 TSLA", "TSLA")
 
     def _get_frequency(self) -> str:
         """Get data frequency from user input"""
+        frequency = getattr(self, "interval", None)
+        if frequency:
+            return frequency
         return self.get_frequency("1d")
 
     def _get_date_range(self) -> Tuple[str, str]:
         """Get date range from user input"""
+        start_date = getattr(self, "start_date", None)
+        end_date = getattr(self, "end_date", None)
+        if start_date and end_date:
+            return start_date, end_date
         return self.get_date_range()
 
     def _download_data(

@@ -593,7 +593,8 @@ class PredictorLoader:
 
             # 時間對齊（inner join）
             merged = price_data.merge(
-                predictor_data, left_index=True, right_index=True, how="inner"
+                predictor_data, left_index=True, right_index=True, how="inner",
+                suffixes=('', '_predictor')
             )
 
             if merged.empty:
