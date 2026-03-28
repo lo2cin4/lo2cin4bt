@@ -6,12 +6,15 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 sys.modules.pop("autorunner", None)
+
+pytestmark = pytest.mark.regression
 
 
 def _fixtures_dir() -> Path:
@@ -129,4 +132,3 @@ def test_phase1_no_trade_path(tmp_path, monkeypatch) -> None:
 def test_phase1_open_without_close_path(tmp_path, monkeypatch) -> None:
     records = _run_case("open_no_close_autorunner_config.json", tmp_path, monkeypatch)
     _assert_snapshot(records, "expected_open_no_close_snapshot.json")
-

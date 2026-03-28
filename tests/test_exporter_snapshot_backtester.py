@@ -8,12 +8,15 @@ from datetime import datetime as _real_datetime
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 sys.modules.pop("autorunner", None)
+
+pytestmark = pytest.mark.golden
 
 
 def _fixtures_dir() -> Path:

@@ -5,11 +5,15 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 sys.modules.pop("autorunner", None)
+
+pytestmark = pytest.mark.regression
 
 
 def _fixtures_dir() -> Path:
@@ -87,4 +91,3 @@ def test_validator_accepts_bool_like_export_flags_and_custom_output_dir(
     assert len(parquet_files) == 1
     assert len(csv_files) == 1
     assert len(xlsx_files) == 1
-
