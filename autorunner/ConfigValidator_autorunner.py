@@ -21,6 +21,19 @@ class ConfigValidator:
             "metricstracker": ["enable_metrics_analysis"],
         }
 
+    def _parse_bool_like(self, value: Any) -> Optional[bool]:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)) and value in (0, 1):
+            return bool(value)
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in ("1", "true", "yes", "y"):
+                return True
+            if normalized in ("0", "false", "no", "n", ""):
+                return False
+        return None
+
     def validate_config(self, config_file: str) -> bool:
         try:
             config = self._load_config(config_file)
@@ -168,22 +181,7 @@ class ConfigValidator:
                 # may store these values as "true"/"false").
                 if value is None:
                     continue
-                if isinstance(value, bool):
-                    continue
-                if isinstance(value, (int, float)) and value in (0, 1):
-                    continue
-                if isinstance(value, str) and value.strip().lower() in (
-                    "0",
-                    "1",
-                    "true",
-                    "false",
-                    "yes",
-                    "no",
-                    "y",
-                    "n",
-                ):
-                    continue
-                if value is not None and not isinstance(value, bool):
+                if self._parse_bool_like(value) is None:
                     self._display_validation_error(
                         f"backtester.export_config.{field} must be bool",
                         "backtester",
@@ -198,13 +196,14 @@ class ConfigValidator:
     def _validate_metricstracker_config(self, config: Dict[str, Any]) -> bool:
         try:
             enable = config.get("enable_metrics_analysis")
-            if enable is not None and not isinstance(enable, bool):
+            parsed_enable = self._parse_bool_like(enable)
+            if enable is not None and parsed_enable is None:
                 self._display_validation_error(
                     "metricstracker.enable_metrics_analysis must be bool",
                     "metricstracker",
                 )
                 return False
-            if not enable:
+            if not parsed_enable:
                 return True
 
             for field in ["risk_free_rate", "time_unit"]:
