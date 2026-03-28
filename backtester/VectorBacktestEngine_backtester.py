@@ -574,7 +574,7 @@ class VectorBacktestEngine:
         n_cores, _ = SpecMonitor.get_optimal_core_count()
         
         # 確認並行處理模式
-        show_info("BACKTESTER", f"🔧 並行處理模式: {n_tasks} 個任務, {n_cores} 核心")
+        show_info("BACKTESTER", f"並行處理模式: {n_tasks} 個任務, {n_cores} 核心")
 
         # 動態計算批次大小
         if n_tasks <= 100:
@@ -591,9 +591,9 @@ class VectorBacktestEngine:
 
         # 顯示批次配置
         if n_batches == 1:
-            show_info("BACKTESTER", f"🔧 單進程處理: {n_tasks} 個任務")
+            show_info("BACKTESTER", f"單進程處理: {n_tasks} 個任務")
         else:
-            show_info("BACKTESTER", f"🔧 批次配置: {n_batches} 個批次, 每批次約 {batch_size} 個任務")
+            show_info("BACKTESTER", f"批次配置: {n_batches} 個批次, 每批次約 {batch_size} 個任務")
 
         # 步驟4: 並行結果生成（帶進度條）
         with parallel_progress:
@@ -856,7 +856,7 @@ class VectorBacktestEngine:
 
         with trade_progress:
             trade_task = trade_progress.add_task(
-                f"📈 [2/3] 交易模擬 - {n_strategies} 個策略", total=2
+                f"[2/3] 交易模擬 - {n_strategies} 個策略", total=2
             )
             
             # 創建 TradeSimulator 實例
@@ -884,14 +884,14 @@ class VectorBacktestEngine:
                 self.symbol,  # trading_instrument
             )
             
-            trade_progress.update(trade_task, completed=1, description="📈 [2/3] 交易模擬 - 準備完成")
+            trade_progress.update(trade_task, completed=1, description="[2/3] 交易模擬 - 準備完成")
 
             # 調用 TradeSimulator 的向量化方法
             trade_results = simulator.simulate_trades_vectorized(
                 entry_signals, exit_signals, trading_params
             )
             
-            trade_progress.update(trade_task, completed=2, description=f"📈 [2/3] 交易模擬 - 完成 {n_strategies} 個策略")
+            trade_progress.update(trade_task, completed=2, description=f"[2/3] 交易模擬 - 完成 {n_strategies} 個策略")
 
         return trade_results
 
@@ -1338,7 +1338,7 @@ class VectorBacktestEngine:
         warning_threshold = memory_thresholds["warning"]
 
         console = get_console()
-        show_info("BACKTESTER", f"🔧 簡化串行處理: {n_tasks} 個任務")
+        show_info("BACKTESTER", f"簡化串行處理: {n_tasks} 個任務")
 
         # 直接使用單個numpy數組格式的信號
         entry_signals = all_signals["entry_signals"]
