@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>實驗 01 跑一個本機回測</title>
+  <link rel="stylesheet" href="../assets/lecture.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand"><strong>lo2cin4bt 課程</strong><span>實驗 01</span></div>
+      <input class="search" data-search placeholder="搜尋章節">
+      <nav class="nav-list" data-nav></nav>
+    </aside>
+    <main class="content">
+      <article class="module">
+        <p class="kicker">實驗（Lab）01</p>
+        <h1>跑一個本機回測</h1>
+        <p>這個實驗（Lab）使用一份現有 <code>strategy_run</code> 設定檔（config）。你會建立本機產物，並在瀏覽器檢查結果。</p>
+
+        <section class="lab-overview">
+          <div>
+            <p class="eyebrow">學習目標</p>
+            <h2>本實驗會完成甚麼</h2>
+            <p>你會跑一次回測、找到 <code>run_id</code>、分辨比較頁與細節頁，最後確認產物結構完整。</p>
+          </div>
+          <div class="prerequisite-card">
+            <span aria-hidden="true">i</span>
+            <p><strong>未用過平台？</strong><br>請讀模組（Module）00。能打開 2424 的讀者可由步驟 1 開始。</p>
+          </div>
+        </section>
+
+        <div class="mode-grid">
+          <section class="mode-card manual">
+            <div class="mode-card-header">
+              <span class="mode-icon" aria-hidden="true">▶</span>
+              <div><p class="eyebrow">人工操作路線（Manual route）</p><h2>人工操作版</h2></div>
+            </div>
+            <div class="lab-steps">
+              <article class="lab-step">
+                <span class="step-number">1</span>
+                <div>
+                  <h3>啟動平台</h3>
+                  <p>執行 <code>python main.py</code>，打開 <code>http://127.0.0.1:2424/</code>。</p>
+                  <p class="expected"><strong>預期結果：</strong>看到 lo2cin4bt 側邊欄與總覽頁。</p>
+                  <p class="common-problem"><strong>常見問題：</strong>連線被拒絕代表服務未啟動，先看終端錯誤，唔好改前端路由。</p>
+                </div>
+              </article>
+              <article class="lab-step">
+                <span class="step-number">2</span>
+                <div>
+                  <h3>在執行中心（Run Center）選擇設定檔</h3>
+                  <p>打開執行中心，選擇 <code>workspace/runs/</code> 內一份回測設定檔（Backtest config）。</p>
+                  <p class="expected"><strong>預期結果：</strong>畫面顯示策略名稱、流程、資料來源與執行按鈕。</p>
+                  <p class="common-problem"><strong>常見問題：</strong>清單為空時，確認範例是否已初始化至 <code>workspace/runs/</code>。</p>
+                </div>
+              </article>
+              <article class="lab-step">
+                <span class="step-number">3</span>
+                <div>
+                  <h3>執行並等待完成</h3>
+                  <p>按執行，留意資料載入（dataloader）、回測（backtester）、驗證（valid）、績效計算（metricstracker）與繪圖資料（plotter）各階段。</p>
+                  <p class="expected"><strong>預期結果：</strong>工作顯示完成，並產生新的 <code>run_id</code>。</p>
+                  <p class="common-problem"><strong>常見問題：</strong>任何階段失敗都應讀原始錯誤與階段（stage），不應加例外跳過。</p>
+                </div>
+              </article>
+              <article class="lab-step">
+                <span class="step-number">4</span>
+                <div>
+                  <h3>閱讀兩種結果頁</h3>
+                  <p>指標總覽（Metrics Overview）比較候選。回測詳情（Backtests）顯示單一結果的曲線、交易、配置、成本與風險。</p>
+                  <p class="expected"><strong>預期結果：</strong>兩頁使用同一份已驗證結果套件（validated result bundle），主要指標一致。</p>
+                  <p class="common-problem"><strong>常見問題：</strong>若一頁有值，另一頁為不適用（n/a），問題位於前端資料與契約（payload / contract），不代表策略沒有數據。</p>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section class="mode-card agent" id="agent-route">
+            <div class="mode-card-header">
+              <span class="mode-icon" aria-hidden="true">◆</span>
+              <div><p class="eyebrow">人工智能輔助路線（AI-assisted route）</p><h2>代理與技能版（Agent / Skill）</h2></div>
+            </div>
+            <p class="agent-intro">你提供指令，人工智能（AI）負責操作平台。專案經理（ProjectManager）理解任務，<code>lo2cin4btWorkAgent</code> 執行，技能（Skill）提供步驟與驗收規則。</p>
+            <pre><code>請先閱讀 agents/lo2cin4bt_PM.agent.md 和 skills/lo2cin4bt/SKILL.md。
+這次任務請由 lo2cin4btWorkAgent 使用 lo2cin4bt-backtesting。
+目標：選擇 workspace/runs/ 內一份回測設定檔（Backtest config），完成本機回測，列出 run_id、設定檔（config）、前端資料（payload）和輸出路徑。
+完成後使用 lo2cin4bt-acceptance 檢查 dataloader -> backtester -> valid -> metricstracker -> plotter。
+不要做實盤交易，不要連接經紀商（broker）下單。</code></pre>
+            <div class="callout success">
+              <strong>預期結果</strong>
+              <p>人工智能（AI）回報所用設定檔（config）、run_id、各階段（stage）狀態、結果頁與驗收命令，而不是只回答「完成」。</p>
+            </div>
+            <div class="callout warning">
+              <strong>常見問題</strong>
+              <p>若人工智能沒有讀代理與技能（Agent / Skill）便改碼，請停止工作，並要求它列出程式庫（repo）證據及工作流程。</p>
+            </div>
+          </section>
+        </div>
+
+        <h2>完成核對清單（Checklist）</h2>
+        <p>瀏覽器會保存勾選狀態。「複製清單」按鈕可複製任務清單。</p>
+        <ul class="checklist" data-checklist="lab-01-backtest">
+          <li>執行中心（Run Center）顯示批次（batch）完成，並有新的 <code>run_id</code></li>
+          <li><code>outputs/app/run_registry/</code> 有對應登錄資料（registry）</li>
+          <li><code>outputs/app/chart_payloads/&lt;run_id&gt;/</code> 有前端資料（payload）</li>
+          <li>指標總覽（Metrics）或回測詳情（Backtests）頁能打開最新結果</li>
+          <li>若失敗，先記下設定檔路徑（config path）、階段（stage）、錯誤訊息和日誌路徑（log path），不要改策略結論</li>
+        </ul>
+
+        <section class="troubleshooting">
+          <div class="troubleshooting-title"><span aria-hidden="true">▲</span><h2>如果結果頁沒有資料</h2></div>
+          <p>
+            執行中心（Run Center）讀到 <code>workspace/runs/</code> 的設定檔（config），只代表可以選擇和執行策略。
+            指標總覽（Metrics Overview）、參數矩陣（Parameter Matrix）、回測詳情（Backtests）和前向分析（WFA）頁面顯示已完成執行紀錄（run）的結果。
+            如果 <code>outputs/app/latest_runs.json</code> 是 <code>[]</code>，
+            執行中心尚未建立可顯示的完成結果。
+          </p>
+          <p>
+            新範例應優先使用 <code>strategy_run</code>，成交假設用
+            <code>fill_model.timing = "timeline"</code> 和 <code>actions[]</code> 表達。
+          </p>
+          <ol>
+            <li>確認執行中心（Run Center）顯示完成，而不是排隊或失敗。</li>
+            <li>打開 <code>outputs/app/stage_status/</code>，找對應 <code>run_id</code> 的失敗階段（stage）。</li>
+            <li>檢查 <code>outputs/app/run_registry/</code> 與 <code>outputs/app/artifact_manifests/</code> 是否同時存在。</li>
+            <li>若執行紀錄（run）已完成但 <code>outputs/app/latest_runs.json</code> 是空陣列，請執行登錄資料（registry）驗收。不要手動建立最新執行紀錄（latest run）。</li>
+          </ol>
+        </section>
+
+        <section class="evidence">
+          <h2>專案證據</h2>
+          <ul>
+            <li><code>workspace/runs/</code></li>
+            <li><code>outputs/app/run_registry/</code></li>
+            <li><code>outputs/app/chart_payloads/&lt;run_id&gt;/</code></li>
+            <li><code>skills/lo2cin4bt-backtesting/SKILL.md</code></li>
+          </ul>
+        </section>
+
+        <div class="pager">
+          <a href="../Module_11_Factor_Analysis_Preview/index.html">上一章</a>
+          <a href="../Lab_02_Parameter_Matrix/index.html">下一個實驗</a>
+        </div>
+      </article>
+    </main>
+  </div>
+  <script src="../assets/lecture.js"></script>
+</body>
+</html>

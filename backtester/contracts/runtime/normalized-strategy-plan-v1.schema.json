@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lo2cin4bt/contracts/runtime/normalized-strategy-plan-v1.schema.json",
+  "title": "NormalizedStrategyPlanV1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "contract_id",
+    "strategy_mode_id",
+    "workflow_id",
+    "resolved_strategy_snapshot",
+    "engine_capability_requirements",
+    "canonical_runtime_plan"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "normalized_strategy_plan.v1"
+    },
+    "contract_id": {
+      "const": "lo2cin4bt.normalized_strategy_plan.v1"
+    },
+    "strategy_mode_id": {
+      "type": "string"
+    },
+    "strategy_profile_id": {
+      "type": "string"
+    },
+    "strategy_preset_id": {
+      "type": "string"
+    },
+    "workflow_id": {
+      "type": "string"
+    },
+    "result_type": {
+      "type": "string"
+    },
+    "plan_hash": {
+      "type": "string"
+    },
+    "resolved_strategy_snapshot": {
+      "type": "object"
+    },
+    "engine_capability_requirements": {
+      "type": "object"
+    },
+    "canonical_runtime_plan": {
+      "type": "object"
+    },
+    "param_axes": {
+      "type": "array"
+    },
+    "combo_guard": {
+      "type": "object"
+    },
+    "output_contracts": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,146 @@
+{
+  "schema_version": "strategy_run",
+  "platform": {
+    "strategy_mode_id": "multi_asset_portfolio",
+    "strategy_profile_id": "selection_timing_portfolio",
+    "strategy_preset_id": "single_asset_signal",
+    "workflow_id": "parameter_matrix",
+    "created_at": "2026-06-21",
+    "run_type": "example",
+    "is_default": true,
+    "display_label": "QQQ | Daily SMA Cross | yfinance"
+  },
+  "data": {
+    "provider": "yfinance",
+    "frequency": "1D",
+    "interval": "1d",
+    "calendar": "XNYS",
+    "timezone": "America/New_York",
+    "start_date": "2009-01-01",
+    "start_policy": "common_available",
+    "benchmark": {
+      "provider": "yfinance",
+      "symbol": "QQQ",
+      "label": "QQQ buy and hold",
+      "interval": "1d"
+    }
+  },
+  "universe": {
+    "symbols": [
+      "QQQ"
+    ],
+    "universe_policy": "single_asset"
+  },
+  "computed_fields": [
+    {
+      "name": "short_ma",
+      "op": "indicator.sma",
+      "source": "close",
+      "period": {
+        "param_ref": "short_ma"
+      }
+    },
+    {
+      "name": "long_ma",
+      "op": "indicator.sma",
+      "source": "close",
+      "period": {
+        "param_ref": "long_ma"
+      }
+    }
+  ],
+  "signals": {
+    "entry": {
+      "field": "short_ma",
+      "op": "crosses_above",
+      "right_field": "long_ma"
+    },
+    "exit": {
+      "field": "short_ma",
+      "op": "crosses_below",
+      "right_field": "long_ma"
+    }
+  },
+  "selection": {},
+  "allocation": {
+    "method": "position_state",
+    "target_weight": 1.0,
+    "cash_policy": "keep_unallocated_cash"
+  },
+  "rebalance": {},
+  "fill_model": {
+    "timing": "timeline",
+    "position_policy": {
+      "on_entry_signal_while_holding": "ignore_new_signal"
+    },
+    "actions": [
+      {
+        "signal": "entry",
+        "offset_bars": 1,
+        "price": "open",
+        "action": "enter"
+      },
+      {
+        "signal": "exit",
+        "offset_bars": 1,
+        "price": "open",
+        "action": "exit"
+      }
+    ],
+    "cost": {
+      "transaction_cost": 0.001,
+      "slippage": 0.0005
+    },
+    "matrix_workers": 8,
+    "matrix_result_retention": 50
+  },
+  "risk": {
+    "max_positions": 1,
+    "max_gross_exposure": 1,
+    "long_short": "long_only",
+    "allow_short": false
+  },
+  "parameter_domains": {
+    "short_ma": {
+      "type": "range",
+      "start": 20,
+      "end": 100,
+      "step": 10
+    },
+    "long_ma": {
+      "type": "range",
+      "start": 120,
+      "end": 300,
+      "step": 10
+    }
+  },
+  "combo_limits": {
+    "warn_combos": 150,
+    "hard_cap_combos": 250
+  },
+  "metricstracker": {
+    "enable_metrics_analysis": true,
+    "time_unit": 252,
+    "risk_free_rate": 0.04
+  },
+  "outputs": {
+    "equity_curve": true,
+    "trade_summary": true,
+    "entry_exit_markers": true,
+    "rebalance_audit": true,
+    "holdings": true,
+    "asset_contribution": true
+  },
+  "metadata": {
+    "example": true,
+    "local_research_only": true,
+    "strategy_id": "qqq_daily_sma_cross_yfinance_example",
+    "notes": [
+      "Reference parameter matrix for a daily QQQ SMA cross strategy.",
+      "This example uses the single_asset_signal authoring preset, which compiles into the shared selection_timing_portfolio runtime path.",
+      "short_ma spans 20 to 100 by 10; long_ma spans 120 to 300 by 10.",
+      "This public example is for local research and contract testing only.",
+      "It is not a profitability claim, WFA pass, live-trading signal, broker instruction, or investment advice."
+    ]
+  }
+}

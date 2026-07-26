@@ -1,0 +1,72 @@
+{
+  "schema_version": "1.0",
+  "contract_id": "lo2cin4bt-app-page-artifact-matrix-v1",
+  "pages": [
+    {
+      "page_id": "run_center",
+      "required_artifacts": ["run_registry", "stage_status", "run_snapshot"],
+      "optional_artifacts": ["dataloader_health", "data_lineage_manifest_json", "artifact_manifest"],
+      "blocked_conditions": ["missing_run_registry", "missing_stage_status"],
+      "partial_warning_conditions": ["missing_dataloader_health_snapshot", "missing_data_lineage_manifest"],
+      "fallback_policy": {
+        "allow_ui_rebuild": false,
+        "notes": "Run Center is registry-first and does not guess artifacts from raw outputs."
+      }
+    },
+    {
+      "page_id": "results_library",
+      "required_artifacts": ["run_registry"],
+      "optional_artifacts": ["artifact_manifest", "dataloader_health", "data_lineage_manifest_json"],
+      "blocked_conditions": ["missing_run_registry"],
+      "partial_warning_conditions": ["missing_artifact_manifest", "missing_data_lineage_manifest"],
+      "fallback_policy": {
+        "allow_ui_rebuild": false,
+        "notes": "Foundation v1 lists only managed runs that already have registry entries."
+      }
+    },
+    {
+      "page_id": "backtest_explorer",
+      "required_artifacts": ["run_registry", "backtester_parquet"],
+      "optional_artifacts": ["metricstracker_parquet", "audit_sidecar", "execution_plan_json", "dataloader_health", "data_lineage_manifest_json"],
+      "blocked_conditions": ["missing_backtester_parquet"],
+      "partial_warning_conditions": ["missing_metricstracker_parquet", "missing_audit_sidecar", "missing_execution_plan_json", "missing_data_lineage_manifest"],
+      "fallback_policy": {
+        "allow_ui_rebuild": false,
+        "notes": "Equity view blocks without primary backtester parquet; metrics cards may show a missing state."
+      }
+    },
+    {
+      "page_id": "wfa_studio",
+      "required_artifacts": ["run_registry", "wfa_parquet"],
+      "optional_artifacts": ["wfa_ranking_parquet", "audit_sidecar", "dataloader_health", "data_lineage_manifest_json"],
+      "blocked_conditions": ["missing_wfa_parquet"],
+      "partial_warning_conditions": ["missing_wfa_ranking_parquet", "missing_audit_sidecar", "missing_data_lineage_manifest"],
+      "fallback_policy": {
+        "allow_ui_rebuild": false,
+        "notes": "WFA Studio consumes canonical WFA outputs and does not rerun WFA in the browser."
+      }
+    },
+    {
+      "page_id": "statanalyser_studio",
+      "required_artifacts": ["run_registry", "statanalyser_summary_json"],
+      "optional_artifacts": ["statanalyser_tabular_output", "statanalyser_report_file", "chart_payload", "data_lineage_manifest_json"],
+      "blocked_conditions": ["missing_statanalyser_summary_json"],
+      "partial_warning_conditions": ["missing_statanalyser_tabular_output", "missing_statanalyser_report_file", "missing_chart_payload", "missing_data_lineage_manifest"],
+      "fallback_policy": {
+        "allow_ui_rebuild": false,
+        "notes": "Foundation v1 shows existing statanalyser artifacts only; unsupported analyses stay in a not-generated state."
+      }
+    },
+    {
+      "page_id": "metrics_explorer",
+      "required_artifacts": ["run_registry", "metricstracker_parquet"],
+      "optional_artifacts": ["chart_payload", "dataloader_health", "data_lineage_manifest_json"],
+      "blocked_conditions": ["missing_metricstracker_parquet"],
+      "partial_warning_conditions": ["missing_chart_payload", "missing_data_lineage_manifest"],
+      "fallback_policy": {
+        "allow_ui_rebuild": false,
+        "notes": "Metrics Explorer renders only validated metrics and PlotBundle artifacts; the UI does not rebuild missing evidence."
+      }
+    }
+  ]
+}

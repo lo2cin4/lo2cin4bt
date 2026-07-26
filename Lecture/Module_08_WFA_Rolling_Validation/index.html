@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>08 前向分析與滾動驗證</title><link rel="stylesheet" href="../assets/lecture.css"></head>
+<body><div class="layout"><aside class="sidebar"><div class="brand"><strong>lo2cin4bt 教學</strong><span>模組 08</span></div><input class="search" data-search placeholder="搜尋課程"><nav class="nav-list" data-nav></nav></aside>
+<main class="content"><article class="module">
+  <p class="kicker">模組 08</p><h1>前向分析與滾動驗證（WFA / Rolling Validation）</h1>
+  <p>前向分析（WFA）是設定檔（config）指定的驗證工作流程（workflow）。一般回測不會執行前向分析。訓練視窗負責選參數，之後的樣本外視窗（OOS window）負責測試該組參數。</p>
+  <div class="notice"><strong>不要混淆</strong><span>參數矩陣（Parameter Matrix）只展開固定參數範圍並排名；前向分析才會按時間切開樣本內（IS）與樣本外（OOS）。兩者都不保證未來表現。</span></div>
+
+  <section class="mermaid-panel"><h2>驗證流程</h2><pre class="mermaid">
+flowchart LR
+  WFAConfig["前向分析設定檔<br/>wfa_run config"] --> Windows["建立樣本內／樣本外視窗<br/>IS / OOS windows"]
+  Strategy["引用策略執行設定<br/>strategy_run"] --> Windows
+  Windows --> Search["只用樣本內（IS）選候選"]
+  Search --> Selected["每個視窗一個選定候選<br/>selected candidate"]
+  Selected --> OOS["同一共享 Rust 引擎<br/>執行一次樣本外測試"]
+  OOS --> Export["前向分析產物<br/>與儀表板資料"]
+  </pre></section>
+
+  <h2>前向分析與滾動驗證的分別</h2>
+  <table><tr><th>模式</th><th>窗口內做甚麼</th><th>適合用途</th></tr>
+    <tr><td>前向尋優（WFA optimization）</td><td>每個樣本內視窗（IS window）會選參數，樣本外（OOS）測試該視窗選出的參數。</td><td>檢查參數選擇在不同時間的表現。</td></tr>
+    <tr><td>滾動驗證（Rolling validation）</td><td>固定策略或固定參數，在多個滾動樣本外視窗（rolling OOS windows）重複驗證。</td><td>檢查表現是否依賴某一段歷史。</td></tr>
+  </table>
+
+  <h2>閱讀結果</h2>
+  <ul>
+    <li>先看每個視窗的樣本內／樣本外（IS/OOS）日期，確認沒有重疊偷看。</li>
+    <li>只把選定最優解（selected optimum）的樣本外（OOS）資料列當正式驗證結果；診斷候選（diagnostic candidates）不等於被選策略。</li>
+    <li>比較樣本外正報酬視窗比例、樣本外／樣本內比率（OOS/IS ratio）、參數變動、成本及換手率（turnover）。</li>
+    <li>相同候選（candidate）在同一樣本外視窗只執行一次；需要不同標籤時重用同一結果，不重跑計算。</li>
+  </ul>
+
+  <section class="evidence"><h2>專案證據</h2><ul>
+    <li><code>backtester/contracts/strategy/wfa-run.schema.json</code></li>
+    <li><code>validation_workflow/UnifiedPortfolioWFARunner_validation_workflow.py</code></li>
+    <li><code>validation_workflow/ResultsExporter_validation_workflow.py</code></li>
+    <li><code>workspace/wfa/*.json</code></li>
+    <li><code>tests/test_unified_portfolio_wfa_runner.py</code></li>
+  </ul></section>
+  <div class="pager"><a href="../Module_07_Backtests_Report/index.html">上一章</a><a href="../Module_09_Accounting_Risk_Invariants/index.html">下一章</a></div>
+</article></main></div><script src="../assets/lecture.js"></script></body></html>

@@ -1,0 +1,439 @@
+{
+  "batch_id": "second_round",
+  "description": "Expanded truth validation cases after first-round baseline completion.",
+  "cases": [
+    {
+      "id": "dataloader_returns_and_diff_daily",
+      "module": "dataloader",
+      "compare_mode": "old_vs_new",
+      "enabled": true,
+      "description": "Daily file source with predictor merge, returns enabled and difference enabled.",
+      "config": {
+        "dataloader": {
+          "source": "file",
+          "frequency": "1d",
+          "start_date": "2024-01-16",
+          "file_config": {
+            "file_path": "${FIXTURE_ROOT}/dataloader/price_daily_overlap_2024.csv",
+            "time_column": "time",
+            "time_format": "%Y-%m-%d",
+            "open_column": "open",
+            "high_column": "high",
+            "low_column": "low",
+            "close_column": "close",
+            "volume_column": "volume"
+          },
+          "predictor_config": {
+            "predictor_source": "file",
+            "predictor_path": "${FIXTURE_ROOT}/dataloader/etf_balance_total_slice.csv",
+            "predictor_column": "total",
+            "skip_predictor": false,
+            "time_column": "timestamp",
+            "time_format": "%d/%m/%Y"
+          },
+          "difference_config": {
+            "enable_difference": true
+          }
+        }
+      }
+    },
+    {
+      "id": "backtester_boll1_boll4",
+      "module": "backtester",
+      "compare_mode": "candidate_only_truth",
+      "enabled": true,
+      "description": "BOLL family parity on isolated daily file fixture.",
+      "config": {
+        "dataloader": {
+          "source": "file",
+          "frequency": "1d",
+          "start_date": "2024-01-17",
+          "file_config": {
+            "file_path": "${FIXTURE_ROOT}/backtester/mini_ohlc_truth.csv",
+            "time_column": "Time",
+            "time_format": "%Y-%m-%d",
+            "open_column": "Open",
+            "high_column": "High",
+            "low_column": "Low",
+            "close_column": "Close",
+            "volume_column": "Volume"
+          },
+          "predictor_config": {
+            "skip_predictor": true
+          }
+        },
+        "backtester": {
+          "strategy_mode": "v2",
+          "strategy_contract_path": "${FIXTURE_ROOT}/backtester/strategy-v2-mini-price-timer.json",
+          "engine_mode": "auto",
+          "selected_predictor": "X",
+          "trading_params": {
+            "transaction_cost": 0.0,
+            "slippage": 0.0,
+            "trade_delay": 1,
+            "trade_price": "open",
+            "execution_backend": "rust_engine"
+          },
+          "export_config": {
+            "export_csv": false,
+            "export_excel": false,
+            "output_dir": "${OUTPUT_ROOT}/records/backtester"
+          }
+        },
+        "metricstracker": {
+          "enable_metrics_analysis": false
+        }
+      },
+      "expected_truth": {
+        "resolved_engine_mode": "node_ir",
+        "expected_rows": 8,
+        "required_columns": [
+          "Time",
+          "Trade_action",
+          "Open_position_price",
+          "Close_position_price",
+          "Holding_period_count",
+          "Position_size",
+          "strategy_mode"
+        ],
+        "expected_nonzero_trade_actions": 3,
+        "entry_row": {
+          "Time": "2024-01-20",
+          "Trade_action": 1,
+          "Open_position_price": 103.0,
+          "Position_size": 1.0
+        },
+        "exit_row": {
+          "Time": "2024-01-22",
+          "Trade_action": 4,
+          "Close_position_price": 105.0,
+          "Position_size": 0.0
+        }
+      }
+    },
+    {
+      "id": "backtester_hl1_hl4",
+      "module": "backtester",
+      "compare_mode": "candidate_only_truth",
+      "enabled": true,
+      "description": "HL family parity on isolated daily file fixture.",
+      "config": {
+        "dataloader": {
+          "source": "file",
+          "frequency": "1d",
+          "start_date": "2024-01-17",
+          "file_config": {
+            "file_path": "${FIXTURE_ROOT}/backtester/mini_ohlc_truth.csv",
+            "time_column": "Time",
+            "time_format": "%Y-%m-%d",
+            "open_column": "Open",
+            "high_column": "High",
+            "low_column": "Low",
+            "close_column": "Close",
+            "volume_column": "Volume"
+          },
+          "predictor_config": {
+            "skip_predictor": true
+          }
+        },
+        "backtester": {
+          "strategy_mode": "v2",
+          "strategy_contract_path": "${FIXTURE_ROOT}/backtester/strategy-v2-mini-price-timer.json",
+          "engine_mode": "auto",
+          "selected_predictor": "X",
+          "trading_params": {
+            "transaction_cost": 0.0,
+            "slippage": 0.0,
+            "trade_delay": 1,
+            "trade_price": "open",
+            "execution_backend": "rust_engine"
+          },
+          "export_config": {
+            "export_csv": false,
+            "export_excel": false,
+            "output_dir": "${OUTPUT_ROOT}/records/backtester"
+          }
+        },
+        "metricstracker": {
+          "enable_metrics_analysis": false
+        }
+      },
+      "expected_truth": {
+        "resolved_engine_mode": "node_ir",
+        "expected_rows": 8,
+        "required_columns": [
+          "Time",
+          "Trade_action",
+          "Open_position_price",
+          "Close_position_price",
+          "Holding_period_count",
+          "Position_size",
+          "strategy_mode"
+        ],
+        "expected_nonzero_trade_actions": 3,
+        "entry_row": {
+          "Time": "2024-01-20",
+          "Trade_action": 1,
+          "Open_position_price": 103.0,
+          "Position_size": 1.0
+        },
+        "exit_row": {
+          "Time": "2024-01-22",
+          "Trade_action": 4,
+          "Close_position_price": 105.0,
+          "Position_size": 0.0
+        }
+      }
+    },
+    {
+      "id": "backtester_perc1_perc4",
+      "module": "backtester",
+      "compare_mode": "candidate_only_truth",
+      "enabled": true,
+      "description": "PERC family parity on isolated daily file fixture.",
+      "config": {
+        "dataloader": {
+          "source": "file",
+          "frequency": "1d",
+          "start_date": "2024-01-17",
+          "file_config": {
+            "file_path": "${FIXTURE_ROOT}/backtester/mini_ohlc_truth.csv",
+            "time_column": "Time",
+            "time_format": "%Y-%m-%d",
+            "open_column": "Open",
+            "high_column": "High",
+            "low_column": "Low",
+            "close_column": "Close",
+            "volume_column": "Volume"
+          },
+          "predictor_config": {
+            "skip_predictor": true
+          }
+        },
+        "backtester": {
+          "strategy_mode": "v2",
+          "strategy_contract_path": "${FIXTURE_ROOT}/backtester/strategy-v2-mini-price-timer.json",
+          "engine_mode": "auto",
+          "selected_predictor": "X",
+          "trading_params": {
+            "transaction_cost": 0.0,
+            "slippage": 0.0,
+            "trade_delay": 1,
+            "trade_price": "open",
+            "execution_backend": "rust_engine"
+          },
+          "export_config": {
+            "export_csv": false,
+            "export_excel": false,
+            "output_dir": "${OUTPUT_ROOT}/records/backtester"
+          }
+        },
+        "metricstracker": {
+          "enable_metrics_analysis": false
+        }
+      },
+      "expected_truth": {
+        "resolved_engine_mode": "node_ir",
+        "expected_rows": 8,
+        "required_columns": [
+          "Time",
+          "Trade_action",
+          "Open_position_price",
+          "Close_position_price",
+          "Holding_period_count",
+          "Position_size",
+          "strategy_mode"
+        ],
+        "expected_nonzero_trade_actions": 3,
+        "entry_row": {
+          "Time": "2024-01-20",
+          "Trade_action": 1,
+          "Open_position_price": 103.0,
+          "Position_size": 1.0
+        },
+        "exit_row": {
+          "Time": "2024-01-22",
+          "Trade_action": 4,
+          "Close_position_price": 105.0,
+          "Position_size": 0.0
+        }
+      }
+    },
+    {
+      "id": "backtester_value1_value4",
+      "module": "backtester",
+      "compare_mode": "candidate_only_truth",
+      "enabled": true,
+      "description": "VALUE family parity with external predictor merge.",
+      "config": {
+        "dataloader": {
+          "source": "file",
+          "frequency": "1d",
+          "start_date": "2024-01-16",
+          "file_config": {
+            "file_path": "${FIXTURE_ROOT}/dataloader/price_daily_overlap_2024.csv",
+            "time_column": "time",
+            "time_format": "%Y-%m-%d",
+            "open_column": "open",
+            "high_column": "high",
+            "low_column": "low",
+            "close_column": "close",
+            "volume_column": "volume"
+          },
+          "predictor_config": {
+            "predictor_source": "file",
+            "predictor_path": "${FIXTURE_ROOT}/dataloader/etf_balance_total_slice.csv",
+            "predictor_column": "total",
+            "skip_predictor": false,
+            "time_column": "timestamp",
+            "time_format": "%d/%m/%Y"
+          }
+        },
+        "backtester": {
+          "strategy_mode": "v2",
+          "strategy_contract_path": "${FIXTURE_ROOT}/backtester/strategy-v2-mini-price-timer.json",
+          "engine_mode": "auto",
+          "selected_predictor": "total",
+          "trading_params": {
+            "transaction_cost": 0.0,
+            "slippage": 0.0,
+            "trade_delay": 1,
+            "trade_price": "open",
+            "execution_backend": "rust_engine"
+          },
+          "export_config": {
+            "export_csv": false,
+            "export_excel": false,
+            "output_dir": "${OUTPUT_ROOT}/records/backtester"
+          }
+        },
+        "metricstracker": {
+          "enable_metrics_analysis": false
+        }
+      },
+      "expected_truth": {
+        "resolved_engine_mode": "node_ir",
+        "expected_rows": 8,
+        "required_columns": [
+          "Time",
+          "Trade_action",
+          "Open_position_price",
+          "Close_position_price",
+          "Holding_period_count",
+          "Position_size",
+          "strategy_mode"
+        ],
+        "expected_nonzero_trade_actions": 4,
+        "entry_row": {
+          "Time": "2024-01-18",
+          "Trade_action": 1,
+          "Open_position_price": 103.0,
+          "Position_size": 1.0
+        },
+        "exit_row": {
+          "Time": "2024-01-20",
+          "Trade_action": 4,
+          "Close_position_price": 106.0,
+          "Position_size": 0.0
+        }
+      }
+    },
+    {
+      "id": "metricstracker_from_boll_case",
+      "module": "metrics",
+      "compare_mode": "candidate_only_truth",
+      "enabled": true,
+      "description": "Run metrics from a BOLL backtest case.",
+      "config": {
+        "dataloader": {
+          "source": "file",
+          "frequency": "1d",
+          "start_date": "2024-01-17",
+          "file_config": {
+            "file_path": "${FIXTURE_ROOT}/backtester/mini_ohlc_truth.csv",
+            "time_column": "Time",
+            "time_format": "%Y-%m-%d",
+            "open_column": "Open",
+            "high_column": "High",
+            "low_column": "Low",
+            "close_column": "Close",
+            "volume_column": "Volume"
+          },
+          "predictor_config": {
+            "skip_predictor": true
+          }
+        },
+        "backtester": {
+          "strategy_mode": "v2",
+          "strategy_contract_path": "${FIXTURE_ROOT}/backtester/strategy-v2-mini-price-timer.json",
+          "engine_mode": "auto",
+          "selected_predictor": "X",
+          "trading_params": {
+            "transaction_cost": 0.0,
+            "slippage": 0.0,
+            "trade_delay": 1,
+            "trade_price": "open",
+            "execution_backend": "rust_engine"
+          },
+          "export_config": {
+            "export_csv": false,
+            "export_excel": false,
+            "output_dir": "${OUTPUT_ROOT}/records/backtester"
+          }
+        },
+        "metricstracker": {
+          "enable_metrics_analysis": true,
+          "file_selection_mode": "all",
+          "time_unit": 252,
+          "risk_free_rate": 0.02
+        }
+      },
+      "expected_truth": {
+        "metrics_rows": 8,
+        "required_columns": [
+          "Time",
+          "Equity_value",
+          "BAH_Equity",
+          "BAH_Return",
+          "Drawdown",
+          "Backtest_id"
+        ],
+        "metadata_rows": 1,
+        "backtester": {
+          "resolved_engine_mode": "node_ir",
+          "expected_rows": 8,
+          "required_columns": [
+            "Time",
+            "Trade_action",
+            "Open_position_price",
+            "Close_position_price",
+            "Holding_period_count",
+            "Position_size",
+            "strategy_mode"
+          ],
+          "expected_nonzero_trade_actions": 3,
+          "entry_row": {
+            "Time": "2024-01-20",
+            "Trade_action": 1,
+            "Open_position_price": 103.0,
+            "Position_size": 1.0
+          },
+          "exit_row": {
+            "Time": "2024-01-22",
+            "Trade_action": 4,
+            "Close_position_price": 105.0,
+            "Position_size": 0.0
+          }
+        }
+      }
+    },
+    {
+      "id": "consumer_contract_multi_artifact",
+      "module": "consumer_contract",
+      "compare_mode": "old_vs_new",
+      "enabled": false,
+      "description": "Disabled legacy Python plotter consumer contract check; visualization now lives in plotter/web.",
+      "config": {}
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "schema_version": "1.0",
+  "indicator_id": "extension.dual-threshold.confirm",
+  "family_code": "DUAL",
+  "name": "Dual Threshold Confirm Indicator",
+  "version": "1.0.0",
+  "api_version": "indicator-api-1",
+  "kind": "extension",
+  "category": "custom",
+  "entry_supported": true,
+  "exit_supported": false,
+  "stateful_execution_required": false,
+  "capabilities": {
+    "supports_multi_source": true,
+    "deterministic": true
+  },
+  "aliases": ["DUAL1"],
+  "signal_contract": {
+    "value_type": "int",
+    "allowed_values": [0, 1],
+    "semantics": {
+      "long_open": 1,
+      "short_open": 0,
+      "long_close": 0,
+      "short_close": 0
+    }
+  },
+  "input_contract": {
+    "mode": "column_params",
+    "required_column_params": ["primary_column", "confirm_column"],
+    "description": "Emit an entry confirmation when both column conditions become true. Exit should be defined separately in strategy semantics."
+  },
+  "params_schema": [
+    {
+      "name": "primary_column",
+      "type": "string",
+      "required": true,
+      "description": "Main value column"
+    },
+    {
+      "name": "confirm_column",
+      "type": "string",
+      "required": true,
+      "description": "Confirmation value column"
+    },
+    {
+      "name": "primary_threshold",
+      "type": "float",
+      "required": true
+    },
+    {
+      "name": "confirm_threshold",
+      "type": "float",
+      "required": true
+    },
+    {
+      "name": "primary_op",
+      "type": "enum",
+      "required": false,
+      "default": "gt",
+      "enum_values": ["gt", "gte", "lt", "lte"]
+    },
+    {
+      "name": "confirm_op",
+      "type": "enum",
+      "required": false,
+      "default": "gt",
+      "enum_values": ["gt", "gte", "lt", "lte"]
+    }
+  ],
+  "implementation": {
+    "default_backend": "py-user",
+    "backends": [
+      {
+        "backend_id": "py-user",
+        "language": "python",
+        "entrypoint": "indicator:DualThresholdIndicator",
+        "artifact_path": "indicator.py",
+        "priority": 10
+      }
+    ]
+  },
+  "compatibility": {
+    "lo2cin4bt_min": "2.0.0"
+  },
+  "tests": {
+    "unit_test_path": "tests/test_indicator_manifest_registry_backtester.py"
+  },
+  "description": "Example extension indicator that emits entry confirmation from two column conditions without binding exit semantics."
+}

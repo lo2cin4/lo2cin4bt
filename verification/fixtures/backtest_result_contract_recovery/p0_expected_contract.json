@@ -1,0 +1,36 @@
+{
+  "schema_version": "backtest_result_contract_recovery_fixture.v1",
+  "run_id": "20260718_b64dcb042889",
+  "candidate_id": "btcusd_monthly_nth_weekday_same_session_coinbase_example:parameter_matrix:month_week_1_weekday_wednesday",
+  "context_candidate_id": "btcusd_monthly_nth_weekday_same_session_coinbase_example:parameter_matrix:month_week_1_weekday_wednesday",
+  "expected": {
+    "result_type": "portfolio",
+    "default_curve_count": 1,
+    "benchmark_symbol": "BTC-USD",
+    "starting_balance": 100.0,
+    "matrix_variant_count": 28,
+    "x_axis_name": "month_week",
+    "x_axis_count": 4,
+    "y_axis_name": "weekday",
+    "y_axis_count": 7,
+    "candidate_equity_rows": 3258,
+    "candidate_holding_rows": 214,
+    "candidate_rebalance_rows": 214,
+    "candidate_rebalance_trade_rows": 214,
+    "candidate_total_return": 0.49696712143786903,
+    "candidate_cagr": 0.04623529351527211,
+    "candidate_sharpe": 0.104663544321547,
+    "candidate_max_drawdown": -0.29671774415429386,
+    "candidate_semantic_combo": {
+      "month_week": 1,
+      "weekday": "wednesday"
+    }
+  },
+  "source_of_truth": {
+    "matrix_summary": "outputs/app/run_snapshots/20260718_b64dcb042889/managed_artifacts/portfolio/*portfolio_matrix_summary*.json",
+    "equity": "artifact manifest: portfolio_equity_curve_parquet",
+    "holdings": "artifact manifest: portfolio_holdings_parquet",
+    "rebalance_audit": "artifact manifest: portfolio_rebalance_audit_parquet",
+    "rebalance_trades": "artifact manifest: portfolio_rebalance_trades_parquet"
+  }
+}

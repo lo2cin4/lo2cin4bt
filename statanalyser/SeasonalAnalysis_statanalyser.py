@@ -3,7 +3,7 @@ SeasonalAnalysis_statanalyser.py
 
 【功能說明】
 ------------------------------------------------------------
-本模組為 Lo2cin4BT 統計分析模組，負責對時序數據進行季節性分析（如週期性、趨勢分解等），評估時間序列的季節性模式，輔助模型選擇與策略設計。
+本模組為 lo2cin4bt 統計分析模組，負責對時序數據進行季節性分析（如週期性、趨勢分解等），評估時間序列的季節性模式，輔助模型選擇與策略設計。
 
 【流程與數據流】
 ------------------------------------------------------------
@@ -47,6 +47,7 @@ flowchart TD
 from typing import Dict
 
 import numpy as np
+import pandas as pd
 
 from .Base_statanalyser import BaseStatAnalyser
 
@@ -55,9 +56,8 @@ class SeasonalAnalysis(BaseStatAnalyser):
     """季節性分析模組，檢測時間序列的週期性模式"""
 
     def analyze(self) -> Dict:
-        from utils import get_console, show_info, show_step_panel
-        console = get_console()
-        # 步驟說明 Panel
+        from utils import show_error, show_info, show_step_panel
+        # NOTE: translated to English.
         panel_content = (
             "🟢 選擇用於統計分析的預測因子\n"
             "🟢 收益率相關性檢驗[自動]\n"
@@ -73,14 +73,14 @@ class SeasonalAnalysis(BaseStatAnalyser):
         )
         show_step_panel("STATANALYSER", 1, ["季節性分析[自動]"], panel_content)
 
-        series = self.data[self.predictor_col].dropna()
+        series = pd.to_numeric(self.data[self.predictor_col], errors="coerce").dropna()
         min_lags = 100
         if len(series) < min_lags:
             msg = f"資料點數不足（{len(series)} < {min_lags}），無法進行季節性分析。建議補充更多數據。"
             show_error("STATANALYSER", msg)
             return {"success": False, "has_seasonal": False, "period": 0}
 
-        # 檢測週期
+        # NOTE: translated to English.
         max_lag = min(100, len(series) // 2)
         from statsmodels.tsa.stattools import acf
 
@@ -93,7 +93,7 @@ class SeasonalAnalysis(BaseStatAnalyser):
         best_period = 0
         if peaks:
             abs_acf = [float(abs(acf_vals[i])) for i in peaks]
-            idx = np.argmax(abs_acf)
+            idx = int(np.argmax(abs_acf))
             best_period = int(peaks[idx])
         else:
             best_period = 0
@@ -113,9 +113,9 @@ class SeasonalAnalysis(BaseStatAnalyser):
 
         try:
             result = seasonal_decompose(series, model="additive", period=best_period)
-            var_residual = np.nanvar(result.resid)
-            var_total = series.var()
-            seasonal_strength = (
+            var_residual = float(np.nanvar(result.resid))
+            var_total = float(np.asarray(series, dtype=float).var())
+            seasonal_strength = float(
                 max(0, 1 - var_residual / var_total) if var_total > 0 else 0
             )
         except ValueError as e:
@@ -131,7 +131,7 @@ class SeasonalAnalysis(BaseStatAnalyser):
             "strength": seasonal_strength,
         }
 
-        # 合併結果與策略建議 Panel
+        # NOTE: translated to English.
         merged_content = (
             "季節性分析結果\n"
             f"週期 = {best_period}\n"

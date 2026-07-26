@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>00 開始使用與人工智能手冊</title>
+  <link rel="stylesheet" href="../assets/lecture.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand"><strong>lo2cin4bt 教學</strong><span>模組 00</span></div>
+      <input class="search" data-search placeholder="搜尋章節">
+      <nav class="nav-list" data-nav></nav>
+    </aside>
+
+    <main class="content">
+      <article class="module">
+        <p class="kicker">模組 00</p>
+        <h1>開始使用與人工智能手冊（AI Manual）</h1>
+        <p>
+          lo2cin4bt 2.1.0 是以瀏覽器為主要入口的量化研究與回測工作區（workspace）。
+          使用者以結構化設定檔（config）描述策略。平台可執行單資產、多資產投資組合、
+          參數矩陣（Parameter Matrix）及前向分析（WFA）。
+        </p>
+
+        <h2>準備人工智能手冊（AI Manual）</h2>
+        <p>人工智能（AI）要按程式庫（repo）規則工作，不能用一般量化知識補出專案沒有的功能。</p>
+        <ol>
+          <li>把人工智能（AI）工作目錄指到程式庫（repo）根目錄，例如 <code>lo2cin4bt</code>。</li>
+          <li>讀取 <code>agents/lo2cin4bt_PM.agent.md</code> 和 <code>skills/lo2cin4bt/SKILL.md</code>。</li>
+          <li>由同一個 <code>lo2cin4btWorkAgent</code> 按任務讀取教學、策略建立、回測、驗收或績效分析技能（skill）。</li>
+          <li>任務資料包括 <code>skills/lo2cin4bt/references/</code>、<code>docs/ai/AI_MANUAL_SKILL.md</code>、設定檔（config）、測試（tests）與輸出檔案。</li>
+          <li>要求人工智能（AI）區分程式庫（repo）已實作內容、尚未開發內容、外部建議與人工智能推論。</li>
+          <li>若缺少資產範圍（universe）、資料供應者（provider）、頻率（frequency）、交易日曆（calendar）、比較基準（benchmark）、入場、出場、配置（allocation）、風控門檻（risk gate）或參數範圍（parameter domain），人工智能（AI）會列出缺口，不會編造。</li>
+        </ol>
+
+        <pre><code>請先閱讀 agents/lo2cin4bt_PM.agent.md 和 skills/lo2cin4bt/SKILL.md。
+由 lo2cin4btWorkAgent 按任務載入 lo2cin4bt-teaching、lo2cin4bt-strategy-builder、lo2cin4bt-backtesting、lo2cin4bt-acceptance 或 lo2cin4bt-performance-analysis。
+任何 repo 內沒有證據的內容，請標示為 AI 推論、外部建議或未來設計。
+如果我描述的策略目前 lo2cin4bt 做不到，請列出缺口，不要強行寫 config。</code></pre>
+
+        <h2>代理與技能（Agent / Skill）分工</h2>
+        <div class="learning-rail">
+          <div class="rail-item agent-skill-row lane-pm"><strong><code class="agent-token agent-token-pm">lo2cin4bt_PM</code></strong><span><code class="skill-token">lo2cin4bt-pm</code>：讀需求、分派任務和守住邊界。</span></div>
+          <div class="rail-item agent-skill-row lane-teaching"><strong><code class="agent-token agent-token-work">lo2cin4btWorkAgent</code></strong><span><code class="skill-token">lo2cin4bt-teaching</code>：解釋安裝、頁面、術語和學習路線。</span></div>
+          <div class="rail-item agent-skill-row lane-strategy"><strong><code class="agent-token agent-token-work">lo2cin4btWorkAgent</code></strong><span><code class="skill-token">lo2cin4bt-strategy-builder</code>：核對資料、指標、訊號、選股、配置、成交、風控及驗證能力，交出能力判斷（capability verdict）和設定檔（config）草稿。</span></div>
+          <div class="rail-item agent-skill-row lane-backtesting"><strong><code class="agent-token agent-token-work">lo2cin4btWorkAgent</code></strong><span><code class="skill-token">lo2cin4bt-backtesting</code>：處理本機回測、參數矩陣（Parameter Matrix）、前向分析（WFA）和執行中心（Run Center）問題。</span></div>
+          <div class="rail-item agent-skill-row lane-acceptance"><strong><code class="agent-token agent-token-work">lo2cin4btWorkAgent</code></strong><span><code class="skill-token">lo2cin4bt-acceptance</code>：檢查輸出是否符合說明檔（README）、契約（contract）和公開邊界。</span></div>
+          <div class="rail-item agent-skill-row lane-performance"><strong><code class="agent-token agent-token-work">lo2cin4btWorkAgent</code></strong><span><code class="skill-token">lo2cin4bt-performance-analysis</code>：用產物解釋績效、風險、交易、再平衡和前向分析（WFA）。</span></div>
+        </div>
+
+        <h2>安裝與啟動</h2>
+        <p>以下命令是程式庫（repo）內建路線。Python 或 Node.js 版本不同時，請按本機環境調整。</p>
+        <pre><code>cd lo2cin4bt
+python -m pip install -r requirements.lock
+cd plotter/web
+npm ci
+npm run build
+cd ../..
+python main.py</code></pre>
+
+        <div class="callout-grid">
+          <section class="note">
+            <h3>打開平台</h3>
+            <p>啟動後打開 <code>http://127.0.0.1:2424/</code>。執行中心（Run Center）會讀取 <code>workspace/runs/</code> 與 <code>workspace/wfa/</code>。</p>
+          </section>
+          <section class="phase">
+            <h3>外部閘道（gateway）</h3>
+            <p>富途（FUTU）或盈透證券（IBKR）需要本機套件、閘道程式、主機與連接埠（host/port）及資料權限。設定檔（config）不能取代這些環境條件。</p>
+          </section>
+        </div>
+
+        <h2>第一次使用順序</h2>
+        <div class="workflow">
+          <div class="workflow-step">
+            <strong>1</strong>
+            <div><h3>執行中心（Run Center）</h3><p>選一份現有回測設定檔（Backtest config）。第一次操作不需要建立新策略。</p></div>
+          </div>
+          <div class="workflow-step">
+            <strong>2</strong>
+            <div><h3>指標總覽（Metrics Overview）</h3><p>查看總報酬（Total Return）、年化複合成長率（CAGR）、夏普比率（Sharpe）、最大回撤（MDD）、卡瑪比率（Calmar）、比較基準（Benchmark）與資料健康（Data Health）。</p></div>
+          </div>
+          <div class="workflow-step">
+            <strong>3</strong>
+            <div><h3>回測詳情（Backtests）</h3><p>查看資金曲線（equity）、配置變化（allocation changes）、目標持倉（target holdings）、資產貢獻（asset contribution）、風控門檻稽核（risk gate audit）與不變條件（invariant）。</p></div>
+          </div>
+          <div class="workflow-step">
+            <strong>4</strong>
+            <div><h3>參數矩陣（Parameter Matrix）／前向分析（WFA）</h3><p><code>platform.workflow_id = parameter_matrix</code> 且有非空參數範圍時會產生候選矩陣。前向分析（WFA）或滾動驗證（Rolling Validation）屬另一項工作。</p></div>
+          </div>
+        </div>
+
+        <h2>前端入口</h2>
+        <ul>
+          <li>執行中心（Run Center）：選擇回測與前向分析設定檔（Walk-Forward config）。</li>
+          <li>指標總覽（Metrics Overview）：總覽總報酬（Total Return）、年化複合成長率（CAGR）、夏普比率（Sharpe）、最大回撤（MDD）及卡瑪比率（Calmar）。</li>
+          <li>參數矩陣（Parameter Matrix）：檢查候選、排名（ranking）及沒有參數範圍（no-domain）狀態。</li>
+          <li>回測詳情（Backtests）：閱讀投資組合證據（portfolio evidence）、風控門檻稽核（risk gate audit）、交易（trade）、再平衡及持倉（holdings）。</li>
+          <li>前向分析（WFA）：閱讀選定最優解（selected optimum）的樣本外視窗（OOS window）、滾動驗證與投資組合證據（portfolio evidence）。</li>
+        </ul>
+
+        <section class="evidence">
+          <h2>專案證據</h2>
+          <ul>
+            <li><code>README.md</code></li>
+            <li><code>main.py</code></li>
+            <li><code>skills/lo2cin4bt/SKILL.md</code></li>
+            <li><code>docs/ai/AI_MANUAL_SKILL.md</code></li>
+            <li><code>app/api/</code>、<code>plotter/web/</code></li>
+          </ul>
+        </section>
+
+        <div class="pager">
+          <a href="../index.html">上一章：首頁</a>
+          <a href="../Module_01_System_Map/index.html">下一章：系統地圖</a>
+        </div>
+      </article>
+    </main>
+  </div>
+  <script src="../assets/lecture.js"></script>
+</body>
+</html>

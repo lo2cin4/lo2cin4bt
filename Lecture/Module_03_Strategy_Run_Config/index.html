@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>03 統一策略執行設定</title><link rel="stylesheet" href="../assets/lecture.css"></head>
+<body><div class="layout"><aside class="sidebar"><div class="brand"><strong>lo2cin4bt 教學</strong><span>模組 03</span></div><input class="search" data-search placeholder="搜尋課程"><nav class="nav-list" data-nav></nav></aside>
+<main class="content"><article class="module">
+  <p class="kicker">模組 03</p><h1>統一策略執行設定（Strategy Run Config）</h1>
+  <p><code>strategy_run</code> 是人類與人工智能（AI）共用的策略輸入。使用者描述策略意圖，人工智能把規則寫入結構化設定檔（config）。檔名、顯示名稱與備註不能代替可執行規則。</p>
+  <div class="notice"><strong>共用規則</strong><span>策略設定範本（profile）提供不同設定檔（config）寫法。每份設定檔都會編譯成引擎請求（EngineRequest），再交給同一個 Rust 引擎。</span></div>
+
+  <h2>必要資訊</h2>
+  <table><tr><th>部分</th><th>所需內容</th></tr>
+    <tr><td><code>platform</code></td><td>id、<code>display_label</code>、建立日期與用途。</td></tr>
+    <tr><td><code>data</code> / <code>universe</code></td><td>資料供應者（provider）、資產代號（symbols）、頻率（frequency）、交易日曆（calendar）、時區（timezone）及比較基準（benchmark）。</td></tr>
+    <tr><td><code>computed_fields</code> / <code>signals</code></td><td>指標如何計算、何時形成訊號、不能偷看未來。</td></tr>
+    <tr><td><code>selection</code> / <code>allocation</code></td><td>如何選資產、目標權重、現金及持倉上限。</td></tr>
+    <tr><td><code>rebalance</code> / <code>fill_model</code></td><td>何時檢查、何時成交、價格基準、成本與滑價。</td></tr>
+    <tr><td><code>risk</code></td><td>風控觸發條件及觸發後的正式行動。</td></tr>
+    <tr><td><code>parameter_domains</code></td><td>每份 <code>strategy_run</code> 都要有。單次回測使用空物件 <code>{}</code>；參數矩陣（Parameter Matrix）及需要搜尋參數的前向分析（WFA）使用非空範圍。</td></tr>
+  </table>
+
+  <h2>現行可執行策略設定範本（profile）</h2>
+  <pre><code>{
+  "schema_version": "strategy_run",
+  "platform": {
+    "strategy_mode_id": "multi_asset_portfolio",
+    "strategy_profile_id": "selection_timing_portfolio",
+    "strategy_preset_id": "single_asset_signal",
+    "workflow_id": "single_backtest",
+    "is_default": true,
+    "created_at": "2026-07-15",
+    "display_label": "QQQ | Daily SMA Cross | yfinance"
+  },
+  "data": {
+    "provider": "yfinance",
+    "frequency": "1D",
+    "calendar": "XNYS",
+    "timezone": "America/New_York",
+    "benchmark": {"provider": "yfinance", "symbol": "QQQ"}
+  },
+  "universe": {"symbols": ["QQQ"], "universe_policy": "single_asset"},
+  "computed_fields": [
+    {"name": "short_ma", "op": "indicator.sma", "source": "close", "period": 50},
+    {"name": "long_ma", "op": "indicator.sma", "source": "close", "period": 200}
+  ],
+  "signals": {
+    "entry": {"field": "short_ma", "op": "crosses_above", "right_field": "long_ma"},
+    "exit": {"field": "short_ma", "op": "crosses_below", "right_field": "long_ma"}
+  },
+  "selection": {},
+  "allocation": {
+    "method": "position_state",
+    "target_weight": 1.0,
+    "cash_policy": "keep_unallocated_cash"
+  },
+  "rebalance": {},
+  "fill_model": {
+    "timing": "timeline",
+    "actions": [
+      {"signal": "entry", "offset_bars": 1, "price": "open", "action": "enter"},
+      {"signal": "exit", "offset_bars": 1, "price": "open", "action": "exit"}
+    ],
+    "cost": {"transaction_cost": 0.001, "slippage": 0.0}
+  },
+  "risk": {
+    "max_positions": 1,
+    "max_gross_exposure": 1,
+    "long_short": "long_only",
+    "allow_short": false
+  },
+  "parameter_domains": {},
+  "outputs": {
+    "equity_curve": true,
+    "trade_summary": true,
+    "entry_exit_markers": true,
+    "holdings": true
+  }
+}</code></pre>
+  <p>這個例子保留所有必填契約（contract）。建立策略時要以結構綱要（schema）、操作登錄表（op registry）及現有範例（examples）為準。人工智能（AI）不可自創設定檔（config）欄位。</p>
+
+  <h2>常用計算積木</h2>
+  <p>計算欄位（<code>computed_fields</code>）會由上至下執行。每一列先產生一個名字，後面的列、訊號、選股與配置規則便可使用這個名字。</p>
+  <div class="table-scroll">
+    <table class="detail-table">
+      <tr><th>類別</th><th>積木</th><th>可以處理的研究問題</th></tr>
+      <tr><td>技術指標</td><td><code>indicator.sma</code>、<code>indicator.ema</code>、<code>indicator.momentum</code>、<code>indicator.calendar_return</code></td><td>趨勢、動能、最近完成月份回報、12-1 動能。</td></tr>
+      <tr><td>技術指標</td><td><code>indicator.rsi</code>、<code>indicator.macd</code>、<code>indicator.atr</code>、<code>indicator.bollinger</code></td><td>超買超賣、趨勢變化、波幅與價格通道。</td></tr>
+      <tr><td>統計指標</td><td><code>indicator.volatility</code>、<code>indicator.zscore</code>、<code>indicator.percentile</code></td><td>波動率、相對歷史平均的位置、滾動百分位。</td></tr>
+      <tr><td>數學運算</td><td><code>math.add</code>、<code>math.subtract</code>、<code>math.multiply</code>、<code>math.divide</code></td><td>把兩個欄位或欄位與常數組成研究公式。</td></tr>
+      <tr><td>數學整理</td><td><code>math.negate</code>、<code>math.abs</code>、<code>math.clip</code></td><td>改變正負號、取絕對值、限制極端值。</td></tr>
+      <tr><td>欄位轉換</td><td><code>transform.lag</code>、<code>transform.fill_missing</code>、<code>transform.where</code></td><td>延後資料、處理缺值、按條件選值。</td></tr>
+      <tr><td>滾動窗口</td><td><code>rolling.min</code>、<code>rolling.max</code>、<code>rolling.sum</code>、<code>rolling.median</code>、<code>rolling.correlation</code></td><td>只使用當前與過去窗口，計算極值、總和、中位數與相關性。</td></tr>
+      <tr><td>同期資產比較</td><td><code>cross_section.rank</code>、<code>cross_section.percentile</code>、<code>cross_section.zscore</code>、<code>cross_section.winsorize</code></td><td>在同一日期比較不同資產，完成排名、標準化與極端值處理。</td></tr>
+    </table>
+  </div>
+
+  <details class="reference-disclosure">
+    <summary>例子：用積木寫出 B = (1 + r)W</summary>
+    <pre><code>[
+  {"name": "recent_1m_return", "op": "indicator.calendar_return",
+   "source": "close", "sampling": "month_end", "start_lag": 1, "end_lag": 0},
+  {"name": "momentum_12_1", "op": "indicator.calendar_return",
+   "source": "close", "sampling": "month_end", "start_lag": 12, "end_lag": 1},
+  {"name": "one_plus_recent_return", "op": "math.add",
+   "source": "recent_1m_return", "value": 1.0},
+  {"name": "adjusted_momentum_score", "op": "math.multiply",
+   "source": "one_plus_recent_return", "right_source": "momentum_12_1"}
+]</code></pre>
+    <p><code>recent_1m_return</code> 是最近完成月份回報 r，<code>momentum_12_1</code> 是 W。最後一列產生 B，選股規則只需按 <code>adjusted_momentum_score</code> 排名。</p>
+  </details>
+
+  <div class="callout warning"><strong>時間規則：</strong>使用收市資料計算的欄位，要等收市資料出現後才算已知。一般策略應在下一個可成交時點執行，不能把收市後才知道的結果放回同一個較早時點成交。</div>
+
+  <section class="evidence"><h2>專案證據</h2><ul>
+    <li><code>backtester/contracts/strategy/strategy-run.schema.json</code></li>
+    <li><code>backtester/contracts/strategy_authoring/strategy-authoring-layers-v1.json</code></li>
+    <li><code>skills/lo2cin4bt/references/strategy-config-fields.md</code></li>
+    <li><code>skills/lo2cin4bt/references/strategy-identity-and-summary.md</code></li>
+    <li><code>skills/lo2cin4bt/references/computed-field-building-blocks.md</code></li>
+  </ul></section>
+  <div class="pager"><a href="../Module_02_Data_Providers/index.html">上一章</a><a href="../Module_04_Backtest_Basics/index.html">下一章</a></div>
+</article></main></div><script src="../assets/lecture.js"></script></body></html>

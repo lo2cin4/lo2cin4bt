@@ -1,0 +1,17 @@
+# Developer and test dependency inputs. Install requirements-dev.lock.
+# This profile includes runtime dependencies.
+# Rust dependencies are managed by Cargo, not pip. Install Rust 1.96.0 via
+# rustup; see rust-toolchain.toml and docs/RUST_TOOLCHAIN.md.
+-r requirements.txt
+
+black>=24.3.0
+mypy>=1.18.0
+pre-commit>=3.5.0
+pytest>=7.0.0
+pytest-cov>=4.0.0
+ruff==0.13.3
+jsonschema>=4.23.0
+httpx2>=1.0.0
+pandas-stubs==2.3.0.250703
+types-pytz==2025.2.0.20250809
+types-requests==2.32.4.20250809

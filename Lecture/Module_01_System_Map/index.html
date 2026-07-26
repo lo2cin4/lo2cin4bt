@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>01 系統地圖</title>
+  <link rel="stylesheet" href="../assets/lecture.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand"><strong>lo2cin4bt 課程</strong><span>模組 01</span></div>
+      <input class="search" data-search placeholder="搜尋課程">
+      <nav class="nav-list" data-nav></nav>
+    </aside>
+
+    <main class="content">
+      <article class="module">
+        <p class="kicker">模組 01</p>
+        <h1>系統地圖</h1>
+        <p>lo2cin4bt 使用一條回測主線。策略種類只會改變設定檔（config）內容，不會建立另一個回測引擎。</p>
+
+        <section class="mermaid-panel">
+          <h2>正式回測流程</h2>
+          <pre class="mermaid">
+flowchart LR
+  Config["策略執行設定檔（strategy_run config）"] --> Normalize["Python 設定正規化與驗證"]
+  Data["市場資料載入器（dataloader）"] --> Request["引擎請求與市場資料套件（EngineRequest + MarketDataBundle）"]
+  Normalize --> Request
+  Request --> Rust["持續運行的 Rust 引擎服務（engine_service）"]
+  Rust --> Result["標準結果套件（CanonicalResultBundle）"]
+  Result --> Validate["Rust 強制結果驗證"]
+  Validate --> Metrics["Rust 績效指標與繪圖套件（metrics + PlotBundle）"]
+  Metrics --> Artifacts["應用程式產物與索引（outputs/app）"]
+  Artifacts --> API["應用程式介面（app API）"]
+  API --> UI["前端介面（plotter/web :2424）"]
+  Config -. "工作流程（workflow）選擇前向分析（WFA）或滾動驗證（rolling validation）" .-> WFA["驗證工作流程（validation_workflow）"]
+  WFA --> Request
+  Artifacts -. "可選診斷" .-> Stats["統計分析器（statanalyser）"]
+          </pre>
+          <p class="diagram-caption">Python 控制層負責安排工作、載入資料和保存產物；Rust 計算核心負責所有會改變回測結果的運算。</p>
+        </section>
+
+        <h2>各層責任</h2>
+        <table>
+          <tr><th>模組</th><th>用途</th><th>不可做的事</th></tr>
+          <tr><td>資料載入器（<code>dataloader/</code>）</td><td>讀取、對齊及標記市場資料來源。</td><td>不可自行計算策略回報。</td></tr>
+          <tr><td>回測控制層（<code>backtester/</code>）</td><td>把公開設定檔（config）正規化成共享 Rust 請求（Rust request），並管理持續運行的 Rust 服務。</td><td>不可為每個策略家族新增獨立執行路線。</td></tr>
+          <tr><td>Rust 計算核心（<code>rust/lo2cin4bt_core/</code>）</td><td>計算指標、訊號、持倉、成交、成本、風控、資金曲線、績效指標（metrics）及繪圖套件（PlotBundle）。</td><td>未通過強制結果驗證器（result validator）的結果不可交給前端。</td></tr>
+          <tr><td>驗證工作流程（<code>validation_workflow/</code>）</td><td>設定檔（config）選擇前向分析（WFA）或滾動驗證（rolling validation）時負責編排。</td><td>不可把參數矩陣（Parameter Matrix）或普通回測當成前向分析（WFA）。</td></tr>
+          <tr><td>統計分析器（<code>statanalyser/</code>）</td><td>提供可選的研究診斷。</td><td>不可成為正式回測、績效指標（metrics）或前端的必經依賴。</td></tr>
+          <tr><td>應用程式介面與前端（<code>app/api/</code>／<code>plotter/web/</code>）</td><td>讀取同一份已驗證結果並展示。</td><td>前端不可重算或補造回測語義。</td></tr>
+        </table>
+
+        <h2>策略如何共用同一引擎</h2>
+        <p>選股擇時投資組合（<code>selection_timing_portfolio</code>）、資產配置投資組合（<code>allocation_portfolio</code>）、輪動投資組合（<code>rotation_portfolio</code>）、日曆事件投資組合（<code>calendar_event_portfolio</code>）與配對價差投資組合（<code>pair_spread_portfolio</code>）都屬於設定檔範本（config profile）。系統會把各設定檔範本驗證及編譯成同一種引擎請求（EngineRequest），再交給同一個 Rust 引擎（Rust engine）。單資產策略可視為只持有一項資產的投資組合。</p>
+
+        <section class="evidence">
+          <h2>專案證據</h2>
+          <ul>
+            <li><code>skills/lo2cin4bt/references/runtime-architecture.md</code></li>
+            <li><code>backtester/EngineRequest_backtester.py</code></li>
+            <li><code>backtester/RustCoreBridge_backtester.py</code></li>
+            <li><code>rust/lo2cin4bt_core/src/engine_runtime.rs</code></li>
+            <li><code>rust/lo2cin4bt_core/src/result_validator.rs</code></li>
+            <li><code>rust/lo2cin4bt_core/src/metrics.rs</code></li>
+            <li><code>rust/lo2cin4bt_core/src/plot.rs</code></li>
+          </ul>
+        </section>
+
+        <div class="pager">
+          <a href="../Module_00_Getting_Started/index.html">上一章</a>
+          <a href="../Module_02_Data_Providers/index.html">下一章</a>
+        </div>
+      </article>
+    </main>
+  </div>
+  <script src="../assets/lecture.js"></script>
+</body>
+</html>

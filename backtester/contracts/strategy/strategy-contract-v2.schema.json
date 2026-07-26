@@ -1,0 +1,371 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lo2cin4bt/contracts/strategy-contract-v2.schema.json",
+  "title": "lo2cin4bt Strategy Contract v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "strategy_id",
+    "data_context",
+    "entry",
+    "exit"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "2.0"
+    },
+    "strategy_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": {"type": "string"},
+      "uniqueItems": true
+    },
+    "data_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary_instrument", "frequency", "timezone"],
+      "properties": {
+        "primary_instrument": {"type": "string", "minLength": 1},
+        "frequency": {"type": "string", "minLength": 1},
+        "timezone": {"type": "string", "minLength": 1},
+        "calendar": {"type": "string"},
+        "feature_contract_ref": {"type": "string"}
+      }
+    },
+    "parameter_domains": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/parameterDomain"}
+    },
+    "entry": {"$ref": "#/$defs/node"},
+    "exit": {"$ref": "#/$defs/node"},
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "side": {"type": "string", "enum": ["long", "short"]},
+        "entry_price": {"type": "string", "enum": ["open", "close"]},
+        "exit_price": {"type": "string", "enum": ["open", "close"]},
+        "session_scope": {"type": "string", "enum": ["multi_session", "same_session"]},
+        "same_session_exit": {"type": "boolean"}
+      }
+    },
+    "engine_preferences": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requested_mode": {
+          "type": "string",
+          "enum": ["auto", "node_ir"]
+        },
+        "allow_hybrid": {"type": "boolean", "default": false},
+        "max_combinations": {"type": "integer", "minimum": 1}
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stop_loss_pct": {"type": "number", "exclusiveMinimum": 0},
+        "take_profit_pct": {"type": "number", "exclusiveMinimum": 0},
+        "time_stop_bars": {"type": "integer", "minimum": 1}
+      }
+    },
+    "max_combos": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "combo_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "warn_combos": {"type": "integer", "minimum": 1},
+        "hard_cap_combos": {"type": "integer", "minimum": 1},
+        "window_cap_combos": {"type": "integer", "minimum": 1}
+      }
+    }
+  },
+  "$defs": {
+    "parameterDomain": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "start", "end", "step"],
+          "properties": {
+            "type": {"const": "range"},
+            "start": {"type": "number"},
+            "end": {"type": "number"},
+            "step": {"type": "number", "exclusiveMinimum": 0}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "values"],
+          "properties": {
+            "type": {"const": "set"},
+            "values": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"type": ["number", "string", "boolean"]},
+              "uniqueItems": true
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "value"],
+          "properties": {
+            "type": {"const": "fixed"},
+            "value": {"type": ["number", "string", "boolean"]}
+          }
+        }
+      ]
+    },
+    "expression": {
+      "oneOf": [
+        {"type": "number"},
+        {"type": "string"},
+        {"type": "boolean"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["field"],
+          "properties": {
+            "field": {"type": "string", "minLength": 1}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["feature"],
+          "properties": {
+            "feature": {"type": "string", "minLength": 1},
+            "params": {"type": "object"},
+            "source": {"type": "string"},
+            "model_id": {"type": "string"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["param_ref"],
+          "properties": {
+            "param_ref": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    },
+    "node": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "nodes"],
+          "properties": {
+            "op": {"enum": ["and", "or"]},
+            "nodes": {
+              "type": "array",
+              "minItems": 2,
+              "items": {"$ref": "#/$defs/node"}
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "node"],
+          "properties": {
+            "op": {"const": "not"},
+            "node": {"$ref": "#/$defs/node"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "left", "right"],
+          "properties": {
+            "op": {
+              "enum": [
+                "gt",
+                "lt",
+                "ge",
+                "le",
+                "eq",
+                "ne",
+                "cross_up",
+                "cross_down"
+              ]
+            },
+            "left": {"$ref": "#/$defs/expression"},
+            "right": {"$ref": "#/$defs/expression"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "value"],
+          "properties": {
+            "op": {"enum": ["timer_bars", "time_stop_bars"]},
+            "value": {
+              "oneOf": [
+                {"type": "integer", "minimum": 1},
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["param_ref"],
+                  "properties": {
+                    "param_ref": {"type": "string", "minLength": 1}
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op"],
+          "properties": {
+            "op": {"const": "calendar.every_session"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "months"],
+          "properties": {
+            "op": {"const": "calendar.month_in"},
+            "months": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"type": "integer", "minimum": 1, "maximum": 12},
+              "uniqueItems": true
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "weekday"],
+          "properties": {
+            "op": {"const": "calendar.weekday_eq"},
+            "weekday": {
+              "oneOf": [
+                {"type": "integer", "minimum": 0, "maximum": 6},
+                {"type": "string", "minLength": 1}
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op"],
+          "properties": {
+            "op": {
+              "enum": [
+                "calendar.month_start",
+                "calendar.month_end",
+                "calendar.quarter_start",
+                "calendar.quarter_end",
+                "calendar.first_session",
+                "calendar.year_start",
+                "calendar.year_end"
+              ]
+            },
+            "months": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"type": "integer", "minimum": 1, "maximum": 12},
+              "uniqueItems": true
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "weekday"],
+          "properties": {
+            "op": {"const": "calendar.last_weekday_of_month"},
+            "weekday": {
+              "oneOf": [
+                {"type": "integer", "minimum": 0, "maximum": 6},
+                {"type": "string", "minLength": 1}
+              ]
+            },
+            "months": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"type": "integer", "minimum": 1, "maximum": 12},
+              "uniqueItems": true
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op", "weekday", "ordinal"],
+          "properties": {
+            "op": {"const": "calendar.nth_weekday_of_month"},
+            "weekday": {
+              "oneOf": [
+                {"type": "integer", "minimum": 0, "maximum": 6},
+                {"type": "string", "minLength": 1}
+              ]
+            },
+            "ordinal": {
+              "oneOf": [
+                {"type": "integer", "minimum": -5, "maximum": 5, "not": {"const": 0}},
+                {"type": "string", "minLength": 1}
+              ]
+            },
+            "months": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"type": "integer", "minimum": 1, "maximum": 12},
+              "uniqueItems": true
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op"],
+          "properties": {
+            "op": {"const": "calendar.event_date"},
+            "dates": {
+              "type": "array",
+              "items": {"type": "string", "minLength": 1}
+            },
+            "path": {"type": "string", "minLength": 1},
+            "date_column": {"type": "string", "minLength": 1},
+            "adjustment_policy": {
+              "type": "string",
+              "enum": ["skip", "previous_trading_day", "next_trading_day"]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["op"],
+          "properties": {
+            "op": {"const": "session.same_session_close"}
+          }
+        }
+      ]
+    }
+  }
+}

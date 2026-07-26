@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lo2cin4bt/app/contracts/run-snapshot-v1.schema.json",
+  "title": "lo2cin4bt App Run Snapshot v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contract_id",
+    "run_id",
+    "resolved_configs",
+    "contract_refs",
+    "execution_plan",
+    "app_runtime"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "contract_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "resolved_configs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_config", "dataloader_config", "backtester_config"],
+      "properties": {
+        "run_config": {"type": "object"},
+        "dataloader_config": {"type": "object"},
+        "backtester_config": {"type": "object"},
+        "metricstracker_config": {"type": ["object", "null"]},
+        "statanalyser_config": {"type": ["object", "null"]},
+        "wfa_config": {"type": ["object", "null"]}
+      }
+    },
+    "contract_refs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy_contract", "feature_contract"],
+      "properties": {
+        "strategy_contract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "hash"],
+          "properties": {
+            "path": {"type": "string", "minLength": 1},
+            "hash": {"type": "string", "minLength": 1}
+          }
+        },
+        "feature_contract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "hash"],
+          "properties": {
+            "path": {"type": "string", "minLength": 1},
+            "hash": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "execution_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "hash"],
+      "properties": {
+        "path": {"type": ["string", "null"]},
+        "hash": {"type": ["string", "null"]}
+      }
+    },
+    "app_runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["app_version", "server_mode", "registry_mode"],
+      "properties": {
+        "app_version": {"type": "string", "minLength": 1},
+        "server_mode": {"type": "string", "minLength": 1},
+        "registry_mode": {"type": "string", "enum": ["new_results_only", "legacy_adoption"]},
+        "entry_thread": {"type": ["string", "null"]},
+        "python_version": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

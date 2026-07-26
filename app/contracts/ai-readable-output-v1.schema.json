@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lo2cin4bt/app/contracts/ai-readable-output-v1.schema.json",
+  "title": "lo2cin4bt App AI Readable Output v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "contract_id",
+    "run_id",
+    "module",
+    "generated_at",
+    "auto_inclusion_policy",
+    "source_paths",
+    "run_registry",
+    "stage_status",
+    "artifact_manifest",
+    "payload_index",
+    "source_payloads",
+    "metric_field_catalog"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "contract_id": {"const": "lo2cin4bt-app-ai-readable-output-v1"},
+    "run_id": {"type": "string", "minLength": 1},
+    "module": {"type": "string", "minLength": 1},
+    "generated_at": {"type": "string", "minLength": 1},
+    "auto_inclusion_policy": {"type": "object", "additionalProperties": true},
+    "review_guidance": {"type": "object", "additionalProperties": true},
+    "source_paths": {"type": "object", "additionalProperties": {"type": "string"}},
+    "run_registry": {"type": "object", "additionalProperties": true},
+    "stage_status": {"type": "object", "additionalProperties": true},
+    "artifact_manifest": {"type": "object", "additionalProperties": true},
+    "artifact_summary": {"type": "object", "additionalProperties": true},
+    "artifact_index": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+    "payload_index": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+    "snapshot_index": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+    "source_payloads": {"type": "object", "additionalProperties": true},
+    "snapshot_payloads": {"type": "object", "additionalProperties": true},
+    "artifact_table_profiles": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+    "artifact_json_profiles": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+    "metric_field_catalog": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["numeric_field_count", "included_count", "truncated", "fields"],
+      "properties": {
+        "numeric_field_count": {"type": "integer", "minimum": 0},
+        "included_count": {"type": "integer", "minimum": 0},
+        "truncated": {"type": "boolean"},
+        "fields": {"type": "array", "items": {"type": "object", "additionalProperties": true}}
+      }
+    }
+  }
+}

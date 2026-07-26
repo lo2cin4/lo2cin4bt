@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>07 回測報告閱讀</title><link rel="stylesheet" href="../assets/lecture.css"></head>
+<body><div class="layout"><aside class="sidebar"><div class="brand"><strong>lo2cin4bt 教學</strong><span>模組 07</span></div><input class="search" data-search placeholder="搜尋章節"><nav class="nav-list" data-nav></nav></aside><main class="content"><article class="module">
+<p class="kicker">模組 07</p><h1>回測報告（Backtests）閱讀</h1>
+<p>回測報告包含資料、績效、風險、比較基準（Benchmark）、交易、投資組合（portfolio）行為、風控與記帳不變條件（invariant）。參數矩陣（Parameter Matrix）屬候選研究；前向分析（WFA）屬時間切片驗證。</p>
+
+<section class="mermaid-panel">
+<h2>報告閱讀順序</h2>
+<pre class="mermaid">
+flowchart LR
+  Health["資料健康（Data Health）&lt;br/&gt;資料是否可用"] --> Overview["指標總覽（Metrics Overview）&lt;br/&gt;績效與風險"]
+  Overview --> Benchmark["比較基準／超額報酬&lt;br/&gt;是否跑贏比較基準"]
+  Benchmark --> Trades["回測詳情（Backtests）&lt;br/&gt;交易、持倉、成本"]
+  Trades --> Risk["風控門檻（Risk Gate）&lt;br/&gt;風控介入"]
+  Risk --> Invariant["投資組合不變條件&lt;br/&gt;記帳一致性"]
+  Invariant --> Research{"是否做研究？"}
+  Research -- "參數候選" --> Matrix["參數矩陣（Parameter Matrix）"]
+  Research -- "時間切片" --> WFA["前向分析（WFA）"]
+</pre>
+<p class="diagram-caption">閱讀次序由資料與記帳開始，其後是績效、參數研究與穩健性驗證。</p>
+</section>
+
+<h2>前端頁面分區</h2>
+<div class="grid">
+<section class="card"><h3>指標總覽（Metrics Overview）</h3><p>這頁顯示總報酬（Total Return）、年化複合成長率（CAGR）、夏普比率（Sharpe）、最大回撤（MDD）、卡瑪比率（Calmar）、比較基準報酬（Benchmark Return）、超額報酬（Excess Return）、年化波動率（Annualized Vol）、索提諾比率（Sortino）、風險值與條件風險值（VaR/CVaR）及月份分布。交易與持倉證據要到回測詳情（Backtests）查看。</p></section>
+<section class="card"><h3>參數矩陣（Parameter Matrix）</h3><p>比較 <code>parameter_domains</code> 展開後的候選。它回答「哪些參數在歷史樣本內較好」，不是樣本外（OOS）驗證。若沒有參數範圍（domain），應顯示沒有參數範圍（no-parameter-domain），再到回測詳情（Backtests）閱讀單一策略（policy）。</p></section>
+<section class="card"><h3>回測詳情（Backtests）</h3><p>閱讀單一執行（run）的細節：資金曲線（equity）、交易（trades）、持倉（holdings）、目標持倉（target holdings）、配置變化（allocation changes）、資產貢獻（asset contribution）、成本拖累（cost drag）、風控門檻稽核（Risk Gate Audit）、投資組合不變條件（Portfolio Invariant）及資料健康（Data Health）。</p></section>
+<section class="card"><h3>前向分析（WFA）</h3><p>閱讀選定最優解（selected optimum）的樣本外（OOS）結果。每個樣本內視窗（IS window）只選一個策略（policy）進入樣本外測試；候選診斷（candidate diagnostics）不會當成樣本外通過／失敗結果（OOS pass/fail）。</p></section>
+</div>
+
+<h2>績效與風險指標</h2>
+<section class="note">
+<h2>年化與無風險利率假設</h2>
+<p>夏普比率（Sharpe）、索提諾比率（Sortino）、年化複合成長率（CAGR）、卡瑪比率（Calmar）、年化波動率（Annualized Vol）及比較基準（benchmark）年化指標使用設定檔（config）內的 <code>metricstracker.time_unit</code> 與 <code>metricstracker.risk_free_rate</code>。傳統日線資產預設 <code>252</code>，加密貨幣（crypto）預設 <code>365</code>，無風險利率預設 <code>0.04</code>。設定不同的執行結果（run）不能放在同一組夏普比率或年化複合成長率比較。</p>
+</section>
+
+<section class="note">
+<h2>Rust／Polars 指標追蹤器（metricstracker）</h2>
+<p>指標追蹤器使用程式庫（repo）鎖定的 Rust 1.96.0 工具鏈（toolchain）。Rust／Polars 讀取 Parquet 產物（artifacts）並計算績效；Python 控制層負責匯出前端資料（payload）。Rust 輸出是唯一真實來源（source of truth）。指標程式碼（metric code）有改動時要重跑迴歸測試（regression tests）。</p>
+</section>
+
+<div class="table-scroll"><table class="metric-table detail-table">
+<tr><th>指標</th><th>定義</th><th>如何解讀</th><th>常見誤讀</th><th>單資產 / 多資產差異</th></tr>
+<tr><td>總報酬（Total Return）</td><td>整段回測的累積報酬，由期末資金曲線（equity）相對初始資金計算。</td><td>顯示策略在回測期的總盈虧。</td><td>單一數字不能證明穩健；高總報酬可能來自單一暴露、尾端行情或過度調參。</td><td>單資產多反映持有／空倉節奏；多資產受配置（allocation）、再平衡及資產貢獻（asset contribution）共同影響。</td></tr>
+<tr><td>年化複合成長率（CAGR）</td><td>把整段總報酬換算成每年複利增長。</td><td>用來比較不同期間長度的策略。</td><td>短樣本數值容易誇大；不到完整市場週期要保守。</td><td>多資產要和曝險（exposure）、換手率（turnover）、比較基準（benchmark）一起看。</td></tr>
+<tr><td>夏普比率（Sharpe）</td><td>以總波動衡量的風險調整報酬。</td><td>數值越高，代表每承受一單位波動取得的報酬越高。</td><td>夏普比率不能描述尾部風險與回報路徑。</td><td>多資產分散（diversification）可能降低波動，但要確認不是假分散。</td></tr>
+<tr><td>最大回撤（Max Drawdown / MDD）</td><td>資金曲線（equity）從歷史高點到低點的最大跌幅。</td><td>衡量資金壓力與使用者能否承受策略。</td><td>低最大回撤不代表未來低風險；可能是樣本短或長期空倉。</td><td>多資產要搭配配置變化（allocation changes）尋找回撤來源。</td></tr>
+<tr><td>卡瑪比率（Calmar）</td><td><code>CAGR / abs(Max Drawdown)</code>。</td><td>用回撤（drawdown）衡量報酬品質。</td><td>最大回撤很小時，卡瑪比率會被放大。</td><td>多資產若靠低曝險壓低回撤，要同時看平均曝險（Avg Exposure）。</td></tr>
+<tr><td>比較基準報酬（Benchmark Return）</td><td>指定比較基準或推導比較基準的同期間報酬。</td><td>回答「持有比較基準會得到甚麼結果」。</td><td>錯誤比較基準會扭曲策略比較。</td><td>單資產可推導同資產買入持有（same-symbol buy-and-hold）；多資產要在設定檔（config）指定比較基準。</td></tr>
+<tr><td>超額報酬（Excess Return）</td><td>策略報酬減比較基準報酬。</td><td>判斷策略是否超越比較基準。</td><td>忽略回撤、換手率與成本會高估可用性。</td><td>多資產要確認比較基準能代表投資目標。</td></tr>
+<tr><td>年化波動率（Annualized Vol）</td><td>報酬序列的年化波動率。</td><td>衡量報酬起伏，要與年化複合成長率及夏普比率一起看。</td><td>低波動不等於低尾部風險；也可能來自低持倉。</td><td>多資產波動率受資產相關性與配置影響。</td></tr>
+<tr><td>索提諾比率（Sortino）</td><td>只懲罰下行波動的風險調整報酬。</td><td>補充夏普比率，觀察壞波動下的效率。</td><td>索提諾比率不能取代最大回撤；數值高仍可能伴隨大回撤。</td><td>多資產可因分散下行波動而改善索提諾比率。</td></tr>
+<tr><td>風險值 95／99（VaR 95 / VaR 99）</td><td>95% 或 99% 信心水準下的單期損失門檻估計。</td><td>99% 風險值較重視尾端，用來估計壞日子的損失門檻。</td><td>風險值不會說明超過門檻後的損失，也不等同最大可能損失。</td><td>多資產風險值受相關性（correlation）與集中度影響。</td></tr>
+<tr><td>條件風險值 95／99（CVaR 95 / CVaR 99）</td><td>超過風險值門檻後的平均損失。</td><td>比風險值更能描述尾部嚴重度。</td><td>樣本少時數值不穩；歷史尾部不是未來保證。</td><td>多資產若尾部同跌，條件風險值會暴露假分散問題。</td></tr>
+<tr><td>最差月份（Worst Month）</td><td>回測期間最差單月報酬。</td><td>估計月度層級可能承受的壓力。</td><td>只代表歷史樣本中的最差月份。</td><td>多資產可對照資產貢獻（Asset Contribution）尋找來源。</td></tr>
+<tr><td>最佳月份（Best Month）</td><td>回測期間最佳單月報酬。</td><td>看報酬是否集中在少數月份。</td><td>最佳月份不代表常態。</td><td>多資產最佳月份可能由單一資產貢獻主導。</td></tr>
+<tr><td>正報酬月份（Positive Months）</td><td>正報酬月份的數量或比例。</td><td>衡量月度勝率與報酬分布。</td><td>正月份多不代表總報酬好；小賺大賠仍會失敗。</td><td>多資產可能減少月度起伏，仍需看回撤與尾部風險（tail risk）。</td></tr>
+</table></div>
+
+<h2>交易品質與成本</h2>
+<div class="table-scroll"><table class="metric-table detail-table">
+<tr><th>指標</th><th>定義</th><th>如何解讀</th><th>常見誤讀</th><th>單資產 / 多資產差異</th></tr>
+<tr><td>勝率（Win Rate）</td><td>獲利交易數占全部已關閉交易數的比例。</td><td>和平均獲利（Average Win）、平均虧損（Average Loss）及獲利因子（Profit Factor）一起看。</td><td>高勝率不一定好；若平均虧損遠大於平均獲利，策略仍可能虧損。</td><td>多資產可按交易或按再平衡／資產統計，需確認前端資料（payload）定義。</td></tr>
+<tr><td>獲利因子（Profit Factor）</td><td><code>Gross Profit / abs(Gross Loss)</code>。</td><td>大於 1 表示累計獲利交易超過累計虧損交易。</td><td>交易數少時容易失真；不含未實現部位時，單獨閱讀會低估投資組合狀態。</td><td>多資產策略要搭配資產貢獻與資金曲線閱讀。</td></tr>
+<tr><td>平均獲利（Average Win）</td><td>獲利交易的平均回報或平均損益。</td><td>判斷獲利交易的典型幅度。</td><td>不代表總策略報酬；少數大贏可能拉高平均。</td><td>多資產需確認是按交易（per trade）、按資產（per asset）或投資組合層級（portfolio-level）計算。</td></tr>
+<tr><td>平均虧損（Average Loss）</td><td>虧損交易的平均回報或平均損益。</td><td>看單次錯誤的典型代價。</td><td>平均虧損小不代表尾部虧損小。</td><td>多資產虧損可能分散在多個再平衡分支（legs）。</td></tr>
+<tr><td>平均盈虧比（Average Win/Loss）</td><td>平均獲利相對平均虧損的比例。</td><td>搭配勝率判斷策略盈虧結構。</td><td>比例高但勝率很低時，策略仍可能不穩。</td><td>多資產應確認是否以已平倉交易（closed trade）計算。</td></tr>
+<tr><td>總獲利（Gross Profit）</td><td>所有獲利交易回報或損益的累計。</td><td>顯示獲利交易的收益總和。</td><td><strong>不等於總報酬（Total Return）。</strong>它沒有扣除虧損交易、持倉漂移、成本、未實現部位與投資組合記帳路徑。</td><td>多資產可能同一天有多個分支（legs），總獲利是交易層聚合。</td></tr>
+<tr><td>總虧損（Gross Loss）</td><td>所有虧損交易回報或損益的累計。</td><td>顯示策略從輸的交易累積損失多少。</td><td><strong>不等於最終虧損或總報酬。</strong>它是虧損交易集合，不是資金曲線的最終結果。</td><td>多資產總虧損需和成本、再平衡及曝險一起看。</td></tr>
+<tr><td>最長連勝（Max Consecutive Wins）</td><td>最長連續獲利交易數。</td><td>顯示策略的最長連勝。</td><td>連勝長不代表策略穩健，可能來自交易頻率。</td><td>多資產若多個分支同日關閉，連勝定義需看交易表。</td></tr>
+<tr><td>最長連敗（Max Consecutive Losses）</td><td>最長連續虧損交易數。</td><td>衡量心理壓力與風控需求。</td><td>連敗短不代表回撤小，單次大虧仍可造成大回撤。</td><td>多資產連敗可能被分散或被多個分支放大。</td></tr>
+<tr><td>平均交易換手率（Avg Trade Turnover）</td><td>每次再平衡或交易對投資組合權重／資金的平均改變幅度。</td><td>估計成本敏感度。換倉次數或幅度增加時，交易成本（transaction cost）、滑價（slippage）、稅務與容量影響也會增加。</td><td>高換手配上低成本假設會高估績效；低換手也可能來自策略反應慢。</td><td>多資產用它分析再平衡成本；單資產用它分析進出場頻率。</td></tr>
+<tr><td>成本拖累／交易成本欄位（Cost Drag / trade cost fields）</td><td>交易成本、滑價、費用對資金曲線的拖累或明細欄位。</td><td>判斷策略是否靠過度交易堆出毛績效。</td><td>忽略成本會高估高換手或短持有期（holding period）策略。</td><td>多資產成本常來自多分支再平衡；單資產成本多來自入場／出場。</td></tr>
+</table></div>
+
+<h2>投資組合、再平衡與資料健康</h2>
+<div class="table-scroll"><table class="metric-table detail-table">
+<tr><th>項目</th><th>定義</th><th>如何解讀</th><th>常見誤讀</th><th>單資產 / 多資產差異</th></tr>
+<tr><td>比較基準相關性（Benchmark Correlation）</td><td>策略報酬與比較基準報酬的相關性。</td><td>高相關代表更像比較基準曝險；低相關可能提供分散。</td><td>低相關不等於高品質，也可能是資料錯位或長期空倉。</td><td>多資產要看比較基準是否能代表投資組合目標。</td></tr>
+<tr><td>平均持倉（Avg Holdings）</td><td>平均持倉數或持倉規模。</td><td>衡量分散程度與策略活躍度。</td><td>持倉多不代表分散，資產高度相關時仍會集中。</td><td>單資產多為 0／1；多資產反映首幾名（top-N）、最大持倉（max positions）及入選資格（eligibility）。</td></tr>
+<tr><td>平均曝險（Avg Exposure）</td><td>平均市場曝險。</td><td>低曝險高報酬與滿倉高報酬的意義不同。</td><td>低曝險策略與滿倉比較基準的總報酬比較需要曝險註解。</td><td>多資產可能因現金、風控門檻或入選資格造成曝險變化。</td></tr>
+<tr><td>檢查點／排定再平衡（Checkpoints / Scheduled Rebalances）</td><td>依交易日曆、每日、每月、每年或事件觸發排定的檢查點或理論再平衡時點。</td><td>表示策略有機會檢查或再平衡的次數。</td><td>排定次數不等於真正交易次數。很多檢查點可能沒有改變目標權重。</td><td>多資產常見；單資產訊號策略（signal strategy）可能由入場／出場事件主導。</td></tr>
+<tr><td>有效再平衡（Active Rebalances）</td><td>在檢查點中造成目標權重變化或交易的再平衡次數。</td><td>顯示策略換倉頻率。</td><td><strong>有效再平衡不等於檢查點。</strong>排定再平衡是檢查時點，有效再平衡才是配置或交易變化。</td><td>多資產受排名（ranking）、入選資格、漂移（drift）與風控門檻影響；單資產多對應持有狀態改變。</td></tr>
+<tr><td>目標持倉（Target Holdings）</td><td>策略在各檢查點想持有的資產與權重。</td><td>檢查策略描述是否正確轉換，例如首名（top 1）是否只持一個資產。</td><td>目標不一定等於最終成交後持倉；風控門檻、成本與資料缺失可能改變結果。</td><td>單資產目標常是 0／1；多資產目標是權重向量（weights vector）。</td></tr>
+<tr><td>配置變化（Allocation Changes）</td><td>資產權重在各檢查點的變化。</td><td>顯示輪動（rotation）、固定權重配置漂移修正（drift correction）及設定範本（profile）切換。</td><td>期末持倉不包含中間換倉路徑。</td><td>多資產用於分析資產切換；單資產用於分析持有狀態。</td></tr>
+<tr><td>資產貢獻（Asset Contribution）</td><td>各資產對投資組合報酬的貢獻。</td><td>顯示績效來源是否集中在單一資產。</td><td>貢獻高不等於權重高，還要看持有期間與報酬。</td><td>多資產可比較各資產貢獻；單資產由該資產主導。</td></tr>
+<tr><td>風控門檻稽核（Risk Gate Audit）</td><td>風控事件紀錄：時間、門檻、觀察值、行動、受影響資產、結果目標權重及冷卻期（cooldown）。</td><td>判斷績效是否被風控介入，以及介入是否符合設定。</td><td>沒有事件不代表沒有風險，只代表門檻沒觸發或未設定。</td><td>所有策略共用先平倉（flatten-first）；後續只可永久停止（permanent stop）或進入影子交易路線（shadow route）。</td></tr>
+<tr><td>投資組合不變條件（Portfolio Invariant）</td><td>記帳一致性檢查，如現金 + 市值 = 權益、費用及持倉一致性。</td><td>確認報告不是記帳損壞後的漂亮數字。</td><td>不變條件通過不代表策略好，只代表記帳內部一致。</td><td>多資產不變條件更重要，因為多分支、再平衡與成本更複雜。</td></tr>
+<tr><td>資料健康（Data Health）</td><td>資料完整性與載入狀態摘要。</td><td>資料缺口會讓策略結果失真，績效分析要包含此欄。</td><td>績效好但資料缺失嚴重時，結果可信度會下降。</td><td>多資產要確認每個資產代號（symbol）都有足夠重疊期間。</td></tr>
+<tr><td>有效起始日（Effective Start）</td><td>可開始回測的日期，受資料起點、指標暖機期（indicator warmup）及多資產重疊區間影響。</td><td>確認績效樣本長度與暖機期是否合理。</td><td>設定檔起始日（config start date）不一定是有效起點。</td><td>多資產的有效起始日由資料最晚的資產或指標暖機期決定。</td></tr>
+<tr><td>缺失資產（Missing Assets）</td><td>請求但未成功載入或不符合要求的資產（assets）。</td><td>名單不為空時，要處理資料問題。</td><td>忽略缺失資產會令投資組合變成另一個策略。</td><td>少一個資產可能改變排名（ranking）與配置（allocation）。</td></tr>
+<tr><td>已載入資產（Loaded Assets）</td><td>成功載入並可供策略使用的資產。</td><td>確認回測資產範圍（universe）是否等於預期範圍。</td><td>已載入不代表資料沒有缺口，還要看日期與缺值。</td><td>多資產要和缺失資產（Missing Assets）、有效起始日（Effective Start）一起看。</td></tr>
+</table></div>
+
+<div class="note"><strong>閱讀次序：</strong>資料健康（Data Health）／有效起始日（Effective Start）／缺失資產（Missing Assets） → 指標總覽（Metrics Overview）的績效與風險 → 比較基準／超額報酬（Benchmark / Excess Return） → 回測詳情（Backtests）的持倉與交易 → 成本拖累／換手率（Cost Drag / Turnover） → 風控門檻稽核（Risk Gate Audit） → 投資組合不變條件（Portfolio Invariant） → 參數矩陣（Parameter Matrix）或前向分析（WFA）。</div>
+
+<section class="evidence"><h2>專案證據</h2><ul><li><code>plotter/web/src/pages/MetricsOverviewPage.tsx</code></li><li><code>plotter/web/src/pages/BacktestsPage.tsx</code></li><li><code>plotter/web/src/pages/ParameterMatrixPage.tsx</code></li><li><code>plotter/web/src/pages/WFAPage.tsx</code></li><li><code>app/api/payloads.py</code></li><li><code>rust/lo2cin4bt_core/src/result_validator.rs</code></li><li><code>rust/lo2cin4bt_core/src/metrics.rs</code></li><li><code>rust/lo2cin4bt_core/src/plot.rs</code></li></ul></section>
+<div class="pager"><a href="../Module_06_Parameter_Matrix/index.html">上一章</a><a href="../Module_08_WFA_Rolling_Validation/index.html">下一章</a></div>
+</article></main></div><script src="../assets/lecture.js"></script></body></html>

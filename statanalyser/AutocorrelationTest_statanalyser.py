@@ -1,50 +1,8 @@
-"""
-AutocorrelationTest_statanalyser.py
+"""Autocorrelation test for statanalyser."""
 
-【功能說明】
-------------------------------------------------------------
-本模組為 Lo2cin4BT 統計分析模組，負責對時序數據進行自相關檢定（如 ACF、PACF、Durbin-Watson、Ljung-Box 等），評估殘差或報酬率的自相關性與週期性，輔助模型選擇與診斷。
+from __future__ import annotations
 
-【流程與數據流】
-------------------------------------------------------------
-- 繼承 Base_statanalyser，作為統計分析子類之一
-- 檢定結果傳遞給 ReportGenerator 或下游模組
-
-```mermaid
-flowchart TD
-    A[AutocorrelationTest] -->|檢定結果| B[ReportGenerator/下游模組]
-```
-
-【維護與擴充重點】
-------------------------------------------------------------
-- 新增/修改檢定類型、參數、圖表邏輯時，請同步更新頂部註解與下游流程
-- 若介面、欄位、分析流程有變動，需同步更新本檔案與 Base_statanalyser
-- 統計結果格式如有調整，請同步通知協作者
-
-【常見易錯點】
-------------------------------------------------------------
-- 檢定參數設置錯誤或數據點不足會導致結果異常
-- 頻率設定不符或欄位型態錯誤會影響分析正確性
-- 統計結果格式不符會影響下游報表或流程
-
-【範例】
-------------------------------------------------------------
-- test = AutocorrelationTest(data, predictor_col, return_col, freq='D')
-  result = test.analyze()
-
-【與其他模組的關聯】
-------------------------------------------------------------
-- 繼承 Base_statanalyser，檢定結果傳遞給 ReportGenerator 或下游模組
-- 需與 ReportGenerator、主流程等下游結構保持一致
-
-【參考】
-------------------------------------------------------------
-- statsmodels、plotly 官方文件
-- Base_statanalyser.py、ReportGenerator_statanalyser.py
-- 專案 README
-"""
-
-from typing import Dict
+from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -56,189 +14,113 @@ from .Base_statanalyser import BaseStatAnalyser
 
 
 class AutocorrelationTest(BaseStatAnalyser):
-    """自相關性檢驗模組，檢測序列的記憶效應和週期性"""
-
     def __init__(
-        self, data: pd.DataFrame, predictor_col: str, return_col: str, freq: str = "D"
-    ):
-        super().__init__(data, predictor_col, return_col)
-        self.freq = freq.upper()
-        if self.freq not in ["D", "H", "T"]:
-            print(f"警告：未知頻率 {self.freq}，使用預設 'D'")
+        self,
+        data: pd.DataFrame,
+        predictor_col: str,
+        return_col: str,
+        freq: str = "D",
+        analysis_config: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        super().__init__(data, predictor_col, return_col, analysis_config=analysis_config)
+        self.freq = str(freq).upper() if freq else "D"
+        if self.freq not in {"D", "H", "T"}:
             self.freq = "D"
 
-    def analyze(self) -> Dict:
-        """執行 ACF 和 PACF 分析"""
+    def analyze(self) -> Dict[str, Any]:
+        from rich.table import Table
         from utils import get_console, show_info, show_step_panel
+
         console = get_console()
         series = self.data[self.predictor_col].dropna()
         if len(series) < 5:
-            print(f"3. 檢驗結果：數據點不足（{len(series)}個）")
-            return {"success": False, "acf_lags": [], "pacf_lags": []}
-        # 設置滯後期數
-        lags = {
-            "D": min(60, len(series) // 2),
-            "H": min(24, len(series) // 2),
-            "T": min(120, len(series) // 2),
-        }.get(self.freq, min(20, len(series) // 2))
-        # 美化步驟說明 Panel
+            self.results = {"success": False, "acf_lags": [], "pacf_lags": []}
+            return self.results
+
+        lags_config = self.analysis_config.get("lags")
+        if isinstance(lags_config, list) and lags_config:
+            try:
+                parsed_lags = [int(value) for value in lags_config]
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    "Autocorrelation lags must contain positive integers"
+                ) from exc
+            if any(value <= 0 for value in parsed_lags):
+                raise ValueError(
+                    "Autocorrelation lags must contain positive integers"
+                )
+            lags = max(parsed_lags)
+        else:
+            lags = 0
+
+        if lags <= 0:
+            lags = {
+                "D": min(60, len(series) // 2),
+                "H": min(24, len(series) // 2),
+                "T": min(120, len(series) // 2),
+            }.get(self.freq, min(20, len(series) // 2))
+
         panel_content = (
-            "🟢 選擇用於統計分析的預測因子\n"
-            "🟢 收益率相關性檢驗[自動]\n"
-            "🟢 ADF/KPSS 平穩性檢驗[自動]\n"
-            "🟢 ACF/PACF 自相關性檢驗[自動]\n"
-            "🔴 生成 ACF 或 PACF 互動圖片\n"
-            "🔴 統計分佈檢驗[自動]\n"
-            "🔴 季節性檢驗[自動]\n\n"
-            "[bold #dbac30]說明[/bold #dbac30]\n"
-            f"3. '{self.predictor_col}' 自相關性檢驗（ACF 和 PACF）\n"
-            "檢驗功能：檢測序列的記憶效應和週期性。如有記憶效應，代表可用歷史數據預測未來數值，用家可嘗試發掘背後原因是否具備邏輯。小心過擬合。\n"
-            f"檢測最大滯後期數：{lags}（頻率={self.freq}）"
+            "自動化自相關檢驗\n"
+            f"Predictor: {self.predictor_col}\n"
+            f"Frequency: {self.freq}\n"
+            f"Lags: {lags}\n"
         )
         show_step_panel("STATANALYSER", 1, ["自相關性檢驗[自動]"], panel_content)
 
-        # 計算 ACF 和 PACF
         acf_result = acf(series, nlags=lags, alpha=0.05, fft=True)
         if isinstance(acf_result, tuple) and len(acf_result) >= 2:
             acf_vals, acf_conf = acf_result[:2]
         else:
-            acf_vals = acf_result
-            acf_conf = None
+            acf_vals, acf_conf = acf_result, None
 
         pacf_result = pacf(series, nlags=lags, alpha=0.05)
         if isinstance(pacf_result, tuple) and len(pacf_result) >= 2:
             pacf_vals, pacf_conf = pacf_result[:2]
         else:
-            pacf_vals = pacf_result
-            pacf_conf = None
+            pacf_vals, pacf_conf = pacf_result, None
 
-        # 顯著滯後期
         threshold = 1.96 / np.sqrt(len(series))
         acf_sig_lags = [i for i in range(1, lags + 1) if abs(acf_vals[i]) > threshold]
         pacf_sig_lags = [i for i in range(1, lags + 1) if abs(pacf_vals[i]) > threshold]
 
-        # 統計結果表格
-        from rich.table import Table
-
-        # 主要統計指標表格
-        stats_table = Table(
-            title="自相關性統計指標", border_style="#dbac30", show_lines=True
-        )
-        stats_table.add_column("指標", style="bold white")
+        stats_table = Table(title="自相關統計摘要", border_style="#dbac30", show_lines=True)
+        stats_table.add_column("項目", style="bold white")
         stats_table.add_column("數值", style="bold white")
         stats_table.add_column("說明", style="bold white")
-
-        # 計算主要統計指標
-        acf_max = max(abs(acf_vals[1:])) if len(acf_vals) > 1 else 0
-        pacf_max = max(abs(pacf_vals[1:])) if len(pacf_vals) > 1 else 0
-        acf_max_lag = np.argmax(abs(acf_vals[1:])) + 1 if len(acf_vals) > 1 else 0
-        pacf_max_lag = np.argmax(abs(pacf_vals[1:])) + 1 if len(pacf_vals) > 1 else 0
-
-        stats_table.add_row(
-            "數據點數", f"[bold #1e90ff]{len(series)}[/bold #1e90ff]", "有效數據點數量"
-        )
-        stats_table.add_row(
-            "檢測滯後期",
-            f"[bold #1e90ff]{lags}[/bold #1e90ff]",
-            f"最大檢測滯後期（頻率={self.freq}）",
-        )
-        stats_table.add_row(
-            "顯著性閾值",
-            f"[bold #1e90ff]{threshold:.4f}[/bold #1e90ff]",
-            "95% 置信區間閾值",
-        )
-        stats_table.add_row(
-            "ACF 最大值",
-            f"[bold #1e90ff]{acf_max:.4f}[/bold #1e90ff]",
-            f"滯後期 {acf_max_lag}",
-        )
-        stats_table.add_row(
-            "PACF 最大值",
-            f"[bold #1e90ff]{pacf_max:.4f}[/bold #1e90ff]",
-            f"滯後期 {pacf_max_lag}",
-        )
-        stats_table.add_row(
-            "ACF 顯著期數",
-            f"[bold #1e90ff]{len(acf_sig_lags)}[/bold #1e90ff]",
-            f"超過閾值的滯後期數",
-        )
-        stats_table.add_row(
-            "PACF 顯著期數",
-            f"[bold #1e90ff]{len(pacf_sig_lags)}[/bold #1e90ff]",
-            f"超過閾值的滯後期數",
-        )
-
+        stats_table.add_row("樣本數", str(len(series)), "用於 ACF/PACF")
+        stats_table.add_row("最大滯後", str(lags), "由 config 或資料長度決定")
+        stats_table.add_row("臨界值", f"{threshold:.4f}", "95% 信賴區間")
+        stats_table.add_row("ACF 顯著滯後", str(len(acf_sig_lags)), "超過臨界值")
+        stats_table.add_row("PACF 顯著滯後", str(len(pacf_sig_lags)), "超過臨界值")
         console.print(stats_table)
 
-        # 顯著滯後期詳細表格
-        sig_table = Table(
-            title="ACF/PACF 顯著滯後期詳細結果", border_style="#dbac30", show_lines=True
-        )
+        sig_table = Table(title="ACF/PACF 顯著滯後", border_style="#dbac30", show_lines=True)
         sig_table.add_column("類型", style="bold white")
-        sig_table.add_column("顯著滯後期", style="bold white")
-        sig_table.add_column("對應係數值", style="bold white")
-
-        if acf_sig_lags:
-            acf_values = [f"{acf_vals[lag]:.4f}" for lag in acf_sig_lags]
-            sig_table.add_row(
-                "ACF",
-                f"[bold #1e90ff]{acf_sig_lags}[/bold #1e90ff]",
-                f"[bold #1e90ff]{acf_values}[/bold #1e90ff]",
-            )
-        else:
-            sig_table.add_row(
-                "ACF",
-                "[bold #1e90ff]無[/bold #1e90ff]",
-                "[bold #1e90ff]無[/bold #1e90ff]",
-            )
-
-        if pacf_sig_lags:
-            pacf_values = [f"{pacf_vals[lag]:.4f}" for lag in pacf_sig_lags]
-            sig_table.add_row(
-                "PACF",
-                f"[bold #1e90ff]{pacf_sig_lags}[/bold #1e90ff]",
-                f"[bold #1e90ff]{pacf_values}[/bold #1e90ff]",
-            )
-        else:
-            sig_table.add_row(
-                "PACF",
-                "[bold #1e90ff]無[/bold #1e90ff]",
-                "[bold #1e90ff]無[/bold #1e90ff]",
-            )
-
+        sig_table.add_column("滯後", style="bold white")
+        sig_table.add_column("數值", style="bold white")
+        sig_table.add_row(
+            "ACF",
+            str(acf_sig_lags) if acf_sig_lags else "-",
+            str([round(float(acf_vals[lag]), 4) for lag in acf_sig_lags]) if acf_sig_lags else "-",
+        )
+        sig_table.add_row(
+            "PACF",
+            str(pacf_sig_lags) if pacf_sig_lags else "-",
+            str([round(float(pacf_vals[lag]), 4) for lag in pacf_sig_lags]) if pacf_sig_lags else "-",
+        )
         console.print(sig_table)
 
-        # 詢問是否生成ACF和PACF圖片（美化步驟說明）
-        panel_content = (
-            "🟢 選擇用於統計分析的預測因子\n"
-            "🟢 收益率相關性檢驗[自動]\n"
-            "🟢 ADF/KPSS平穩性檢驗[自動]\n"
-            "🟢 ACF/PACF 自相關性檢驗[自動]\n"
-            "🟢 輸出 ACF 或 PACF 互動圖片\n"
-            "🔴 統計分佈檢驗[自動]\n"
-            "🔴 季節性檢驗[自動]\n\n"
-            "[bold #dbac30]說明[/bold #dbac30]\n"
-            "輸出 ACF 或 PACF 互動圖片\n"
-            "ACF 分析因子在不同時間間隔（lag）下的過去和現在有多相關。如線高於灰色區域，代表在 lag 之前周期內的數據對最新數值有影響。\n"
-            "PACF 分析因子在 lag 周期前的特定時間點對現在有多相關，去掉了中間的數值。\n"
-            "如高於灰色區域，代表 lag 前的特定數值對現數值有較大影響。\n"
-            "例子：\n"
-            "都不顯著：網站訪客，隨機無規律。\n"
-            "ACF顯著，PACF不顯著：氣溫，連續趨勢無單日主導。\n"
-            "ACF不顯著，PACF顯著：股票交易量，突發事件短期影響。\n"
-            "ACF顯著，PACF顯著：聖誕飾品銷售，趨勢+直接推動。\n"
-        )
-        show_step_panel("STATANALYSER", 1, ["ACF/PACF 圖片生成[互動]"], panel_content)
-        console.print(
-            "[bold #dbac30]輸出 ACF 或 PACF 互動圖片？(輸入 y 生成，n 跳過，預設 n)[/bold #dbac30]"
-        )
-        generate_plots = console.input().strip().lower() or "n"
-        generate_plots = generate_plots == "y"
+        output_spec = self.analysis_config.get("output", [])
+        if isinstance(output_spec, dict):
+            generate_plots = bool(output_spec.get("plots", False))
+        elif isinstance(output_spec, list):
+            generate_plots = "plots" in output_spec
+        else:
+            generate_plots = False
+        generate_plots = generate_plots or bool(self.analysis_config.get("include_plots", False))
 
-        # 根據設定決定是否繪製圖表
         if generate_plots:
-            print("正在生成 ACF 和 PACF 圖片...")
-            # 繪製圖表
             fig = make_subplots(
                 rows=2,
                 cols=1,
@@ -248,12 +130,7 @@ class AutocorrelationTest(BaseStatAnalyser):
                 ),
             )
             fig.add_trace(
-                go.Scatter(
-                    x=list(range(lags + 1)),
-                    y=acf_vals,
-                    mode="lines+markers",
-                    name="ACF",
-                ),
+                go.Scatter(x=list(range(lags + 1)), y=acf_vals, mode="lines+markers", name="ACF"),
                 row=1,
                 col=1,
             )
@@ -280,12 +157,7 @@ class AutocorrelationTest(BaseStatAnalyser):
                     col=1,
                 )
             fig.add_trace(
-                go.Scatter(
-                    x=list(range(lags + 1)),
-                    y=pacf_vals,
-                    mode="lines+markers",
-                    name="PACF",
-                ),
+                go.Scatter(x=list(range(lags + 1)), y=pacf_vals, mode="lines+markers", name="PACF"),
                 row=2,
                 col=1,
             )
@@ -316,33 +188,23 @@ class AutocorrelationTest(BaseStatAnalyser):
             fig.update_xaxes(title_text="Lag", row=2, col=1)
             fig.update_yaxes(title_text="Autocorrelation", row=1, col=1)
             fig.update_yaxes(title_text="Partial Autocorrelation", row=2, col=1)
-            fig.show(renderer="browser")
-        else:
-            print("跳過 ACF 和 PACF 圖片生成")
-        # 建議 Panel
+            plot_path = self.get_output_dir() / f"autocorrelation_{self.predictor_col}.html"
+            fig.write_html(str(plot_path))
+
         if acf_sig_lags or pacf_sig_lags:
             suggestion = (
-                "[bold green]存在自相關，代表歷史數據對未來有影響。[/bold green]\n"
-                "你可以：\n"
-                "- 嘗試繪製時序圖，觀察趨勢與週期性。\n"
-                "- 嘗試將過去幾期的數值（lag features）加入預測模型。\n"
-                "- 進行移動平均、差分等預處理，觀察對預測效果的影響。\n"
-                "如有興趣，可進一步學習 AR、MA、ARMA、ARIMA 等模型。"
+                "自相關顯著，建議加入 lag features 或考慮 AR/ARIMA 類模型。"
             )
         else:
-            suggestion = (
-                "[bold yellow]無顯著自相關，資料較隨機，歷史對未來影響小。[/bold yellow]\n"
-                "你可以：\n"
-                "- 嘗試其他特徵工程（如外部因子、非線性轉換）。\n"
-                "- 檢查資料品質或資料頻率是否合適。"
-            )
+            suggestion = "未見明顯自相關，lag features 的收益可能有限。"
         show_info("STATANALYSER", suggestion)
-        console.print("\n")
-
         self.results = {
             "success": True,
             "acf_lags": acf_sig_lags,
             "pacf_lags": pacf_sig_lags,
             "has_autocorr": bool(acf_sig_lags or pacf_sig_lags),
+            "plots_generated": generate_plots,
         }
+        if generate_plots:
+            self.results["plot_path"] = str(self.get_output_dir() / f"autocorrelation_{self.predictor_col}.html")
         return self.results

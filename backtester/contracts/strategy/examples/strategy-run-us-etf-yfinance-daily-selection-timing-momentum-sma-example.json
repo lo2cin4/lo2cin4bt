@@ -1,0 +1,105 @@
+{
+  "schema_version": "strategy_run",
+  "platform": {
+    "strategy_mode_id": "multi_asset_portfolio",
+    "strategy_profile_id": "selection_timing_portfolio",
+    "workflow_id": "single_backtest",
+    "created_at": "2026-07-08",
+    "run_type": "example",
+    "is_default": true,
+    "display_label": "VOO QQQ IWM GLD | Selection Timing Momentum SMA | yfinance"
+  },
+  "data": {
+    "provider": "yfinance",
+    "frequency": "1D",
+    "interval": "1d",
+    "calendar": "XNYS",
+    "timezone": "America/New_York",
+    "start_date": "2015-01-01",
+    "start_policy": "common_available",
+    "benchmark": {
+      "provider": "yfinance",
+      "symbol": "SPY",
+      "label": "SPY benchmark",
+      "interval": "1d"
+    }
+  },
+  "universe": {
+    "symbols": ["VOO", "QQQ", "IWM", "GLD"],
+    "universe_policy": "all_symbols"
+  },
+  "computed_fields": [
+    {
+      "name": "momentum_60",
+      "op": "indicator.momentum",
+      "source": "close",
+      "period": 60
+    },
+    {
+      "name": "sma_200",
+      "op": "indicator.sma",
+      "source": "close",
+      "period": 200
+    }
+  ],
+  "signals": {},
+  "selection": {
+    "eligible": {
+      "field": "close",
+      "op": "gt",
+      "right_field": "sma_200"
+    },
+    "rank_by": "momentum_60",
+    "top_n": 2
+  },
+  "allocation": {
+    "method": "equal_weight",
+    "position_limit": 0.5,
+    "cash_policy": "keep_unallocated_cash"
+  },
+  "rebalance": {
+    "trigger": {
+      "op": "calendar.every_session"
+    }
+  },
+  "fill_model": {
+    "timing": "signal_close_for_next_bar",
+    "price": "close_to_close",
+    "cost": {
+      "transaction_cost": 0.001,
+      "slippage": 0.0
+    }
+  },
+  "risk": {
+    "max_positions": 2,
+    "max_gross_exposure": 1.0,
+    "long_short": "long_only",
+    "allow_short": false
+  },
+  "parameter_domains": {},
+  "metricstracker": {
+    "enable_metrics_analysis": true,
+    "time_unit": 252,
+    "risk_free_rate": 0.04
+  },
+  "outputs": {
+    "equity_curve": true,
+    "trade_summary": true,
+    "rebalance_audit": true,
+    "holdings": true,
+    "asset_contribution": true
+  },
+  "metadata": {
+    "example": true,
+    "public_example": true,
+    "local_research_only": true,
+    "strategy_id": "us_etf_selection_timing_momentum_sma_yfinance_example",
+    "notes": [
+      "This example uses the selection_timing_portfolio authoring shortcut.",
+      "Each session keeps only assets trading above their own 200-session SMA, then ranks them by 60-session momentum.",
+      "The top two eligible assets are held with equal weight; unallocated capital stays in cash.",
+      "This public example is for local research and contract testing only.",
+      "It is not a profitability claim, WFA pass, live-trading signal, broker instruction, or investment advice."
+    ]
+  }
+}

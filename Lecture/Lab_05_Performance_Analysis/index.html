@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>實驗 05 績效分析</title>
+  <link rel="stylesheet" href="../assets/lecture.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand"><strong>lo2cin4bt 課程</strong><span>實驗 05</span></div>
+      <input class="search" data-search placeholder="搜尋章節">
+      <nav class="nav-list" data-nav></nav>
+    </aside>
+    <main class="content">
+      <article class="module">
+        <p class="kicker">實驗（Lab）05</p>
+        <h1>績效分析</h1>
+        <p>這個實驗讀取回測、參數矩陣或前向分析（WFA）產物。分析內容包括策略規則、結果、風險、資料完整性與結論邊界。分析代理（agent）解釋產物，不跑回測、不建立策略設定檔（config），也不提供交易建議。</p>
+
+        <h2>績效分析（PerformanceAnalysis）能做甚麼</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>範圍</th>
+              <th>新手想知道的問題</th>
+              <th>分析會怎樣回答</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>一句話總結</td>
+              <td>這次結果大概是好、壞、未完整，還是只可作示範？</td>
+              <td>提供白話總結，並標示不是交易建議</td>
+            </tr>
+            <tr>
+              <td>策略做了甚麼</td>
+              <td>用哪個市場、甚麼規則、甚麼比較基準（benchmark）、甚麼成本假設？</td>
+              <td>把設定檔（config）和前端標籤（label）翻成普通語言</td>
+            </tr>
+            <tr>
+              <td>主要結果</td>
+              <td>總報酬、年化複合成長率（CAGR）、夏普比率（Sharpe）、卡瑪比率（Calmar）、回撤和比較基準（benchmark）代表甚麼？</td>
+              <td>只解釋已生成欄位，缺欄位寫未生成（not generated）</td>
+            </tr>
+            <tr>
+              <td>實際變化</td>
+              <td>是否真的有交易、持倉、配置變化或再平衡？</td>
+              <td>讀交易（trade）、持倉（holdings）、再平衡（rebalance）和投資組合產物（portfolio artifacts）</td>
+            </tr>
+            <tr>
+              <td>成本與滑價</td>
+              <td>有沒有把交易成本計入？</td>
+              <td>分開「已設定成本」和「已生成成本影響」，不把缺失欄位（missing field）當零</td>
+            </tr>
+            <tr>
+              <td>前端資料完整性</td>
+              <td>指標總覽（Metrics）、回測詳情（Backtests）、參數矩陣（Parameter Matrix）、前向分析（WFA）、人工智能審查包（AI review pack）哪些有生成？</td>
+              <td>完整列出已生成、按需生成、未生成、不適用和需要重跑的頁面</td>
+            </tr>
+            <tr>
+              <td>結論邊界</td>
+              <td>能不能信？下一步做甚麼？</td>
+              <td>列出本機研究證據、前向分析（WFA）、成本敏感度與量化風險審查需求，並說明可用結論、禁用結論和研究工作</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2>不可做的事</h2>
+        <ul>
+          <li>不提供買入、賣出、持倉或實盤交易建議</li>
+          <li>不把回測、參數矩陣或前向分析（WFA）說成未來獲利證明</li>
+          <li>不把缺失欄位（missing field）當成零，也不靠想像補結論</li>
+          <li>不只看截圖；可讀前端資料（payload）和產物清單（manifest）時必須以產物為準</li>
+        </ul>
+
+        <h2>代理與技能版（Agent / Skill）</h2>
+        <pre><code>請由 agents/lo2cin4btWorkAgent.agent.md
+使用 skills/lo2cin4bt-performance-analysis/SKILL.md。
+請分析執行識別碼（run_id）：&lt;填入 run_id&gt;。
+請讀執行登錄（run registry）、圖表前端資料（chart payloads）內所有 JSON、人工智能審查包（AI review pack）、產物清單（artifact manifest）、執行快照（run snapshots）和資料譜系清單（data lineage manifest）。
+若回測詳情（Backtests Detail）未在 chart_payloads 內，但 backtest_result_index.json 有 backtest_id，先用本機應用程式介面或服務（app API / service）生成或讀取。
+前向分析（WFA）只在前向分析或滾動執行（rolling run）適用；單次回測（single_backtest）寫不適用（not applicable）。
+請用新手可讀格式輸出：一句話總結、策略做了甚麼、本次分析使用哪一次回測、資料與基準、主要結果、風險與回撤、交易／持倉／再平衡證據、成本與滑價、前端資料完整性、可以怎樣理解、不應怎樣理解、下一步研究。
+技術附錄才列前端資料（payload）、快照（snapshot）、產物清單（manifest）和缺失欄位（missing fields）。
+語氣要專業、精簡、以產物為準；不要使用對照式修辭。
+缺欄位請寫未生成（not generated）或不適用（not applicable）；不要把缺欄位當零。
+本分析僅供學習用途，並非交易建議。</code></pre>
+
+        <section class="evidence">
+          <h2>專案證據</h2>
+          <ul>
+            <li><code>outputs/app/run_registry/</code></li>
+            <li><code>outputs/app/chart_payloads/&lt;run_id&gt;/</code></li>
+            <li><code>outputs/app/ai_review/&lt;run_id&gt;/ai_review_pack.json</code></li>
+            <li><code>outputs/app/artifact_manifests/&lt;run_id&gt;.json</code></li>
+            <li><code>outputs/app/run_snapshots/&lt;run_id&gt;/data_lineage_manifest.json</code></li>
+            <li><code>skills/lo2cin4bt-performance-analysis/SKILL.md</code></li>
+            <li><code>agents/lo2cin4btWorkAgent.agent.md</code></li>
+          </ul>
+        </section>
+
+        <div class="pager">
+          <a href="../Lab_04_Provider_Check/index.html">上一個實驗</a>
+          <a href="../Appendix/index.html">附錄（Appendix）</a>
+        </div>
+      </article>
+    </main>
+  </div>
+  <script src="../assets/lecture.js"></script>
+</body>
+</html>

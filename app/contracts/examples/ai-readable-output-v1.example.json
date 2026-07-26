@@ -1,0 +1,73 @@
+{
+  "schema_version": "1.0",
+  "contract_id": "lo2cin4bt-app-ai-readable-output-v1",
+  "run_id": "20260414_b7c3d8129f4a",
+  "module": "autorunner",
+  "generated_at": "2026-04-14T13:31:30+08:00",
+  "auto_inclusion_policy": {
+    "chart_payloads": "Every JSON file under this run's chart_payloads directory is embedded under source_payloads.",
+    "snapshots": "Every direct JSON snapshot for this run is embedded under snapshot_payloads.",
+    "artifacts": "The full artifact manifest is included, and ready table artifacts are schema-profiled by artifact type.",
+    "future_metrics": "New performance scores are automatically present when they appear as JSON payload fields or artifact table columns."
+  },
+  "review_guidance": {
+    "primary_inputs": ["run_registry", "stage_status", "artifact_manifest", "source_payloads", "artifact_table_profiles", "metric_field_catalog"],
+    "do_not_infer": "Do not treat absent metrics as zero. Report them as missing or not generated.",
+    "recommended_review_order": ["data health and run status", "headline performance and benchmark comparison", "risk diagnostics"]
+  },
+  "source_paths": {
+    "run_registry": "outputs/app/run_registry/20260414_b7c3d8129f4a.json",
+    "artifact_manifest": "outputs/app/artifact_manifests/20260414_b7c3d8129f4a.json",
+    "stage_status": "outputs/app/stage_status/20260414_b7c3d8129f4a.json",
+    "run_snapshots": "outputs/app/run_snapshots/20260414_b7c3d8129f4a",
+    "chart_payloads": "outputs/app/chart_payloads/20260414_b7c3d8129f4a",
+    "ai_readable_output": "outputs/app/ai_review/20260414_b7c3d8129f4a/ai_review_pack.json"
+  },
+  "run_registry": {
+    "run_id": "20260414_b7c3d8129f4a",
+    "module": "autorunner",
+    "status": "completed"
+  },
+  "stage_status": {
+    "status": "completed",
+    "stages": []
+  },
+  "artifact_manifest": {
+    "schema_version": "1.0",
+    "artifacts": []
+  },
+  "artifact_summary": {
+    "total": 0,
+    "by_type": {},
+    "profile_limit_per_type": 3
+  },
+  "artifact_index": [],
+  "payload_index": [
+    {
+      "name": "metrics_overview_payload.json",
+      "path": "outputs/app/chart_payloads/20260414_b7c3d8129f4a/metrics_overview_payload.json",
+      "schema_version": "1.27",
+      "contract_id": "lo2cin4bt-app-portfolio-metrics-overview-payload-v1",
+      "top_level_keys": ["rows", "strategy_summary"]
+    }
+  ],
+  "snapshot_index": [],
+  "source_payloads": {
+    "metrics_overview_payload": {
+      "schema_version": "1.27",
+      "rows": [{"total_return": 0.12, "new_future_score": 1.7}]
+    }
+  },
+  "snapshot_payloads": {},
+  "artifact_table_profiles": [],
+  "artifact_json_profiles": [],
+  "metric_field_catalog": {
+    "numeric_field_count": 2,
+    "included_count": 2,
+    "truncated": false,
+    "fields": [
+      {"path": "source_payloads.metrics_overview_payload.rows[].total_return", "sample_value": 0.12},
+      {"path": "source_payloads.metrics_overview_payload.rows[].new_future_score", "sample_value": 1.7}
+    ]
+  }
+}

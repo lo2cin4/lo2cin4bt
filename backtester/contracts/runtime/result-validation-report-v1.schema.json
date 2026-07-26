@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lo2cin4bt.local/contracts/result-validation-report-v1.schema.json",
+  "title": "ResultValidationReport.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "result_schema_version",
+    "result_hash",
+    "table_row_counts",
+    "checks",
+    "errors",
+    "warnings"
+  ],
+  "properties": {
+    "schema_version": {"const": "result_validation_report.v1"},
+    "status": {"enum": ["valid", "invalid"]},
+    "result_schema_version": {"type": "string", "minLength": 1},
+    "result_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "table_row_counts": {
+      "type": "object",
+      "additionalProperties": {"type": "integer", "minimum": 0}
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["check_id", "status", "message"],
+        "properties": {
+          "check_id": {"type": "string", "minLength": 1},
+          "status": {"enum": ["passed", "failed"]},
+          "message": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "errors": {"type": "array", "items": {"type": "string"}},
+    "warnings": {"type": "array", "items": {"type": "string"}}
+  }
+}

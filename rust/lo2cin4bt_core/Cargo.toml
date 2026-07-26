@@ -1,0 +1,19 @@
+[package]
+name = "lo2cin4bt_core"
+version = "2.1.0"
+edition = "2021"
+license = "CC-BY-NC-4.0"
+
+[lib]
+name = "lo2cin4bt_core"
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+thiserror = "2.0"
+polars = { version = "0.54.4", default-features = false, features = ["parquet", "dtype-slim", "fmt"] }
+
+[dev-dependencies]
+approx = "0.5"

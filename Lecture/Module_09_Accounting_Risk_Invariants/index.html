@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>09 投資組合記帳、風控與不變條件</title>
+  <link rel="stylesheet" href="../assets/lecture.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand"><strong>lo2cin4bt 教學</strong><span>模組 09</span></div>
+      <input class="search" data-search placeholder="搜尋章節">
+      <nav class="nav-list" data-nav></nav>
+    </aside>
+
+    <main class="content">
+      <article class="module">
+        <p class="kicker">模組 09</p>
+        <h1>投資組合記帳、風控門檻與不變條件（Portfolio Accounting / Risk Gate / Invariant）</h1>
+        <p>
+          投資組合記帳按時間處理。現金、持倉、費用、漂移權重、換手率（turnover）與風控門檻（risk gate）都依賴上一個時間點。
+          不變條件檢查器（Invariant checker）在回測和測試中核對現金（cash）、持倉（positions）、市值（market value）、資金曲線（equity）與費用（fees）。
+        </p>
+
+        <section class="mermaid-panel">
+          <h2>記帳與風控檢查流程</h2>
+          <pre class="mermaid">
+flowchart LR
+  Target["目標權重（target weights）<br/>策略期望配置"] --> Drift["漂移權重（drifted weights）<br/>市場變動後配置"]
+  Drift --> Delta["交易差額（trade delta）<br/>需要買賣的權重"]
+  Delta --> Cost["成本與滑價<br/>cost / slippage"]
+  Cost --> State["投資組合狀態<br/>現金 + 持倉 + 費用"]
+  State --> Equity["資金曲線（equity curve）<br/>現金 + 市值"]
+  State --> Risk["風控門檻稽核<br/>持倉 / 虧損 / 最大回撤"]
+  State --> Invariant["不變條件檢查器<br/>自洽檢查"]
+  Risk --> State
+  Invariant --> Report["違規 / 略過 / 通過"]
+          </pre>
+          <p class="diagram-caption">
+            風控門檻（Risk gate）可以改變目標配置；不變條件（Invariant）不改變交易，只檢查記帳關係。
+          </p>
+        </section>
+
+        <h2>不變條件（Invariant）會檢查甚麼</h2>
+        <div class="table-scroll">
+          <table class="detail-table">
+            <tr><th>檢查</th><th>意思</th><th>為何重要</th></tr>
+            <tr><td><code>equity = cash + market_value</code></td><td>總權益必須等於現金加持倉市值。</td><td>防止資金憑空增加或消失。</td></tr>
+            <tr><td>market value 一致</td><td>持倉數量乘以最新價格，要等於記錄中的 market value。</td><td>防止價格或持倉欄位對不上。</td></tr>
+            <tr><td>fees 不可為負</td><td>交易費、滑價成本不能反向變成收益。</td><td>防止成本模型寫反。</td></tr>
+            <tr><td>NaN / inf 檢查</td><td>現金、權益、持倉、費用不能是無效數字。</td><td>防止圖表和排名被壞數據污染。</td></tr>
+            <tr><td>long-only 持倉限制</td><td>long-only 策略不應出現負持倉。</td><td>防止策略語義與記帳結果矛盾。</td></tr>
+            <tr><td>總曝險上限（gross exposure）</td><td>如有設定，總曝險不可超過限制。</td><td>防止配置超過風險約束。</td></tr>
+          </table>
+        </div>
+
+        <h2>風控門檻（Risk Gate）是甚麼</h2>
+        <p>
+          風控門檻是可選的安全閘。預設可以不啟用；一旦觸發，正式契約（contract）會先把所有持倉清平
+          （<code>flatten</code>），再按設定進入永久停止（<code>permanent_stop</code>）或影子交易直至恢復
+          （<code>shadow_until_recovery</code>）。系統不接受含糊的「暫停交易」或為個別策略另開例外路線。
+        </p>
+
+        <section class="concept-flow">
+          <h2>風控門檻稽核（Risk Gate Audit）應該怎樣讀</h2>
+          <ol>
+            <li><strong>已觸發事件（Triggered Events）</strong><span>本次回測有多少次風控事件被觸發。0 代表沒有事件，不代表功能失效。</span></li>
+            <li><strong>已觸發門檻（Gates Triggered）</strong><span>列出觸發過的門檻（gate）名稱，例如 <code>max_drawdown</code> 或 <code>max_positions</code>。</span></li>
+            <li><strong>事件表</strong><span>顯示時間戳（timestamp）、門檻（threshold）、觀察值（observed value）、行動（action）、受影響資產（affected assets）及結果目標權重（resulting target weights）。</span></li>
+          </ol>
+        </section>
+
+        <div class="compare-grid">
+          <section><h3>永久停止</h3><p>清平所有倉位後停止產生正式交易，run 會保留觸發時間、門檻、觀察值及清倉證據。</p></section>
+          <section><h3>影子交易路線（Shadow route）</h3><p>清平正式倉位後，策略訊號繼續在影子帳本（shadow ledger）評估；未滿足恢復條件前不會重返正式持倉。</p></section>
+        </div>
+
+        <div class="callout success">
+          <strong>正常情況：</strong>
+          如果策略沒有設定風控門檻（risk gates），或整段回測沒有觸發條件，風控門檻稽核（Risk Gate Audit）顯示 0 項事件（events）是合理的。
+        </div>
+
+        <section class="evidence">
+          <h2>專案證據</h2>
+          <ul>
+            <li><code>rust/lo2cin4bt_core/src/accounting.rs</code></li>
+            <li><code>rust/lo2cin4bt_core/src/risk.rs</code></li>
+            <li><code>rust/lo2cin4bt_core/src/result_validator.rs</code></li>
+            <li><code>tests/test_rust_accounting_golden.py</code></li>
+          </ul>
+        </section>
+
+        <div class="pager">
+          <a href="../Module_08_WFA_Rolling_Validation/index.html">上一章</a>
+          <a href="../Module_10_Data_Provider_Extension/index.html">下一章</a>
+        </div>
+      </article>
+    </main>
+  </div>
+  <script src="../assets/lecture.js"></script>
+</body>
+</html>

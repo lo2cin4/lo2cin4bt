@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lo2cin4bt/app/contracts/run-registry-v1.schema.json",
+  "title": "lo2cin4bt App Run Registry v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contract_id",
+    "run_id",
+    "entrypoint",
+    "module",
+    "status",
+    "created_at",
+    "symbol",
+    "frequency",
+    "strategy_mode",
+    "semantic_label",
+    "config_snapshot_dir",
+    "artifact_manifest_path",
+    "dataloader_health_path",
+    "data_lineage_manifest_path",
+    "lineage_status",
+    "warning_count",
+    "error_count"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "contract_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "entrypoint": {"type": "string", "minLength": 1},
+    "module": {"type": "string", "minLength": 1},
+    "status": {
+      "type": "string",
+      "enum": ["queued", "running", "completed", "failed", "partial"]
+    },
+    "created_at": {"type": "string", "minLength": 1},
+    "completed_at": {"type": ["string", "null"]},
+    "symbol": {"type": "string", "minLength": 1},
+    "frequency": {"type": "string", "minLength": 1},
+    "strategy_mode": {"type": "string", "minLength": 1},
+    "semantic_label": {"type": "string", "minLength": 1},
+    "config_snapshot_dir": {"type": "string", "minLength": 1},
+    "artifact_manifest_path": {"type": "string", "minLength": 1},
+    "dataloader_health_path": {"type": "string", "minLength": 1},
+    "data_lineage_manifest_path": {"type": "string", "minLength": 1},
+    "lineage_status": {
+      "type": "string",
+      "enum": ["complete", "partial", "unknown", "pending"]
+    },
+    "warning_count": {"type": "integer", "minimum": 0},
+    "error_count": {"type": "integer", "minimum": 0},
+    "stage_status_path": {"type": ["string", "null"]},
+    "audit_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source_audit_id": {"type": ["string", "null"]},
+        "warning_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "artifacts_ready": {"type": "integer", "minimum": 0},
+    "artifacts_total": {"type": "integer", "minimum": 0},
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "errors": {"type": "array", "items": {"type": "string"}}
+  }
+}

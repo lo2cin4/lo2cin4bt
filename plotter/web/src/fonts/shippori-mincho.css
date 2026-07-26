@@ -1,0 +1,23 @@
+@font-face {
+  font-family: "Shippori Mincho";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/shippori-mincho/ShipporiMincho-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Shippori Mincho";
+  font-style: normal;
+  font-weight: 500 600;
+  font-display: swap;
+  src: url("/fonts/shippori-mincho/ShipporiMincho-Medium.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Shippori Mincho";
+  font-style: normal;
+  font-weight: 700 900;
+  font-display: swap;
+  src: url("/fonts/shippori-mincho/ShipporiMincho-Bold.ttf") format("truetype");
+}

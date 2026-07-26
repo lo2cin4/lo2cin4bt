@@ -1,0 +1,273 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lo2cin4bt/contracts/op-spec-v1.schema.json",
+  "title": "lo2cin4bt Strategy Building Block Registry v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "registry_id",
+    "registry_name",
+    "category_name",
+    "support_meaning",
+    "runtime_behavior_changed",
+    "ops",
+    "alias_map",
+    "conflicts"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "registry_id": {"const": "lo2cin4bt-op-registry-v1"},
+    "registry_name": {"const": "Strategy Building Blocks"},
+    "category_name": {"const": "Strategy Building Blocks"},
+    "support_meaning": {"type": "string", "minLength": 1},
+    "runtime_behavior_changed": {"type": "boolean"},
+    "ops": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/op_spec"}
+    },
+    "alias_map": {
+      "type": "object",
+      "additionalProperties": {"type": "string", "minLength": 1}
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source", "op", "reason"],
+        "properties": {
+          "source": {"type": "string"},
+          "op": {"type": "string"},
+          "reason": {"type": "string"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "op_spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonical_id",
+        "aliases",
+        "block_kind",
+        "category",
+        "spec_version",
+        "status",
+        "stability",
+        "usage_sites",
+        "params_schema",
+        "optimizable_params",
+        "input_shape",
+        "output_type",
+        "output_shape",
+        "temporal_metadata",
+        "data_alignment",
+        "leakage_flags",
+        "wfa_safety",
+        "implementation",
+        "evidence_paths",
+        "audit",
+        "cache",
+        "deprecation",
+        "docs",
+        "unsupported_message",
+        "safety_warnings"
+      ],
+      "properties": {
+        "canonical_id": {"type": "string", "pattern": "^[a-z0-9_.-]+$"},
+        "aliases": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "block_kind": {
+          "type": "string",
+          "enum": [
+            "condition_logic",
+            "condition_comparator",
+            "cross_condition",
+            "indicator",
+            "math",
+            "transform",
+            "rolling",
+            "cross_section",
+            "calendar",
+            "rebalance_trigger",
+            "execution",
+            "strategy_template"
+          ]
+        },
+        "category": {"const": "Strategy Building Blocks"},
+        "spec_version": {"const": "1.0"},
+        "status": {"type": "string", "enum": ["supported", "deprecated", "experimental"]},
+        "stability": {"type": "string", "minLength": 1},
+        "usage_sites": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/usage_site"}
+        },
+        "params_schema": {"type": "object"},
+        "optimizable_params": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "input_shape": {"type": "string", "minLength": 1},
+        "output_type": {"type": "string", "minLength": 1},
+        "output_shape": {"type": "string", "minLength": 1},
+        "temporal_metadata": {"$ref": "#/$defs/temporal_metadata"},
+        "data_alignment": {"$ref": "#/$defs/data_alignment"},
+        "leakage_flags": {"$ref": "#/$defs/leakage_flags"},
+        "wfa_safety": {"$ref": "#/$defs/wfa_safety"},
+        "implementation": {"$ref": "#/$defs/implementation"},
+        "evidence_paths": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/repo_relative_path"},
+          "minItems": 1
+        },
+        "audit": {"type": "object", "additionalProperties": true},
+        "cache": {"type": "object", "additionalProperties": true},
+        "deprecation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "replacement"],
+          "properties": {
+            "status": {"type": "string", "minLength": 1},
+            "replacement": {"type": ["string", "null"]}
+          }
+        },
+        "docs": {"type": "object", "additionalProperties": true},
+        "unsupported_message": {"type": "string", "minLength": 1},
+        "safety_warnings": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "usage_site": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["site", "support", "accepted_names", "notes"],
+      "properties": {
+        "site": {"type": "string", "minLength": 1},
+        "support": {"type": "string", "enum": ["supported", "unsupported"]},
+        "accepted_names": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "notes": {"type": "string"}
+      }
+    },
+    "temporal_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_time",
+        "availability_time",
+        "earliest_trade_time",
+        "lookback_bars",
+        "lag_bars",
+        "calendar",
+        "timezone",
+        "stateful",
+        "leakage_warnings"
+      ],
+      "properties": {
+        "observation_time": {"type": "string", "minLength": 1},
+        "availability_time": {"type": "string", "minLength": 1},
+        "earliest_trade_time": {"type": "string", "minLength": 1},
+        "lookback_bars": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["kind", "description"],
+          "properties": {
+            "kind": {"type": "string", "minLength": 1},
+            "description": {"type": "string", "minLength": 1}
+          }
+        },
+        "lag_bars": {"type": "integer", "minimum": 0},
+        "calendar": {"type": "string", "minLength": 1},
+        "timezone": {"type": "string", "minLength": 1},
+        "stateful": {"type": "boolean"},
+        "leakage_warnings": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "data_alignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "join_mode",
+        "fill_policy",
+        "missing_data_policy",
+        "source_calendar",
+        "source_timezone"
+      ],
+      "properties": {
+        "join_mode": {"type": "string", "minLength": 1},
+        "fill_policy": {"type": "string", "minLength": 1},
+        "missing_data_policy": {"type": "string", "minLength": 1},
+        "source_calendar": {"type": "string", "minLength": 1},
+        "source_timezone": {"type": "string", "minLength": 1}
+      }
+    },
+    "leakage_flags": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "uses_future",
+        "allows_tradable_bfill",
+        "requires_point_in_time_source"
+      ],
+      "properties": {
+        "uses_future": {"type": "boolean"},
+        "allows_tradable_bfill": {"type": "boolean"},
+        "requires_point_in_time_source": {"type": "boolean"}
+      }
+    },
+    "wfa_safety": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "train_only_selection_required",
+        "oos_must_not_refit",
+        "window_local_cache_required"
+      ],
+      "properties": {
+        "train_only_selection_required": {"type": "boolean"},
+        "oos_must_not_refit": {"type": "boolean"},
+        "window_local_cache_required": {"type": "boolean"}
+      }
+    },
+    "implementation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "symbols", "source_hash", "source_hashes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/repo_relative_path"},
+        "symbols": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "minItems": 1
+        },
+        "source_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "source_hashes": {
+          "type": "object",
+          "propertyNames": {"$ref": "#/$defs/repo_relative_path"},
+          "additionalProperties": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "minProperties": 1
+        }
+      }
+    },
+    "repo_relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?![A-Za-z]:)(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._/-]+$"
+    }
+  }
+}

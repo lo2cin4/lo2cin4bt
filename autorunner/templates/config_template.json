@@ -1,0 +1,73 @@
+{
+  "schema_version": "strategy_run",
+  "platform": {
+    "strategy_mode_id": "multi_asset_portfolio",
+    "strategy_profile_id": "selection_timing_portfolio",
+    "strategy_preset_id": "single_asset_signal",
+    "workflow_id": "single_backtest",
+    "run_type": "template",
+    "display_label": "Template | QQQ | Timeline Signal"
+  },
+  "data": {
+    "provider": "yfinance",
+    "frequency": "1D",
+    "interval": "1d",
+    "calendar": "XNYS",
+    "timezone": "America/New_York",
+    "start_date": "2020-01-01",
+    "start_policy": "common_available",
+    "benchmark": {
+      "provider": "yfinance",
+      "symbol": "QQQ",
+      "label": "QQQ buy and hold",
+      "interval": "1d"
+    }
+  },
+  "universe": {
+    "symbols": ["QQQ"],
+    "universe_policy": "single_asset"
+  },
+  "computed_fields": [],
+  "signals": {
+    "entry": {"field": "close", "op": "gt", "value": 0},
+    "exit": {"field": "close", "op": "lt", "value": 0}
+  },
+  "selection": {},
+  "allocation": {},
+  "rebalance": {},
+  "fill_model": {
+    "timing": "timeline",
+    "position_policy": {
+      "on_entry_signal_while_holding": "ignore_new_signal"
+    },
+    "actions": [
+      {"signal": "entry", "offset_bars": 1, "price": "open", "action": "enter"},
+      {"signal": "exit", "offset_bars": 1, "price": "open", "action": "exit"}
+    ],
+    "cost": {
+      "transaction_cost": 0.001,
+      "slippage": 0.0005
+    }
+  },
+  "risk": {
+    "max_positions": 1,
+    "max_gross_exposure": 1.0,
+    "long_short": "long_only",
+    "allow_short": false
+  },
+  "parameter_domains": {},
+  "outputs": {
+    "equity_curve": true,
+    "holdings": true,
+    "risk_events": true
+  },
+  "metricstracker": {
+    "enable_metrics_analysis": true,
+    "time_unit": 252,
+    "risk_free_rate": 0.04
+  },
+  "metadata": {
+    "strategy_id": "template_timeline_strategy",
+    "display_name": "Template Timeline Strategy"
+  }
+}

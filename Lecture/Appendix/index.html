@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>附錄</title><link rel="stylesheet" href="../assets/lecture.css"></head>
+<body><div class="layout"><aside class="sidebar"><div class="brand"><strong>lo2cin4bt 教學</strong><span>附錄</span></div><input class="search" data-search placeholder="搜尋章節"><nav class="nav-list" data-nav></nav></aside><main class="content"><article class="module">
+<p class="kicker">附錄</p><h1>常見問題、術語表與發布檢查清單</h1>
+<h2>常見問題</h2>
+<p><strong>自然語言策略可以交給人工智能（AI）處理嗎？</strong> 可以，前提是人工智能先讀 <code>AI_MANUAL_SKILL.md</code>，並輸出能力狀態（capability status）。</p>
+<p><strong>固定權重投資組合（portfolio）可以做前向分析（WFA）嗎？</strong> <code>parameter_domains</code> 是空物件時可做滾動驗證（rolling validation）。結構綱要與操作（schema/op）及 <code>param_ref</code> 支援候選參數時，策略設定範本（profile）可進入前向分析，並不限於配置（allocation）。</p>
+<p><strong>富途／盈透證券（FUTU / IBKR）可以實盤交易嗎？</strong> 程式庫（repo）證據只支援轉接器框架與閘道程式／套件要求，不支援把它說成完整實盤下單路由。</p>
+
+<h2>基本術語</h2>
+<table><tr><th>術語</th><th>說明</th></tr>
+<tr><td>目標權重（Target Weight）</td><td>策略想持有的資產權重，是記帳執行前的目標。</td></tr>
+<tr><td>逐期記帳（Sequential Accounting）</td><td>逐期處理現金、持倉、費用、換手率（turnover）、漂移（drift）及再平衡狀態。</td></tr>
+<tr><td>參數範圍（Parameter Domain）</td><td>參數矩陣（Matrix）與前向分析（WFA）的候選來源。</td></tr>
+<tr><td>選定最優解（Selected Optimum）</td><td>前向分析（WFA）在每個樣本內視窗（IS window）選出的策略（policy）。</td></tr>
+<tr><td>樣本外（OOS）</td><td>與樣本內配對的樣本外視窗（out-of-sample paired window）。</td></tr>
+<tr><td>風控門檻（Risk Gate）</td><td>最大持倉數（max positions）、最大訂單規模（max order size）、最大回撤（max drawdown）、最大單日虧損（max daily loss）等安全閘門；觸發後先全部平倉（flatten），再永久停止（permanent stop）或進入影子交易路線（shadow route）。</td></tr>
+</table>
+
+<h2>報告指標詞彙表（Report Metrics Glossary）</h2>
+<div class="table-scroll"><table class="metric-table glossary-table">
+<tr><th>指標</th><th>定義</th><th>搜尋提示</th></tr>
+<tr><td>總報酬（Total Return）</td><td>整段回測累積報酬。</td><td>最終資金曲線（equity）、累積收益。</td></tr>
+<tr><td>年化複合成長率（CAGR）</td><td>把累積報酬換算成每年複利增長。</td><td>跨期間比較。</td></tr>
+<tr><td>夏普比率（Sharpe）</td><td>總波動風險調整報酬。</td><td>報酬／波動。</td></tr>
+<tr><td>最大回撤（Max Drawdown / MDD）</td><td>最大歷史回撤。</td><td>資金壓力。</td></tr>
+<tr><td>卡瑪比率（Calmar）</td><td>年化複合成長率除以最大回撤絕對值。</td><td>回撤調整報酬（drawdown-adjusted return）。</td></tr>
+<tr><td>比較基準報酬（Benchmark Return）</td><td>比較基準（benchmark）的同期間報酬。</td><td>買入持有比較（buy-and-hold comparison）。</td></tr>
+<tr><td>超額報酬（Excess Return）</td><td>策略相對比較基準的超額報酬。</td><td>類似阿爾法比較（alpha-like comparison）。</td></tr>
+<tr><td>年化波動率（Annualized Vol）</td><td>報酬序列的年化波動。</td><td>報酬變動程度（return variability）。</td></tr>
+<tr><td>索提諾比率（Sortino）</td><td>下行波動風險調整報酬。</td><td>下行風險（downside risk）。</td></tr>
+<tr><td>風險值 95／99（VaR 95 / VaR 99）</td><td>95%／99% 信心水準的損失門檻估計。</td><td>尾部門檻（tail threshold）。</td></tr>
+<tr><td>條件風險值 95／99（CVaR 95 / CVaR 99）</td><td>超過風險值門檻後的平均損失。</td><td>預期短缺（expected shortfall）。</td></tr>
+<tr><td>最差／最佳月份（Worst Month / Best Month）</td><td>最差／最佳單月報酬。</td><td>月度分布（monthly distribution）。</td></tr>
+<tr><td>正報酬月份（Positive Months）</td><td>正報酬月份數或比例。</td><td>月度勝率（monthly win rate）。</td></tr>
+<tr><td>勝率（Win Rate）</td><td>獲利交易比例。</td><td>交易命中率（trade hit rate）。</td></tr>
+<tr><td>獲利因子（Profit Factor）</td><td>總獲利除以總虧損絕對值。</td><td>交易獲利品質（trade profit quality）。</td></tr>
+<tr><td>平均獲利（Average Win）</td><td>獲利交易平均收益。</td><td>平均獲利交易（avg profitable trade）。</td></tr>
+<tr><td>平均虧損（Average Loss）</td><td>虧損交易平均損失。</td><td>平均虧損交易（avg losing trade）。</td></tr>
+<tr><td>平均盈虧比（Average Win/Loss）</td><td>平均獲利相對平均虧損。</td><td>回報比率（payoff ratio）。</td></tr>
+<tr><td>總獲利（Gross Profit）</td><td>累計獲利交易回報；不等於總報酬。</td><td>獲利交易總和（sum of winners）。</td></tr>
+<tr><td>總虧損（Gross Loss）</td><td>累計虧損交易回報；不等於總報酬。</td><td>虧損交易總和（sum of losers）。</td></tr>
+<tr><td>最長連勝／連敗（Max Consecutive Wins / Losses）</td><td>最大連勝／連敗交易數。</td><td>連續風險（streak risk）。</td></tr>
+<tr><td>比較基準相關性（Benchmark Correlation）</td><td>策略報酬與比較基準的相關性。</td><td>比較基準依賴（benchmark dependency）。</td></tr>
+<tr><td>平均持倉（Avg Holdings）</td><td>平均持倉數或持倉規模。</td><td>投資組合廣度（portfolio breadth）。</td></tr>
+<tr><td>平均曝險（Avg Exposure）</td><td>平均市場曝險。</td><td>現金與已投資資金（cash vs invested）。</td></tr>
+<tr><td>平均交易換手率（Avg Trade Turnover）</td><td>平均換手，衡量成本敏感度與穩定性。</td><td>換手率與成本拖累（turnover, cost drag）。</td></tr>
+<tr><td>檢查點／排定再平衡（Checkpoints / Scheduled Rebalances）</td><td>排定的檢查或再平衡時點。</td><td>排定機會。</td></tr>
+<tr><td>有效再平衡（Active Rebalances）</td><td>改變目標權重或交易的再平衡。</td><td>實際變化。</td></tr>
+<tr><td>目標持倉（Target Holdings）</td><td>策略目標持倉。</td><td>期望投資組合（desired portfolio）。</td></tr>
+<tr><td>配置變化（Allocation Changes）</td><td>權重變化歷史。</td><td>輪動／漂移修正（rotation / drift correction）。</td></tr>
+<tr><td>資產貢獻（Asset Contribution）</td><td>各資產對投資組合報酬的貢獻。</td><td>報酬歸因（return attribution）。</td></tr>
+<tr><td>風控門檻稽核（Risk Gate Audit）</td><td>風控門檻觸發紀錄。</td><td>介入證據（intervention evidence）。</td></tr>
+<tr><td>投資組合不變條件（Portfolio Invariant）</td><td>記帳一致性檢查。</td><td>現金 + 市值 = 權益。</td></tr>
+<tr><td>資料健康（Data Health）</td><td>資料完整性與載入狀態。</td><td>資料品質優先（data quality first）。</td></tr>
+<tr><td>有效起始日（Effective Start）</td><td>可開始回測的日期。</td><td>暖機期／重疊起點（warmup / overlap start）。</td></tr>
+<tr><td>缺失資產（Missing Assets）</td><td>請求但未成功載入的資產。</td><td>資產範圍不符（universe mismatch）。</td></tr>
+<tr><td>已載入資產（Loaded Assets）</td><td>成功載入並可使用的資產。</td><td>實際資產範圍（actual universe）。</td></tr>
+<tr><td>成本拖累／交易成本欄位（Cost Drag / trade cost fields）</td><td>成本、滑價、費用對績效的拖累或明細。</td><td>成交擬真度（fill realism）。</td></tr>
+</table></div>
+
+<h2>不支援回覆模板（Unsupported template）</h2>
+<pre><code>能力判斷：支援（supported）／需要釐清（needs_clarification）／不支援（unsupported）
+專案證據：說明檔（README）、結構綱要（schema）、設定檔（config）、測試（tests）、輸出檔案
+缺少資訊：資產範圍（universe）、資料供應者（provider）、頻率（frequency）、交易日曆（calendar）、比較基準（benchmark）、成交模型（fill_model）、風控（risk）
+不支援部分：列出程式庫（repo）沒有證據的規則
+下一步：改成可支援的回測設定檔，或列出開發範圍（scope）</code></pre>
+
+<h2>發布檢查清單（Release checklist）</h2>
+<ul><li>人工智能手冊（AI Manual）與教學（Lecture）是否符合說明檔（README）與重構（refactor）文件。</li><li><code>strategy_run</code> 結構綱要章節（schema sections）是否變更。</li><li><code>workspace/runs/</code>、<code>workspace/wfa/</code> 是否可讀。</li><li>參數矩陣的沒有參數範圍（no-domain）狀態是否正常。</li><li>前向分析（WFA）的選定最優解與滾動驗證用詞是否分開。</li><li>風控門檻稽核（Risk Gate Audit）與投資組合不變條件（Portfolio Invariant）是否有測試（tests）。</li><li>未完成或尚未公開的功能是否沒有放入教學主線。</li></ul>
+<h2>驗證命令</h2>
+<ul><li><code>python -m pytest tests\test_strategy_run_config.py tests\test_app_api_payloads.py -q</code></li><li><code>python -m pytest tests\test_rust_accounting_golden.py tests\test_unified_portfolio_wfa_runner.py -q</code></li><li><code>cd plotter/web && npm run build</code></li></ul>
+<div class="pager"><a href="../Lab_05_Performance_Analysis/index.html">上一章</a><a href="../index.html">回首頁</a></div>
+</article></main></div><script src="../assets/lecture.js"></script></body></html>

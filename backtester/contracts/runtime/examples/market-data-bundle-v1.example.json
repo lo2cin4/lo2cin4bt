@@ -1,0 +1,66 @@
+{
+  "bundle_id": "mdb-1af6214920966802",
+  "calendar": "XNYS",
+  "content_hash": "1af6214920966802e161df7a47f989a94814dc04e1ac22278a663459b816d875",
+  "contract_id": "lo2cin4bt.market_data_bundle.v1",
+  "frequency": "1D",
+  "lineage": {
+    "adjustment_policy": "split_dividend_adjusted",
+    "point_in_time": true,
+    "provider": "fixture",
+    "source_hashes": {
+      "close": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "open": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  },
+  "quality": {
+    "duplicate_time_policy": "fail",
+    "missing_value_policy": "preserve",
+    "out_of_order_policy": "sort_then_validate",
+    "stale_value_policy": "preserve",
+    "warnings": []
+  },
+  "row_count": 2,
+  "schema_version": "market_data_bundle.v1",
+  "symbols": [
+    "AAA",
+    "BBB"
+  ],
+  "tables": {
+    "close": {
+      "columns": [
+        "AAA",
+        "BBB"
+      ],
+      "content_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "path": "C:/fixtures/close.parquet",
+      "role": "bars",
+      "row_count": 2,
+      "transport": "parquet"
+    },
+    "open": {
+      "columns": [
+        "AAA",
+        "BBB"
+      ],
+      "content_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "path": "C:/fixtures/open.parquet",
+      "role": "bars",
+      "row_count": 2,
+      "transport": "parquet"
+    }
+  },
+  "time_column": "Time",
+  "time_range": {
+    "end": "2024-01-03T00:00:00",
+    "start": "2024-01-02T00:00:00"
+  },
+  "time_semantics": {
+    "availability_policy": "bar_close",
+    "available_time_column": null,
+    "event_time_column": "Time",
+    "index_kind": "session_label",
+    "ordering": "event_time_then_table_name"
+  },
+  "timezone": "America/New_York"
+}

@@ -3,7 +3,7 @@ StationarityTest_statanalyser.py
 
 【功能說明】
 ------------------------------------------------------------
-本模組為 Lo2cin4BT 統計分析模組，負責對時序數據進行定態性檢定（如 ADF、KPSS、PP 等），評估時間序列的平穩性，輔助模型選擇與差分策略。
+本模組為 lo2cin4bt 統計分析模組，負責對時序數據進行定態性檢定（如 ADF、KPSS、PP 等），評估時間序列的平穩性，輔助模型選擇與差分策略。
 
 【流程與數據流】
 ------------------------------------------------------------
@@ -75,10 +75,10 @@ class StationarityTest(BaseStatAnalyser):
             "檢驗功能：判斷序列是否為平穩過程，適合用於傳統時間序列建模。如序列非平穩，很多模型如自回歸 (AR)、ARIMA 模型、線性回歸分析等效果將大打折扣。\n"
             "成功/失敗標準：ADF p<0.05 為平穩，KPSS p>0.05 為平穩。"
         )
-        # 步驟說明
+        # NOTE: translated to English.
         show_step_panel("STATANALYSER", 1, ["ADF/KPSS 平穩性檢驗[自動]"], step_content)
 
-        # 執行檢定並存結果
+        # NOTE: translated to English.
         def run_stationarity_tests(series):
             result = {}
             try:
@@ -86,10 +86,11 @@ class StationarityTest(BaseStatAnalyser):
                 result["adf_stat"] = adf_stat
                 result["adf_p"] = adf_p
                 result["adf_stationary"] = adf_p < 0.05
-            except Exception:
+            except Exception as exc:
                 result["adf_stat"] = "N/A"
                 result["adf_p"] = "N/A"
-                result["adf_stationary"] = False
+                result["adf_stationary"] = None
+                result["adf_error"] = f"{type(exc).__name__}: {exc}"
             try:
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
@@ -97,17 +98,18 @@ class StationarityTest(BaseStatAnalyser):
                 result["kpss_stat"] = kpss_stat
                 result["kpss_p"] = kpss_p
                 result["kpss_stationary"] = kpss_p > 0.05
-            except Exception:
+            except Exception as exc:
                 result["kpss_stat"] = "N/A"
                 result["kpss_p"] = "N/A"
-                result["kpss_stationary"] = False
+                result["kpss_stationary"] = None
+                result["kpss_error"] = f"{type(exc).__name__}: {exc}"
             return result
 
         self.results["predictor"] = run_stationarity_tests(
             self.data[self.predictor_col]
         )
         self.results["return"] = run_stationarity_tests(self.data[self.return_col])
-        # 結果數據
+        # NOTE: translated to English.
         pred_adf = self.results["predictor"].get("adf_stat", "N/A")
         pred_adf_p = self.results["predictor"].get("adf_p", "N/A")
         pred_kpss = self.results["predictor"].get("kpss_stat", "N/A")
@@ -123,7 +125,7 @@ class StationarityTest(BaseStatAnalyser):
                 "p值": [pred_adf_p, pred_kpss_p, ret_adf_p, ret_kpss_p],
             }
         )
-        # 直接用 Rich Table 輸出
+        # NOTE: translated to English.
         console = get_console()
         table = Table(title="平穩性檢驗結果", border_style="#dbac30", show_lines=True)
         for col in df.columns:
@@ -139,25 +141,36 @@ class StationarityTest(BaseStatAnalyser):
                     row_cells.append(str(v))
             table.add_row(*row_cells)
         console.print(table)
-        # 判斷
-        pred_adf_bool = self.results["predictor"].get("adf_stationary", False)
-        pred_kpss_bool = self.results["predictor"].get("kpss_stationary", False)
-        ret_adf_bool = self.results["return"].get("adf_stationary", False)
-        ret_kpss_bool = self.results["return"].get("kpss_stationary", False)
+        # NOTE: translated to English.
+        pred_adf_bool = self.results["predictor"].get("adf_stationary")
+        pred_kpss_bool = self.results["predictor"].get("kpss_stationary")
+        ret_adf_bool = self.results["return"].get("adf_stationary")
+        ret_kpss_bool = self.results["return"].get("kpss_stationary")
+
+        def status(value: object) -> str:
+            if value is True:
+                return "[bold green]是[/bold green]"
+            if value is False:
+                return "[bold red]否[/bold red]"
+            return "[bold yellow]資料不足[/bold yellow]"
+
         summary = (
-            f"因子ADF平穩：{'[bold green]是[/bold green]' if pred_adf_bool else '[bold red]否[/bold red]'}，"
-            f"KPSS平穩：{'[bold green]是[/bold green]' if pred_kpss_bool else '[bold red]否[/bold red]'}\n"
-            f"收益率ADF平穩：{'[bold green]是[/bold green]' if ret_adf_bool else '[bold red]否[/bold red]'}，"
-            f"KPSS平穩：{'[bold green]是[/bold green]' if ret_kpss_bool else '[bold red]否[/bold red]'}\n"
+            f"因子 ADF 平穩：{status(pred_adf_bool)}，"
+            f"KPSS 平穩：{status(pred_kpss_bool)}\n"
+            f"收益率 ADF 平穩：{status(ret_adf_bool)}，"
+            f"KPSS 平穩：{status(ret_kpss_bool)}\n"
         )
-        if pred_adf_bool and pred_kpss_bool:
+        if pred_adf_bool is None or pred_kpss_bool is None:
+            summary += "[bold yellow]因子序列資料不足，未能判定平穩性。[/bold yellow]\n"
+        elif pred_adf_bool and pred_kpss_bool:
             summary += "[bold #dbac30]因子序列平穩[/bold #dbac30]，[bold]適合用於傳統時間序列建模（如ARMA/ARIMA）[/bold]\n"
         else:
             summary += "[bold red]因子序列非平穩[/bold red]，[bold]建議差分或轉換後再建模[/bold]\n"
-        if ret_adf_bool and ret_kpss_bool:
+        if ret_adf_bool is None or ret_kpss_bool is None:
+            summary += "[bold yellow]收益率序列資料不足，未能判定平穩性。[/bold yellow]"
+        elif ret_adf_bool and ret_kpss_bool:
             summary += "[bold #dbac30]收益率序列平穩[/bold #dbac30]，[bold green]可直接用於收益率建模[/bold green]"
         else:
             summary += "[bold red]收益率序列非平穩[/bold red]，[bold]建議差分或轉換後再建模[/bold]"
-        # 結論用紅色 Panel
-            show_info("STATANALYSER", summary)
+        show_info("STATANALYSER", summary)
         return self.results

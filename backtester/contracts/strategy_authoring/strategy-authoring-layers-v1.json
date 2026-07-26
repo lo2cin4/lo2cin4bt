@@ -1,0 +1,204 @@
+{
+  "schema_version": "strategy_authoring_layers.v1",
+  "contract_name": "lo2cin4bt Strategy Authoring Layers",
+  "purpose": "Separate the beginner/AI strategy writing surface from the strict machine-readable registry, runtime adapters, and verification evidence.",
+  "folder_layout": [
+    {
+      "path": "backtester/contracts/strategy_authoring/",
+      "purpose": "Layer contract and authoring templates."
+    },
+    {
+      "path": "backtester/contracts/strategy_authoring/templates/",
+      "purpose": "Template-only examples for DSL, machine IR, registry specs, and oracle tests. They are not directly runnable configs."
+    },
+    {
+      "path": "backtester/ops/",
+      "purpose": "Core Strategy Building Block registry code and deterministic export."
+    },
+    {
+      "path": "workspace/ops/",
+      "purpose": "Future reviewed workspace-local building blocks; path-contained and never loaded as arbitrary code without validation."
+    },
+    {
+      "path": "tests/",
+      "purpose": "Schema, registry, oracle, invariant, and WFA safety tests."
+    }
+  ],
+  "block_kinds": [
+    {
+      "kind": "indicator",
+      "meaning": "Computes a named numeric field such as SMA, RSI, MACD, momentum, volatility, z-score, or percentile.",
+      "dsl_sections": ["computed_fields", "selection"],
+      "machine_output": "numeric_series_or_frame"
+    },
+    {
+      "kind": "condition_logic",
+      "meaning": "Combines boolean conditions with all, any, or not.",
+      "dsl_sections": ["signals", "selection"],
+      "machine_output": "boolean_mask"
+    },
+    {
+      "kind": "condition_comparator",
+      "meaning": "Compares fields, constants, or computed values.",
+      "dsl_sections": ["signals", "selection"],
+      "machine_output": "boolean_mask"
+    },
+    {
+      "kind": "cross_condition",
+      "meaning": "Detects a current/previous bar crossing between two operands.",
+      "dsl_sections": ["signals", "selection"],
+      "machine_output": "boolean_mask"
+    },
+    {
+      "kind": "calendar",
+      "meaning": "Creates date/session masks or event sessions.",
+      "dsl_sections": ["signals", "rebalance"],
+      "machine_output": "boolean_mask_or_session_list"
+    },
+    {
+      "kind": "rebalance_trigger",
+      "meaning": "Refreshes target weights when signal, selection, or allocation intent changes.",
+      "dsl_sections": ["rebalance"],
+      "machine_output": "rebalance_session_list"
+    },
+    {
+      "kind": "execution",
+      "meaning": "Marks execution timing or accounting semantics.",
+      "dsl_sections": ["signals", "fill_model"],
+      "machine_output": "execution_sentinel"
+    },
+    {
+      "kind": "strategy_template",
+      "meaning": "Authoring scaffold that expands into a strategy run config; not runtime calculation by itself.",
+      "dsl_sections": ["template"],
+      "machine_output": "strategy_run_config_template"
+    }
+  ],
+  "layers": [
+    {
+      "layer_id": "strategy_config_dsl",
+      "audience": "human_ai",
+      "reads_from": "natural_language_request",
+      "writes_to": "machine_ir",
+      "responsibility": "Make strategy intent easy to write and review before runtime normalization.",
+      "sections": [
+        {
+          "section_id": "template",
+          "purpose": "Choose an optional strategy scaffold before filling concrete config sections.",
+          "allowed_block_kinds": ["strategy_template"],
+          "required_columns": ["template_id", "required_inputs", "expands_to_sections"]
+        },
+        {
+          "section_id": "computed_fields",
+          "purpose": "Define named computed values derived from market data, such as indicators or custom fields.",
+          "allowed_block_kinds": ["indicator"],
+          "required_columns": ["name", "op", "inputs", "params", "output", "availability"]
+        },
+        {
+          "section_id": "signals",
+          "purpose": "Define entry, exit, and invalidation conditions.",
+          "allowed_block_kinds": [
+            "condition_logic",
+            "condition_comparator",
+            "cross_condition",
+            "calendar",
+            "execution"
+          ],
+          "required_columns": ["signal_name", "field_or_node", "op", "right_side", "known_at", "earliest_trade"]
+        },
+        {
+          "section_id": "selection",
+          "purpose": "Define ranking and eligibility for portfolio strategies.",
+          "allowed_block_kinds": [
+            "indicator",
+            "condition_logic",
+            "condition_comparator",
+            "cross_condition"
+          ],
+          "required_columns": ["rank_by", "eligible", "top_n", "rank_order"]
+        },
+        {
+          "section_id": "allocation",
+          "purpose": "Define target weights, position sizing, overlays, and cash behavior.",
+          "allowed_block_kinds": [],
+          "required_columns": ["method", "weights", "limits", "cash_policy"]
+        },
+        {
+          "section_id": "rebalance",
+          "purpose": "Define when target weights are refreshed.",
+          "allowed_block_kinds": ["calendar", "rebalance_trigger"],
+          "required_columns": ["trigger", "calendar", "timezone"]
+        },
+        {
+          "section_id": "fill_model",
+          "purpose": "Define fill timing, cost, slippage, and accounting backend.",
+          "allowed_block_kinds": ["execution"],
+          "required_columns": ["entry_timing", "exit_timing", "cost_model", "slippage_model"]
+        }
+      ]
+    },
+    {
+      "layer_id": "machine_ir",
+      "audience": "validator_backtester",
+      "reads_from": "strategy_config_dsl",
+      "writes_to": "runtime_adapter",
+      "responsibility": "Normalize strategy intent into op-shaped nodes with no ambiguous natural language.",
+      "required_columns": [
+        {"name": "node_id", "meaning": "Stable unique id inside the strategy graph."},
+        {"name": "canonical_id", "meaning": "Registry canonical Strategy Building Block id."},
+        {"name": "block_kind", "meaning": "Registry kind used to route validation and UI explanations."},
+        {"name": "usage_site", "meaning": "Runtime path where this op must be supported."},
+        {"name": "inputs", "meaning": "Named input fields or child nodes."},
+        {"name": "params_schema", "meaning": "Allowed parameters from the registry."},
+        {"name": "params", "meaning": "Concrete parameter values or param_ref references."},
+        {"name": "output_name", "meaning": "Name exposed to later nodes."},
+        {"name": "temporal_metadata", "meaning": "Observation, availability, earliest trade, and lookback metadata."},
+        {"name": "implementation_source_hash", "meaning": "Hash of implementation code used for audit."},
+        {"name": "evidence_paths", "meaning": "Tests or docs that prove support at the usage site."}
+      ]
+    },
+    {
+      "layer_id": "building_block_registry",
+      "audience": "validator_ai_support_checker",
+      "reads_from": "backtester/ops and reviewed workspace ops",
+      "writes_to": "machine_ir",
+      "responsibility": "Answer whether a block is supported at a usage site and what safety metadata is required.",
+      "required_columns": [
+        {"name": "canonical_id", "meaning": "Unique op id."},
+        {"name": "block_kind", "meaning": "indicator, condition, calendar, rebalance trigger, execution, or template."},
+        {"name": "aliases", "meaning": "Accepted user/AI spellings."},
+        {"name": "usage_sites", "meaning": "Supported and unsupported runtime paths."},
+        {"name": "params_schema", "meaning": "JSON-schema-like parameter contract."},
+        {"name": "temporal_metadata", "meaning": "Anti-look-ahead metadata."},
+        {"name": "leakage_flags", "meaning": "Future-use and backfill policy."},
+        {"name": "wfa_safety", "meaning": "Train/OOS separation requirements."}
+      ]
+    },
+    {
+      "layer_id": "runtime_adapter",
+      "audience": "backtester_engine",
+      "reads_from": "machine_ir",
+      "writes_to": "artifacts",
+      "responsibility": "Execute only validated IR through existing engines and adapters.",
+      "required_columns": [
+        {"name": "engine", "meaning": "MultiAssetPortfolioEngine, event-driven Rust timeline, vectorized path, calendar resolver, or portfolio accounting path."},
+        {"name": "accepted_usage_site", "meaning": "Usage site already approved by registry."},
+        {"name": "input_frame", "meaning": "Data source and aligned frame."},
+        {"name": "output_frame", "meaning": "Computed indicator, mask, target weight, or trade artifact."}
+      ]
+    },
+    {
+      "layer_id": "verification",
+      "audience": "reviewer_ci",
+      "reads_from": "artifacts",
+      "writes_to": "evidence",
+      "responsibility": "Prove mechanics with oracle tests, invariant tests, schema tests, and WFA safety checks.",
+      "required_columns": [
+        {"name": "oracle_fixture", "meaning": "Small deterministic data where expected trades are hand-checkable."},
+        {"name": "expected_actions", "meaning": "Expected entries, exits, rebalances, costs, and equity path."},
+        {"name": "invariants", "meaning": "Properties such as higher cost cannot improve equity."},
+        {"name": "wfa_checks", "meaning": "No OOS refit and train-only selection evidence."}
+      ]
+    }
+  ]
+}

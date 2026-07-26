@@ -1,0 +1,1328 @@
+{
+  "schema_version": "engine_request_profile_fixtures.v1",
+  "contract_id": "lo2cin4bt.engine_request_profile_fixtures.v1",
+  "source_paths": [
+    "backtester/contracts/strategy/examples/strategy-run-us-etf-yfinance-daily-selection-timing-momentum-sma-example.json",
+    "backtester/contracts/strategy/examples/strategy-run-vti-avuv-vxus-sgol-dbmf-yfinance-yearly-rebalance-example.json",
+    "backtester/contracts/strategy/examples/strategy-run-voo-gld-yfinance-daily-momentum90-sma250-rotation-example.json",
+    "backtester/contracts/strategy/examples/strategy-run-btcusdt-binance-monthly-nth-weekday-same-session-matrix-example.json",
+    "backtester/contracts/strategy/examples/strategy-run-spy-qqq-yfinance-monthly-pair-spread-example.json",
+    "backtester/contracts/strategy/examples/strategy-run-qqq-tlt-gld-yfinance-monthly-hedge-overlay-example.json"
+  ],
+  "requests": [
+    {
+      "schema_version": "engine_request.v1",
+      "contract_id": "lo2cin4bt.engine_request.v1",
+      "request_id": "us_etf_selection_timing_momentum_sma_yfinance_example:single_backtest",
+      "request_hash": "571796d5d2af260dcf041619a80e2e2b6d6826bf6af70388c088a622bf7be290",
+      "strategy": {
+        "strategy_id": "us_etf_selection_timing_momentum_sma_yfinance_example",
+        "strategy_mode_id": "multi_asset_portfolio",
+        "strategy_profile_id": "selection_timing_portfolio",
+        "strategy_preset_id": null,
+        "plan_hash": "02245a8971fba3dc4682512e7d23f28834cbc7e27a275a5127ddc338c38d0faf",
+        "profile_contract": {
+          "profile_id": "selection_timing_portfolio",
+          "preset_id": "",
+          "contract_kind": "selection_timing",
+          "symbol_count": 4,
+          "universe_scan": true,
+          "eligible_defined": true,
+          "ranking_key": "momentum_60",
+          "rank_order": "desc",
+          "holdings_cap": 2,
+          "entry_signal_defined": false,
+          "exit_signal_defined": false,
+          "allocation_method": "equal_weight"
+        },
+        "decision_plan": {
+          "factor_pipeline": {},
+          "computed_fields": [
+            {
+              "name": "momentum_60",
+              "op": "indicator.momentum",
+              "source": "close",
+              "period": 60
+            },
+            {
+              "name": "sma_200",
+              "op": "indicator.sma",
+              "source": "close",
+              "period": 200
+            }
+          ],
+          "signals": {},
+          "selection": {
+            "eligible": {
+              "field": "close",
+              "op": "gt",
+              "right_field": "sma_200"
+            },
+            "rank_by": "momentum_60",
+            "top_n": 2,
+            "rank_order": "desc"
+          },
+          "allocation": {
+            "method": "equal_weight",
+            "position_limit": 0.5,
+            "cash_policy": "keep_unallocated_cash",
+            "long_gross_exposure": 1.0,
+            "short_gross_exposure": 0.0
+          },
+          "rebalance": {
+            "trigger": {
+              "op": "calendar.every_session"
+            }
+          },
+          "required_operations": [
+            "calendar.every_session",
+            "gt",
+            "indicator.momentum",
+            "indicator.sma"
+          ],
+          "required_actions": []
+        }
+      },
+      "workflow": {
+        "workflow_id": "single_backtest",
+        "run_scope": "single",
+        "parameter_domains": {},
+        "resolved_parameters": {},
+        "combo_guard": {
+          "warn_combos": null,
+          "hard_cap_combos": null,
+          "estimated_total_combos": 0,
+          "window_cap_combos": null
+        },
+        "window": null
+      },
+      "data_requirements": {
+        "bundle_schema_version": "market_data_bundle.v1",
+        "provider": "yfinance",
+        "symbols": [
+          "VOO",
+          "QQQ",
+          "IWM",
+          "GLD"
+        ],
+        "provider_config": {
+          "provider": "yfinance",
+          "frequency": "1D",
+          "interval": "1d",
+          "calendar": "XNYS",
+          "timezone": "America/New_York",
+          "start_date": "2015-01-01",
+          "start_policy": "common_available",
+          "benchmark": {
+            "provider": "yfinance",
+            "symbol": "SPY",
+            "label": "SPY benchmark",
+            "interval": "1d"
+          }
+        },
+        "universe_config": {
+          "symbols": [
+            "VOO",
+            "QQQ",
+            "IWM",
+            "GLD"
+          ],
+          "universe_policy": "all_symbols"
+        },
+        "frequency": "1D",
+        "calendar": "XNYS",
+        "timezone": "America/New_York",
+        "start_date": "2015-01-01",
+        "end_date": null,
+        "start_policy": "common_available",
+        "external_features": [],
+        "benchmark": {
+          "provider": "yfinance",
+          "symbol": "SPY",
+          "label": "SPY benchmark",
+          "interval": "1d"
+        }
+      },
+      "simulation": {
+        "account": {
+          "base_currency": "USD",
+          "balance_mode": "normalized_equity",
+          "starting_balance": 100.0,
+          "position_mode": "netting",
+          "account_type": "cash",
+          "leverage_limit": 1.0
+        },
+        "venue": {
+          "venue_id": "SIM",
+          "oms_type": "netting",
+          "book_type": "bar",
+          "routing": "simulated",
+          "settlement_days": 0
+        },
+        "clock": {
+          "mode": "historical_event_time",
+          "event_ordering": "event_time_then_sequence",
+          "tie_breaker": "source_then_sequence"
+        },
+        "fill_model": {
+          "timing": "signal_close_for_next_bar",
+          "price": "close_to_close",
+          "cost": {
+            "transaction_cost": 0.001,
+            "slippage": 0.0,
+            "short_borrow_rate_annual": 0.0,
+            "borrow_day_count": 252
+          },
+          "liquidity": {
+            "max_fill_fraction": 1.0
+          },
+          "min_order_delta": 1e-12,
+          "time_in_force": "gtc",
+          "atomic_batch": false,
+          "position_policy": {
+            "on_entry_signal_while_holding": "ignore_new_signal"
+          },
+          "baseline_weights": {},
+          "margin": {
+            "maintenance_margin_ratio": 1.0
+          }
+        },
+        "risk": {
+          "max_positions": 2,
+          "max_gross_exposure": 1.0,
+          "long_short": "long_only",
+          "allow_short": false
+        }
+      },
+      "outputs": {
+        "result_contract": "canonical_result_bundle.v1",
+        "validation_contract": "result_validation_report.v1",
+        "requested": {
+          "equity_curve": true,
+          "trade_summary": true,
+          "rebalance_audit": true,
+          "holdings": true,
+          "asset_contribution": true
+        },
+        "metricstracker": {
+          "enable_metrics_analysis": true,
+          "time_unit": 252,
+          "risk_free_rate": 0.04
+        },
+        "statanalyser": {}
+      },
+      "lineage": {
+        "source_schema_version": "strategy_run",
+        "source_config_hash": "879f559e80545ec8b56f16b62b85ad7c2ffa3daed2a7a73ffb79226588998db6",
+        "plan_hash": "02245a8971fba3dc4682512e7d23f28834cbc7e27a275a5127ddc338c38d0faf"
+      }
+    },
+    {
+      "schema_version": "engine_request.v1",
+      "contract_id": "lo2cin4bt.engine_request.v1",
+      "request_id": "vti_avuv_vxus_sgol_dbmf_fixed_weights_yearly_rebalance_yfinance_example:single_backtest",
+      "request_hash": "d7c63bc2dae248bf3623ca70d5ab483b1917b79db5fc41b1a0a8667d58d1adb8",
+      "strategy": {
+        "strategy_id": "vti_avuv_vxus_sgol_dbmf_fixed_weights_yearly_rebalance_yfinance_example",
+        "strategy_mode_id": "multi_asset_portfolio",
+        "strategy_profile_id": "allocation_portfolio",
+        "strategy_preset_id": null,
+        "plan_hash": "dc2c2e52ae28b5934f5413dab8f7d58d1fdcbe9f3c39245824a0fa7f1b991ff8",
+        "profile_contract": {
+          "profile_id": "allocation_portfolio",
+          "preset_id": "",
+          "contract_kind": "allocation",
+          "symbol_count": 5,
+          "allocation_method": "fixed_weights",
+          "weight_keys": [
+            "AVUV",
+            "DBMF",
+            "SGOL",
+            "VTI",
+            "VXUS"
+          ]
+        },
+        "decision_plan": {
+          "factor_pipeline": {},
+          "computed_fields": [],
+          "signals": {},
+          "selection": {},
+          "allocation": {
+            "method": "fixed_weights",
+            "weights": {
+              "VTI": 0.3,
+              "AVUV": 0.1,
+              "VXUS": 0.2,
+              "SGOL": 0.2,
+              "DBMF": 0.2
+            },
+            "cash_policy": "keep_unallocated_cash"
+          },
+          "rebalance": {
+            "trigger": {
+              "op": "calendar.year_start"
+            }
+          },
+          "required_operations": [
+            "calendar.year_start"
+          ],
+          "required_actions": [
+            "set_target_weights"
+          ]
+        }
+      },
+      "workflow": {
+        "workflow_id": "single_backtest",
+        "run_scope": "single",
+        "parameter_domains": {},
+        "resolved_parameters": {},
+        "combo_guard": {
+          "warn_combos": null,
+          "hard_cap_combos": null,
+          "estimated_total_combos": 0,
+          "window_cap_combos": null
+        },
+        "window": null
+      },
+      "data_requirements": {
+        "bundle_schema_version": "market_data_bundle.v1",
+        "provider": "yfinance",
+        "symbols": [
+          "VTI",
+          "AVUV",
+          "VXUS",
+          "SGOL",
+          "DBMF"
+        ],
+        "provider_config": {
+          "provider": "yfinance",
+          "frequency": "1D",
+          "interval": "1d",
+          "calendar": "XNYS",
+          "timezone": "America/New_York",
+          "start_date": "2021-01-01",
+          "start_policy": "common_available",
+          "price_adjustment": "split_dividend_adjusted",
+          "benchmark": {
+            "provider": "yfinance",
+            "symbol": "VTI",
+            "label": "VTI benchmark",
+            "interval": "1d"
+          }
+        },
+        "universe_config": {
+          "symbols": [
+            "VTI",
+            "AVUV",
+            "VXUS",
+            "SGOL",
+            "DBMF"
+          ],
+          "universe_policy": "static_public_etf_list",
+          "survivorship_policy": "static_user_defined_etf_universe",
+          "as_of_date": "2026-05-19",
+          "delisted_policy": "not_applicable_for_static_current_etf_example",
+          "point_in_time_constituents": false
+        },
+        "frequency": "1D",
+        "calendar": "XNYS",
+        "timezone": "America/New_York",
+        "start_date": "2021-01-01",
+        "end_date": null,
+        "start_policy": "common_available",
+        "external_features": [],
+        "benchmark": {
+          "provider": "yfinance",
+          "symbol": "VTI",
+          "label": "VTI benchmark",
+          "interval": "1d"
+        }
+      },
+      "simulation": {
+        "account": {
+          "base_currency": "USD",
+          "balance_mode": "normalized_equity",
+          "starting_balance": 100.0,
+          "position_mode": "netting",
+          "account_type": "cash",
+          "leverage_limit": 1.0
+        },
+        "venue": {
+          "venue_id": "SIM",
+          "oms_type": "netting",
+          "book_type": "bar",
+          "routing": "simulated",
+          "settlement_days": 0
+        },
+        "clock": {
+          "mode": "historical_event_time",
+          "event_ordering": "event_time_then_sequence",
+          "tie_breaker": "source_then_sequence"
+        },
+        "fill_model": {
+          "timing": "timeline",
+          "actions": [
+            {
+              "signal": "rebalance",
+              "offset_bars": 0,
+              "price": "close",
+              "action": "set_target_weights"
+            }
+          ],
+          "cost": {
+            "transaction_cost": 0.001,
+            "slippage": 0.0005,
+            "short_borrow_rate_annual": 0.0,
+            "borrow_day_count": 252
+          },
+          "price": "close_to_close",
+          "liquidity": {
+            "max_fill_fraction": 1.0
+          },
+          "min_order_delta": 1e-12,
+          "time_in_force": "gtc",
+          "atomic_batch": false,
+          "position_policy": {
+            "on_entry_signal_while_holding": "ignore_new_signal"
+          },
+          "baseline_weights": {},
+          "margin": {
+            "maintenance_margin_ratio": 1.0
+          }
+        },
+        "risk": {
+          "max_positions": 5,
+          "max_gross_exposure": 1,
+          "long_short": "long_only",
+          "allow_short": false
+        }
+      },
+      "outputs": {
+        "result_contract": "canonical_result_bundle.v1",
+        "validation_contract": "result_validation_report.v1",
+        "requested": {
+          "equity_curve": true,
+          "trade_summary": true,
+          "entry_exit_markers": false,
+          "rebalance_audit": true,
+          "holdings": true,
+          "asset_contribution": true
+        },
+        "metricstracker": {
+          "enable_metrics_analysis": true,
+          "time_unit": 252,
+          "risk_free_rate": 0.04
+        },
+        "statanalyser": {}
+      },
+      "lineage": {
+        "source_schema_version": "strategy_run",
+        "source_config_hash": "d4c76b4b6b66ae4e58a513db99bb6af072eed5bf043e1da463fb10d5338837fd",
+        "plan_hash": "dc2c2e52ae28b5934f5413dab8f7d58d1fdcbe9f3c39245824a0fa7f1b991ff8"
+      }
+    },
+    {
+      "schema_version": "engine_request.v1",
+      "contract_id": "lo2cin4bt.engine_request.v1",
+      "request_id": "voo_gld_momentum90_sma250_rotation_yfinance_example:single_backtest",
+      "request_hash": "99cb7f8cacd3ecbbe74053268fdcac1af49e855d07e479fea41d9b8b09c6963e",
+      "strategy": {
+        "strategy_id": "voo_gld_momentum90_sma250_rotation_yfinance_example",
+        "strategy_mode_id": "multi_asset_portfolio",
+        "strategy_profile_id": "rotation_portfolio",
+        "strategy_preset_id": null,
+        "plan_hash": "e334d4ec63a6d5e2dd7a71251e2d3ae1d210ac0e7bfea97e034b82f70d0086c4",
+        "profile_contract": {
+          "profile_id": "rotation_portfolio",
+          "preset_id": "",
+          "contract_kind": "rotation",
+          "symbol_count": 2,
+          "universe_scan": true,
+          "ranking_key": "return_momentum",
+          "rank_order": "desc",
+          "holdings_cap": 1,
+          "allocation_method": "equal_weight"
+        },
+        "decision_plan": {
+          "factor_pipeline": {},
+          "computed_fields": [
+            {
+              "name": "return_momentum",
+              "op": "indicator.momentum",
+              "source": "close",
+              "period": 90
+            },
+            {
+              "name": "sma_filter",
+              "op": "indicator.sma",
+              "source": "close",
+              "period": 250
+            }
+          ],
+          "signals": {},
+          "selection": {
+            "eligible": {
+              "field": "close",
+              "op": "gt",
+              "right_field": "sma_filter"
+            },
+            "rank_by": "return_momentum",
+            "rank_order": "desc",
+            "top_n": 1
+          },
+          "allocation": {
+            "method": "equal_weight",
+            "position_limit": 1,
+            "cash_policy": "keep_unallocated_cash",
+            "long_gross_exposure": 1.0,
+            "short_gross_exposure": 0.0
+          },
+          "rebalance": {
+            "trigger": {
+              "op": "calendar.every_session"
+            }
+          },
+          "required_operations": [
+            "calendar.every_session",
+            "gt",
+            "indicator.momentum",
+            "indicator.sma"
+          ],
+          "required_actions": []
+        }
+      },
+      "workflow": {
+        "workflow_id": "single_backtest",
+        "run_scope": "single",
+        "parameter_domains": {},
+        "resolved_parameters": {},
+        "combo_guard": {
+          "warn_combos": null,
+          "hard_cap_combos": null,
+          "estimated_total_combos": 0,
+          "window_cap_combos": null
+        },
+        "window": null
+      },
+      "data_requirements": {
+        "bundle_schema_version": "market_data_bundle.v1",
+        "provider": "yfinance",
+        "symbols": [
+          "VOO",
+          "GLD"
+        ],
+        "provider_config": {
+          "provider": "yfinance",
+          "frequency": "1D",
+          "interval": "1d",
+          "calendar": "XNYS",
+          "timezone": "America/New_York",
+          "start_date": "2011-01-01",
+          "start_policy": "common_available",
+          "benchmark": {
+            "provider": "yfinance",
+            "symbol": "SPY",
+            "label": "SPY benchmark",
+            "interval": "1d"
+          }
+        },
+        "universe_config": {
+          "symbols": [
+            "VOO",
+            "GLD"
+          ],
+          "universe_policy": "all_symbols"
+        },
+        "frequency": "1D",
+        "calendar": "XNYS",
+        "timezone": "America/New_York",
+        "start_date": "2011-01-01",
+        "end_date": null,
+        "start_policy": "common_available",
+        "external_features": [],
+        "benchmark": {
+          "provider": "yfinance",
+          "symbol": "SPY",
+          "label": "SPY benchmark",
+          "interval": "1d"
+        }
+      },
+      "simulation": {
+        "account": {
+          "base_currency": "USD",
+          "balance_mode": "normalized_equity",
+          "starting_balance": 100.0,
+          "position_mode": "netting",
+          "account_type": "cash",
+          "leverage_limit": 1.0
+        },
+        "venue": {
+          "venue_id": "SIM",
+          "oms_type": "netting",
+          "book_type": "bar",
+          "routing": "simulated",
+          "settlement_days": 0
+        },
+        "clock": {
+          "mode": "historical_event_time",
+          "event_ordering": "event_time_then_sequence",
+          "tie_breaker": "source_then_sequence"
+        },
+        "fill_model": {
+          "timing": "signal_close_for_next_bar",
+          "price": "close_to_close",
+          "cost": {
+            "transaction_cost": 0.001,
+            "slippage": 0.0005,
+            "short_borrow_rate_annual": 0.0,
+            "borrow_day_count": 252
+          },
+          "liquidity": {
+            "max_fill_fraction": 1.0
+          },
+          "min_order_delta": 1e-12,
+          "time_in_force": "gtc",
+          "atomic_batch": false,
+          "position_policy": {
+            "on_entry_signal_while_holding": "ignore_new_signal"
+          },
+          "baseline_weights": {},
+          "margin": {
+            "maintenance_margin_ratio": 1.0
+          }
+        },
+        "risk": {
+          "max_positions": 1,
+          "max_gross_exposure": 1,
+          "long_short": "long_only",
+          "allow_short": false
+        }
+      },
+      "outputs": {
+        "result_contract": "canonical_result_bundle.v1",
+        "validation_contract": "result_validation_report.v1",
+        "requested": {
+          "equity_curve": true,
+          "trade_summary": true,
+          "entry_exit_markers": true,
+          "rebalance_audit": true,
+          "holdings": true,
+          "asset_contribution": true
+        },
+        "metricstracker": {
+          "enable_metrics_analysis": true,
+          "time_unit": 252,
+          "risk_free_rate": 0.04
+        },
+        "statanalyser": {}
+      },
+      "lineage": {
+        "source_schema_version": "strategy_run",
+        "source_config_hash": "6a2dcf7a744b7f2e3d7f47b4dc94a832d866952294441c3a37aab4ebaf24cbb3",
+        "plan_hash": "e334d4ec63a6d5e2dd7a71251e2d3ae1d210ac0e7bfea97e034b82f70d0086c4"
+      }
+    },
+    {
+      "schema_version": "engine_request.v1",
+      "contract_id": "lo2cin4bt.engine_request.v1",
+      "request_id": "btcusd_monthly_nth_weekday_same_session_coinbase_example:parameter_matrix",
+      "request_hash": "fdd18e1b65046b63b865810c6ff77bd37e343c76eb734c77915ae5d6378df2fc",
+      "strategy": {
+        "strategy_id": "btcusd_monthly_nth_weekday_same_session_coinbase_example",
+        "strategy_mode_id": "multi_asset_portfolio",
+        "strategy_profile_id": "calendar_event_portfolio",
+        "strategy_preset_id": null,
+        "plan_hash": "f07a821a8d952fea8ddc525af8201821a95c334e388ad3164abfe583cd584d2a",
+        "profile_contract": {
+          "profile_id": "calendar_event_portfolio",
+          "preset_id": "",
+          "contract_kind": "calendar_event",
+          "symbol_count": 1,
+          "timeline_actions_defined": true,
+          "timeline_actions_count": 2,
+          "allocation_method": "position_state"
+        },
+        "decision_plan": {
+          "factor_pipeline": {},
+          "computed_fields": [],
+          "signals": {
+            "entry": {
+              "op": "calendar.nth_weekday_of_month",
+              "months": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12
+              ],
+              "ordinal": {
+                "param_ref": "month_week"
+              },
+              "weekday": {
+                "param_ref": "weekday"
+              }
+            },
+            "exit": {
+              "op": "session.same_session_close"
+            },
+            "side": "long",
+            "target_weight": 1,
+            "conflict_policy": "same_session_exit"
+          },
+          "selection": {},
+          "allocation": {
+            "method": "position_state",
+            "target_weight": 1,
+            "cash_policy": "keep_unallocated_cash"
+          },
+          "rebalance": {
+            "trigger": {
+              "op": "calendar.every_session"
+            }
+          },
+          "required_operations": [
+            "calendar.every_session",
+            "calendar.nth_weekday_of_month",
+            "session.same_session_close"
+          ],
+          "required_actions": [
+            "enter",
+            "exit"
+          ]
+        }
+      },
+      "workflow": {
+        "workflow_id": "parameter_matrix",
+        "run_scope": "matrix_batch",
+        "parameter_domains": {
+          "month_week": {
+            "type": "range",
+            "start": 1,
+            "end": 4,
+            "step": 1
+          },
+          "weekday": {
+            "type": "set",
+            "values": [
+              "monday",
+              "tuesday",
+              "wednesday",
+              "thursday",
+              "friday",
+              "saturday",
+              "sunday"
+            ]
+          }
+        },
+        "resolved_parameters": {},
+        "combo_guard": {
+          "warn_combos": 28,
+          "hard_cap_combos": 40,
+          "estimated_total_combos": 28,
+          "window_cap_combos": null
+        },
+        "window": null
+      },
+      "data_requirements": {
+        "bundle_schema_version": "market_data_bundle.v1",
+        "provider": "coinbase",
+        "symbols": [
+          "BTC-USD"
+        ],
+        "provider_config": {
+          "provider": "coinbase",
+          "frequency": "1D",
+          "interval": "1d",
+          "calendar": "CRYPTO_24_7",
+          "timezone": "UTC",
+          "start_date": "2017-08-17",
+          "start_policy": "common_available",
+          "benchmark": {
+            "provider": "coinbase",
+            "symbol": "BTC-USD",
+            "label": "BTC-USD buy and hold",
+            "interval": "1d"
+          }
+        },
+        "universe_config": {
+          "symbols": [
+            "BTC-USD"
+          ],
+          "universe_policy": "single_crypto_pair"
+        },
+        "frequency": "1D",
+        "calendar": "CRYPTO_24_7",
+        "timezone": "UTC",
+        "start_date": "2017-08-17",
+        "end_date": null,
+        "start_policy": "common_available",
+        "external_features": [],
+        "benchmark": {
+          "provider": "coinbase",
+          "symbol": "BTC-USD",
+          "label": "BTC-USD buy and hold",
+          "interval": "1d"
+        }
+      },
+      "simulation": {
+        "account": {
+          "base_currency": "USD",
+          "balance_mode": "normalized_equity",
+          "starting_balance": 100.0,
+          "position_mode": "netting",
+          "account_type": "cash",
+          "leverage_limit": 1.0
+        },
+        "venue": {
+          "venue_id": "SIM",
+          "oms_type": "netting",
+          "book_type": "bar",
+          "routing": "simulated",
+          "settlement_days": 0
+        },
+        "clock": {
+          "mode": "historical_event_time",
+          "event_ordering": "event_time_then_sequence",
+          "tie_breaker": "source_then_sequence"
+        },
+        "fill_model": {
+          "timing": "timeline",
+          "entry_price": "open",
+          "entry_time": "00:00:00",
+          "exit_price": "close",
+          "exit_time": "23:59:59",
+          "session_scope": "same_session",
+          "same_session_exit": true,
+          "position_policy": {
+            "on_entry_signal_while_holding": "ignore_new_signal"
+          },
+          "actions": [
+            {
+              "signal": "entry",
+              "offset_bars": 0,
+              "price": "open",
+              "action": "enter"
+            },
+            {
+              "signal": "entry",
+              "offset_bars": 0,
+              "price": "close",
+              "action": "exit"
+            }
+          ],
+          "matrix_workers": 5,
+          "matrix_result_retention": 25,
+          "cost": {
+            "transaction_cost": 0.001,
+            "slippage": 0.0005,
+            "short_borrow_rate_annual": 0.0,
+            "borrow_day_count": 252
+          },
+          "price": "close_to_close",
+          "liquidity": {
+            "max_fill_fraction": 1.0
+          },
+          "min_order_delta": 1e-12,
+          "time_in_force": "gtc",
+          "atomic_batch": false,
+          "baseline_weights": {},
+          "margin": {
+            "maintenance_margin_ratio": 1.0
+          }
+        },
+        "risk": {
+          "max_positions": 1,
+          "max_gross_exposure": 1,
+          "long_short": "long_only",
+          "allow_short": false
+        }
+      },
+      "outputs": {
+        "result_contract": "canonical_result_bundle.v1",
+        "validation_contract": "result_validation_report.v1",
+        "requested": {
+          "equity_curve": true,
+          "trade_summary": true,
+          "entry_exit_markers": true,
+          "rebalance_audit": true,
+          "holdings": true
+        },
+        "metricstracker": {
+          "enable_metrics_analysis": true,
+          "time_unit": 365,
+          "risk_free_rate": 0.04
+        },
+        "statanalyser": {}
+      },
+      "lineage": {
+        "source_schema_version": "strategy_run",
+        "source_config_hash": "35888cee5a04c519a09702f5b882d2314cceb0fcd0a708262083c17cd2ce40b9",
+        "plan_hash": "f07a821a8d952fea8ddc525af8201821a95c334e388ad3164abfe583cd584d2a"
+      }
+    },
+    {
+      "schema_version": "engine_request.v1",
+      "contract_id": "lo2cin4bt.engine_request.v1",
+      "request_id": "spy_qqq_monthly_pair_spread_yfinance_example:single_backtest",
+      "request_hash": "9a6983f58d74106b9303beabb24bd705780b52ccf0a83d8d3a7790235d5e7a4c",
+      "strategy": {
+        "strategy_id": "spy_qqq_monthly_pair_spread_yfinance_example",
+        "strategy_mode_id": "multi_asset_portfolio",
+        "strategy_profile_id": "pair_spread_portfolio",
+        "strategy_preset_id": null,
+        "plan_hash": "8caf5ed0c3eb5376c36422bdd91e8e4e4f8154735a28a44bb97f07ddbefe4467",
+        "profile_contract": {
+          "profile_id": "pair_spread_portfolio",
+          "preset_id": "",
+          "contract_kind": "pair_spread",
+          "symbol_count": 2,
+          "leg_symbols": [
+            "SPY",
+            "QQQ"
+          ],
+          "requires_short_exposure": true,
+          "has_negative_weight_leg": true,
+          "timeline_actions_defined": true,
+          "timeline_actions_count": 2,
+          "event_phases": [
+            "open",
+            "close"
+          ],
+          "allow_short": true,
+          "long_short_mode": "market_neutral"
+        },
+        "decision_plan": {
+          "factor_pipeline": {},
+          "computed_fields": [],
+          "signals": {
+            "entry": {
+              "op": "calendar.nth_weekday_of_month",
+              "ordinal": 1,
+              "weekday": "monday",
+              "months": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12
+              ]
+            }
+          },
+          "selection": {},
+          "allocation": {
+            "method": "fixed_weights",
+            "cash_policy": "keep_unallocated_cash"
+          },
+          "rebalance": {},
+          "required_operations": [
+            "calendar.nth_weekday_of_month"
+          ],
+          "required_actions": [
+            "flatten",
+            "set_target_weights"
+          ]
+        }
+      },
+      "workflow": {
+        "workflow_id": "single_backtest",
+        "run_scope": "single",
+        "parameter_domains": {},
+        "resolved_parameters": {},
+        "combo_guard": {
+          "warn_combos": null,
+          "hard_cap_combos": null,
+          "estimated_total_combos": 0,
+          "window_cap_combos": null
+        },
+        "window": null
+      },
+      "data_requirements": {
+        "bundle_schema_version": "market_data_bundle.v1",
+        "provider": "yfinance",
+        "symbols": [
+          "SPY",
+          "QQQ"
+        ],
+        "provider_config": {
+          "provider": "yfinance",
+          "frequency": "1D",
+          "interval": "1d",
+          "calendar": "XNYS",
+          "timezone": "America/New_York",
+          "start_date": "2015-01-01",
+          "start_policy": "common_available",
+          "benchmark": {
+            "provider": "yfinance",
+            "symbol": "SPY",
+            "label": "SPY benchmark",
+            "interval": "1d"
+          }
+        },
+        "universe_config": {
+          "symbols": [
+            "SPY",
+            "QQQ"
+          ],
+          "universe_policy": "configured_symbols"
+        },
+        "frequency": "1D",
+        "calendar": "XNYS",
+        "timezone": "America/New_York",
+        "start_date": "2015-01-01",
+        "end_date": null,
+        "start_policy": "common_available",
+        "external_features": [],
+        "benchmark": {
+          "provider": "yfinance",
+          "symbol": "SPY",
+          "label": "SPY benchmark",
+          "interval": "1d"
+        }
+      },
+      "simulation": {
+        "account": {
+          "base_currency": "USD",
+          "balance_mode": "normalized_equity",
+          "starting_balance": 100.0,
+          "position_mode": "netting",
+          "account_type": "margin",
+          "leverage_limit": 2.0
+        },
+        "venue": {
+          "venue_id": "SIM",
+          "oms_type": "netting",
+          "book_type": "bar",
+          "routing": "simulated",
+          "settlement_days": 0
+        },
+        "clock": {
+          "mode": "historical_event_time",
+          "event_ordering": "event_time_then_sequence",
+          "tie_breaker": "source_then_sequence"
+        },
+        "fill_model": {
+          "timing": "timeline",
+          "actions": [
+            {
+              "signal": "entry",
+              "offset_bars": 0,
+              "price": "open",
+              "action": "set_target_weights",
+              "weights": {
+                "SPY": 1.0,
+                "QQQ": -1.0
+              }
+            },
+            {
+              "signal": "entry",
+              "offset_bars": 0,
+              "price": "close",
+              "action": "flatten"
+            }
+          ],
+          "cost": {
+            "transaction_cost": 0.001,
+            "slippage": 0.0005,
+            "short_borrow_rate_annual": 0.0,
+            "borrow_day_count": 252
+          },
+          "price": "close_to_close",
+          "liquidity": {
+            "max_fill_fraction": 1.0
+          },
+          "min_order_delta": 1e-12,
+          "time_in_force": "gtc",
+          "atomic_batch": false,
+          "position_policy": {
+            "on_entry_signal_while_holding": "ignore_new_signal"
+          },
+          "baseline_weights": {},
+          "margin": {
+            "maintenance_margin_ratio": 0.25
+          }
+        },
+        "risk": {
+          "max_positions": 2,
+          "max_gross_exposure": 2.0,
+          "long_short": "market_neutral",
+          "allow_short": true
+        }
+      },
+      "outputs": {
+        "result_contract": "canonical_result_bundle.v1",
+        "validation_contract": "result_validation_report.v1",
+        "requested": {
+          "equity_curve": true,
+          "trade_summary": true,
+          "entry_exit_markers": true,
+          "rebalance_audit": true,
+          "holdings": true,
+          "asset_contribution": true
+        },
+        "metricstracker": {
+          "enable_metrics_analysis": true,
+          "time_unit": 252,
+          "risk_free_rate": 0.04
+        },
+        "statanalyser": {}
+      },
+      "lineage": {
+        "source_schema_version": "strategy_run",
+        "source_config_hash": "db4d3966dc553dbc6e3923ce6738a71ad4b23cc97b4fd7cdb3282a4563e2cd60",
+        "plan_hash": "8caf5ed0c3eb5376c36422bdd91e8e4e4f8154735a28a44bb97f07ddbefe4467"
+      }
+    },
+    {
+      "schema_version": "engine_request.v1",
+      "contract_id": "lo2cin4bt.engine_request.v1",
+      "request_id": "qqq_tlt_gld_monthly_hedge_overlay_yfinance_example:single_backtest",
+      "request_hash": "e69d20f0882ec70f15e3d633423ac0624011213204d16ddbe7b9bfead02b2e1a",
+      "strategy": {
+        "strategy_id": "qqq_tlt_gld_monthly_hedge_overlay_yfinance_example",
+        "strategy_mode_id": "multi_asset_portfolio",
+        "strategy_profile_id": "multi_leg_event_portfolio",
+        "strategy_preset_id": null,
+        "plan_hash": "0a21975cfbe9b8ba9627c45abbe31bc6b38e13fd74dcf04bbb2fcd1310df2e1b",
+        "profile_contract": {
+          "profile_id": "multi_leg_event_portfolio",
+          "preset_id": "",
+          "contract_kind": "multi_leg_event",
+          "symbol_count": 3,
+          "leg_symbols": [
+            "QQQ",
+            "TLT",
+            "GLD"
+          ],
+          "timeline_actions_defined": true,
+          "timeline_actions_count": 3,
+          "event_phases": [
+            "open",
+            "close"
+          ],
+          "restore_actions_defined": true,
+          "allocation_method": "fixed_weights"
+        },
+        "decision_plan": {
+          "factor_pipeline": {},
+          "computed_fields": [],
+          "signals": {
+            "entry": {
+              "op": "calendar.nth_weekday_of_month",
+              "ordinal": 3,
+              "weekday": "friday",
+              "months": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12
+              ]
+            }
+          },
+          "selection": {},
+          "allocation": {
+            "method": "fixed_weights",
+            "cash_policy": "keep_unallocated_cash"
+          },
+          "rebalance": {
+            "trigger": {
+              "op": "calendar.first_session"
+            }
+          },
+          "required_operations": [
+            "calendar.first_session",
+            "calendar.nth_weekday_of_month"
+          ],
+          "required_actions": [
+            "set_target_weights"
+          ]
+        }
+      },
+      "workflow": {
+        "workflow_id": "single_backtest",
+        "run_scope": "single",
+        "parameter_domains": {},
+        "resolved_parameters": {},
+        "combo_guard": {
+          "warn_combos": null,
+          "hard_cap_combos": null,
+          "estimated_total_combos": 0,
+          "window_cap_combos": null
+        },
+        "window": null
+      },
+      "data_requirements": {
+        "bundle_schema_version": "market_data_bundle.v1",
+        "provider": "yfinance",
+        "symbols": [
+          "QQQ",
+          "TLT",
+          "GLD"
+        ],
+        "provider_config": {
+          "provider": "yfinance",
+          "frequency": "1D",
+          "interval": "1d",
+          "calendar": "XNYS",
+          "timezone": "America/New_York",
+          "start_date": "2015-01-01",
+          "start_policy": "common_available",
+          "benchmark": {
+            "provider": "yfinance",
+            "symbol": "QQQ",
+            "label": "QQQ benchmark",
+            "interval": "1d"
+          }
+        },
+        "universe_config": {
+          "symbols": [
+            "QQQ",
+            "TLT",
+            "GLD"
+          ],
+          "universe_policy": "configured_symbols"
+        },
+        "frequency": "1D",
+        "calendar": "XNYS",
+        "timezone": "America/New_York",
+        "start_date": "2015-01-01",
+        "end_date": null,
+        "start_policy": "common_available",
+        "external_features": [],
+        "benchmark": {
+          "provider": "yfinance",
+          "symbol": "QQQ",
+          "label": "QQQ benchmark",
+          "interval": "1d"
+        }
+      },
+      "simulation": {
+        "account": {
+          "base_currency": "USD",
+          "balance_mode": "normalized_equity",
+          "starting_balance": 100.0,
+          "position_mode": "netting",
+          "account_type": "cash",
+          "leverage_limit": 1.0
+        },
+        "venue": {
+          "venue_id": "SIM",
+          "oms_type": "netting",
+          "book_type": "bar",
+          "routing": "simulated",
+          "settlement_days": 0
+        },
+        "clock": {
+          "mode": "historical_event_time",
+          "event_ordering": "event_time_then_sequence",
+          "tie_breaker": "source_then_sequence"
+        },
+        "fill_model": {
+          "timing": "timeline",
+          "actions": [
+            {
+              "signal": "rebalance",
+              "offset_bars": 0,
+              "price": "open",
+              "action": "set_target_weights",
+              "weights": {
+                "QQQ": 1.0
+              }
+            },
+            {
+              "signal": "entry",
+              "offset_bars": 0,
+              "price": "open",
+              "action": "set_target_weights",
+              "weights": {
+                "TLT": 0.5,
+                "GLD": 0.5
+              }
+            },
+            {
+              "signal": "entry",
+              "offset_bars": 0,
+              "price": "close",
+              "action": "set_target_weights",
+              "weights": {
+                "QQQ": 1.0
+              }
+            }
+          ],
+          "cost": {
+            "transaction_cost": 0.001,
+            "slippage": 0.0005,
+            "short_borrow_rate_annual": 0.0,
+            "borrow_day_count": 252
+          },
+          "price": "close_to_close",
+          "liquidity": {
+            "max_fill_fraction": 1.0
+          },
+          "min_order_delta": 1e-12,
+          "time_in_force": "gtc",
+          "atomic_batch": false,
+          "position_policy": {
+            "on_entry_signal_while_holding": "ignore_new_signal"
+          },
+          "baseline_weights": {
+            "QQQ": 1.0
+          },
+          "margin": {
+            "maintenance_margin_ratio": 1.0
+          }
+        },
+        "risk": {
+          "max_positions": 2,
+          "max_gross_exposure": 1.0,
+          "long_short": "long_only",
+          "allow_short": false
+        }
+      },
+      "outputs": {
+        "result_contract": "canonical_result_bundle.v1",
+        "validation_contract": "result_validation_report.v1",
+        "requested": {
+          "equity_curve": true,
+          "trade_summary": true,
+          "entry_exit_markers": true,
+          "rebalance_audit": true,
+          "holdings": true,
+          "asset_contribution": true
+        },
+        "metricstracker": {
+          "enable_metrics_analysis": true,
+          "time_unit": 252,
+          "risk_free_rate": 0.04
+        },
+        "statanalyser": {}
+      },
+      "lineage": {
+        "source_schema_version": "strategy_run",
+        "source_config_hash": "1c20d8210173165b623c1c584db549fa7e1d71bed297af36dde5f30139f39296",
+        "plan_hash": "0a21975cfbe9b8ba9627c45abbe31bc6b38e13fd74dcf04bbb2fcd1310df2e1b"
+      }
+    }
+  ]
+}

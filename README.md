@@ -1,553 +1,290 @@
-<!-- markdownlint-disable MD041 -->
-<p align="center">
-  <img src="assets/lo2cin4btneon.jpg" alt="Lo2cin4BT" />
-</p>
-<!-- markdownlint-enable MD041 -->
+# 🚀 lo2cin4bt
 
-# 🚀 Lo2cin4bt
+[英文版（English）](README.en.md)
 
-**The best backtest engine for non-coders and quant beginners (probably).**
+![覆蓋率門檻（coverage gate）](https://img.shields.io/badge/coverage_gate-50%25_min-blue)
 
-## 作者的話
+![lo2cin4bt 霓虹平台預覽](assets/readme/lo2cin4btneon.jpg)
 
-重要！lo2cin4bt 2.0 即將更新，所有功能將會大幅升級！大家可以靜侯佳音。
+> 你現在是 lo2cin4bt 的專案經理（Project Manager，PM）。請檢查本機環境、初始化內建策略示範，並幫我執行 QQQ 日線簡單移動平均線（Simple Moving Average，SMA）穿越回測。整個流程只做本機研究，不要實盤交易或下單。
 
-大家好，我是 Jesse。
+## 🧭 甚麼是 lo2cin4bt
 
-這個專案是一位「非程式背景」的交易員，透過 vibe coding 全程打造的交易回測框架。
+lo2cin4bt 是由 lo2cin4 使用 AI 建立的量化策略回測框架。你只需要向 AI 說出想要的策略，無須寫任何代碼，便可以建立本機回測，並在瀏覽器應用程式中檢查結果。
 
-我的目標是讓每一位量化新手，只需要以「說人話」的方式，便能輕鬆進行交易回測，並將結果可視化。
+注意：lo2cin4bt 不涉及任何投資建議。
 
-讓我們一同淘汰那些仍然憑感覺交易的散戶吧！
+## ✨ 為何使用 lo2cin4bt
 
-在使用之前，可在 Github 專案的右上角給一個星😄
+- **開源可檢查**：使用者可以檢查框架怎樣處理資料、訊號與回測結果。
+- **本機研究**：資料與策略研究留在自己的電腦，不需要先上雲端。
+- **新手友善流程**：先把想法交給 AI，再由 AI 建立工作區設定，最後在瀏覽器檢查結果。
+- **回測與視覺化一體化**：單次回測、參數矩陣、前向分析（Walk-Forward Analysis，WFA）與結果頁都屬於同一條本機流程。
+- **單一 Rust 執行路線**：策略先在同一個 Rust 引擎內向量化預計算指標、訊號與目標權重，再按時間順序完成成交、持倉、成本、風控與資金記帳；這些是同一引擎的內部階段，不是兩條回測路線。績效追蹤器（`metricstracker`）由 Rust 與 Polars 計算。
+- **資料與資產彈性**：只要格式與可用時間講清楚，就可以使用本機檔案或市場資料來源。
+- **AI 有明確邊界**：AI 只建立符合用戶要求與代碼條件的文件和設定，不會自行發明引擎能力。
+- **結果可追溯**：每個結果都應該能追到設定檔、資料來源、成本、滑點、基準與輸出物。
+- **績效假設可設定**：策略設定可以指定年化日數（annualization days）與無風險利率（risk-free rate），夏普比率（Sharpe ratio）、複合年增長率（Compound Annual Growth Rate，CAGR）等指標不必只靠固定預設。
+- **實用安全檢查**：工作區檢查、設定驗證、固定示範回歸測試（regression test）、前後端顯示檢查與量化審查（quant review）會一起攔截常見錯誤。
 
-歡迎到群組提出任何意見。
+## ⚡ 三步快速開始
 
-- [TG討論社群](https://t.me/lo2cin4group)
-- [DC討論社群](https://discord.com/invite/6HgJC2dUvg)
+1. 在 GitHub 點擊「程式碼（Code）」，選擇「下載壓縮檔（Download ZIP）」，然後解壓縮資料夾。
+2. 如果你使用命令列介面（Command-Line Interface，CLI）助手，請在 PowerShell 輸入 `cd <你下載後的 lo2cin4bt 資料夾>`，然後啟動工具，例如 `opencode`、`claude`、`aider` 或 `codex`。
+3. 叫你的 AI 代理先讀完整個資料夾，然後把以下提示詞貼給 AI：
 
----
-
-## ❓ 為什麼選擇 lo2cin4bt？
-
-1. **全程無需寫程式**，只要在終端機選擇操作，加上大量提示，超適合新手
-2. **三大核心**：統計分析、回測、可視化平台一次滿足
-3. **大量中文註解**，輕鬆理解程式運作，方便二次開發
-4. **高內聚低耦合設計**，易於修改擴展
-5. **可離線運行**，數據安全
-6. **支援任意因子、任意資產**，只要有數據就能回測
-
----
-
-## 🔄 專案回測流程
-
-lo2cin4bt 提供完整的量化回測流程，從數據載入到結果可視化，每個步驟都有明確的用途：
-
-### 1. 📊 載入數據 (Data Loading)
-
-- **用途**：建立回測的基礎數據
-- **功能**：
-  - 支援多種數據來源：本地 Excel/CSV、Yahoo Finance、Binance API、Coinbase API
-  - 自動數據清洗與標準化
-  - 預測因子載入與時間對齊
-  - 數據驗證與缺失值處理
-
-### 2. 🔬 統計分析 (Statistical Analysis)
-
-- **用途**：深入分析數據特徵與預測因子的有效性
-- **功能**：
-  - 數據分布檢驗與異常值檢測
-  - 預測因子與價格的相關性分析
-  - 時間序列穩定性測試
-  - 季節性分析與自相關檢驗
-  - 生成詳細的統計報告
-
-### 3. 🧑‍💻 回測交易 (Backtesting)
-
-- **用途**：模擬真實交易環境，測試策略有效性
-- **功能**：
-  - 多策略多參數組合向量化回測
-  - 支援 MA、BOLL、Percentile 等技術指標
-  - 自訂交易成本與滑點設定
-  - 可導出的詳細交易記錄
-
-### 4. 📈 交易分析 (Trade Analysis)
-
-- **用途**：深入分析交易表現與策略優化
-- **功能**：
-  - 計算關鍵績效指標：Sharpe、Sortino、Max Drawdown
-  - 交易統計分析：勝率、盈虧比、連續虧損
-  - 與 Buy & Hold 策略比較
-  - 風險調整後報酬率分析
-  - 生成績效報告與圖表
-
-### 5. 👁️ 可視化平台 (Visualization Platform)
-
-- **用途**：直觀展示回測結果與策略表現
-- **功能**：
-  - 互動式權益曲線圖
-  - 多策略比較與篩選
-  - 參數敏感性分析
-  - 績效指標視覺化
-  - 即時數據探索與分析
-
----
-
-## 💾 下載與安裝
-
-1. 點選 GitHub 頁面右上角的「Code」→「Download ZIP」下載專案
-2. 解壓縮 ZIP 檔案
-3. 安裝 Python（建議 3.9 以上）
-4. 開啟終端機（Terminal）或命令提示字元（CMD），切換到專案資料夾
-5. 安裝依賴套件：
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-6. 運行主程式：
-
-   ```bash
-   python main.py
-   ```
-
-7. 依照畫面指示選擇數據來源與回測參數，即可開始！
-
----
-
-## ⚠️ 疑難排解
-
-> 📖 **完整疑難排解指南**：請參考 [Troubleshooting.md](Troubleshooting.md) 查看所有常見問題與解決方案。
-
----
-
-## 💾 下載與安裝 (完全編程新手懶人包)
-
-1. 點選 GitHub 頁面右上角的「Code」→「Download ZIP」下載專案
-2. 解壓縮 ZIP 檔案 lo2cin4bt，並將檔案移至您想放置的磁碟/資料夾
-3. 複製目前 lo2cin4bt 的檔案路徑
-4. 安裝 Cursor
-5. 詢問它：「如何建立虛擬環境，並運行在 '檔案路徑' 的 lo2cin4bt？」
-6. AI 會指導您下載各種 Library 與安裝環境
-
----
-
-## 💻 推薦編程新手開發環境： Cursor
-
-### 安裝 Cursor（AI 編輯器）
-
-1. 前往 [Cursor 官方網站](https://www.cursor.cn/) 下載並安裝 Cursor
-2. 支援 AI 助理協作，可透過自然語言解決安裝難題
-
-### 使用 Cursor 開啟本專案
-
-1. 開啟 Cursor
-2. 點選「File」→「Open Folder...」，選擇剛才解壓縮的專案資料夾
-3. 建議在左側 EXPLORER 檢視所有檔案結構，右側可直接點擊 .py 檔案進行編輯
-4. 內建終端機（Terminal）：
-   - 點選「Terminal」→「New Terminal」，即可在專案根目錄下執行 pip、python 等指令
-
-### 執行與除錯
-
-- 在 Cursor 內直接按 F5 或點選「Run」→「Start Debugging」即可進行除錯
-- 也可在內建終端機輸入 `python main.py` 直接執行
-
----
-
-## 📄 準備文件格式
-
-### 1. 價格文件（非必須）
-
-- 支援 Excel（.xlsx）、CSV
-- 必要欄位：Time, Open, High, Low, Close
-- **時間欄位名稱**：支援 `Time`、`Date`、`Timestamp`（系統會自動標準化為 `Time`）
-- **日期格式**：建議使用 `DD/MM/YYYY` (如：31/12/2023) 或 `YYYY-MM-DD`（如：2023-01-01）
-- 目前僅支援單一預測因子進行回測與差分，未來將開放多預測因子功能，敬請期待！
-- 範例：
-
-  | Time | Open | High | Low | Close |
-  |------|------|------|-----|-------|
-  | 2020-01-01 | 100 | 110 | 90 | 105 |
-
-### 2. 預測因子文件（非必須）
-
-- 支援 Excel（.xlsx）、CSV、JSON
-- 必要欄位：Time 或 Date, [自訂因子欄位]
-- **時間欄位名稱**：支援 `Time`、`Date`、`Timestamp` 等（系統會自動標準化為 `Time`）
-- **日期格式**：支援多種格式，可在 autorunner 配置中指定：
-  - `YYYY-MM-DD`（如：2023-01-01）→ 配置 `"time_format": "%Y-%m-%d"`
-  - `DD/MM/YYYY`（如：01/01/2023）→ 配置 `"time_format": "%d/%m/%Y"`
-  - `MM/DD/YYYY`（如：01/01/2023）→ 配置 `"time_format": "%m/%d/%Y"`
-- 需放在 `records\dataloader\import`，系統會自動檢測
-- 範例：
-
-  | Date | factor1 | factor2 |
-  |------|---------|---------|
-  | 2020-01-01 | 0.5 | 1.2 |
-
----
-
-## 🧑‍💻 互動流程範例（Demo）
-
-以下為一個典型的命令行互動流程範例：
-
-<p align="center">
-  <img src="images/template_1.jpg" alt="Template_1" width="900"/>
-</p>
-
-## 🗂️ 專案結構
-
-```raw
-lo2cin4bt/
-├── main.py
-├── autorunner/             # 自動化回測模組
-├── backtester/             # 回測引擎模組
-├── dataloader/             # 數據載入模組
-├── metricstracker/         # 績效分析模組
-├── plotter/                # 可視化模組
-├── statanalyser/           # 統計分析模組
-├── records/                # 數據與結果存放
-│   └── autorunner/         # 自動化回測配置檔案
-├── assets/                 # 靜態資源
-├── requirements.txt
-└── README.md
+```text
+你現在是 lo2cin4bt 的專案經理（Project Manager，PM）。請先閱讀 AGENTS.md、README.md、agents/lo2cin4bt_PM.agent.md，以及必要的技能（skills）與文件（docs）。
+請只以目前 lo2cin4bt 專案資料夾內的 AGENTS.md、README.md、agents/lo2cin4bt_PM.agent.md、skills/ 和 docs/ 為準；不要依賴上層資料夾或我本機其他代理（agent）設定。
+請檢查我的 Python、Node.js、Rust、前端建置狀態和工作區（workspace）狀態；如果缺少必要組件，先列出缺少甚麼、建議安裝方式和會改動哪些本機路徑，得到我確認後才安裝；如果執行中心沒有策略，請把目前支援的內建示範（examples）初始化到 workspace/runs/。
+請列出目前有哪些代理（agents）與技能（skills）、它們分別負責甚麼，以及作為新手我可以怎樣使用你。整個流程只做本機研究、回測與學習；不要做實盤交易、下單或要求我提供券商密碼。
 ```
 
-> 每個資料夾內都有對應的 README，遇到問題請先參考「疑難排解」區塊！
+## ✅ 新手做得到的事
 
----
+- 成功啟動 lo2cin4bt。
+- 打開瀏覽器回測平台。
+- 找到並執行內建策略示範。
+- 試跑目前 8 個公開內建回測範例。
+- 查看結果、圖表、績效指標、持倉與交易紀錄。
+- 打開網頁（HTML）教學或相關教學文件（tutorial）。
+- 由 `lo2cin4btWorkAgent` 使用 `lo2cin4bt-teaching` 技能（skill）學習平台操作方式。
+- 由 `lo2cin4btWorkAgent` 使用 `lo2cin4bt-strategy-builder` 技能開發策略。
+- 讓 `lo2cin4bt_PM` 分派同一個 `lo2cin4btWorkAgent` 使用所需技能，並在涉及偏誤或結果有效性時交由獨立風險審查員（reviewer）檢查。
 
-## 🚀 Autorunner 自動化回測模組 *NEW*
+## 🛡️ 新手不應該需要或遇到的事
 
-### 概述
-Autorunner 是 lo2cin4bt 的自動化回測模組，讓用戶可以透過配置文件驅動整個回測流程，無需手動輸入參數。支援多種數據來源、多策略配置、批次執行，以及 Walk-Forward Analysis (WFA) 滾動前向分析。
+- 正常使用時不應該需要修改 `workspace/` 以外的核心代碼。
+- AI 代理不應該建立有明顯前視偏誤而完全沒有警告的策略。
+- 不支援的策略邏輯不應該被包裝成可執行的設定檔。
+- 平台不應該引導你做實盤下單、資金移動或券商設定變更。
+- 不應該需要提交應用程式介面金鑰（Application Programming Interface key，API key）、券商密碼、私人資料或其他敏感資訊。
 
-### 核心特性
-- **📝 配置文件驅動**：透過 JSON 配置文件定義所有回測參數
-- **🔄 全自動執行**：數據載入 → 回測執行 → 績效分析一鍵完成
-- **📊 多數據源支援**：Yahoo Finance、Binance、Coinbase、本地文件
-- **⚡ 批次處理**：支援多個配置文件同時執行
-- **🎯 零交互設計**：適合一次回測大量數據
-- **🔄 WFA 支援**：支援前向分析，評估策略穩健性
+## 📁 新手安全工作區
 
-### 快速開始
+研究策略時，可以把 `workspace/` 視為安全工作區。本機輸入資料、可執行策略設定、前向分析（WFA）設定、自訂指標與 AI 筆記都應該先放在這裏。
 
-#### 1. 準備配置文件
+- 資料檔：`workspace/datasets/`
+- 可執行回測設定：`workspace/runs/`
+- 前向分析（WFA）設定：`workspace/wfa/`
+- 外部資料契約：`workspace/features/`
+- 自訂指標：`workspace/indicators/extensions/`
+- AI 筆記或審查紀錄：`workspace/reports/agents/`
 
-**回測配置**：
-- 將 `records/autorunner/backtester_autorunner/config_template.json` 複製為您的配置文件，並根據需要修改
-- 支援多種配置範例：`config_template_single.json`、`config_template_defaultall.json` 等
+正常策略研究時，AI 應該只在 `workspace/` 內建立或修改檔案，不需要改動 `app/`、`backtester/`、`dataloader/`、`autorunner/`、`validation_workflow/`、`metricstracker/` 或 `plotter/`。
 
-**WFA 配置**：
-- 將 `records/autorunner/wfanalyser_autorunner/config_template.json` 複製為您的 WFA 配置文件
-- 支援滾動模式（Standard）和錨定起點模式（Anchored），詳見 `config_anchored_template.json`
+如果策略需要外部資料，例如首次公開招股（Initial Public Offering，IPO）日期、財報公布、指數成份、情緒資料或你自己的逗號分隔值檔案（Comma-Separated Values，CSV），AI 必須講清楚這份資料在現實中何時才知道。這是為了避免回測偷看未來。舉例：收市後才公布的資料，不能用來做同一天開市的交易決定。請把這類資料放在 `workspace/features/`，並通過工作區檢查。若資料屬於歷史會修訂類型，代表它只適合作研究示範，或者仍需進一步審查，不能當作逐時點無偏誤的證明。
 
-#### 2. 執行自動化回測
+## 🔄 本機回測流程
+
+1. 把以下提示詞貼給 AI：
+
+```text
+你現在是 lo2cin4bt/agents/lo2cin4bt_PM.agent.md。請先閱讀 agents/lo2cin4bt_PM.agent.md，並按它的指示載入必要的技能（skills）與文件（docs）。
+請先完成環境檢查；如果 workspace/runs 尚未有內建策略，請先從 backtester/contracts/strategy/examples/ 初始化目前支援的示範（examples）。
+請建立或選取 QQQ 日線雙均線穿越策略設定，其他參數使用新手安全預設；只做本機回測，不要實盤交易。
+請啟動本機應用程式，並只打開或重用一個 http://127.0.0.1:2424/ 前端分頁。進入執行中心選取 QQQ 日線簡單移動平均線（SMA）穿越設定檔，跑本機回測；完成後在同一個前端分頁打開績效總覽（Metrics Overview）結果頁，簡短說明是否成功。
+```
+
+2. 等待 AI 完成回測並打開視覺化平台。
+
+## 🧰 安裝
+
+先準備 Python、Node.js，以及程式庫（repository）固定的 Rust 1.96.0 工具鏈（toolchain）；Rust 安裝與相容性說明見 [`docs/RUST_TOOLCHAIN.md`](docs/RUST_TOOLCHAIN.md)。
+
+Windows：
+
+```powershell
+git clone <repository-url> lo2cin4bt
+cd lo2cin4bt
+.\scripts\setup.ps1
+.\.venv\Scripts\python.exe main.py
+```
+
+macOS / Linux：
 
 ```bash
-python main.py
-# 在主選單選擇 "4. 🚀 Autorunner 自動化回測" 進行回測
-# 或選擇 "5. 🔄 滾動前向分析 (WFA)" 進行 WFA 分析
-# 選擇您的配置文件
-# 系統將自動執行完整回測流程
+git clone <repository-url> lo2cin4bt
+cd lo2cin4bt
+bash scripts/setup.sh
+.venv/bin/python main.py
 ```
 
-### 支援的數據來源
+打開：
 
-| 數據源 | 配置方式 | 說明 |
-|--------|----------|------|
-| **Yahoo Finance** | `"source": "yfinance"` | 支援全球股票、ETF、指數 |
-| **Binance** | `"source": "binance"` | 支援加密貨幣交易對 |
-| **Coinbase** | `"source": "coinbase"` | 支援加密貨幣交易對 |
-| **本地文件** | `"source": "file"` | 支援 CSV/Excel 格式 |
+```text
+http://127.0.0.1:2424/
+```
 
-### 批次執行
+更新現有資料夾：
 
-支援多個配置文件同時執行，適合策略優化和參數測試：
+```powershell
+git pull
+.\scripts\setup.ps1
+```
 
-1. **回測批次執行**：在 `records/autorunner/backtester_autorunner/` 目錄放置多個回測配置文件
-2. **WFA 批次執行**：在 `records/autorunner/wfanalyser_autorunner/` 目錄放置多個 WFA 配置文件
-3. 執行 autorunner 時選擇多個配置
-4. 系統將依序執行所有選定配置的回測與分析，並放置於對應資料夾
+你亦可以建立 lo2cin4bt 桌面捷徑：
 
----
+```powershell
+.\scripts\create_windows_shortcut.ps1
+```
 
-## 📂 數據存放與輸出說明
+之後雙擊桌面上的 `lo2cin4bt` 捷徑即可啟動本機回測平台。如果日後你移動了專案資料夾，請重新執行一次捷徑建立指令。
 
-- **預測因子檔案存放**：
-  - 需存放於 `records/dataloader/import` 資料夾，格式為 `csv/xlsx/json` 檔案
-- **Autorunner 配置文件**：
-  - **回測配置**：存放於 `records/autorunner/backtester_autorunner/` 資料夾
-  - **WFA 配置**：存放於 `records/autorunner/wfanalyser_autorunner/` 資料夾
-  - 支援多個配置文件批次執行
-- **回測結果（交易紀錄）**：
-  - 自動產生並存放於 `records/backtester/` 資料夾，格式為 `.parquet` 檔案
-  - 每次回測會產生一個唯一檔名（如 `20250723_97dpnzl6.parquet`）
-  - 可透過 Autorunner 自動執行或手動回測產生
-- **WFA 分析結果**：
-  - 自動產生並存放於 `records/wfanalyser/` 資料夾，格式為 `.parquet` 和 `.csv` 檔案
-  - 包含多個窗口的 IS/OOS 績效對比數據
-  - 僅可透過 Autorunner WFA 模式產生
-- **統計分析結果**：
-  - 自動產生並存放於 `records/backtester/statanalyser` 資料夾，包含 `processed_data.csv`、`stats_report.txt` 等
-- **交易分析**：
-  - 系統會自動讀取 `records/backtester/` 下的 parquet 檔案，計算後會產生新的 `.parquet` 檔案，並存放於 `records/metricstracker/` 內
-- **可視化平台**：
-  - 系統會自動讀取 `records/metricstracker/` 下的 parquet 檔案，並以互動式圖表展示
-  - 如有 WFA 數據，會自動讀取 `records/wfanalyser/` 下的檔案，並顯示「前向分析 (WFA)」頁籤
-- **日誌檔案**：
-  - 所有錯誤與執行日誌會存於 `logs/backtest_errors.log`
-- **自訂導出**：
-  - 可於互動流程中選擇導出個別回測結果為 CSV
-  - WFA 結果可透過可視化平台下載完整分析圖表
+安裝 Python 與前端依賴時，建議預留至少 1.5 GB 本機空間。實際用量會因作業系統與套件版本而異。
 
----
+詳細安裝步驟見 [`docs/INSTALL.md`](docs/INSTALL.md)，常見問題見 [`Troubleshooting.md`](Troubleshooting.md)。
 
-## 🎯 開發目標與進度
+## ⚙️ Python 與 Rust 分工
 
-### 目前已完成
+目前正式路徑不是把同一套回測分別用 Python 和 Rust 執行，而是由兩者負責不同工作：
 
-<details>
-<summary>📅 2025-12-21 </summary>
+- **Python（平台控制層）**：接收 AI 建立的策略設定，檢查格式與平台能力，從資料供應者（provider）或本機檔案載入市場資料，安排執行中心工作，並維持與 Rust 引擎的持續服務通訊（persistent service transport）。Python 亦負責產出物（artifact）、清單（manifest）、登記冊（registry）及前端資料索引（payload index）的讀寫和流程編排（orchestration），但不負責正式路徑的成交與資金曲線真值。
+- **Rust（回測計算核心）**：計算已支援的指標與計算欄位（computed fields），產生訊號、日曆觸發、排名和目標權重，再按時間順序處理成交、持倉、現金、交易成本、風控動作與資金記帳。Rust 亦負責標準結果驗證（canonical result validation）、績效指標（metrics）及圖表資料包（`PlotBundle`）投影（projection）。
+- **參數矩陣與前向分析**：Python 負責展開參數候選、切分前向分析（WFA）時段及安排工作；每一個候選回測仍會進入同一個 Rust 核心。Rust 未支援的策略形狀會報錯，不會暗中改用 Python 回測。
+- **兩者的連接方式**：`backtester/RustCoreBridge_backtester.py` 管理專案固定的持續 Rust 引擎服務（persistent Rust engine service）`engine_service_cli`，並透過 JSON 與 Parquet 格式的資料合約（data contract）交換資料。
 
-- 【重磅】新增 Walk-Forward Analysis (WFA) 前向分析功能
-  - **為什麼需要 WFA？** 參數高原分析雖然能幫助我們識別參數的穩健性，但它仍然是在同一份歷史數據上進行優化，無法完全消除過擬合問題。過擬合就像是在考試前背熟所有題目答案，雖然在練習時表現完美，但遇到新題目（未來的市場數據）時可能表現不佳。WFA 通過將數據分為訓練集（IS）和測試集（OOS），在訓練集上優化參數，然後在獨立的測試集上驗證，就像真正的考試一樣，能夠更真實地評估策略在未來市場中的表現。
-  - **WFA 可以做什麼？**
-    - 將歷史數據劃分為多個時間窗口，每個窗口包含訓練集和測試集
-    - 在每個窗口的訓練集上優化策略參數（尋找最佳 Sharpe、Calmar 等指標）
-    - 在對應的測試集上驗證優化後的參數表現
-    - 通過多個窗口的 IS/OOS 對比，評估策略的穩健性和泛化能力
-    - 識別策略是否在訓練集上表現良好，但在測試集上表現不佳（過擬合警告）
-  - **兩種 WFA 模式**：
-    - **滾動模式（Standard）**：固定訓練集和測試集大小，每次向前滾動固定步長，適合評估策略在不同時間段的穩定性
-    - **錨定起點模式（Anchored）**：固定起點，訓練集逐步增長，測試集大小固定，適合評估隨著歷史數據增加，策略表現如何變化
-  - **配置方式**：僅提供配置文件模式，在 `records/autorunner/wfanalyser_autorunner/` 中設定 WFA 配置文件即可執行
-  - 詳細配置範例請參考 `records/autorunner/wfanalyser_autorunner/config_template.json` 和 `config_anchored_template.json`
-- 【重磅】新增 WFA 可視化平台
-  - 互動式 WFA 結果展示，包含多窗口 IS/OOS 績效對比
-  - 九宮格熱力圖顯示不同參數組合在訓練集和測試集上的表現
-  - 支援多種績效指標可視化：Sharpe Ratio、Sortino Ratio、Calmar Ratio、Max Drawdown
-  - 可下載所有窗口的完整分析圖表
-  - 在主選單選擇「6.可視化平台」後，如有 WFA 數據會自動顯示「前向分析 (WFA)」頁籤
-- 優化了主選單結構，新增「5. 🔄 滾動前向分析 (WFA)」選項
-- 統一了代碼格式和風格，提升可讀性和維護性
-- 簡化了部分代碼邏輯，減少冗餘
+對使用者而言，完整流程是：向 AI 說出策略 → Python 檢查設定、載入資料及安排工作 → Rust 執行回測、驗證結果及計算績效 → Python 保存結果並交給瀏覽器顯示。
 
-</details>
+目前支援的正式路徑不需要額外安裝 PyO3、maturin 或 Python 擴充套件檔（extension wheel）。
 
-<details>
-<summary>📅 2025-12-10 </summary>
+## 📈 內建 QQQ 日線簡單移動平均線（SMA）穿越示範
 
-- 可視化功能增加，加設了「下載當前檔案所有圖表」和「下載所有檔案所有圖表」功能，能夠一鍵導出所有參數圖表。
-</details>
+下載後，如果執行中心尚未有策略，請叫 AI 代理讀取 `backtester/contracts/strategy/examples/`，把目前支援的內建示範初始化到 `workspace/runs/`。
 
+這個範例使用 QQQ 日線資料，策略邏輯是短均線上穿長均線進場、短均線下穿長均線出場。新手安全預設包括：
 
-<details>
-<summary>📅 2025-12-08 </summary>
+- 短均線 `20` 到 `100`
+- 長均線 `120` 到 `300`
+- 工作流程：參數矩陣
+- 在成交模型（`fill_model`）內清楚聲明成本與滑點
+- 不做實盤交易
 
-- 可視化功能增加，現在可以載入多份回測結果，並在頁面選擇展示不同檔案的資金曲線與參數高原表現！
-</details>
+## ⚖️ 固定配置示範
 
-<details>
-<summary>📅 2025-11-23 </summary>
+```text
+backtester/contracts/strategy/examples/strategy-run-vti-avuv-vxus-sgol-dbmf-yfinance-yearly-rebalance-example.json
+```
 
-- 可視化平台美化，現在可更直觀地看到策略的重要指標
-- 新增了疑難排解頁面
-</details>
+Windows：
 
-<details>
-<summary>📅 2025-10-08 </summary>
+```powershell
+New-Item -ItemType Directory -Force workspace\runs
+Copy-Item backtester\contracts\strategy\examples\strategy-run-vti-avuv-vxus-sgol-dbmf-yfinance-yearly-rebalance-example.json workspace\runs\strategy-run-vti-avuv-vxus-sgol-dbmf-yfinance-yearly-rebalance-example.json
+```
 
-- 修正了各種 BUG
-- 新增了更多 autorunner config 範例
-- 系統目前可以閱讀 timestamp 格式的數據了
-
-</details>
-
-<details>
-<summary>📅 2025-10-03 </summary>
-
-- 修改了 metricstracker 的儲存方式以降低電腦配置需求 
-- 【重磅】省略輸入選項的全自動版本 Autorunner 已上線！
-  - 在 records/autorunner 中設定 config.json
-  - 運行 main.py，在主選單選擇 autorunner
-  - 系統會自動回測並產生可視化所需的檔案
-
-</details>
-
-<details>
-<summary>📅 2025-09-14 </summary>
-
-- 擴展了回測時的 default 功能為 defaultlong, defaultshort 和 defaultall。
-  - 以均線交叉策略為例，defaultlong 能檢查「升穿均線做多、跌穿均線平倉」的部分
-  - defaultshort 能檢查「跌穿均線做空、升穿均線平倉」的部分
-  - defaultall 則會分別檢查以上兩者
-
-</details>
-
-<details>
-<summary>📅 2025-08-27 </summary>
-
-- 修正了回測後程序無法讀取 Parquet file 的 Bug
-- 【重構】DataLoader 模組大幅重構，引入 `AbstractDataLoader` 抽象基底類
-  - 所有數據載入器（Binance、Coinbase、Yahoo Finance、File）現在繼承自統一基底類
-  - 減少約 200+ 行重複程式碼
-  - 統一的錯誤處理、成功訊息、警告顯示
-  - 標準化的使用者輸入處理（日期、頻率、預設值）
-  - 通用的數據處理方法（欄位標準化、型態轉換、缺失值處理）
-  - 提升程式碼可維護性和擴展性
-
-</details>
-
-<details>
-<summary>📅 2025-08-22 </summary>
-
-- 【重磅】增加了 (高點、低點) HL、(數值) VALUE 指標
-- HL、VALUE 指標已加入 default 策略
-- 【重磅】回測參數現在可以輸入單一數值，不需必須輸入區間
-- 修正了持倉時間計算錯誤問題
-- 修正了指標 MA9-MA12 輸入邏輯錯誤問題
-- 修正了指標 NDAYS 計算錯誤問題
-- 修改了策略參數設定時的文案，以更精簡直觀
-
-</details>
-
-<details>
-<summary>📅 2025-08-19 </summary>
-
-- 新增 Coinbase API 數據載入器 (感謝協作)
-- 支援加密貨幣市場數據獲取（BTC、ETH 等交易對）
-- 支援多種時間週期（1m、5m、15m、1h、6h、1d）
-
-</details>
-
-<details>
-<summary>📅 2025-08-18 </summary>
-
-- 【重磅】增加了 (百分位) Percentile 指標
-- Percentile 指標已加入 default 策略
-
-</details>
-
-<details>
-<summary>📅 2025-08-16 </summary>
-
-- 【重磅】可視化平台增加了參數高原，檢測過擬合無難度
-- BUG 修正：Calamar Ratio 的 Bug 已修正
-- 反選功能指示更清晰
-
-</details>
-
-<details>
-<summary>📅 2025-08-12</summary>
-
-- 可視化平台增加了反選功能
-
-</details>
-
-<details>
-<summary>📅 2025-08-04 </summary>
-
-- 【重磅】向量化形式重構回測部分
-- 動態檢測電腦配置以確保程式不會崩潰
-
-</details>
-
-<details>
-<summary>📅 2025-07-23 (公佈日) </summary>
-
-- 三大量化核心：統計分析、回測、可視化平台
-- 支援多種數據來源（本地、Yahoo、Binance、Coinbase）
-- 多策略多參數組合批量回測
-- 詳細績效指標與互動式 Dash 可視化
-- 完善的錯誤提示與日誌
-
-</details>
-
-### 未來開發目標
-
-- Pre-commit 格式修改
-- 策略逐筆賺賠分佈
-- 新增技術指標指導文檔
-- 多個預測因子在單一策略進行回測
-- 更多數據接口
-- 接駁 AI
-
-> 歡迎任何 issue、建議或貢獻，一起讓 lo2cin4bt 變得更好！
-
----
-
-## 🤝 貢獻方式
-
-歡迎任何 issue、PR、建議！
-如有想法請直接開 issue 或 fork 專案。
-
-### 開發環境設置
-
-#### Pre-commit Hooks
-
-本專案使用 pre-commit hooks 來確保程式碼品質。請在開發前安裝：
+macOS / Linux：
 
 ```bash
-# 安裝 pre-commit
-pip install pre-commit
-
-# 安裝 git hooks
-pre-commit install
-
-# 手動執行所有檢查
-pre-commit run --all-files
+mkdir -p workspace/runs
+cp backtester/contracts/strategy/examples/strategy-run-vti-avuv-vxus-sgol-dbmf-yfinance-yearly-rebalance-example.json workspace/runs/strategy-run-vti-avuv-vxus-sgol-dbmf-yfinance-yearly-rebalance-example.json
 ```
 
-Pre-commit 會自動執行以下檢查：
+## 🖥️ 平台畫面與導覽
 
-- **程式碼格式化**: black, isort, autoflake
-- **程式碼檢查**: flake8, pylint
-- **型別檢查**: mypy
-- **一般檢查**: 移除尾隨空白、修正檔案結尾等
+### 🏠 總覽
 
-### 程式碼規範
+![lo2cin4bt 總覽](assets/readme/zh-Hant/01-overview.png)
 
-提交程式碼前請確保：
+### ▶️ 執行中心
 
-1. 所有 pre-commit hooks 檢查通過
-2. 新增的函數包含型別提示
-3. 遵循既有的命名慣例（如檔案名稱使用 PascalCase）
-4. 保持中文註解風格，方便新手理解
+![lo2cin4bt 執行中心](assets/readme/zh-Hant/02-run-center-first-run.png)
 
----
+工作台展示：<https://youtu.be/XIPYRn3H0tU?si=5RoLzrmGLEG6uxaD>
 
-⚠️ **免責聲明**
+## 🧩 目前支援的策略與研究流程
 
-**本工具僅作為教學用途，並非投資建議，不構成任何要約、要約邀請或推薦任何投資產品。**
+公開版本提供 8 個可初始化的回測示範。它們不是 8 條獨立引擎路線，而是用不同策略積木組合設定，再交由同一個 Rust 核心執行。
 
-⚠️ **Disclaimer**
+| 公開示範 | 展示的策略能力 |
+| --- | --- |
+| QQQ 日線均線交叉 | 單資產訊號與擇時 |
+| BTC 月內第 N 個星期事件 | 日曆與交易時段事件 |
+| QQQ、TLT、GLD 月度避險覆蓋 | 多腿事件與避險配置 |
+| SPY、QQQ 月度配對價差 | 配對與相對價值交易 |
+| VOO、QQQ、IWM、GLD 選股擇時 | 多資產篩選、排名與前幾名選取 |
+| 美國行業交易所買賣基金（ETF）月度 12-1 輪動 | 橫截面多空排名與動量輪動 |
+| VOO、GLD 動量與均線篩選 | 多資產輪動與市場狀態篩選 |
+| VTI、AVUV、VXUS、SGOL、DBMF 年度配置 | 固定權重與定期再平衡 |
 
-**This tool is for educational purposes only. It does not constitute investment advice, an offer, or a solicitation to
-buy or sell any investment product.**
+參數矩陣（Parameter Matrix）、前向分析（Walk-Forward Analysis，WFA）及滾動驗證（rolling validation）是可套用到策略上的研究流程，不是另一種策略家族。自訂計算欄位（computed fields）和指標擴充則用來增加策略能力。
 
----
+### 🧱 通用策略積木
 
-## 📜 授權聲明
+AI 會把你的策略概念拆成資料來源、計算欄位、訊號、資產篩選與排名、配置、再平衡、成交模型、交易成本、風控及參數範圍，再寫進同一種策略設定（strategy config）。目前 Rust 核心提供 30 個通用計算積木：
 
-本專案所有原始碼、文件、數據，允許學術、個人、非商業及商業用途。
-但如需商業授權（包括但不限於銷售、SaaS、商業顧問等），請聯絡作者 lo2cin4_Jesse 取得授權。
-任何分發、修改、再利用，必須保留原作者署名（lo2cin4_Jesse）及本授權條款。
+| 積木類別 | 可用能力示例 |
+| --- | --- |
+| 指標 | 簡單／指數移動平均線、動量、月曆回報、波動率、相對強弱指數、移動平均匯聚背馳、平均真實波幅、保力加通道、標準分數、滾動百分位 |
+| 數學 | 加、減、乘、除、改變正負號、絕對值、上下界限制 |
+| 資料轉換 | 延後欄位、填補缺值、條件選值 |
+| 滾動窗口 | 最小值、最大值、總和、中位數、相關係數 |
+| 同期資產比較 | 排名、百分位、標準分數、極端值收窄 |
 
----
+完整名稱、參數和組合範例請看[通用計算積木總表](skills/lo2cin4bt/references/computed-field-building-blocks.md)。
 
-## 📬 聯絡方式或商務合作
+如果某個策略需要目前引擎未支援的能力，AI 應該停下來說明缺少甚麼，而不是用人造價格曲線或檔名推斷去假裝支援存在。
 
-- Email: <lo2cin4@gmail.com>
-- Telegram: [@lo2cin4_jesse](https://t.me/lo2cin4_jesse)
+## 🗄️ 可連接資料來源
 
----
+| 標誌 | 資料來源 | 資料 | 狀態 | 說明 |
+| --- | --- | --- | --- | --- |
+| <img src="assets/readme/logos/yfinance.svg" alt="Yahoo Finance" height="26"> | `yfinance` | 交易所買賣基金（ETF）、股票、新手示範 | 可用 | 無須帳戶即可讀取行情資料。 |
+| <img src="assets/readme/logos/binance.svg" alt="Binance" height="26"> | `binance` | 加密貨幣現貨開高低收及成交量（OHLCV），例如 BTCUSDT | 可用 | 無須帳戶即可讀取行情資料。 |
+| <img src="assets/readme/logos/coinbase.svg" alt="Coinbase" height="26"> | `coinbase` | Coinbase 產品識別碼格式，例如 `BTC-USD` | 可用 | 無須帳戶即可讀取行情資料。 |
+| <img src="assets/readme/logos/files.svg" alt="Local files" height="26"> | 本機檔案 | 逗號分隔值檔案（CSV）、Parquet、研究資料集 | 可用 | 私人資料集請放在 `workspace/datasets/`。 |
+| <img src="assets/readme/logos/futu-display.svg" alt="FUTU" height="26"> | `futu` | 進階港美股市場資料 | 進階 | 只建議用於唯讀市場資料（read-only market data）；請跟官方文件完成資料設定。 |
+| <img src="assets/readme/logos/ibkr-icon.png" alt="IBKR" height="30"> | `ibkr` | 進階股票、交易所買賣基金（ETF）、期貨市場資料 | 進階 | 官方網站：<https://www.interactivebrokers.com/> |
 
-## 🙏 鳴謝
+lo2cin4bt 目前不支援下單功能。
 
-本專案部分可視化設計與互動靈感來自 [plotguy](https://pypi.org/project/plotguy/) 開源庫，特此致謝！
+如有使用券商或交易所帳戶，亦只應用作唯讀市場資料（read-only market data）。
 
-特別感謝 [@LouisChanCLY](https://github.com/LouisChanCLY) 對本專案的寶貴貢獻與支持！
+## 🛠️ 開發方向
 
----
+lo2cin4bt 的目標是將策略想法放入一條有文件、有驗證、可檢查的研究流程，而不是讓 AI 自由編寫無法審核的一次性腳本。現階段重點集中在用戶真正會使用的研究能力：
+
+- 多策略合併績效視圖。
+- 更清晰的年化日數與無風險利率教學與展示。
+- 更完整的參數矩陣、前向分析（WFA）與壓力測試流程。
+- 更容易分享策略設定與結果資料包（result bundle）。
+- 更順手的自訂資料、自訂指標與自訂策略工作區流程。
+
+## 🎯 未來目標
+
+- 維護涵蓋八個公開策略、前向分析（WFA）、Rust 指標與繪圖資料的固定基準回歸測試（golden regression）。
+- 提高核心模組覆蓋率。
+- 改善首次安裝與啟動檢查。
+- 簡化自訂指標接入流程。
+- 保持前端顯示與後端資料載荷（payload）真相一致。
+- 增加更多經量化審查（QuantReview）核准的策略積木（strategy building blocks）。
+
+## 📚 文件
+
+- [文件導覽](docs/README.md)
+- [教學（Tutorial）](docs/TUTORIAL.md)
+- [安裝（Install）](docs/INSTALL.md)
+- [執行流程（Runtime Flow）](docs/runtime-flow.md)
+- [中英文版本更新紀錄（Changelog）](docs/CHANGELOG.md)
+- [回測測試（Backtest Testing）](docs/BACKTEST_TESTING.md)
+- [品質門檻（Quality Gates）](docs/QUALITY_GATES.md)
+- [程式庫結構（Repository Structure）](docs/REPOSITORY_STRUCTURE.md)
+- [策略積木（Strategy Building Blocks）](backtester/contracts/ops/README.md)
+- [安全政策（Security Policy）](SECURITY.md)
+- [貢獻指南（Contributing）](docs/CONTRIBUTING.md)
+- [疑難排解（Troubleshooting）](Troubleshooting.md)
+
+## 🤖 AI 文件
+
+- [`skills/lo2cin4bt/SKILL.md`](skills/lo2cin4bt/SKILL.md)
+- [`docs/ai/AI_MANUAL_SKILL.md`](docs/ai/AI_MANUAL_SKILL.md)
+- [`docs/ai/AI_SKILL_LECTURE_GUIDE.md`](docs/ai/AI_SKILL_LECTURE_GUIDE.md)
+- [`skills/lo2cin4bt/agents/openai.yaml`](skills/lo2cin4bt/agents/openai.yaml)
+
+## 📄 授權
+
+本專案採用「姓名標示－非商業性 4.0 國際（CC BY-NC 4.0）」授權，禁止商業使用；完整條款請見 [`LICENSE`](LICENSE)。回測結果只屬研究證據，不構成投資建議或績效承諾。
+
+## 💬 聯絡 / 商務
+
+如需合作、教學、研究流程設計或商務查詢，請透過 [Telegram](https://t.me/lo2cin4group) 或 [Discord](https://discord.gg/sSnZuq3DNu) 聯絡 lo2cin4。

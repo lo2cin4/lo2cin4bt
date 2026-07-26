@@ -1,8 +1,4 @@
-"""
-專案級別的通用工具模組
 
-提供統一的 UI 顯示工具，確保所有模組使用一致的 CLI 美化格式。
-"""
 
 from .ui_utils import (
     get_console,
@@ -33,4 +29,3 @@ __all__ = [
     "show_statistics",
     "MODULE_EMOJI_MAP",
 ]
-

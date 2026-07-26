@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lo2cin4bt/contracts/runtime/canonical-result-bundle-v1.schema.json",
+  "title": "CanonicalResultBundleV1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "contract_id",
+    "artifact_type",
+    "run_id",
+    "candidate_count",
+    "bundle_paths",
+    "artifact_paths",
+    "candidates",
+    "result_hashes",
+    "validation",
+    "bundle_hash",
+    "generated_at",
+    "result_table_kernel"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "canonical_result_bundle.v1"
+    },
+    "contract_id": {
+      "const": "lo2cin4bt.canonical_result_bundle.v1"
+    },
+    "artifact_type": {
+      "type": "string"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "candidate_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "bundle_paths": {
+      "type": "object"
+    },
+    "artifact_paths": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "result_hashes": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "status", "validated_candidates"],
+      "properties": {
+        "schema_version": {"const": "canonical_result_validation.v1"},
+        "status": {"const": "valid"},
+        "validated_candidates": {"type": "integer", "minimum": 0}
+      }
+    },
+    "bundle_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "result_table_kernel": {"type": "string"}
+  },
+  "additionalProperties": false
+}

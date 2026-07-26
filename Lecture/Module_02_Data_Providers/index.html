@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>02 資料來源與安裝要求</title>
+  <link rel="stylesheet" href="../assets/lecture.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand"><strong>lo2cin4bt 課程</strong><span>模組 02</span></div>
+      <input class="search" data-search placeholder="搜尋章節">
+      <nav class="nav-list" data-nav></nav>
+    </aside>
+
+    <main class="content">
+      <article class="module">
+        <p class="kicker">模組 02</p>
+        <h1>資料來源與安裝要求</h1>
+        <p>
+          lo2cin4bt 的資料由資料載入器（<code>dataloader/</code>）載入。回測器（Backtester）、前向分析（WFA）與前端不會呼叫經紀商（broker）、
+          交易所（exchange）或外部資料介面（API）。這個邊界讓策略、回測與前端報告共用同一套資料健康檢查。
+        </p>
+
+        <section class="mermaid-panel">
+          <h2>資料如何進入回測</h2>
+          <pre class="mermaid">
+flowchart LR
+  Request["設定檔資料區段（config data section）<br/>資料來源／資產代號／比較基準（provider / symbols / benchmark）"] --> Adapter["資料載入轉接器（dataloader adapter）"]
+  Adapter --> Standard["標準開高低收量（OHLCV）<br/>日期／開市價／最高價／最低價／收市價／成交量（date / open / high / low / close / volume）"]
+  Standard --> Health["資料健康（data health）<br/>有效起始日／缺失資產（effective start / missing assets）"]
+  Health --> Cache["快取與受管產物（cache / managed artifacts）"]
+  Cache --> Engine["回測器與前向分析（backtester / WFA）"]
+  Health --> Rules["策略規則（Strategy Rules）<br/>前端可讀摘要"]
+          </pre>
+          <p class="diagram-caption">
+            不同資料來源的差異留在轉接器（adapter）；引擎只處理標準化後的資料與資料健康報告。
+          </p>
+        </section>
+
+        <h2>正式資料來源規則</h2>
+        <div class="table-scroll">
+          <table class="detail-table">
+            <tr>
+              <th>資料來源（provider）</th>
+              <th>用途</th>
+              <th>資產代號例子</th>
+              <th>需要什麼</th>
+              <th>常見錯誤</th>
+            </tr>
+            <tr>
+              <td>雅虎財經（yfinance）</td>
+              <td>公開每日指數股票型基金（ETF）及股票資料。</td>
+              <td><code>QQQ</code>、<code>SPY</code>、<code>VOO</code></td>
+              <td><code>requirements.txt</code> 內的 <code>yfinance</code> / <code>curl_cffi</code>。</td>
+              <td>資產代號不存在、雅虎財經（Yahoo Finance）缺資料、比較基準與策略市場不一致。</td>
+            </tr>
+            <tr>
+              <td>幣安（binance）</td>
+              <td>加密資產現貨 K 線（crypto spot kline）。</td>
+              <td><code>BTCUSDT</code>、<code>ETHUSDT</code></td>
+              <td><code>python-binance</code>、網絡與時間週期。</td>
+              <td>不會在未說明下改用雅虎財經（Yahoo Finance）比較基準；幣安（Binance）資產代號（symbol）不使用連字號。</td>
+            </tr>
+            <tr>
+              <td>Coinbase 交易所（coinbase）</td>
+              <td>Coinbase 交易所（Coinbase Exchange）公開 K 線資料。</td>
+              <td><code>BTC-USD</code>、<code>ETH-USD</code></td>
+              <td><code>dataloader/market_data_loader.py</code>、網絡、Coinbase 產品代號（product）格式。</td>
+              <td>Coinbase 交易所使用 <code>BASE-QUOTE</code> 格式，不使用幣安（Binance）的 <code>BTCUSDT</code> 寫法。</td>
+            </tr>
+            <tr>
+              <td>本地檔案（file）</td>
+              <td>本地逗號分隔檔（CSV）或 Parquet 檔案。</td>
+              <td>本地路徑與資產代號對應</td>
+              <td>日期欄、開高低收量（OHLCV）欄位、時區（timezone）及交易日曆（calendar）定義。</td>
+              <td>欄位名不一致、日期不是交易日、缺少比較基準（benchmark）或未說明價格調整（adjustment）。</td>
+            </tr>
+            <tr>
+              <td>富途（futu）</td>
+              <td>富途開放閘道（Futu OpenD）轉接器框架。</td>
+              <td>依富途市場前綴（Futu market prefix）</td>
+              <td><code>futu-api</code>、富途開放閘道（Futu OpenD）、主機位址與連接埠（host / port）、行情權限。</td>
+              <td>套件裝好不等於開放閘道（OpenD）已開，也不等於有行情權限。</td>
+            </tr>
+            <tr>
+              <td>盈透證券（IBKR）</td>
+              <td>盈透證券交易工作站或閘道（TWS / IB Gateway）轉接器框架。</td>
+              <td>依盈透證券合約（IBKR contract）及資產代號對應</td>
+              <td><code>ib-insync</code>、交易工作站或閘道（TWS / Gateway）、已啟用應用程式介面（API enabled）、連接埠（port）及行情權限（market-data entitlements）。</td>
+              <td>閘道（Gateway）未開、應用程式介面連接埠（API port）錯誤或行情權限（market-data entitlement）不足。</td>
+            </tr>
+          </table>
+        </div>
+
+        <h2>資料設定檔（data config）要寫什麼</h2>
+        <pre><code>{
+  "data": {
+    "provider": "binance",
+    "frequency": "1D",
+    "calendar": "CRYPTO_24_7",
+    "timezone": "UTC",
+    "benchmark": "BTCUSDT"
+  },
+  "universe": {
+    "symbols": ["BTCUSDT", "ETHUSDT"]
+  }
+}</code></pre>
+
+        <h2>比較基準（benchmark）原則</h2>
+        <ul>
+          <li>單資產策略可由同一資料來源的買入持有推導。設定檔（config）仍應寫入比較基準（benchmark）。</li>
+          <li>多資產投資組合（portfolio）要指定比較基準（benchmark），例如 <code>SPY</code>、<code>BTCUSDT</code> 或同市場代表資產。</li>
+          <li>加密資產（crypto）資料來源不會在未說明下切到雅虎財經（Yahoo Finance）資產代號（ticker）。跨資料來源使用比較基準（benchmark）時，人工智能（AI）會向用戶說明。</li>
+          <li>若比較基準缺少資料，報告會影響比較基準報酬（Benchmark Return）、超額報酬（Excess Return）及與比較基準相關性（Benchmark Correlation）。</li>
+        </ul>
+
+        <h2>資料健康（Data Health）解讀</h2>
+        <div class="grid">
+          <section class="card">
+            <h3>有效起始日（Effective Start）</h3>
+            <p>所有必要資產、比較基準（benchmark）及計算欄位（computed fields）可共同開始的日期。多資產會被最晚可用資產拖後。</p>
+          </section>
+          <section class="card">
+            <h3>已載入資產（Loaded Assets）</h3>
+            <p>載入成功的資產。請與資產範圍（universe）對照。</p>
+          </section>
+          <section class="card">
+            <h3>缺失資產（Missing Assets）</h3>
+            <p>要求但未成功載入的資產。名單有內容時，請檢查資料缺口。</p>
+          </section>
+          <section class="card">
+            <h3>資料來源錯誤（Data Provider Error）</h3>
+            <p>例如端點、閘道程式、權限、資產代號或時間週期問題。這不是策略邏輯錯誤。</p>
+          </section>
+        </div>
+
+        <section class="evidence">
+          <h2>專案證據</h2>
+          <ul>
+            <li><code>dataloader/market_data_loader.py</code></li>
+            <li><code>dataloader/futu_loader.py</code></li>
+            <li><code>dataloader/ibkr_loader.py</code></li>
+            <li><code>autorunner/DataLoader_autorunner.py</code></li>
+            <li><code>validation_workflow/UnifiedPortfolioWFARunner_validation_workflow.py</code></li>
+          </ul>
+        </section>
+
+        <div class="pager">
+          <a href="../Module_01_System_Map/index.html">上一章</a>
+          <a href="../Module_03_Strategy_Run_Config/index.html">下一章</a>
+        </div>
+      </article>
+    </main>
+  </div>
+  <script src="../assets/lecture.js"></script>
+</body>
+</html>

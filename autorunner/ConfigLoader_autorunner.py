@@ -27,11 +27,11 @@ ConfigLoader_autorunner.py
 ------------------------------------------------------------
 - 載入單個配置：loader.load_config("config.json") -> ConfigData
 - 載入多個配置：loader.load_configs(["config1.json", "config2.json"]) -> [ConfigData1, ConfigData2]
-- 獲取配置摘要：loader.get_config_summary(config_data) -> dict
+- 獲取配置摘要：config_data.get_summary() -> dict
 
 【與其他模組的關聯】
 ------------------------------------------------------------
-- 被 Base_autorunner 調用，提供配置載入功能
+- 被 AppRuntimeService / canonical autorunner path 調用，提供配置載入功能
 - 依賴 json 進行配置文件解析
 - 為 DataLoader、BacktestRunner 等提供配置數據
 
@@ -45,16 +45,21 @@ ConfigLoader_autorunner.py
 ------------------------------------------------------------
 - autorunner/DEVELOPMENT_PLAN.md
 - Development_Guideline.md
-- Base_autorunner.py
+- app/runtime/runtime.py
 - config_template.json
 """
 
+import copy
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
-from rich.text import Text
-
+from backtester.StrategyRunConfig_backtester import (
+    is_strategy_run_schema_version,
+    normalize_strategy_run_config,
+)
+from backtester.EngineRequest_backtester import build_engine_request
+from metricstracker.MetricConfig_metricstracker import resolve_metric_config
 from autorunner.utils import get_console
 from utils import show_error
 
@@ -79,16 +84,19 @@ class ConfigData:
 
         self.file_path = file_path
         self.file_name = Path(file_path).name
-        self.raw_config = config_dict.copy()
+        self.raw_config = copy.deepcopy(config_dict)
 
-        # 提取各模組配置
-        self.dataloader_config = config_dict.get("dataloader", {})
-        self.backtester_config = config_dict.get("backtester", {})
-        self.metricstracker_config = config_dict.get("metricstracker", {})
+        self.dataloader_config = copy.deepcopy(config_dict.get("dataloader", {}))
+        self.backtester_config = copy.deepcopy(config_dict.get("backtester", {}))
+        self.metricstracker_config = copy.deepcopy(config_dict.get("metricstracker", {}))
+        self.statanalyser_config = copy.deepcopy(config_dict.get("statanalyser", {}))
+        self.engine_request = copy.deepcopy(config_dict.get("engine_request", {}))
 
-        # 提取預測因子配置（從 dataloader 部分提取）
-        dataloader_config = config_dict.get("dataloader", {})
-        self.predictor_config = dataloader_config.get("predictor_config", {})
+        # Keep source config path for downstream relative-path resolution.
+        self.dataloader_config.setdefault("__config_file_path", self.file_path)
+        self.backtester_config.setdefault("__config_file_path", self.file_path)
+        self.metricstracker_config.setdefault("__config_file_path", self.file_path)
+        self.statanalyser_config.setdefault("__config_file_path", self.file_path)
 
     def get_summary(self) -> Dict[str, Any]:
         """
@@ -98,14 +106,21 @@ class ConfigData:
             Dict[str, Any]: 配置摘要信息
         """
 
+        engine_request = self.engine_request
+        strategy = engine_request.get("strategy", {}) if isinstance(engine_request, dict) else {}
+        workflow = engine_request.get("workflow", {}) if isinstance(engine_request, dict) else {}
+        data = engine_request.get("data_requirements", {}) if isinstance(engine_request, dict) else {}
         config_summary = {
             "file_name": self.file_name,
             "file_path": self.file_path,
-            "dataloader_source": self.dataloader_config.get("source", "unknown"),
-            "backtester_pairs": len(self.backtester_config.get("condition_pairs", [])),
+            "data_provider": data.get("provider", "unknown"),
+            "workflow_id": workflow.get("workflow_id", "unknown"),
+            "strategy_profile_id": strategy.get("strategy_profile_id", ""),
+            "symbols": list(data.get("symbols", [])),
             "metricstracker_enabled": self.metricstracker_config.get(
                 "enable_metrics_analysis", False
             ),
+            "statanalyser_enabled": self.statanalyser_config.get("enabled", False),
         }
 
         return config_summary
@@ -119,24 +134,21 @@ class ConfigLoader:
     提供標準化的配置數據結構。
     """
 
-    def __init__(self) -> None:
-        """
-        初始化 ConfigLoader
-        """
-
-        # 預設配置值
-        self.default_config = {
-            "dataloader": {
-                "source": "yfinance",
-                "start_date": "2020-01-01",
-            },
-            "backtester": {
-                "condition_pairs": [],
-            },
-            "metricstracker": {
-                "enable_metrics_analysis": False,
-            },
-        }
+    DEFAULT_STATANALYSER_CONFIG: Dict[str, Any] = {
+        "enabled": False,
+        "target": {
+            "predictor_column": None,
+            "return_column": None,
+            "diff_mode": "none",
+        },
+        "tests": {},
+        "report": {
+            "formats": ["md", "json"],
+            "include_plots": False,
+            "include_raw_tables": True,
+            "fail_on_error": False,
+        },
+    }
 
     def load_config(self, config_file: str) -> Optional[ConfigData]:
         """
@@ -150,21 +162,17 @@ class ConfigLoader:
         """
 
         try:
-            # 讀取配置文件
+            # NOTE: translated to English.
             config_dict = self._read_config_file(config_file)
             if config_dict is None:
                 return None
-
-            # 合併預設配置
-            merged_config = self._merge_with_defaults(config_dict)
-
-            # 轉換配置格式
-            processed_config = self._process_config(merged_config)
-
-            # 創建配置數據對象
-            config_data_obj = ConfigData(processed_config, config_file)
-
-            return config_data_obj
+            if not is_strategy_run_schema_version(config_dict.get("schema_version")):
+                raise ValueError(
+                    "Autorunner configs must use schema_version=strategy_run; "
+                    "legacy dataloader/backtester runtime shells are not supported."
+                )
+            runtime_config = self._runtime_shell_from_strategy_run(config_dict, config_file)
+            return ConfigData(runtime_config, config_file)
 
         except Exception as e:
             print(f"❌ [ERROR] 載入配置文件失敗: {e}")
@@ -202,7 +210,7 @@ class ConfigLoader:
         """
 
         try:
-            with open(config_file, "r", encoding="utf-8") as f:
+            with open(config_file, "r", encoding="utf-8-sig") as f:
                 config_dict = json.load(f)
 
             return config_dict
@@ -220,122 +228,86 @@ class ConfigLoader:
             self._display_load_error(f"讀取失敗: {e}", Path(config_file).name)
             return None
 
-    def _merge_with_defaults(self, config_dict: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        合併預設配置
+    def _runtime_shell_from_strategy_run(self, config_dict: Dict[str, Any], config_file: str) -> Dict[str, Any]:
+        """Compile one canonical strategy_run into the internal runtime sections."""
+        normalized = normalize_strategy_run_config(config_dict, source_path=Path(config_file))
+        platform = self._dict_section(normalized, "platform")
+        mode = str(platform.get("strategy_mode_id") or "").strip().lower()
+        workflow = str(platform.get("workflow_id") or "").strip().lower()
+        data_cfg = self._dict_section(normalized, "data")
+        universe = self._dict_section(normalized, "universe")
+        dataloader = self._strategy_run_dataloader_config(normalized)
+        engine_request = build_engine_request(normalized)
+        backtester = self._strategy_run_backtester_config(normalized)
+        return {
+            "schema_version": "strategy_run",
+            "platform": {
+                "run_type": platform.get("run_type", "test"),
+                "display_label": platform.get("display_label", ""),
+                "strategy_mode_id": mode,
+                "workflow_id": workflow,
+            },
+            "dataloader": dataloader,
+            "backtester": backtester,
+            "metricstracker": resolve_metric_config(
+                normalized.get("metricstracker", {}),
+                source_config=normalized,
+            ),
+            "statanalyser": self._merge_runtime_defaults(
+                self.DEFAULT_STATANALYSER_CONFIG,
+                self._dict_section(normalized, "statanalyser"),
+            ),
+            "engine_request": engine_request,
+            "data": copy.deepcopy(data_cfg),
+            "universe": copy.deepcopy(universe),
+        }
 
-        Args:
-            config_dict: 原始配置字典
+    @classmethod
+    def _strategy_run_uses_internal_market_loader(cls, config: Dict[str, Any]) -> bool:
+        platform = cls._dict_section(config, "platform")
+        mode = str(platform.get("strategy_mode_id") or "").strip().lower()
+        return mode == "multi_asset_portfolio"
 
-        Returns:
-            Dict[str, Any]: 合併後的配置字典
-        """
+    def _strategy_run_dataloader_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        data = self._dict_section(config, "data")
+        universe = self._dict_section(config, "universe")
+        symbols = [str(item).strip().upper() for item in universe.get("symbols", []) if str(item).strip()]
+        frequency = str(data.get("frequency") or "1D")
+        return {
+            "source": "multi_asset",
+            "frequency": frequency,
+            "start_date": str(data.get("start_date") or ""),
+            "asset_symbols": symbols,
+        }
 
-        merged_config = self.default_config.copy()
+    def _strategy_run_backtester_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        metadata = self._dict_section(config, "metadata")
+        export_config: Dict[str, Any] = {}
+        export_config.setdefault("export_parquet", True)
+        export_config.setdefault("export_csv", False)
+        return {
+            "Backtest_id": str(metadata.get("strategy_id") or "strategy_run"),
+            "export_config": export_config,
+        }
 
-        # 遞歸合併配置
-        for key, value in config_dict.items():
-            if (
-                key in merged_config
-                and isinstance(merged_config[key], dict)
-                and isinstance(value, dict)
-            ):
-                merged_dict_key = merged_config[key]
-                value_dict = value
-                if isinstance(merged_dict_key, dict) and isinstance(value_dict, dict):
-                    merged_config[key] = {**merged_dict_key, **value_dict}
+    @staticmethod
+    def _dict_section(config: Dict[str, Any], key: str) -> Dict[str, Any]:
+        value = config.get(key)
+        return cast(Dict[str, Any], value) if isinstance(value, dict) else {}
+
+    @classmethod
+    def _merge_runtime_defaults(
+        cls,
+        defaults: Dict[str, Any],
+        configured: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        merged = copy.deepcopy(defaults)
+        for key, value in configured.items():
+            if isinstance(value, dict) and isinstance(merged.get(key), dict):
+                merged[key] = cls._merge_runtime_defaults(merged[key], value)
             else:
-                merged_config[key] = value
-
-        return merged_config
-
-    def _process_config(self, config_dict: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        處理配置數據
-
-        Args:
-            config_dict: 配置字典
-
-        Returns:
-            Dict[str, Any]: 處理後的配置字典
-        """
-
-        processed_config = config_dict.copy()
-
-        # 處理數據載入器配置
-        if "dataloader" in processed_config:
-            processed_config["dataloader"] = self._process_dataloader_config(
-                processed_config["dataloader"]
-            )
-
-        # 處理回測器配置
-        if "backtester" in processed_config:
-            processed_config["backtester"] = self._process_backtester_config(
-                processed_config["backtester"]
-            )
-
-        # 處理績效追蹤器配置
-        if "metricstracker" in processed_config:
-            processed_config["metricstracker"] = self._process_metricstracker_config(
-                processed_config["metricstracker"]
-            )
-
-        return processed_config
-
-    def _process_dataloader_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """處理數據載入器配置"""
-
-        processed = config.copy()
-
-        # 處理日期格式
-        if "start_date" in processed:
-            processed["start_date"] = str(processed["start_date"])
-
-        # 處理數據源配置
-        source = processed.get("source", "yfinance")
-        if source == "yfinance" and "yfinance_config" not in processed:
-            processed["yfinance_config"] = {
-                "symbol": "AAPL",
-                "period": "1y",
-                "interval": "1d",
-            }
-
-        return processed
-
-    def _process_backtester_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """處理回測器配置"""
-
-        processed = config.copy()
-
-        # 處理條件配對
-        if "condition_pairs" not in processed:
-            processed["condition_pairs"] = []
-
-        # 處理交易參數
-        if "trading_params" not in processed:
-            processed["trading_params"] = {
-                "transaction_cost": 0.001,
-                "slippage": 0.0005,
-                "trade_delay": 0,
-                "trade_price": "close",
-            }
-
-        return processed
-
-    def _process_metricstracker_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """處理績效追蹤器配置"""
-
-        processed = config.copy()
-
-        if "enable_metrics_analysis" not in processed:
-            processed["enable_metrics_analysis"] = False
-
-        processed.setdefault("file_selection_mode", "auto")
-        processed.setdefault("parquet_directory", "records/backtester/")
-        processed.setdefault("time_unit", 365)
-        processed.setdefault("risk_free_rate", 0.04)
-
-        return processed
+                merged[key] = copy.deepcopy(value)
+        return merged
 
     def _display_load_error(self, message: str, context: str = "") -> None:
         """
@@ -354,13 +326,13 @@ class ConfigLoader:
 
 
 if __name__ == "__main__":
-    # 測試模式
+    # NOTE: translated to English.
 
-    # 創建載入器實例
+    # NOTE: translated to English.
     loader = ConfigLoader()
 
-    # 測試載入功能
-    test_config = "records/autorunner/backtester_autorunner/config_template.json"
+    # NOTE: translated to English.
+    test_config = "workspace/runs/config_template.json"
     if Path(test_config).exists():
         config_data = loader.load_config(test_config)
         if config_data:

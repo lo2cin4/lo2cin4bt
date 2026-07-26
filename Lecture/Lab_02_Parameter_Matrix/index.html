@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>實驗 02 參數矩陣</title>
+  <link rel="stylesheet" href="../assets/lecture.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand"><strong>lo2cin4bt 課程</strong><span>實驗 02</span></div>
+      <input class="search" data-search placeholder="搜尋章節">
+      <nav class="nav-list" data-nav></nav>
+    </aside>
+    <main class="content">
+      <article class="module">
+        <p class="kicker">實驗（Lab）02</p>
+        <h1>參數矩陣</h1>
+        <p>這個實驗（Lab）把參數範圍展開成候選回測。你會找出可交給前向分析（WFA）檢查的參數區域。參數矩陣不等於樣本外（out-of-sample）證明。</p>
+
+        <h2>人工操作版</h2>
+        <ol>
+          <li>選擇 <code>workspace/runs/</code> 內含非空 <code>parameter_domains</code> 的設定檔（config），並確認每個參數引用都由現行操作（op）支援；空物件只會產生無參數範圍（no-domain）狀態，不會展開候選</li>
+          <li>確認 <code>platform.workflow_id</code> 的值為 <code>parameter_matrix</code></li>
+          <li>讀取 <code>parameter_domains</code>，確認參數、範圍和步長（step）</li>
+          <li>完成回測後打開參數矩陣（Parameter Matrix），查看目標函數（objective）、排名方式（ranking）、候選排名、群集（cluster）、穩定平台區（plateau）和參數重要性（parameter importance）</li>
+          <li>把候選區域交給前向分析（WFA）或其他驗證流程檢查</li>
+        </ol>
+
+        <h2>代理與技能版（Agent / Skill）</h2>
+        <pre><code>請由 lo2cin4btWorkAgent 使用 lo2cin4bt-strategy-builder
+先檢查這份設定檔（config）是否有 parameter_domains。
+再由同一個 lo2cin4btWorkAgent 使用 lo2cin4bt-backtesting
+執行最小必要本機回測，輸出 run_id 和參數矩陣前端資料（parameter matrix payload）路徑。
+不要把參數矩陣結果描述成未來績效承諾。</code></pre>
+
+        <section class="evidence">
+          <h2>專案證據</h2>
+          <ul>
+            <li><code>workspace/runs/*matrix*.json</code></li>
+            <li><code>outputs/app/chart_payloads/&lt;run_id&gt;/parameter_heatmap_payload.json</code></li>
+            <li><code>skills/lo2cin4bt/references/metric-dictionary.md</code></li>
+            <li><code>skills/lo2cin4bt/references/quant-interpretation-risks.md</code></li>
+            <li><code>plotter/web/src/pages/ParameterMatrixPage.tsx</code></li>
+          </ul>
+        </section>
+
+        <div class="pager">
+          <a href="../Lab_01_Run_A_Backtest/index.html">上一個實驗</a>
+          <a href="../Lab_03_WFA_Rolling/index.html">下一個實驗</a>
+        </div>
+      </article>
+    </main>
+  </div>
+  <script src="../assets/lecture.js"></script>
+</body>
+</html>

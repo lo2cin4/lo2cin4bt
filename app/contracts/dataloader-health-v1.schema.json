@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lo2cin4bt/app/contracts/dataloader-health-v1.schema.json",
+  "title": "lo2cin4bt App Dataloader Health v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contract_id",
+    "run_id",
+    "source_list",
+    "primary_source",
+    "missing_ratio",
+    "audit_available",
+    "fill_ratio",
+    "stale_ratio",
+    "max_age_bars",
+    "join_mode",
+    "calendar_policy",
+    "source_audit_id",
+    "warnings",
+    "errors"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "contract_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "source_list": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_id", "uri"],
+        "properties": {
+          "source_id": {"type": "string", "minLength": 1},
+          "uri": {"type": "string", "minLength": 1},
+          "join_mode": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "primary_source": {"type": "string", "minLength": 1},
+    "missing_ratio": {"type": "number", "minimum": 0},
+    "audit_available": {"type": "boolean"},
+    "fill_ratio": {"type": ["number", "null"], "minimum": 0},
+    "stale_ratio": {"type": ["number", "null"], "minimum": 0},
+    "max_age_bars": {"type": ["integer", "null"], "minimum": 0},
+    "join_mode": {"type": "string", "minLength": 1},
+    "calendar_policy": {"type": "string", "minLength": 1},
+    "source_audit_id": {"type": ["string", "null"]},
+    "warnings": {"type": "array", "items": {"type": "string"}},
+    "errors": {"type": "array", "items": {"type": "string"}}
+  }
+}

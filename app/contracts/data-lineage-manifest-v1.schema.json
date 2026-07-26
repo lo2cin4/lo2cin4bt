@@ -1,0 +1,358 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lo2cin4bt/app/contracts/data-lineage-manifest-v1.schema.json",
+  "title": "lo2cin4bt App Data Lineage Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contract_id",
+    "run_id",
+    "module",
+    "generated_at",
+    "lineage_status",
+    "coverage_level",
+    "input_sources",
+    "transformations",
+    "audit",
+    "validity_flags",
+    "lineage_claims",
+    "linked_artifacts"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "contract_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "module": {"type": "string", "minLength": 1},
+    "generated_at": {"type": "string", "minLength": 1},
+    "lineage_status": {
+      "type": "string",
+      "enum": ["complete", "partial", "unknown"]
+    },
+    "coverage_level": {
+      "type": "string",
+      "enum": ["run", "window", "asset", "feature"]
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "run_config": {"$ref": "#/$defs/file_ref"},
+        "strategy_run_config": {"$ref": "#/$defs/file_ref"},
+        "wfa_config": {"$ref": "#/$defs/file_ref"}
+      }
+    },
+    "input_sources": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/input_source"}
+    },
+    "consumed_data_snapshot": {"$ref": "#/$defs/consumed_data_snapshot"},
+    "universe_provenance": {"$ref": "#/$defs/universe_provenance"},
+    "factor_feature_audit": {"$ref": "#/$defs/factor_feature_audit"},
+    "transformations": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/transformation"}
+    },
+    "audit": {"$ref": "#/$defs/audit"},
+    "validity_flags": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "point_in_time_known",
+        "survivorship_known",
+        "corporate_actions_known",
+        "feature_lag_verified",
+        "lookahead_guard_verified"
+      ],
+      "properties": {
+        "point_in_time_known": {"type": "boolean"},
+        "survivorship_known": {"type": "boolean"},
+        "corporate_actions_known": {"type": "boolean"},
+        "feature_lag_verified": {"type": "boolean"},
+        "lookahead_guard_verified": {"type": "boolean"}
+      }
+    },
+    "lineage_claims": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["proven", "inferred", "unknown"],
+      "properties": {
+        "proven": {"type": "array", "items": {"type": "string"}},
+        "inferred": {"type": "array", "items": {"type": "string"}},
+        "unknown": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "linked_artifacts": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/artifact_ref"}
+    },
+    "windows": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/window_ref"}
+    },
+    "derived_from_artifacts": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/artifact_ref"}
+    }
+  },
+  "$defs": {
+    "nullable_string": {
+      "type": ["string", "null"]
+    },
+    "file_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "content_hash"],
+      "properties": {
+        "path": {"$ref": "#/$defs/nullable_string"},
+        "content_hash": {"$ref": "#/$defs/nullable_string"}
+      }
+    },
+    "input_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_id",
+        "source_type",
+        "provider",
+        "uri_or_path",
+        "symbols",
+        "requested_start",
+        "requested_end",
+        "actual_start",
+        "actual_end",
+        "frequency_requested",
+        "frequency_resolved",
+        "timezone",
+        "adjustment_policy",
+        "calendar_policy",
+        "content_hash",
+        "path_hash",
+        "identity_hash"
+      ],
+      "properties": {
+        "source_id": {"type": "string", "minLength": 1},
+        "source_type": {
+          "type": "string",
+          "enum": ["provider", "file", "artifact", "generated", "unknown"]
+        },
+        "provider": {"type": "string", "minLength": 1},
+        "uri_or_path": {"type": "string", "minLength": 1},
+        "symbols": {"type": "array", "items": {"type": "string"}},
+        "requested_start": {"$ref": "#/$defs/nullable_string"},
+        "requested_end": {"$ref": "#/$defs/nullable_string"},
+        "actual_start": {"$ref": "#/$defs/nullable_string"},
+        "actual_end": {"$ref": "#/$defs/nullable_string"},
+        "frequency_requested": {"$ref": "#/$defs/nullable_string"},
+        "frequency_resolved": {"$ref": "#/$defs/nullable_string"},
+        "timezone": {"$ref": "#/$defs/nullable_string"},
+        "adjustment_policy": {"$ref": "#/$defs/nullable_string"},
+        "calendar_policy": {"$ref": "#/$defs/nullable_string"},
+        "content_hash": {"$ref": "#/$defs/nullable_string"},
+        "path_hash": {"$ref": "#/$defs/nullable_string"},
+        "identity_hash": {"$ref": "#/$defs/nullable_string"},
+        "cache": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "path": {"$ref": "#/$defs/nullable_string"},
+            "content_hash": {"$ref": "#/$defs/nullable_string"},
+            "status": {"$ref": "#/$defs/nullable_string"}
+          }
+        },
+        "notes": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "consumed_data_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "status", "path", "format", "content_hash", "row_count", "column_list"],
+      "properties": {
+        "schema_version": {"const": "consumed_data_snapshot.v1"},
+        "status": {"type": "string", "enum": ["captured", "not_captured"]},
+        "path": {"$ref": "#/$defs/nullable_string"},
+        "format": {"$ref": "#/$defs/nullable_string"},
+        "content_hash": {"$ref": "#/$defs/nullable_string"},
+        "row_count": {"type": "integer", "minimum": 0},
+        "column_list": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "transformation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "status", "details"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "status": {
+          "type": "string",
+          "enum": ["proven", "inferred", "unknown"]
+        },
+        "details": {"type": "object"}
+      }
+    },
+    "audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "row_count",
+        "column_list",
+        "missing_ratio",
+        "audit_available",
+        "fill_ratio",
+        "stale_ratio",
+        "duplicate_timestamp_count",
+        "monotonic_time",
+        "source_audit_id",
+        "warnings",
+        "errors"
+      ],
+      "properties": {
+        "row_count": {"type": "integer", "minimum": 0},
+        "column_list": {"type": "array", "items": {"type": "string"}},
+        "missing_ratio": {"type": "number", "minimum": 0},
+        "audit_available": {"type": "boolean"},
+        "fill_ratio": {"type": ["number", "null"], "minimum": 0},
+        "stale_ratio": {"type": ["number", "null"], "minimum": 0},
+        "duplicate_timestamp_count": {"type": "integer", "minimum": 0},
+        "monotonic_time": {"type": "boolean"},
+        "source_audit_id": {"$ref": "#/$defs/nullable_string"},
+        "warnings": {"type": "array", "items": {"type": "string"}},
+        "errors": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "artifact_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_type", "path", "content_hash", "status"],
+      "properties": {
+        "artifact_type": {"type": "string", "minLength": 1},
+        "path": {"type": "string", "minLength": 1},
+        "content_hash": {"$ref": "#/$defs/nullable_string"},
+        "status": {"type": "string", "minLength": 1}
+      }
+    },
+    "universe_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "source_type",
+        "source_ref",
+        "policy",
+        "as_of_date",
+        "configured_symbols",
+        "runtime_symbols",
+        "window_count",
+        "window_source_snapshots",
+        "point_in_time_constituents",
+        "delisted_policy",
+        "survivorship_bias_risk",
+        "provenance_status",
+        "warnings"
+      ],
+      "properties": {
+        "schema_version": {"const": "universe_provenance.v1"},
+        "source_type": {"type": "string", "minLength": 1},
+        "source_ref": {"$ref": "#/$defs/nullable_string"},
+        "policy": {"$ref": "#/$defs/nullable_string"},
+        "as_of_date": {"$ref": "#/$defs/nullable_string"},
+        "configured_symbols": {"type": "array", "items": {"type": "string"}},
+        "runtime_symbols": {"type": "array", "items": {"type": "string"}},
+        "window_count": {"type": "integer", "minimum": 0},
+        "window_source_snapshots": {"type": "array", "items": {"type": "string"}},
+        "point_in_time_constituents": {"type": "boolean"},
+        "constituents_validation": {"$ref": "#/$defs/constituents_validation"},
+        "delisted_policy": {"$ref": "#/$defs/nullable_string"},
+        "survivorship_bias_risk": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "unknown"]
+        },
+        "provenance_status": {
+          "type": "string",
+          "enum": ["valid", "review"]
+        },
+        "warnings": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "constituents_validation": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["schema_version", "status", "warnings", "errors"],
+      "properties": {
+        "schema_version": {"const": "historical_universe_constituents_validation.v1"},
+        "status": {
+          "type": "string",
+          "enum": ["not_applicable", "not_available", "missing", "invalid", "valid"]
+        },
+        "path": {"$ref": "#/$defs/nullable_string"},
+        "content_hash": {"$ref": "#/$defs/nullable_string"},
+        "expected_hash": {"$ref": "#/$defs/nullable_string"},
+        "hash_matches": {"type": ["boolean", "null"]},
+        "row_count": {"type": "integer", "minimum": 0},
+        "symbol_column": {"$ref": "#/$defs/nullable_string"},
+        "date_columns": {"type": "array", "items": {"type": "string"}},
+        "configured_symbols": {"type": "array", "items": {"type": "string"}},
+        "symbols_in_file_count": {"type": "integer", "minimum": 0},
+        "missing_configured_symbols": {"type": "array", "items": {"type": "string"}},
+        "duplicate_row_count": {"type": "integer", "minimum": 0},
+        "as_of_date": {"$ref": "#/$defs/nullable_string"},
+        "as_of_covered": {"type": ["boolean", "null"]},
+        "warnings": {"type": "array", "items": {"type": "string"}},
+        "errors": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "factor_feature_audit": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "schema_version",
+        "status",
+        "point_in_time_required",
+        "feature_lag_verified",
+        "lookahead_guard_verified",
+        "warnings",
+        "errors"
+      ],
+      "properties": {
+        "schema_version": {"const": "factor_feature_audit.v1"},
+        "status": {"type": "string", "enum": ["not_applicable", "valid", "invalid"]},
+        "point_in_time_required": {"type": "boolean"},
+        "feature_lag_verified": {"type": "boolean"},
+        "lookahead_guard_verified": {"type": "boolean"},
+        "known_at_fields": {"type": "array", "items": {"type": "string"}},
+        "effective_at_fields": {"type": "array", "items": {"type": "string"}},
+        "lag_policy": {},
+        "warnings": {"type": "array", "items": {"type": "string"}},
+        "errors": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "window_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "window_id",
+        "train_start",
+        "train_end",
+        "test_start",
+        "test_end",
+        "symbols",
+        "lineage_status",
+        "source_snapshot"
+      ],
+      "properties": {
+        "window_id": {"type": "integer", "minimum": 1},
+        "train_start": {"$ref": "#/$defs/nullable_string"},
+        "train_end": {"$ref": "#/$defs/nullable_string"},
+        "test_start": {"$ref": "#/$defs/nullable_string"},
+        "test_end": {"$ref": "#/$defs/nullable_string"},
+        "symbols": {"type": "array", "items": {"type": "string"}},
+        "lineage_status": {
+          "type": "string",
+          "enum": ["complete", "partial", "unknown"]
+        },
+        "source_snapshot": {"type": "string", "minLength": 1},
+        "universe_provenance": {"$ref": "#/$defs/universe_provenance"}
+      }
+    }
+  }
+}

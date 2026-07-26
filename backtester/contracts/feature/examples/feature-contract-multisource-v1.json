@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.0",
+  "dataset_id": "spy_price_plus_vix_multisource_daily_v1",
+  "primary_key": {
+    "time_field": "Time",
+    "instrument_field": "Trading_instrument"
+  },
+  "features": [
+    {
+      "field": "price.close",
+      "source": {
+        "type": "price",
+        "uri": "workspace/datasets/spy.csv",
+        "column": "close",
+        "source_id": "spy_price",
+        "time_field": "Time"
+      },
+      "frequency": "1D",
+      "timezone": "UTC",
+      "dtype": "float",
+      "fill_policy": "none",
+      "lag_bars": 0,
+      "calendar": "XNYS",
+      "staleness_max_bars": 0,
+      "allowed_missing_ratio": 0.0,
+      "description": "Primary tradable close price"
+    },
+    {
+      "field": "feature.vix.close",
+      "source": {
+        "type": "file",
+        "uri": "workspace/datasets/vix.csv",
+        "column": "close",
+        "source_id": "vix_daily",
+        "time_field": "Time"
+      },
+      "frequency": "1D",
+      "timezone": "UTC",
+      "dtype": "float",
+      "fill_policy": "ffill",
+      "lag_bars": 1,
+      "calendar": "CBOE",
+      "staleness_max_bars": 1,
+      "allowed_missing_ratio": 0.02,
+      "description": "Cross-source regime feature lagged by one bar."
+    }
+  ],
+  "alignment_policy": {
+    "join_mode": "asof",
+    "max_forward_fill_bars": 1,
+    "drop_if_missing_ratio_gt": 0.05,
+    "enforce_monotonic_time": true,
+    "calendar_policy": "primary",
+    "asof_tolerance_bars": 1
+  },
+  "time_semantics": {
+    "signal_observation_time": "bar_close",
+    "trade_earliest_time": "next_bar",
+    "default_feature_lag_bars": 1
+  }
+}

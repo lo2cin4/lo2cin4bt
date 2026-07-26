@@ -1,0 +1,18 @@
+{
+  "name": "oracle_long_trade_v1",
+  "close": [100.0, 110.0, 120.0, 130.0],
+  "entry_signal": [1.0, 0.0, 0.0, 0.0],
+  "exit_signal": [0.0, 0.0, -1.0, 0.0],
+  "trading_params": {
+    "transaction_cost": 0.0,
+    "slippage": 0.0,
+    "trade_delay": 0,
+    "trade_price": "close"
+  },
+  "expected": {
+    "positions": [1.0, 1.0, 0.0, 0.0],
+    "trade_actions": [1.0, 0.0, 4.0, 0.0],
+    "equity_values": [100.0, 110.0, 120.0, 120.0],
+    "returns": [0.0, 0.1, 0.09090909090909083, 0.0]
+  }
+}

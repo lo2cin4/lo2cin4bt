@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lo2cin4bt/contracts/runtime/market-data-bundle-v1.schema.json",
+  "title": "MarketDataBundleV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contract_id",
+    "bundle_id",
+    "content_hash",
+    "symbols",
+    "frequency",
+    "calendar",
+    "timezone",
+    "time_range",
+    "row_count",
+    "time_column",
+    "time_semantics",
+    "quality",
+    "tables",
+    "lineage"
+  ],
+  "properties": {
+    "schema_version": {"const": "market_data_bundle.v1"},
+    "contract_id": {"const": "lo2cin4bt.market_data_bundle.v1"},
+    "bundle_id": {"type": "string", "minLength": 1},
+    "content_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "symbols": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "frequency": {"type": "string", "minLength": 1},
+    "calendar": {"type": "string"},
+    "timezone": {"type": "string"},
+    "time_range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end"],
+      "properties": {
+        "start": {"type": "string", "minLength": 1},
+        "end": {"type": "string", "minLength": 1}
+      }
+    },
+    "row_count": {"type": "integer", "minimum": 1},
+    "time_column": {"type": "string", "minLength": 1},
+    "time_semantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index_kind",
+        "event_time_column",
+        "available_time_column",
+        "availability_policy",
+        "ordering"
+      ],
+      "properties": {
+        "index_kind": {"enum": ["session_label", "event_timestamp"]},
+        "event_time_column": {"type": "string", "minLength": 1},
+        "available_time_column": {"type": ["string", "null"]},
+        "availability_policy": {"type": "string", "minLength": 1},
+        "ordering": {"const": "event_time_then_table_name"}
+      }
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "missing_value_policy",
+        "duplicate_time_policy",
+        "out_of_order_policy",
+        "stale_value_policy",
+        "warnings"
+      ],
+      "properties": {
+        "missing_value_policy": {"enum": ["preserve", "drop_rows", "fail"]},
+        "duplicate_time_policy": {"const": "fail"},
+        "out_of_order_policy": {"enum": ["sort_then_validate", "fail"]},
+        "stale_value_policy": {"enum": ["preserve", "fail"]},
+        "warnings": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "tables": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"$ref": "#/$defs/table"}
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "source_hashes", "point_in_time", "adjustment_policy"],
+      "properties": {
+        "provider": {"type": "string", "minLength": 1},
+        "source_hashes": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        },
+        "point_in_time": {"type": "boolean"},
+        "adjustment_policy": {"type": "string"}
+      }
+    }
+  },
+  "$defs": {
+    "table": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "transport", "path", "content_hash", "columns", "row_count"],
+      "properties": {
+        "role": {"enum": ["bars", "features", "benchmarks", "instruments", "corporate_actions"]},
+        "transport": {"enum": ["parquet", "arrow_ipc", "in_memory_arrow"]},
+        "path": {"type": ["string", "null"]},
+        "content_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "columns": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "row_count": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

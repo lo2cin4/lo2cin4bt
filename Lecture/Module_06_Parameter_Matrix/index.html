@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>06 參數矩陣</title>
+  <link rel="stylesheet" href="../assets/lecture.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand"><strong>lo2cin4bt 教學</strong><span>模組 06</span></div>
+      <input class="search" data-search placeholder="搜尋章節">
+      <nav class="nav-list" data-nav></nav>
+    </aside>
+
+    <main class="content">
+      <article class="module">
+        <p class="kicker">模組 06</p>
+        <h1>參數矩陣（Parameter Matrix）</h1>
+        <p>
+          參數矩陣（Parameter Matrix）是「候選參數研究」。它把 <code>parameter_domains</code> 展開成多個候選，
+          每個候選都用同一段樣本回測。指標（metrics）、熱圖（heatmap）、群集（cluster）與候選檢視（candidate review）顯示參數區域。
+          參數矩陣不是前向分析（WFA），整段樣本的最佳解也不是樣本外（OOS）證據。
+        </p>
+
+        <section class="mermaid-panel">
+          <h2>參數矩陣與前向分析的差異</h2>
+          <pre class="mermaid">
+flowchart TB
+  Domain["參數範圍<br/>parameter_domains"] --> Matrix["參數矩陣<br/>整段樣本測候選"]
+  Matrix --> Rank["排名 / 熱圖 / 群集"]
+  Rank --> Review["候選檢視與穩定區域"]
+
+  Domain --> WFA["前向分析<br/>Walk-Forward Analysis"]
+  WFA --> Split["切分樣本內／樣本外視窗<br/>IS / OOS window"]
+  Split --> IS["每段樣本內（IS）尋優"]
+  IS --> Pick["每段選出排名第一最優解<br/>rank-1 optimum"]
+  Pick --> OOS["只把該最優解放到樣本外（OOS）"]
+  OOS --> Robust["穩健性結論"]
+          </pre>
+          <p class="diagram-caption">
+            參數矩陣顯示整段資料的候選區域；前向分析（WFA）測試每段樣本內（IS）選出的參數在下一段樣本外（OOS）的表現。
+          </p>
+        </section>
+
+        <div class="compare-grid">
+          <section>
+            <h2>參數矩陣（Parameter Matrix）</h2>
+            <ul>
+              <li>一次展開所有候選參數。</li>
+              <li>產生排名（ranking）、群集（cluster）、熱圖（heatmap）與候選檢視（candidate review）。</li>
+              <li>用於尋找成片的高分區域，不只看單一最高分候選。</li>
+              <li>不等於樣本外（OOS）穩健性證據。</li>
+            </ul>
+          </section>
+          <section>
+            <h2>前向分析（WFA）</h2>
+            <ul>
+              <li>每個樣本內視窗（IS window）重新尋找當段最佳參數。</li>
+              <li>樣本外（OOS）只測該視窗選出的最佳參數。</li>
+              <li>用於檢查參數跨時間的表現與樣本外結果。</li>
+              <li>候選網格（grid）可作診斷（diagnostics），但不能當作通過／失敗證據（pass/fail evidence）。</li>
+            </ul>
+          </section>
+        </div>
+
+        <h2>哪些內容適合放進參數矩陣</h2>
+        <div class="learning-rail">
+          <div class="rail-item"><strong>技術指標週期</strong><span>簡單移動平均線（SMA）、動能（momentum）、相對強弱指數（RSI）、移動平均匯聚背離指標（MACD）等週期（period）。</span></div>
+          <div class="rail-item"><strong>日曆參數（Calendar parameters）</strong><span>星期幾（weekday）、序數（ordinal）、月份及事件日期規則。</span></div>
+          <div class="rail-item"><strong>配置候選</strong><span>多組配置設定範本（allocation profiles）、首幾名（top_n）及持倉上限（position limit）。</span></div>
+          <div class="rail-item"><strong>交易與風控</strong><span>結構綱要與操作（schema/op）接受 <code>param_ref</code> 的成本（cost）、滑價（slippage）或風控門檻（risk threshold）才可掃描；其他設定檔（config）欄位不能當成參數範圍（parameter domain）。</span></div>
+        </div>
+
+        <h2>沒有參數範圍（No-domain）的正確解讀</h2>
+        <p>
+          固定策略如果沒有任何可調參數，例如固定 30/10/20/20/20 配置，系統應回傳
+          <code>availability = "no_parameter_domain"</code>，前端會提示「沒有參數矩陣」並引導你到回測詳情（Backtests）。
+          這不是錯誤，而是表示目前設定檔（config）沒有可展開的候選參數。
+        </p>
+
+        <div class="table-scroll">
+          <table class="detail-table">
+            <tr>
+              <th>前端狀態</th>
+              <th>代表什麼</th>
+              <th>下一步</th>
+            </tr>
+            <tr>
+              <td>有熱圖／候選檢視（heatmap / candidate review）</td>
+              <td>策略有可調參數，參數矩陣已生成候選。</td>
+              <td>選取參數區域，並用前向分析（WFA）或滾動驗證（Rolling Validation）驗證。</td>
+            </tr>
+            <tr>
+              <td>沒有參數範圍（No parameter domain）</td>
+              <td>固定策略無可調參數。</td>
+              <td>看回測詳情（Backtests），或把配置改成多個配置設定範本（allocation profile）。</td>
+            </tr>
+            <tr>
+              <td>無法載入前端資料（Unable to load payload）</td>
+              <td>產物（artifact）或應用程式介面資料（API payload）未能載入。</td>
+              <td>檢查受管產物（managed artifacts）與應用程式介面資料（API payload）。</td>
+            </tr>
+          </table>
+        </div>
+
+        <section class="evidence">
+          <h2>專案證據</h2>
+          <ul>
+            <li><code>backtester/UnifiedBacktestRunner_backtester.py</code></li>
+            <li><code>app/api/payloads.py</code></li>
+            <li><code>plotter/web/src/pages/ParameterMatrixPage.tsx</code></li>
+          </ul>
+        </section>
+
+        <div class="pager">
+          <a href="../Module_05_Strategy_Semantics/index.html">上一章</a>
+          <a href="../Module_07_Backtests_Report/index.html">下一章</a>
+        </div>
+      </article>
+    </main>
+  </div>
+  <script src="../assets/lecture.js"></script>
+</body>
+</html>

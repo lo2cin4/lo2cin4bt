@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lo2cin4bt/app/contracts/chart-series-storage-v1.schema.json",
+  "title": "lo2cin4bt content-addressed chart storage v1",
+  "oneOf": [
+    {"$ref": "#/$defs/sharedSeries"},
+    {"$ref": "#/$defs/plotIndex"},
+    {"$ref": "#/$defs/metricsIndex"},
+    {"$ref": "#/$defs/detailIndex"}
+  ],
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "series_id", "kind"],
+      "properties": {
+        "schema_version": {"const": "chart_shared_series_ref.v1"},
+        "series_id": {"$ref": "#/$defs/hash"},
+        "kind": {"type": "string", "minLength": 1}
+      }
+    },
+    "indexedSeries": {
+      "type": "object",
+      "required": ["data_ref"],
+      "properties": {
+        "data_ref": {"$ref": "#/$defs/ref"}
+      }
+    },
+    "sharedSeries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "contract_id", "run_id", "series_id", "kind", "value"],
+      "properties": {
+        "schema_version": {"const": "chart_shared_series.v1"},
+        "contract_id": {"const": "lo2cin4bt.chart_shared_series.v1"},
+        "run_id": {"type": "string", "minLength": 1},
+        "series_id": {"$ref": "#/$defs/hash"},
+        "kind": {"type": "string", "minLength": 1},
+        "value": true
+      }
+    },
+    "plotIndex": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "contract_id", "run_id", "payload", "series"],
+      "properties": {
+        "schema_version": {"const": "plot_bundle_index.v1"},
+        "contract_id": {"const": "lo2cin4bt.plot_bundle_index.v1"},
+        "run_id": {"type": "string", "minLength": 1},
+        "payload": {"type": "object"},
+        "series": {"type": "array", "items": {"$ref": "#/$defs/indexedSeries"}}
+      }
+    },
+    "metricsIndex": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "contract_id", "run_id", "payload", "series", "benchmark_series"],
+      "properties": {
+        "schema_version": {"const": "metrics_overview_index.v1"},
+        "contract_id": {"const": "lo2cin4bt.metrics_overview_index.v1"},
+        "run_id": {"type": "string", "minLength": 1},
+        "payload": {"type": "object"},
+        "series": {"type": "array", "items": {"$ref": "#/$defs/indexedSeries"}},
+        "benchmark_series": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "#/$defs/indexedSeries"}
+          ]
+        }
+      }
+    },
+    "detailIndex": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "contract_id", "run_id", "backtest_id", "payload", "shared_series_refs"],
+      "properties": {
+        "schema_version": {"const": "backtest_detail_index.v1"},
+        "contract_id": {"const": "lo2cin4bt.backtest_detail_index.v1"},
+        "run_id": {"type": "string", "minLength": 1},
+        "backtest_id": {"type": "string", "minLength": 1},
+        "payload": {"type": "object"},
+        "shared_series_refs": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ohlc_by_asset": {"$ref": "#/$defs/ref"},
+            "benchmark_series": {"$ref": "#/$defs/ref"}
+          }
+        }
+      }
+    }
+  }
+}

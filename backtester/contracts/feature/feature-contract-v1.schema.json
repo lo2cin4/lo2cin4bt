@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lo2cin4bt/contracts/feature-contract-v1.schema.json",
+  "title": "lo2cin4bt Feature Contract v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "dataset_id", "features", "alignment_policy"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "dataset_id": {"type": "string", "minLength": 1},
+    "primary_key": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["time_field"],
+      "properties": {
+        "time_field": {"type": "string", "minLength": 1},
+        "instrument_field": {"type": "string"}
+      }
+    },
+    "features": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/feature"}
+    },
+    "alignment_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["join_mode", "max_forward_fill_bars", "drop_if_missing_ratio_gt"],
+      "properties": {
+        "join_mode": {"type": "string", "enum": ["inner", "left", "asof"]},
+        "max_forward_fill_bars": {"type": "integer", "minimum": 0},
+        "drop_if_missing_ratio_gt": {"type": "number", "minimum": 0, "maximum": 1},
+        "enforce_monotonic_time": {"type": "boolean", "default": true},
+        "calendar_policy": {"type": "string", "enum": ["primary", "strict", "union"]},
+        "asof_tolerance_bars": {"type": "integer", "minimum": 0}
+      }
+    },
+    "time_semantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["signal_observation_time", "trade_earliest_time"],
+      "properties": {
+        "signal_observation_time": {"type": "string", "enum": ["bar_open", "bar_close"]},
+        "trade_earliest_time": {"type": "string", "enum": ["same_bar", "next_bar"]},
+        "default_feature_lag_bars": {"type": "integer", "minimum": 0}
+      }
+    }
+  },
+  "$defs": {
+    "feature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "field",
+        "source",
+        "frequency",
+        "timezone",
+        "dtype",
+        "fill_policy",
+        "lag_bars"
+      ],
+      "properties": {
+        "field": {
+          "type": "string",
+          "pattern": "^(price|feature|label)\\.[A-Za-z0-9_.]+$"
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "uri"],
+          "properties": {
+            "type": {"type": "string", "enum": ["price", "file", "api", "catalog", "computed", "model"]},
+            "uri": {"type": "string", "minLength": 1},
+            "column": {"type": "string"},
+            "source_id": {"type": "string", "minLength": 1},
+            "time_field": {"type": "string", "minLength": 1},
+            "instrument_field": {"type": "string", "minLength": 1},
+            "dayfirst": {"type": "boolean"},
+            "time_format": {"type": "string", "minLength": 1}
+          }
+        },
+        "frequency": {"type": "string", "minLength": 1},
+        "timezone": {"type": "string", "minLength": 1},
+        "dtype": {"type": "string", "enum": ["float", "int", "bool", "category", "string"]},
+        "fill_policy": {"type": "string", "enum": ["none", "ffill", "bfill", "drop", "zero"]},
+        "lag_bars": {"type": "integer", "minimum": 0},
+        "calendar": {"type": "string", "minLength": 1},
+        "staleness_max_bars": {"type": "integer", "minimum": 0},
+        "allowed_missing_ratio": {"type": "number", "minimum": 0, "maximum": 1},
+        "description": {"type": "string"}
+      }
+    }
+  }
+}

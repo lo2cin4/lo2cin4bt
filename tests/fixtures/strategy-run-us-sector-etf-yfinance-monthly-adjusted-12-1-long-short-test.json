@@ -1,0 +1,113 @@
+{
+  "schema_version": "strategy_run",
+  "platform": {
+    "strategy_mode_id": "multi_asset_portfolio",
+    "strategy_profile_id": "rotation_portfolio",
+    "workflow_id": "single_backtest",
+    "created_at": "2026-07-22",
+    "run_type": "test",
+    "display_label": "US Sector ETF | Monthly Adjusted 12-1 Long Short Rotation | yfinance"
+  },
+  "data": {
+    "provider": "yfinance",
+    "frequency": "1D",
+    "interval": "1d",
+    "calendar": "XNYS",
+    "timezone": "America/New_York",
+    "start_date": "2018-06-19",
+    "start_policy": "common_available",
+    "benchmark": {
+      "provider": "yfinance",
+      "symbol": "SPY",
+      "label": "SPY benchmark",
+      "interval": "1d"
+    }
+  },
+  "universe": {
+    "symbols": ["XLB", "XLC", "XLE", "XLF", "XLI", "XLK", "XLP", "XLRE", "XLU", "XLV", "XLY"],
+    "universe_policy": "all_symbols"
+  },
+  "computed_fields": [
+    {
+      "name": "recent_1m_return",
+      "op": "indicator.calendar_return",
+      "source": "close",
+      "sampling": "month_end",
+      "start_lag": 1,
+      "end_lag": 0
+    },
+    {
+      "name": "momentum_12_1",
+      "op": "indicator.calendar_return",
+      "source": "close",
+      "sampling": "month_end",
+      "start_lag": 12,
+      "end_lag": 1
+    },
+    {
+      "name": "one_plus_recent_return",
+      "op": "math.add",
+      "source": "recent_1m_return",
+      "value": 1.0
+    },
+    {
+      "name": "adjusted_momentum_score",
+      "op": "math.multiply",
+      "source": "one_plus_recent_return",
+      "right_source": "momentum_12_1"
+    }
+  ],
+  "signals": {},
+  "selection": {
+    "rank_by": "adjusted_momentum_score",
+    "rank_order": "desc",
+    "long_top_n": 2,
+    "short_bottom_n": 2,
+    "tie_breaker": "symbol"
+  },
+  "allocation": {
+    "method": "equal_weight_long_short",
+    "long_gross_exposure": 0.5,
+    "short_gross_exposure": 0.5,
+    "cash_policy": "keep_unallocated_cash"
+  },
+  "rebalance": {"trigger": {"op": "calendar.month_end"}},
+  "fill_model": {
+    "timing": "signal_close_for_next_bar",
+    "price": "next_open",
+    "cost": {
+      "transaction_cost": 0.001,
+      "slippage": 0.0,
+      "short_borrow_rate_annual": 0.003,
+      "borrow_day_count": 252
+    }
+  },
+  "risk": {
+    "max_positions": 4,
+    "max_gross_exposure": 1.0,
+    "target_net_exposure": 0.0,
+    "long_short": "market_neutral",
+    "allow_short": true
+  },
+  "parameter_domains": {},
+  "metricstracker": {"enable_metrics_analysis": true, "time_unit": 252, "risk_free_rate": 0.04},
+  "outputs": {
+    "equity_curve": true,
+    "trade_summary": true,
+    "rebalance_audit": true,
+    "holdings": true,
+    "asset_contribution": true
+  },
+  "metadata": {
+    "example": false,
+    "public_example": false,
+    "local_research_only": true,
+    "strategy_id": "us_sector_etf_monthly_adjusted_12_1_long_short_test",
+    "notes": [
+      "At each month-end close, calculate the completed latest-month return r and completed-month 12-1 momentum W.",
+      "Calculate the ranking score B = (1 + r) * W with generic computed-field operations.",
+      "Hold the strongest two at +25% each and the weakest two at -25% each from the next session open.",
+      "This config is a research capability test and is not part of the public default strategy list."
+    ]
+  }
+}
