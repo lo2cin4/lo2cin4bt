@@ -9,7 +9,7 @@ mypy>=1.18.0
 pre-commit>=3.5.0
 pytest>=7.0.0
 pytest-cov>=4.0.0
-ruff>=0.12.0
+ruff==0.13.3
 jsonschema>=4.23.0
 httpx2>=1.0.0
 pandas-stubs==2.3.0.250703
