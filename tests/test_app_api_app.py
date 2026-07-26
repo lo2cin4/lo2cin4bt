@@ -852,6 +852,8 @@ def test_scheduler_capacity_keeps_one_lane_on_two_core_hosts(
     service = AppAPIService(tmp_path / "repo")
 
     assert service.scheduler.capacity == max(JOB_WEIGHTS.values()) + 1
+    message = service.scheduler._queue_message("wfa", JOB_WEIGHTS["wfa"])  # noqa: SLF001
+    assert "leaving one lane available" in message
 
 
 def test_large_wfa_scheduler_weight_uses_sampled_candidate_budget_and_leaves_one_lane(tmp_path: Path) -> None:

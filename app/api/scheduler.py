@@ -670,9 +670,9 @@ class AppBatchScheduler:
         return int(job.get("weight") or 1) > int(JOB_WEIGHTS.get(module, 1))
 
     def _queue_message(self, job_module: str, weight: int) -> str:
-        if weight > int(JOB_WEIGHTS.get(job_module, 1)):
+        if weight == self.capacity - 1:
             return (
-                "Queued: large matrix job uses most worker capacity "
+                "Queued: capacity-intensive job uses most worker capacity "
                 f"(scheduler weight {weight}/{self.capacity}) while leaving one lane available."
             )
         return (
