@@ -10,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api import create_app
+from app.api.scheduler import JOB_WEIGHTS
 from app.api.service import AppAPIService
 
 
@@ -840,6 +841,17 @@ def test_large_parameter_matrix_scheduler_weight_leaves_one_lane(tmp_path: Path)
     assert weight == max(1, service.scheduler.capacity - 1)
     assert weight < service.scheduler.capacity
     assert "leaving one lane available" in message
+
+
+def test_scheduler_capacity_keeps_one_lane_on_two_core_hosts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.api.scheduler.os.cpu_count", lambda: 2)
+
+    service = AppAPIService(tmp_path / "repo")
+
+    assert service.scheduler.capacity == max(JOB_WEIGHTS.values()) + 1
 
 
 def test_large_wfa_scheduler_weight_uses_sampled_candidate_budget_and_leaves_one_lane(tmp_path: Path) -> None:

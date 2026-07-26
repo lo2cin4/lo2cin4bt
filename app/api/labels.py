@@ -4,7 +4,7 @@ import hashlib
 import json
 import re
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any, Dict, List, Optional
 
 from app.runtime.module_identity import (
@@ -74,7 +74,8 @@ def display_run_type(run_type: str) -> str:
 
 
 def config_filename(path_or_label: str) -> str:
-    return Path(path_or_label).name
+    # Config labels may cross OS boundaries through saved payloads or API calls.
+    return PureWindowsPath(path_or_label).name
 
 
 def decorate_config_item(item: Dict[str, Any], module: str) -> Dict[str, Any]:

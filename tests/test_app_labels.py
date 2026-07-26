@@ -41,6 +41,10 @@ def test_config_filename_returns_leaf_name() -> None:
         config_filename(r"C:\workspace\foo\run-v2-spy-breadth-vix-example.user.json")
         == "run-v2-spy-breadth-vix-example.user.json"
     )
+    assert (
+        config_filename("/workspace/foo/run-v2-spy-breadth-vix-example.user.json")
+        == "run-v2-spy-breadth-vix-example.user.json"
+    )
 
 
 def test_config_label_uses_file_mtime_when_created_at_is_missing() -> None:

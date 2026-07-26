@@ -16,6 +16,7 @@ from .labels import load_app_config_metadata
 from .payloads import AppPayloadService
 
 JOB_WEIGHTS = {"autorunner": 1, "statanalyser": 1, "wfa": 2}
+_MIN_SCHEDULER_CAPACITY = max(JOB_WEIGHTS.values()) + 1
 _LARGE_MATRIX_VARIANT_THRESHOLD = 32
 _HEAVY_JOB_RESERVATION_SECONDS = max(
     1,
@@ -53,7 +54,10 @@ class AppBatchScheduler:
         self.registry = registry
         self.payloads = payloads
         self.server_session_id = str(server_session_id)
-        self.capacity = min(4, max(2, (os.cpu_count() or 4) // 2))
+        self.capacity = min(
+            4,
+            max(_MIN_SCHEDULER_CAPACITY, (os.cpu_count() or 4) // 2),
+        )
         self._lock = threading.Lock()
         self._condition = threading.Condition(self._lock)
         self._active_weight = 0
