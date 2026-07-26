@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>lo2cin4bt 課程</title>
+  <link rel="stylesheet" href="assets/lecture.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <strong>lo2cin4bt 課程</strong>
+        <span>專案內建 HTML 教學系統</span>
+      </div>
+      <input class="search" data-search placeholder="搜尋章節">
+      <nav class="nav-list" data-nav></nav>
+    </aside>
+
+    <main class="content">
+      <article class="hero">
+        <p class="kicker">課程首頁</p>
+        <h1>用 lo2cin4bt 2.1.0 建立、回測與驗證策略</h1>
+        <p>
+          本課程涵蓋安裝、資料來源、策略描述、設定檔（config）、回測報告、參數矩陣（Parameter Matrix）
+          與前向分析（WFA）。每一章都連到程式庫（repo）內的程式、設定或產物。
+        </p>
+
+        <section class="learning-map" aria-labelledby="learning-map-title">
+          <div class="section-heading">
+            <span class="section-icon" aria-hidden="true">◎</span>
+            <div>
+              <p class="eyebrow">由此開始</p>
+              <h2 id="learning-map-title">學習地圖</h2>
+            </div>
+          </div>
+          <div class="grid learning-map-grid">
+            <section class="card">
+              <p class="card-icon" aria-hidden="true">01</p>
+              <h3>這個實驗（Lab）的目標</h3>
+              <p>完成一次本機回測，知道結果由哪份設定檔（config）、哪個執行紀錄（run）、哪些產物組成。</p>
+            </section>
+            <section class="card">
+              <p class="card-icon" aria-hidden="true">02</p>
+              <h3>你會學到什麼</h3>
+              <p>使用執行中心（Run Center）、閱讀指標總覽（Metrics Overview）與回測詳情（Backtests），並理解前向分析（WFA）的用途。</p>
+            </section>
+            <section class="card">
+              <p class="card-icon" aria-hidden="true">03</p>
+              <h3>前置知識</h3>
+              <p>新手從模組（Module）00 開始。想操作平台可進入實驗（Lab）01，按核對清單（Checklist）完成每項工作。</p>
+            </section>
+          </div>
+          <div class="path-choice-grid">
+            <a class="path-choice manual" href="Lab_01_Run_A_Backtest/index.html">
+              <span class="path-choice-icon" aria-hidden="true">▶</span>
+              <span><strong>人工操作版</strong><small>你親自使用執行中心（Run Center）與結果頁</small></span>
+            </a>
+            <a class="path-choice agent" href="Lab_01_Run_A_Backtest/index.html#agent-route">
+              <span class="path-choice-icon" aria-hidden="true">◆</span>
+              <span><strong>代理與技能版（Agent / Skill）</strong><small>你提供指令，人工智能（AI）負責操作平台</small></span>
+            </a>
+          </div>
+        </section>
+
+        <section class="glossary" aria-labelledby="glossary-title">
+          <div class="section-heading">
+            <span class="section-icon" aria-hidden="true">Aa</span>
+            <div>
+              <p class="eyebrow">新手詞彙</p>
+              <h2 id="glossary-title">開始前先懂四個詞</h2>
+            </div>
+          </div>
+          <div class="glossary-grid">
+            <article class="glossary-card">
+              <strong>策略執行設定（<code>strategy_run config</code>）</strong>
+              <p>一份可執行策略說明書，寫清楚資料、訊號、持倉、成交、成本、風控與回測方式。</p>
+            </article>
+            <article class="glossary-card">
+              <strong>執行中心（Run Center）</strong>
+              <p>負責選設定檔（config）、開始工作、查看每個階段成功或失敗。</p>
+            </article>
+            <article class="glossary-card">
+              <strong>回測詳情與指標總覽（Backtests / Metrics Overview）</strong>
+              <p>指標總覽比較多個策略。回測詳情顯示一個結果的交易、持倉、成本與風險證據。</p>
+            </article>
+            <article class="glossary-card">
+              <strong>前向分析（WFA）</strong>
+              <p>前向分析（Walk-Forward Analysis）把歷史切成多段，以前段資料選參數，以後段資料測試。一般回測不會執行前向分析。</p>
+            </article>
+          </div>
+        </section>
+
+        <div class="status-strip">
+          <span class="chip good">設定入口：<code>strategy_run</code> / <code>wfa_run</code></span>
+          <span class="chip good">計算引擎（Rust）</span>
+          <span class="chip good">強制結果驗證器（Mandatory result validator）</span>
+          <span class="chip good">前端服務：FastAPI 2424 + React</span>
+        </div>
+
+        <section class="mermaid-panel">
+          <h2>學習路線總覽</h2>
+          <pre class="mermaid">
+flowchart LR
+  A["開始使用&lt;br/&gt;人工智能手冊（AI Manual）／安裝"] --> B["系統地圖&lt;br/&gt;資料、因子、回測、報告"]
+  B --> C["策略執行設定（Strategy Run Config）&lt;br/&gt;把策略寫成可執行設定"]
+  C --> D["回測（Backtest）／參數矩陣（Parameter Matrix）&lt;br/&gt;單次結果與候選參數"]
+  D --> E["前向分析（WFA）&lt;br/&gt;時間切片驗證"]
+  E --> F["實驗（Lab）05 績效分析&lt;br/&gt;用產物解釋風險、成本、資料健康"]
+  F --> G["擴充資料來源&lt;br/&gt;資料來源轉接器（provider adapter）"]
+          </pre>
+          <p class="diagram-caption">這張圖列出課程次序。報告閱讀包含資料、績效、風險、成本與驗證。</p>
+        </section>
+
+        <div class="note">
+          <strong>人工智能使用原則（AI）：</strong>
+          人工智能要閱讀 <code>agents/lo2cin4bt_PM.agent.md</code>、
+          <code>skills/lo2cin4bt/SKILL.md</code>、<code>docs/ai/AI_MANUAL_SKILL.md</code>，
+          由同一個 <code>lo2cin4btWorkAgent</code> 按任務讀對應技能（skill）、設定檔（config）、測試（tests）與輸出檔案。
+          程式庫（repo）沒有證據的內容要標示為人工智能推論、外部建議或未來設計。
+        </div>
+
+        <h2>人工智能代理與技能分工（AI Agent / Skill）</h2>
+        <p class="section-intro">代理模式（Agent mode）由人工智能（AI）操作平台。你說明目標，專案經理（ProjectManager）分派工作，工作代理（WorkAgent）讀取技能（Skill）並執行。</p>
+        <div class="table-scroll">
+          <table class="detail-table">
+            <tr>
+              <th>用途</th>
+              <th>代理（Agent）</th>
+              <th>技能（Skill）</th>
+            </tr>
+            <tr class="agent-skill-table-row lane-pm">
+              <td>總控與分派</td>
+              <td><code class="agent-token agent-token-pm">agents/lo2cin4bt_PM.agent.md</code></td>
+              <td><code class="skill-token">skills/lo2cin4bt-pm/SKILL.md</code></td>
+            </tr>
+            <tr class="agent-skill-table-row lane-teaching">
+              <td>教學與新手導覽</td>
+              <td><code class="agent-token agent-token-work">agents/lo2cin4btWorkAgent.agent.md</code></td>
+              <td><code class="skill-token">skills/lo2cin4bt-teaching/SKILL.md</code></td>
+            </tr>
+            <tr class="agent-skill-table-row lane-strategy">
+              <td>建立或檢查策略</td>
+              <td><code class="agent-token agent-token-work">agents/lo2cin4btWorkAgent.agent.md</code></td>
+              <td><code class="skill-token">skills/lo2cin4bt-strategy-builder/SKILL.md</code></td>
+            </tr>
+            <tr class="agent-skill-table-row lane-backtesting">
+              <td>本機回測與前向分析（WFA）</td>
+              <td><code class="agent-token agent-token-work">agents/lo2cin4btWorkAgent.agent.md</code></td>
+              <td><code class="skill-token">skills/lo2cin4bt-backtesting/SKILL.md</code></td>
+            </tr>
+            <tr class="agent-skill-table-row lane-acceptance">
+              <td>交付檢收</td>
+              <td><code class="agent-token agent-token-work">agents/lo2cin4btWorkAgent.agent.md</code></td>
+              <td><code class="skill-token">skills/lo2cin4bt-acceptance/SKILL.md</code></td>
+            </tr>
+            <tr class="agent-skill-table-row lane-performance">
+              <td>績效解釋</td>
+              <td><code class="agent-token agent-token-work">agents/lo2cin4btWorkAgent.agent.md</code></td>
+              <td><code class="skill-token">skills/lo2cin4bt-performance-analysis/SKILL.md</code></td>
+            </tr>
+          </table>
+        </div>
+
+        <h2>學習路線</h2>
+        <div class="grid">
+          <section class="card">
+            <h3>1. 新手啟動</h3>
+            <p>模組（Module）00 到 04：準備人工智能手冊（AI Manual）、安裝依賴、啟動平台、完成第一次回測。</p>
+          </section>
+          <section class="card">
+            <h3>2. 策略設計</h3>
+            <p>模組（Module）03 到 06：理解 <code>strategy_run</code>、自然語言策略如何轉換成設定檔（config）、如何建立參數矩陣（Parameter Matrix）。</p>
+          </section>
+          <section class="card">
+            <h3>3. 報告閱讀</h3>
+            <p>模組（Module）07 到 09 和實驗（Lab）05：閱讀指標總覽（Metrics Overview）、回測詳情（Backtests）、前向分析（WFA）、風控門檻（Risk Gate）與投資組合不變條件（Portfolio Invariant），並用績效分析（Performance Analysis）檢查可公開說法。</p>
+          </section>
+          <section class="card">
+            <h3>4. 擴充與未來</h3>
+            <p>模組（Module）10 說明資料來源擴充；模組 11 說明可選因子診斷。未完成或尚未公開的功能不放入正式主線。</p>
+          </section>
+        </div>
+
+        <h2>用戶可以學會什麼</h2>
+        <div class="workflow">
+          <div class="workflow-step">
+            <strong>1</strong>
+            <div>
+              <h3>用自然語言描述策略</h3>
+              <p>例如「BTC 和 ETH 各自收盤價高於 50 日均線才持有」或「每個月第一個星期一開市交易QQQ，收市平倉」。</p>
+            </div>
+          </div>
+          <div class="workflow-step">
+            <strong>2</strong>
+            <div>
+              <h3>確認策略是否支援</h3>
+              <p>人工智能（AI）會依手冊（Manual）回報支援（<code>supported</code>）、需要澄清（<code>needs_clarification</code>）或不支援（<code>unsupported</code>），不會編造功能。</p>
+            </div>
+          </div>
+          <div class="workflow-step">
+            <strong>3</strong>
+            <div>
+              <h3>生成與執行設定檔（config）</h3>
+              <p>用 <code>strategy_run</code> 表達資料來源（provider）、資產範圍（universe）、計算欄位（computed_fields）、訊號（signals）、配置（allocation）、再平衡（rebalance）、成交模型（fill_model）、風控（risk）與參數範圍（parameter domains）。</p>
+            </div>
+          </div>
+          <div class="workflow-step">
+            <strong>4</strong>
+            <div>
+              <h3>閱讀報告與驗證穩健性</h3>
+              <p>指標總覽（Metrics Overview）、回測詳情（Backtests）、參數矩陣（Parameter Matrix）、前向分析（WFA）和實驗（Lab）05 績效分析分別回答績效、風險、成本與資料健康問題。</p>
+            </div>
+          </div>
+        </div>
+
+        <h2>專案證據入口</h2>
+        <ul class="evidence">
+          <li><code>README.md</code>：產品定位、啟動、策略、資料來源、前向分析（WFA）。</li>
+          <li><code>docs/ai/AI_MANUAL_SKILL.md</code>：人工智能（AI）操作規則與能力邊界。</li>
+          <li><code>docs/ai/AI_SKILL_LECTURE_GUIDE.md</code>：課程（Lecture）教學規格。</li>
+          <li><code>skills/lo2cin4bt/references/runtime-architecture.md</code>：統一執行環境（runtime）、Rust 邊界與正式資料流。</li>
+          <li><code>backtester/contracts/strategy/strategy-run.schema.json</code>：正式設定區段（config sections）。</li>
+          <li><code>workspace/runs/</code>、<code>workspace/wfa/</code>：當前設定範例（config examples）。</li>
+        </ul>
+
+        <div class="pager">
+          <span></span>
+          <a href="Module_00_Getting_Started/index.html">下一章：開始使用</a>
+        </div>
+      </article>
+    </main>
+  </div>
+  <script src="assets/lecture.js"></script>
+</body>
+</html>

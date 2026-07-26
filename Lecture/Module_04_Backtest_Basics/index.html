@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>04 回測入門</title>
+  <link rel="stylesheet" href="../assets/lecture.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand"><strong>lo2cin4bt 教學</strong><span>模組 04</span></div>
+      <input class="search" data-search placeholder="搜尋章節">
+      <nav class="nav-list" data-nav></nav>
+    </aside>
+
+    <main class="content">
+      <article class="module">
+        <p class="kicker">模組 04</p>
+        <h1>回測入門</h1>
+        <p>
+          lo2cin4bt 的回測不只畫資金曲線。系統讀取策略設定，載入資料，
+          產生計算欄位（computed fields）、訊號（signals）或目標權重（target weights），並按時間計算現金、
+          持倉、市值、費用、換手率（turnover）、資金曲線（equity）與比較基準（benchmark）。
+        </p>
+
+        <div class="flow-strip" aria-label="回測流程摘要">
+          <span>選設定檔（config）</span>
+          <span>載入資料</span>
+          <span>產生訊號 / 權重</span>
+          <span>按時間記帳</span>
+          <span>輸出產物（artifacts）</span>
+          <span>前端閱讀</span>
+        </div>
+
+        <section class="mermaid-panel">
+          <h2>回測工作流程（Backtest Workflow）</h2>
+          <pre class="mermaid">
+flowchart LR
+  Config["策略執行設定<br/>strategy_run"] --> Validate["驗證與標準化"]
+  Validate --> Data["資料載入器（dataloader）<br/>價格 / 成交量 / 比較基準"]
+  Data --> RustOps["Rust 策略操作<br/>指標 / 訊號 / 排名 / 權重"]
+  RustOps --> Request["引擎請求（EngineRequest）<br/>統一執行契約"]
+  Request --> Accounting["Rust 逐期記帳<br/>現金 / 持倉 / 費用 / 資金曲線"]
+  Accounting --> Artifacts["受管產物（managed artifacts）<br/>指標 / 資金曲線 / 持倉 / 稽核"]
+  Artifacts --> UI["指標總覽 / 回測詳情<br/>使用者介面（UI）"]
+          </pre>
+          <p class="diagram-caption">
+            指標、訊號、排名、權重、成交與記帳都由 Rust 正式路線處理；Python 只驗證輸入、載入資料與協調流程。
+          </p>
+        </section>
+
+        <section class="note">
+          <h2>Rust 計算邊界</h2>
+          <p>
+            所有會改變回測結果的計算，包括指標（indicator）、訊號（signal）、選股（selection）、排名（ranking）、目標權重（target weights）、成交（fills）、
+            記帳（accounting）、風控事件（risk events）與指標（metrics），都由 Rust 擁有。Python 控制層只負責結構綱要（schema）驗證、資料載入、
+            引擎請求（EngineRequest）組裝、服務協調及將已驗證產物交給前端；不存在另一條 NumPy 回測路線。
+          </p>
+        </section>
+
+        <h2>單資產如何進入統一引擎</h2>
+        <p>
+          單資產策略會被視為「只有一個資產的投資組合」。例如 QQQ 均線策略：
+          入場訊號把 QQQ 目標權重（target weight）設為 100%，離場訊號把目標權重設為 0%。
+          這樣它可以與多資產投資組合共用同一套資金曲線（equity）、費用（fee）、換手率（turnover）、風控門檻（risk gate）與不變條件（invariant）檢查。
+        </p>
+
+        <section class="concept-flow">
+          <h2>實務操作順序</h2>
+          <ol>
+            <li>
+              <strong>啟動平台</strong>
+              <span>執行 <code>python main.py</code>，打開 <code>http://127.0.0.1:2424/</code>。</span>
+            </li>
+            <li>
+              <strong>在執行中心（Run Center）選擇設定檔</strong>
+              <span>從 <code>workspace/runs/</code> 選擇回測設定檔（backtest config）。由 <code>platform.workflow_id</code> 設定 <code>parameter_matrix</code> 或 <code>single_backtest</code>。不要從檔名或參數有無推斷。</span>
+            </li>
+            <li>
+              <strong>閱讀指標總覽（Metrics Overview）</strong>
+              <span>先看資金曲線（equity）、比較基準（benchmark）、總報酬（Total Return）、年化複合成長率（CAGR）、夏普比率（Sharpe）、最大回撤（MDD）及卡瑪比率（Calmar）。</span>
+            </li>
+            <li>
+              <strong>進入回測詳情（Backtests）</strong>
+              <span>檢查策略表（Strategy Table）、已選策略摘要（Selected Strategy Summary）、投資組合背景（Portfolio Context）、風控門檻稽核（Risk Gate Audit）及配置變化（Allocation Changes）。</span>
+            </li>
+          </ol>
+        </section>
+
+        <h2>回測前檢查</h2>
+        <div class="learning-rail">
+          <div class="rail-item"><strong>設定檔結構綱要（Config schema）</strong><span>只接受現行 <code>strategy_run</code> 契約（contract）；舊設定檔（config）不會自動映射或補欄位。</span></div>
+          <div class="rail-item"><strong>資料完整性</strong><span>確認資產、比較基準（benchmark）、頻率及有效起始日都能載入。</span></div>
+          <div class="rail-item"><strong>參數範圍（Parameter domain）</strong><span><code>parameter_matrix</code> 需要非空參數範圍；空物件會成為沒有參數範圍（no-domain）狀態。<code>single_backtest</code> 的標準寫法是 <code>{}</code>。</span></div>
+          <div class="rail-item"><strong>驗證選擇</strong><span>固定配置可做單次回測。跨時段檢查要選擇滾動驗證（Rolling Validation），系統不會附加該工作。</span></div>
+        </div>
+
+        <section class="note">
+          <h2>目前回測流程</h2>
+          <p>
+            回測使用同一條路：
+            <code>strategy_run</code> 產生訊號、選股、再平衡或目標權重；
+            <code>fill_model.timing = "timeline"</code> 安排成交時間；
+            統一時間線記帳（unified timeline accounting）計算現金、持倉、成本、換手率（turnover）、資金曲線（equity）和稽核（audit）。
+          </p>
+          <p>
+            執行中心（Run Center）顯示可執行設定檔（config）；指標總覽（Metrics Overview）、參數矩陣（Parameter Matrix）、回測詳情（Backtests）及前向分析（WFA）顯示已完成執行（run）的產物（artifacts）。
+            如果 <code>outputs/app/latest_runs.json</code> 是空陣列，即使 <code>workspace/runs/</code> 有設定檔，
+            結果頁沒有資料列（row）代表沒有完成執行，需要先進行回測。
+          </p>
+        </section>
+
+        <section class="evidence">
+          <h2>專案證據</h2>
+          <ul>
+            <li><code>backtester/UnifiedBacktestRunner_backtester.py</code></li>
+            <li><code>backtester/contracts/runtime/engine-request-v1.schema.json</code></li>
+            <li><code>rust/lo2cin4bt_core/src/lib.rs</code></li>
+            <li><code>rust/lo2cin4bt_core/src/result_validator.rs</code></li>
+          </ul>
+        </section>
+
+        <div class="pager">
+          <a href="../Module_03_Strategy_Run_Config/index.html">上一章</a>
+          <a href="../Module_05_Strategy_Semantics/index.html">下一章</a>
+        </div>
+      </article>
+    </main>
+  </div>
+  <script src="../assets/lecture.js"></script>
+</body>
+</html>

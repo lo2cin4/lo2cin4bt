@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0",
+  "contract_id": "lo2cin4bt-app-run-snapshot-v1",
+  "run_id": "20260414_b7c3d8129f4a",
+  "resolved_configs": {
+    "run_config": {"config_path": "workspace/runs/run-v2-spy-breadth-vix-example.user.json"},
+    "dataloader_config": {"source": "yfinance", "symbol": "SPY"},
+    "backtester_config": {"strategy_mode": "v2", "engine_mode": "auto"},
+    "metricstracker_config": {"enable_metrics_analysis": true},
+    "statanalyser_config": null,
+    "wfa_config": null
+  },
+  "contract_refs": {
+    "strategy_contract": {
+      "path": "workspace/strategies/strategy-v2-spy-breadth-vix-example.user.json",
+      "hash": "sha256:7f9a5d4f"
+    },
+    "feature_contract": {
+      "path": "workspace/features/feature-contract-spy-breadth-vix-v1.user.json",
+      "hash": "sha256:1a231b9d"
+    }
+  },
+  "execution_plan": {
+    "path": "outputs/app/run_snapshots/20260414_b7c3d8129f4a/execution_plan.json",
+    "hash": "plan_60f814fd"
+  },
+  "app_runtime": {
+    "app_version": "v1-foundation",
+    "server_mode": "browser_first",
+    "registry_mode": "new_results_only",
+    "entry_thread": null,
+    "python_version": "3.12"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "records_shape": [8, 26],
+  "trade_action_list": [0, 0, 0, 1, 0, 0, 0, 0],
+  "trade_action_counts": {"0": 7, "1": 1},
+  "selected_trade_row": {
+    "Time": "2024-01-04T00:00:00",
+    "Trading_instrument": "TEST",
+    "Position_type": "new_long",
+    "Trade_action": 1,
+    "Parameter_set_id": "MA1_SMA(2)_X_MA3_SMA(2)",
+    "Predictor_value": 11.0,
+    "Entry_signal": 1.0
+  },
+  "exported_files": ["csv", "xlsx", "parquet"]
+}

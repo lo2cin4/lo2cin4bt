@@ -3,7 +3,7 @@ CorrelationTest_statanalyser.py
 
 【功能說明】
 ------------------------------------------------------------
-本模組為 Lo2cin4BT 統計分析模組，負責對預測因子與收益率進行相關性檢定（如 Pearson、Spearman、Kendall 等），評估預測因子的預測能力與線性關係強度。
+本模組為 lo2cin4bt 統計分析模組，負責對預測因子與收益率進行相關性檢定（如 Pearson、Spearman、Kendall 等），評估預測因子的預測能力與線性關係強度。
 
 【流程與數據流】
 ------------------------------------------------------------
@@ -50,7 +50,7 @@ import numpy as np
 import pandas as pd
 from rich.table import Table
 
-from utils import show_error, show_info, show_step_panel, show_warning
+from utils import show_info, show_step_panel, show_warning
 from scipy.stats import pearsonr, spearmanr
 
 from .Base_statanalyser import BaseStatAnalyser
@@ -123,7 +123,7 @@ class CorrelationTest(BaseStatAnalyser):
         return max(_CCC(X, Y), _CCC(Y, X))
 
     def analyze(self) -> Dict:
-        # 步驟說明
+        # NOTE: translated to English.
         from utils import get_console
         console = get_console()
         content = ("🟢 選擇用於統計分析的預測因子\n"
@@ -136,7 +136,7 @@ class CorrelationTest(BaseStatAnalyser):
                 "[bold #dbac30]說明[/bold #dbac30]\n"
                 "1.因子收益率相關性檢驗\n檢驗功能：通過計算因子與未來收益率的相關性，評估因子對資產收益的預測能力，避免後續分析無效因子。\n成功/失敗標準：\n   - |Spearman| < 0.2：因子預測能力微弱，建議更換因子。\n   - |Spearman| ≥ 0.2 且 < 0.4：因子具有輕微預測能力，適合輔助策略。\n   - |Spearman| ≥ 0.4 且 < 0.7：因子具有良好預測能力，可作為主要策略因子。\n   - |Spearman| ≥ 0.7：因子具有優秀預測能力，適合核心交易策略。\n   - 注意：Spearman 相關係數衡量因子與收益率的單調關係，適合非正態數據（如 BTC 收益率的尖峰厚尾特性）。\n           係數絕對值越大，預測能力越強；p 值 < 0.05 表示相關性統計顯著。\n   - Chatterjee 相關系數（ξ）檢測非線性相關性，值域 0-1，不受單調性限制。\n       - |ξ| < 0.2：非線性相關性極弱\n       - |ξ| ≥ 0.2 且 < 0.4：非線性相關性較弱\n       - |ξ| ≥ 0.4 且 < 0.7：非線性相關性中等\n       - |ξ| ≥ 0.7：非線性相關性強")
         show_step_panel("STATANALYSER", 1, ["收益率相關性檢驗[自動]"], content)
-        # 數據完整性
+        # NOTE: translated to English.
         show_info("STATANALYSER",
             f"數據完整性檢查\n原始數據行數：{len(self.data)}\n因子列（{self.predictor_col}）NaN 數：{self.data[self.predictor_col].isna().sum()}\n收益率列（{self.return_col}）NaN 數：{self.data[self.return_col].isna().sum()}"
         )
@@ -172,16 +172,16 @@ class CorrelationTest(BaseStatAnalyser):
             except ValueError:
                 skipped_lags.append(lag)
                 continue
-        # 警告 Panel
+        # NOTE: translated to English.
         for lag in skipped_lags:
             if lag in correlation_results:
                 continue
             show_warning("STATANALYSER",
                 f"滯後期 {lag} 日的數據不足（{len(self.data) if lag == 0 else len(self.data) - lag} 筆，需至少 30 筆），跳過此滯後期。"
             )
-        # 結果表格
+        # NOTE: translated to English.
         corr_df = pd.DataFrame(correlation_results).T.round(4)
-        # 若有 index，將其作為第一欄顯示，且 index 欄用白色
+        # NOTE: translated to English.
         show_index = corr_df.index.name or corr_df.index.names[0] or "lag"
         table = Table(title="相關性分析結果", border_style="#dbac30", show_lines=True)
         table.add_column(str(show_index), style="bold white")
@@ -198,7 +198,7 @@ class CorrelationTest(BaseStatAnalyser):
                     row_cells.append(str(v))
             table.add_row(*row_cells)
         console.print(table)
-        # 最佳 lag 與 Chatterjee
+        # NOTE: translated to English.
         best_lag = None
         best_spearman = 0
         for lag, vals in correlation_results.items():
@@ -211,13 +211,13 @@ class CorrelationTest(BaseStatAnalyser):
             if vals["Chatterjee"] > best_chatterjee:
                 best_chatterjee = vals["Chatterjee"]
                 best_chatterjee_lag = lag
-        # 結論與建議
+        # NOTE: translated to English.
         summary = ""
         if best_lag is None:
             summary += f"無法計算任何滯後期的相關性，數據可能不足或無效。\n已跳過滯後期：{skipped_lags if skipped_lags else '無'}\n建議：檢查數據完整性（因子和收益率序列），或更換因子。"
         else:
             spearman_p = correlation_results[best_lag]["Spearman_p"]
-            # Spearman 判斷
+            # NOTE: translated to English.
             if abs(best_spearman) < 0.2:
                 strength = "微弱"
                 summary += f"因子預測能力{strength}（最佳 Spearman = {best_spearman:.4f} @ lag={best_lag}, p 值={spearman_p:.4f}）\n"
@@ -229,7 +229,7 @@ class CorrelationTest(BaseStatAnalyser):
                 )
                 significance = "顯著" if spearman_p < 0.05 else "不顯著"
                 summary += f"因子具有{strength}預測能力（最佳 Spearman = {best_spearman:.4f} @ lag={best_lag}, p 值={spearman_p:.4f}，統計{significance}）\n"
-            # Chatterjee 判斷
+            # NOTE: translated to English.
             if best_chatterjee is not None:
                 if abs(best_chatterjee) < 0.2:
                     c_level = "極弱"

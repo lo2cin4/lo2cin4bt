@@ -1,0 +1,151 @@
+{
+  "schema_version": "1.0",
+  "contract_id": "lo2cin4bt-app-data-lineage-manifest-v1",
+  "run_id": "20260414_b7c3d8129f4a",
+  "module": "autorunner",
+  "generated_at": "2026-04-14T13:32:12+08:00",
+  "lineage_status": "partial",
+  "coverage_level": "feature",
+  "config": {
+    "run_config": {
+      "path": "workspace/runs/backtest_QQQ_yfinance_daily_sma-cross_matrix_example.json",
+      "content_hash": "sha256:example-run-config"
+    },
+    "strategy_run_config": {
+      "path": "outputs/app/run_snapshots/20260414_b7c3d8129f4a/strategy_run.json",
+      "content_hash": "sha256:example-strategy-config"
+    },
+    "wfa_config": {
+      "path": null,
+      "content_hash": null
+    }
+  },
+  "input_sources": [
+    {
+      "source_id": "price",
+      "source_type": "provider",
+      "provider": "yfinance",
+      "uri_or_path": "yfinance:QQQ",
+      "symbols": ["QQQ"],
+      "requested_start": "2009-01-01",
+      "requested_end": null,
+      "actual_start": "2009-01-02",
+      "actual_end": "2026-04-13",
+      "frequency_requested": "1D",
+      "frequency_resolved": "1d",
+      "timezone": "America/New_York",
+      "adjustment_policy": "auto_adjust_false",
+      "calendar_policy": "XNYS",
+      "content_hash": null,
+      "path_hash": null,
+      "identity_hash": "sha256:example-provider-identity",
+      "cache": {
+        "path": null,
+        "content_hash": null,
+        "status": "not_captured"
+      },
+      "notes": ["Provider identity is recorded, but provider content was not snapshotted."]
+    }
+  ],
+  "consumed_data_snapshot": {
+    "schema_version": "consumed_data_snapshot.v1",
+    "status": "not_captured",
+    "path": null,
+    "format": null,
+    "content_hash": null,
+    "row_count": 0,
+    "column_list": []
+  },
+  "universe_provenance": {
+    "schema_version": "universe_provenance.v1",
+    "source_type": "explicit_config_symbols",
+    "source_ref": null,
+    "policy": "all_symbols",
+    "as_of_date": null,
+    "configured_symbols": ["QQQ"],
+    "runtime_symbols": ["QQQ"],
+    "window_count": 0,
+    "window_source_snapshots": [],
+    "point_in_time_constituents": false,
+    "constituents_validation": {
+      "schema_version": "historical_universe_constituents_validation.v1",
+      "status": "not_applicable",
+      "path": null,
+      "warnings": [],
+      "errors": []
+    },
+    "delisted_policy": null,
+    "survivorship_bias_risk": "high",
+    "provenance_status": "review",
+    "warnings": ["static_or_current_universe_may_have_survivorship_bias"]
+  },
+  "factor_feature_audit": {
+    "schema_version": "factor_feature_audit.v1",
+    "status": "not_applicable",
+    "point_in_time_required": false,
+    "feature_lag_verified": true,
+    "lookahead_guard_verified": true,
+    "known_at_fields": [],
+    "effective_at_fields": [],
+    "lag_policy": null,
+    "warnings": [],
+    "errors": []
+  },
+  "transformations": [
+    {
+      "name": "timestamp_parsing",
+      "status": "inferred",
+      "details": {"time_column": "Time", "timezone": "America/New_York"}
+    },
+    {
+      "name": "feature_lag_policy",
+      "status": "proven",
+      "details": {"execution_timing": "next_bar_after_signal"}
+    }
+  ],
+  "audit": {
+    "row_count": 4321,
+    "column_list": ["Time", "Open", "High", "Low", "Close", "Volume", "X"],
+    "missing_ratio": 0.0,
+    "audit_available": true,
+    "fill_ratio": 0.008,
+    "stale_ratio": 0.031,
+    "duplicate_timestamp_count": 0,
+    "monotonic_time": true,
+    "source_audit_id": "audit_6f331f4a",
+    "warnings": ["Provider source has no content hash; lineage_status is partial."],
+    "errors": []
+  },
+  "validity_flags": {
+    "point_in_time_known": false,
+    "survivorship_known": false,
+    "corporate_actions_known": false,
+    "feature_lag_verified": true,
+    "lookahead_guard_verified": true
+  },
+  "lineage_claims": {
+    "proven": ["Run config hash is captured.", "Backtest artifact hash is captured."],
+    "inferred": ["Provider identity and requested date range are inferred from config."],
+    "unknown": [
+      "Provider content hash is not available.",
+      "Point-in-time universe evidence is not available.",
+      "Configured universe symbols may be a current/static list with survivorship bias."
+    ]
+  },
+  "linked_artifacts": [
+    {
+      "artifact_type": "run_snapshot",
+      "path": "outputs/app/run_snapshots/20260414_b7c3d8129f4a/run_snapshot.json",
+      "content_hash": "sha256:example-run-snapshot",
+      "status": "ready"
+    },
+    {
+      "artifact_type": "dataloader_health",
+      "path": "outputs/app/run_snapshots/20260414_b7c3d8129f4a/dataloader_health.json",
+      "content_hash": "sha256:example-health",
+      "status": "ready"
+    }
+  ],
+  "windows": [],
+  "derived_from_artifacts": []
+}

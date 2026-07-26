@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>10 資料來源擴充</title>
+  <link rel="stylesheet" href="../assets/lecture.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand"><strong>lo2cin4bt 教學</strong><span>模組 10</span></div>
+      <input class="search" data-search placeholder="搜尋章節">
+      <nav class="nav-list" data-nav></nav>
+    </aside>
+
+    <main class="content">
+      <article class="module">
+        <p class="kicker">模組 10</p>
+        <h1>資料來源擴充</h1>
+        <p>
+          <code>dataloader/</code> 是資料來源抽象層。新增資料來源時，資料來源專用程式碼應留在轉接器（adapter）內，
+          回測器（backtester）、前向分析（WFA）與應用程式（app）讀取標準化資料，不依賴券商或交易所應用程式介面（API）。
+        </p>
+
+        <section class="mermaid-panel">
+          <h2>資料供應者轉接流程（Data Provider Adapter Flow）</h2>
+          <pre class="mermaid">
+flowchart LR
+  Config["策略執行設定<br/>資料供應者 / 資產 / 日曆"] --> Adapter["資料供應者轉接器<br/>yfinance / Binance / Coinbase / FUTU / IBKR / 檔案"]
+  Adapter --> Raw["原始資料（raw data）<br/>來源原始欄位"]
+  Raw --> Normalize["標準化（normalize）<br/>OHLCV / 時區 / 交易日曆"]
+  Normalize --> Quality["資料健康（data health）<br/>缺失資產 / 有效起始日"]
+  Quality --> Cache["本機快取與產物<br/>local cache / artifacts"]
+  Cache --> Backtest["回測器（backtester）"]
+  Cache --> WFA["前向分析（WFA）"]
+  Quality --> UI["策略規則 / 資料健康"]
+          </pre>
+          <p class="diagram-caption">
+            轉接器（Adapter）的責任是把來源差異收斂成同一種資料形狀；回測引擎不應知道資料來自哪個應用程式介面（API）。
+          </p>
+        </section>
+
+        <h2>新增轉接器（adapter）的檢查清單</h2>
+        <ol class="workflow">
+          <li><strong>定義資料供應者（provider）名稱</strong><span>例如 <code>yfinance</code>、<code>binance</code>、<code>coinbase</code>、<code>futu</code>、<code>ibkr</code>、<code>file</code>。</span></li>
+          <li><strong>處理資產代號映射（symbol mapping）</strong><span>把用戶輸入的資產代號轉成來源可接受的代號，再輸出系統內一致的資產代號（symbol）。</span></li>
+          <li><strong>標準化 OHLCV</strong><span>輸出 date、open、high、low、close、volume、adjustment、frequency、timezone。</span></li>
+          <li><strong>資料品質報告</strong><span>記錄缺失資產（missing assets）、有效起始日（effective start）、已載入資產（loaded assets）及比較基準覆蓋（benchmark coverage）。</span></li>
+          <li><strong>錯誤訊息</strong><span>套件未安裝、FUTU OpenD 未開、IBKR Gateway 未連線，都要回報成可讀訊息。</span></li>
+        </ol>
+
+        <h2>目前資料來源定位</h2>
+        <div class="table-scroll">
+          <table class="detail-table">
+            <tr><th>資料來源</th><th>定位</th><th>注意事項</th></tr>
+            <tr><td>yfinance</td><td>公開日線 ETF / 股票資料。</td><td>適合日線研究；交易用途需要另一套資料品質檢查。</td></tr>
+            <tr><td>Binance</td><td>加密貨幣資料。</td><td>適合 BTCUSDT、ETHUSDT 等 24/7 市場。</td></tr>
+            <tr><td>Coinbase</td><td>Coinbase Exchange 公開 K 線資料來源。</td><td>使用 <code>BASE-QUOTE</code> product 格式，並接入同一套 provider adapter contract。</td></tr>
+            <tr><td>逗號分隔值／本機檔案（CSV / local file）</td><td>本機資料或手動事件日期。</td><td>需要列出欄位，例如日期（date）、開市價（open）、收市價（close）。</td></tr>
+            <tr><td>FUTU</td><td>資料來源轉接器框架。</td><td>需要本機套件與 FUTU OpenD；目前不代表完整下單路由。</td></tr>
+            <tr><td>IBKR</td><td>資料來源轉接器框架。</td><td>需要 TWS 或 IB Gateway；目前不代表完整券商成交模型。</td></tr>
+          </table>
+        </div>
+
+        <div class="callout warning">
+          <strong>使用限制：</strong>
+          如果用戶要求完整實盤下單路由、稅務批次／公司行動（tax lot / corporate action）或未實作的券商成交模型，
+          人工智能（AI）會說明目前 lo2cin4bt 不支援，並指出需要另外開發。
+        </div>
+
+        <section class="evidence">
+          <h2>專案證據</h2>
+          <ul>
+            <li><code>dataloader/</code></li>
+            <li><code>dataloader/market_data_loader.py</code></li>
+            <li><code>dataloader/futu_loader.py</code></li>
+            <li><code>dataloader/ibkr_loader.py</code></li>
+          </ul>
+        </section>
+
+        <div class="pager">
+          <a href="../Module_09_Accounting_Risk_Invariants/index.html">上一章</a>
+          <a href="../Module_11_Factor_Analysis_Preview/index.html">下一章：因子診斷</a>
+        </div>
+      </article>
+    </main>
+  </div>
+  <script src="../assets/lecture.js"></script>
+</body>
+</html>

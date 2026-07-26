@@ -1,0 +1,366 @@
+{
+  "batch_id": "third_round",
+  "description": "Third-round truth validation focused on additional statanalyser coverage and WFA modes.",
+  "cases": [
+    {
+      "id": "statanalyser_stationarity",
+      "module": "statanalyser",
+      "compare_mode": "old_vs_new",
+      "enabled": true,
+      "description": "Stationarity analysis on a compact daily trend fixture.",
+      "config": {
+        "statanalyser": {
+          "enabled": true,
+          "fixture_dataset": "${FIXTURE_ROOT}/statanalyser/correlation_truth_dataset.csv",
+          "target": {
+            "predictor_column": "total",
+            "return_column": "close_return",
+            "diff_mode": "none"
+          },
+          "tests": {
+            "stationarity": {
+              "enabled": true,
+              "output": [
+                "summary"
+              ]
+            }
+          },
+          "report": {
+            "formats": [
+              "json",
+              "md"
+            ],
+            "output_dir": "${OUTPUT_ROOT}/records/statanalyser",
+            "include_plots": false,
+            "include_raw_tables": false,
+            "fail_on_error": true
+          }
+        }
+      }
+    },
+    {
+      "id": "statanalyser_autocorrelation",
+      "module": "statanalyser",
+      "compare_mode": "old_vs_new",
+      "enabled": true,
+      "description": "Autocorrelation analysis on the compact daily truth dataset.",
+      "config": {
+        "statanalyser": {
+          "enabled": true,
+          "fixture_dataset": "${FIXTURE_ROOT}/statanalyser/correlation_truth_dataset.csv",
+          "target": {
+            "predictor_column": "total",
+            "return_column": "close_return",
+            "diff_mode": "none"
+          },
+          "tests": {
+            "autocorrelation": {
+              "enabled": true,
+              "output": [
+                "summary"
+              ]
+            }
+          },
+          "report": {
+            "formats": [
+              "json",
+              "md"
+            ],
+            "output_dir": "${OUTPUT_ROOT}/records/statanalyser",
+            "include_plots": false,
+            "include_raw_tables": false,
+            "fail_on_error": true
+          }
+        }
+      }
+    },
+    {
+      "id": "statanalyser_distribution",
+      "module": "statanalyser",
+      "compare_mode": "old_vs_new",
+      "enabled": true,
+      "description": "Distribution analysis on the compact daily truth dataset.",
+      "config": {
+        "statanalyser": {
+          "enabled": true,
+          "fixture_dataset": "${FIXTURE_ROOT}/statanalyser/correlation_truth_dataset.csv",
+          "target": {
+            "predictor_column": "total",
+            "return_column": "close_return",
+            "diff_mode": "none"
+          },
+          "tests": {
+            "distribution": {
+              "enabled": true,
+              "output": [
+                "summary"
+              ]
+            }
+          },
+          "report": {
+            "formats": [
+              "json",
+              "md"
+            ],
+            "output_dir": "${OUTPUT_ROOT}/records/statanalyser",
+            "include_plots": false,
+            "include_raw_tables": false,
+            "fail_on_error": true
+          }
+        }
+      }
+    },
+    {
+      "id": "statanalyser_seasonality",
+      "module": "statanalyser",
+      "compare_mode": "old_vs_new",
+      "enabled": true,
+      "description": "Seasonality analysis on the compact daily truth dataset.",
+      "config": {
+        "statanalyser": {
+          "enabled": true,
+          "fixture_dataset": "${FIXTURE_ROOT}/statanalyser/correlation_truth_dataset.csv",
+          "target": {
+            "predictor_column": "total",
+            "return_column": "close_return",
+            "diff_mode": "none"
+          },
+          "tests": {
+            "seasonality": {
+              "enabled": true,
+              "output": [
+                "summary"
+              ]
+            }
+          },
+          "report": {
+            "formats": [
+              "json",
+              "md"
+            ],
+            "output_dir": "${OUTPUT_ROOT}/records/statanalyser",
+            "include_plots": false,
+            "include_raw_tables": false,
+            "fail_on_error": true
+          }
+        }
+      }
+    },
+    {
+      "id": "wfa_standard_template",
+      "module": "wfa",
+      "compare_mode": "candidate_only_truth",
+      "enabled": true,
+      "description": "WFA standard template parity using the shared autorunner config template.",
+      "config": {
+        "wfa": {
+          "config_name": "wfa_standard_template.json",
+          "mode": "standard",
+          "inline_config": {
+            "wfa_config": {
+              "engine": "unified_portfolio",
+              "run_id": "wfa_standard_template",
+              "windowing": {
+                "train_size": 20,
+                "test_size": 10,
+                "step_size": 10
+              },
+              "optimization_objectives": [
+                "sharpe"
+              ],
+              "outputs": {
+                "output_dir": "${OUTPUT_ROOT}/records/validation_workflow",
+                "candidate_diagnostics": true
+              }
+            },
+            "dataloader": {
+              "source": "multi_asset"
+            },
+            "backtester": {
+              "strategy_mode": "multi_asset_portfolio",
+              "market_data": {
+                "close": {
+                  "path": "${FIXTURE_ROOT}/wfa/multi_asset_close_truth.csv",
+                  "time_column": "Time"
+                }
+              },
+              "portfolio_config": {
+                "strategy_id": "wfa_standard_template_strategy",
+                "universe": {
+                  "symbols": [
+                    "AAA",
+                    "BBB"
+                  ]
+                },
+                "parameter_domains": {
+                  "lookback": [
+                    2,
+                    4
+                  ]
+                },
+                "features": [
+                  {
+                    "name": "momentum",
+                    "op": "indicator.momentum",
+                    "source": "close",
+                    "period": {
+                      "param_ref": "lookback"
+                    }
+                  }
+                ],
+                "rebalance": {
+                  "trigger": {
+                    "op": "calendar.every_session"
+                  }
+                },
+                "selection": {
+                  "eligible": {
+                    "field": "close",
+                    "op": "gt",
+                    "value": 0
+                  },
+                  "rank_by": "momentum",
+                  "rank_order": "desc",
+                  "top_n": 1
+                },
+                "allocation": {
+                  "method": "equal_weight",
+                  "position_limit": 1.0
+                },
+                "execution": {
+                  "cost": {
+                    "transaction_cost": 0.0,
+                    "slippage": 0.0
+                  }
+                }
+              }
+            },
+            "metricstracker": {}
+          }
+        }
+      },
+      "expected_truth": {
+        "resolved_mode": "standard",
+        "window_count": 2,
+        "objective_names": [
+          "sharpe"
+        ],
+        "objective_result_counts": {
+          "sharpe": 2
+        }
+      }
+    },
+    {
+      "id": "wfa_anchored_template",
+      "module": "wfa",
+      "compare_mode": "candidate_only_truth",
+      "enabled": true,
+      "description": "WFA anchored template parity using the shared anchored template config.",
+      "config": {
+        "wfa": {
+          "config_name": "wfa_anchored_template.json",
+          "mode": "anchored",
+          "inline_config": {
+            "wfa_config": {
+              "engine": "unified_portfolio",
+              "run_id": "wfa_anchored_template",
+              "windowing": {
+                "train_size": 20,
+                "test_size": 10,
+                "step_size": 10
+              },
+              "optimization_objectives": [
+                "sharpe"
+              ],
+              "outputs": {
+                "output_dir": "${OUTPUT_ROOT}/records/validation_workflow",
+                "candidate_diagnostics": true
+              }
+            },
+            "dataloader": {
+              "source": "multi_asset"
+            },
+            "backtester": {
+              "strategy_mode": "multi_asset_portfolio",
+              "market_data": {
+                "close": {
+                  "path": "${FIXTURE_ROOT}/wfa/multi_asset_close_truth.csv",
+                  "time_column": "Time"
+                }
+              },
+              "portfolio_config": {
+                "strategy_id": "wfa_anchored_template_strategy",
+                "universe": {
+                  "symbols": [
+                    "AAA",
+                    "BBB"
+                  ]
+                },
+                "parameter_domains": {
+                  "lookback": [
+                    2,
+                    4
+                  ]
+                },
+                "features": [
+                  {
+                    "name": "momentum",
+                    "op": "indicator.momentum",
+                    "source": "close",
+                    "period": {
+                      "param_ref": "lookback"
+                    }
+                  }
+                ],
+                "rebalance": {
+                  "trigger": {
+                    "op": "calendar.every_session"
+                  }
+                },
+                "selection": {
+                  "eligible": {
+                    "field": "close",
+                    "op": "gt",
+                    "value": 0
+                  },
+                  "rank_by": "momentum",
+                  "rank_order": "desc",
+                  "top_n": 1
+                },
+                "allocation": {
+                  "method": "equal_weight",
+                  "position_limit": 1.0
+                },
+                "execution": {
+                  "cost": {
+                    "transaction_cost": 0.0,
+                    "slippage": 0.0
+                  }
+                }
+              }
+            },
+            "metricstracker": {}
+          }
+        }
+      },
+      "expected_truth": {
+        "resolved_mode": "anchored",
+        "window_count": 2,
+        "objective_names": [
+          "sharpe"
+        ],
+        "objective_result_counts": {
+          "sharpe": 2
+        }
+      }
+    },
+    {
+      "id": "consumer_contract_plotter_multi_file",
+      "module": "consumer_contract",
+      "compare_mode": "old_vs_new",
+      "enabled": false,
+      "description": "Disabled legacy Python plotter consumer contract check; visualization now lives in plotter/web.",
+      "config": {}
+    }
+  ]
+}

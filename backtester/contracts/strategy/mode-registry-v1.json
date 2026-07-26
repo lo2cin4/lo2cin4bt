@@ -1,0 +1,92 @@
+{
+  "schema_version": "1.0",
+  "contract_id": "lo2cin4bt-strategy-mode-registry-v1",
+  "description": "Canonical strategy structure mode registry for strategy-rule display. Workflow types such as Parameter Matrix and WFA are intentionally separate from strategy mode.",
+  "engine_families": [
+    {
+      "id": "multi_asset_portfolio_engine",
+      "description": "Shared execution engine for any backtest that can be compiled into checkpoints, target weights, fills, holdings, and risk events."
+    }
+  ],
+  "execution_backends": [
+    "vector_hybrid"
+  ],
+  "capability_layers": [
+    {
+      "id": "factor_pipeline",
+      "label": "Factor pipeline",
+      "status": "contract_reserved",
+      "description": "Shared vector layer for factor construction, preprocessing, composite scoring, point-in-time audit, cache, and StatAnalyser outputs. It feeds existing single-asset or multi-asset modes rather than becoming a separate engine family."
+    }
+  ],
+  "strategy_profiles": [
+    {
+      "id": "selection_timing_portfolio",
+      "parent_mode_id": "multi_asset_portfolio",
+      "status": "active",
+      "description": "Scan a broad stock pool, apply eligibility/selection rules, enter only symbols whose local trigger fires, exit by explicit sell rules, and enforce a max simultaneous holdings cap without creating a new engine family."
+    },
+    {
+      "id": "allocation_portfolio",
+      "parent_mode_id": "multi_asset_portfolio",
+      "status": "active",
+      "description": "Rule-driven portfolio weight changes across assets without opening a separate strategy path."
+    },
+    {
+      "id": "rotation_portfolio",
+      "parent_mode_id": "multi_asset_portfolio",
+      "status": "active",
+      "description": "Rank-and-pick rotation expressed through the shared portfolio engine."
+    },
+    {
+      "id": "calendar_event_portfolio",
+      "parent_mode_id": "multi_asset_portfolio",
+      "status": "active",
+      "description": "Calendar or session-driven exposure changes compiled into the shared portfolio engine."
+    },
+    {
+      "id": "pair_spread_portfolio",
+      "parent_mode_id": "multi_asset_portfolio",
+      "status": "active",
+      "description": "Two-leg spread or relative-value structure expressed through one shared portfolio engine, with explicit long/short target weights and timeline events instead of a separate engine family."
+    },
+    {
+      "id": "multi_leg_event_portfolio",
+      "parent_mode_id": "multi_asset_portfolio",
+      "status": "active",
+      "description": "Multi-leg event-driven portfolio actions such as baskets, overlays, hedges, or staged exposure shifts compiled into the same shared action and accounting core."
+    }
+  ],
+  "strategy_presets": [
+    {
+      "id": "single_asset_signal",
+      "compiles_to_profile_id": "selection_timing_portfolio",
+      "status": "active_authoring_shortcut",
+      "description": "Authoring shortcut for one-asset or very small fixed-universe signal strategies. It compiles into the shared selection_timing_portfolio path instead of opening a separate engine family."
+    }
+  ],
+  "workflow_ids": [
+    "single_backtest",
+    "parameter_matrix",
+    "walk_forward_analysis",
+    "rolling_validation",
+    "statanalyser"
+  ],
+  "modes": [
+    {
+      "id": "multi_asset_portfolio",
+      "label": "Shared portfolio engine",
+      "status": "active",
+      "scope": "single_or_multi_asset",
+      "description": "Any strategy that can be compiled into checkpoints, target weights, fills, holdings, and risk events runs through this one shared engine."
+    }
+  ],
+  "analysis_overlays": [
+    {
+      "id": "pattern_win_rate_scanner",
+      "label": "Pattern win-rate scanner",
+      "status": "planned",
+      "description": "Pure diagnostic overlay for counting pattern hit-rate without trade, holding, capital, or portfolio equity simulation. Trading triggered assets belongs to selection_timing_portfolio on the shared engine."
+    }
+  ]
+}

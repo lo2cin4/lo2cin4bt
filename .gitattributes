@@ -1,30 +1,38 @@
-# Python 檔案統一 LF 換行
+# Text defaults
+* text=auto
+.gitattributes text eol=lf
+.gitignore text eol=lf
+
+# Source and docs
 *.py text eol=lf
-
-# Jupyter notebook 統一 LF 換行
-*.ipynb text eol=lf
-
-# Markdown/文字檔案 LF 換行
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.json text eol=lf
 *.md text eol=lf
 *.txt text eol=lf
 *.csv text eol=lf
+*.svg text eol=lf
+*.toml text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
 
-# Parquet、二進位檔案不做 diff
+# Shell scripts
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.sh text eol=lf
+
+# Binary artifacts and sample files
 *.parquet binary
 *.pkl binary
 *.xlsx binary
 *.xls binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
 *.egg binary
 *.pyd binary
 *.so binary
 *.dll binary
-
-# Windows/Unix 批次檔案
-*.bat text eol=crlf
-*.ps1 text eol=crlf
-
-# 保持 .sh 檔案 LF 換行
-*.sh text eol=lf
-
-# 強制 .gitattributes 本身用 LF
-.gitattributes text eol=lf

@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "contract_id": "lo2cin4bt-app-artifact-manifest-v1",
+  "run_id": "20260414_b7c3d8129f4a",
+  "artifacts": [
+    {
+      "artifact_type": "backtester_parquet",
+      "path": "outputs/app/run_snapshots/20260414_b7c3d8129f4a/managed_artifacts/portfolio/20260414_SPY_equity.parquet",
+      "required_by_pages": ["backtest_explorer", "results_library"],
+      "status": "ready",
+      "generated_at": "2026-04-14T13:31:10+08:00",
+      "content_contract": "backtester-primary-v2",
+      "source_stage": "backtester",
+      "optional": false,
+      "notes": null
+    },
+    {
+      "artifact_type": "metricstracker_parquet",
+      "path": "outputs/app/run_snapshots/20260414_b7c3d8129f4a/managed_artifacts/metricstracker/20260414_SPY_metrics.parquet",
+      "required_by_pages": ["metrics_explorer"],
+      "status": "ready",
+      "generated_at": "2026-04-14T13:31:28+08:00",
+      "content_contract": "metrics-primary-v1",
+      "source_stage": "metricstracker",
+      "optional": true,
+      "notes": "Backtest Explorer can show a partial state if this artifact is missing."
+    }
+  ]
+}

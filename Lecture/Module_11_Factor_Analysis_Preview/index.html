@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>11 可選因子診斷</title><link rel="stylesheet" href="../assets/lecture.css"></head>
+<body><div class="layout"><aside class="sidebar"><div class="brand"><strong>lo2cin4bt 教學</strong><span>模組 11</span></div><input class="search" data-search placeholder="搜尋課程"><nav class="nav-list" data-nav></nav></aside>
+<main class="content"><article class="module">
+  <p class="kicker">模組 11</p><h1>可選因子診斷（factor diagnostics）</h1>
+  <div class="phase"><strong>定位：</strong><code>factorhandler/</code> 與 <code>statanalyser/</code> 是可選研究工具，不是正式回測、指標（metrics）或前端的必經步驟。</div>
+
+  <h2>目前可以做甚麼</h2>
+  <ul>
+    <li><code>strategy_run.factor_pipeline</code> 可描述因子資料處理。</li>
+    <li><code>factorhandler/</code> 可產生及匯出獨立因子研究產物。</li>
+    <li><code>statanalyser/</code> 可按使用者要求，對已生成資料做統計診斷。</li>
+  </ul>
+
+  <h2>它不代表甚麼</h2>
+  <ul>
+    <li>目前沒有專屬 React 頁面；沒有診斷資料（diagnostic payload）時，應用程式介面（API）或教學回覆應標示「不適用（<code>not applicable</code>）」，不應令普通回測失敗。</li>
+    <li>不能在沒有產物及測試證據時宣稱已支援 IC、Rank IC、Fama-MacBeth、VIF 或完整風險模型。</li>
+    <li>影響持倉、成交及回報的因子計算，必須經共享 Rust 引擎（engine）與強制結果驗證器（mandatory result validator）。</li>
+    <li>不可把這兩個 Python 研究模組重新插入所有策略的正式主線。</li>
+  </ul>
+
+  <section class="mermaid-panel"><h2>正確邊界</h2><pre class="mermaid">
+flowchart LR
+  Result["已驗證標準結果包<br/>CanonicalResultBundle"] --> Metrics["Rust 指標 + 繪圖資料包<br/>PlotBundle"]
+  Metrics --> UI["正式 React 結果頁"]
+  Result -. "使用者選擇診斷" .-> Diagnostics["可選因子／統計診斷"]
+  Diagnostics -.-> OptionalAPI["可選應用程式介面資料<br/>目前無專屬 React 路由"]
+  </pre></section>
+
+  <section class="evidence"><h2>專案證據</h2><ul>
+    <li><code>skills/lo2cin4bt/references/runtime-architecture.md</code></li>
+    <li><code>backtester/contracts/strategy/factor-pipeline-v1.schema.json</code></li>
+    <li><code>factorhandler/</code></li>
+    <li><code>statanalyser/</code></li>
+    <li><code>rust/lo2cin4bt_core/src/result_validator.rs</code></li>
+  </ul></section>
+  <div class="pager"><a href="../Module_10_Data_Provider_Extension/index.html">上一章</a><a href="../Lab_01_Run_A_Backtest/index.html">下一章：實驗 01</a></div>
+</article></main></div><script src="../assets/lecture.js"></script></body></html>

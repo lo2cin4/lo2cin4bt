@@ -1,0 +1,49 @@
+{
+  "fixture_root": "verification/fixtures",
+  "sources": {
+    "predictor_example_slice": {
+      "source": "verification/fixtures/dataloader/predictor_example_slice.xlsx",
+      "output": "verification/fixtures/dataloader/predictor_example_slice.xlsx"
+    },
+    "etf_balance_total_slice": {
+      "source": "verification/fixtures/dataloader/etf_balance_total_slice.csv",
+      "output": "verification/fixtures/dataloader/etf_balance_total_slice.csv"
+    },
+    "boxer_score_slice": {
+      "source": "verification/fixtures/statanalyser/boxer_score_slice.xlsx",
+      "output": "verification/fixtures/statanalyser/boxer_score_slice.xlsx"
+    },
+    "correlation_truth_dataset": {
+      "source": "derived_from_etf_balance_total_and_synthetic_price",
+      "output": "verification/fixtures/statanalyser/correlation_truth_dataset.csv"
+    },
+    "predicting_5min_slice": {
+      "source": "verification/fixtures/dataloader/predicting_5min_slice.csv",
+      "output": "verification/fixtures/dataloader/predicting_5min_slice.csv"
+    },
+    "price_daily_overlap_2024": {
+      "source": "synthetic_price_daily_overlap_2024",
+      "output": "verification/fixtures/dataloader/price_daily_overlap_2024.csv"
+    },
+    "price_5m_overlap_20250924": {
+      "source": "synthetic",
+      "output": "verification/fixtures/dataloader/price_5m_overlap_20250924.csv"
+    },
+    "mini_ohlc_truth": {
+      "source": "synthetic",
+      "output": "verification/fixtures/backtester/mini_ohlc_truth.csv"
+    },
+    "mini_ohlc_nday_truth": {
+      "source": "synthetic",
+      "output": "verification/fixtures/backtester/mini_ohlc_nday_truth.csv"
+    },
+    "strategy_contract_mini_price_timer": {
+      "source": "synthetic_strategy_contract",
+      "output": "verification/fixtures/backtester/strategy-v2-mini-price-timer.json"
+    },
+    "multi_asset_close_truth": {
+      "source": "synthetic_multi_asset_close",
+      "output": "verification/fixtures/wfa/multi_asset_close_truth.csv"
+    }
+  }
+}

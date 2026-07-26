@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>05 策略語義與策略組件</title><link rel="stylesheet" href="../assets/lecture.css"></head>
+<body><div class="layout"><aside class="sidebar"><div class="brand"><strong>lo2cin4bt 教學</strong><span>模組 05</span></div><input class="search" data-search placeholder="搜尋課程"><nav class="nav-list" data-nav></nav></aside>
+<main class="content"><article class="module">
+  <p class="kicker">模組 05</p><h1>策略語義與策略組件（Strategy Building Blocks）</h1>
+  <p>使用者可以用日常語句描述策略。人工智能（AI）要把概念拆成資料來源、指標、訊號、選股、配置、成交、風控及驗證規則，再核對每項規則是否有對應的策略組件（building block）。能力判斷（capability verdict）會說明策略可建立、需要補充資料，還是需要開發新組件。</p>
+  <section class="mermaid-panel"><h2>由概念到執行</h2><pre class="mermaid">
+flowchart LR
+  User["使用者策略概念"] --> Verdict["能力判斷"]
+  Verdict -->|支援 supported| DSL["策略設定語言<br/>Strategy Config DSL"]
+  Verdict -->|需要釐清 needs clarification| Questions["補足可觀察規則"]
+  Verdict -->|不支援 unsupported| Build["新增組件與測試"]
+  DSL --> IR["正規化機器中介表示<br/>Machine IR"]
+  IR --> Engine["共享 Rust 引擎"]
+  Build --> DSL
+  Questions --> Verdict
+  </pre></section>
+
+  <h2>三種能力判斷</h2>
+  <table><tr><th>能力判斷（capability verdict）</th><th>意思</th><th>下一步</th></tr>
+    <tr><td>支援（<code>supported</code>）</td><td>現有結構綱要（schema）、操作（op）及執行器支援這項規則。</td><td>寫設定檔（config）並驗證。</td></tr>
+    <tr><td>需要釐清（<code>needs_clarification</code>）</td><td>概念可能受支援，但入場、出場、時間或資料定義有缺口。</td><td>詢問會阻塞執行的資料。</td></tr>
+    <tr><td>需要新增策略組件（<code>unsupported_needs_new_building_block</code>）</td><td>專案沒有對應可執行能力。</td><td>先實作登錄表（registry）、Rust 執行環境（runtime）、結構綱要（schema）、黃金與對照測試（golden/oracle tests）及文件。</td></tr>
+  </table>
+
+  <h2>可組合內容</h2>
+  <ul>
+    <li>資料與市場時間：資料供應者（provider）、頻率（frequency）、交易日曆（calendar）、時區（timezone）及資料可用時間（availability time）。</li>
+    <li>計算：簡單移動平均線（SMA）、指數移動平均線（EMA）、相對強弱指數（RSI）、移動平均匯聚背離指標（MACD）、布林通道（Bollinger）、波動率、標準分數（Z-score）、滾動百分位數（rolling percentile）等已註冊操作（op）。</li>
+    <li>決策：比較、交叉（cross）、日曆事件（calendar event）、選股（selection）、排名（ranking）及目標權重（target weights）。</li>
+    <li>執行：下一時段、開市或收市價、成本、滑價、持倉中再次出現訊號時的政策。</li>
+    <li>風控：最大持倉、曝險、回撤行動（drawdown action）、全部平倉（flatten）、永久停止（permanent stop）或影子交易路線（shadow route）。</li>
+  </ul>
+  <p>多數新策略只需新增設定檔（config）。缺少執行能力時才新增策略組件（building block）；不可為策略家族新增另一條 Python 或 Rust 回測路徑。</p>
+
+  <section class="evidence"><h2>專案證據</h2><ul>
+    <li><code>backtester/contracts/ops/</code></li>
+    <li><code>app/contracts/generated/op-registry-v1.json</code></li>
+    <li><code>skills/lo2cin4bt/references/strategy-authoring-template.md</code></li>
+    <li><code>skills/lo2cin4bt/references/runtime-architecture.md</code></li>
+  </ul></section>
+  <div class="pager"><a href="../Module_04_Backtest_Basics/index.html">上一章</a><a href="../Module_06_Parameter_Matrix/index.html">下一章</a></div>
+</article></main></div><script src="../assets/lecture.js"></script></body></html>

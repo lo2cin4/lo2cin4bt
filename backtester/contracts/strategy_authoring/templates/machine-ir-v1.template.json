@@ -1,0 +1,104 @@
+{
+  "schema_version": "machine_ir.v1",
+  "source_layer": "strategy_config_dsl",
+  "template_only": true,
+  "do_not_run": true,
+  "registry_id": "lo2cin4bt-op-registry-v1",
+  "nodes": [
+    {
+      "node_id": "indicator.rsi_14",
+      "canonical_id": "indicator.rsi",
+      "block_kind": "indicator",
+      "usage_site": "multi_asset.indicators",
+      "inputs": {
+        "source": "close"
+      },
+      "params_schema": {
+        "type": "object",
+        "properties": {
+          "period": {"type": "integer", "minimum": 1},
+          "source": {"type": "string"}
+        }
+      },
+      "params": {
+        "period": 14
+      },
+      "output_name": "rsi_14",
+      "temporal_metadata": {
+        "observation_time": "current and previous source values inside the RSI window",
+        "availability_time": "after the current source bar is available",
+        "earliest_trade_time": "not before the source bar is available"
+      },
+      "implementation_source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "evidence_paths": [
+        "tests/test_multi_asset_portfolio_engine.py"
+      ]
+    },
+    {
+      "node_id": "entry.rsi_oversold",
+      "canonical_id": "lt",
+      "block_kind": "condition_comparator",
+      "usage_site": "multi_asset.condition",
+      "inputs": {
+        "field": "rsi_14",
+        "value": 20
+      },
+      "params_schema": {
+        "type": "object",
+        "properties": {
+          "field": {"type": "string"},
+          "value": {}
+        }
+      },
+      "params": {},
+      "output_name": "entry_mask",
+      "temporal_metadata": {
+        "observation_time": "left and right operands at the current bar",
+        "availability_time": "after both operands are available",
+        "earliest_trade_time": "no earlier than the latest operand availability"
+      },
+      "implementation_source_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "evidence_paths": [
+        "tests/test_multi_asset_portfolio_engine.py"
+      ]
+    },
+    {
+      "node_id": "exit.rsi_overbought",
+      "canonical_id": "gt",
+      "block_kind": "condition_comparator",
+      "usage_site": "multi_asset.condition",
+      "inputs": {
+        "field": "rsi_14",
+        "value": 80
+      },
+      "params_schema": {
+        "type": "object",
+        "properties": {
+          "field": {"type": "string"},
+          "value": {}
+        }
+      },
+      "params": {},
+      "output_name": "exit_mask",
+      "temporal_metadata": {
+        "observation_time": "left and right operands at the current bar",
+        "availability_time": "after both operands are available",
+        "earliest_trade_time": "no earlier than the latest operand availability"
+      },
+      "implementation_source_hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "evidence_paths": [
+        "tests/test_multi_asset_portfolio_engine.py"
+      ]
+    }
+  ],
+  "registry_refs": [
+    "indicator.rsi",
+    "lt",
+    "gt"
+  ],
+  "temporal_policy": {
+    "no_future_bars": true,
+    "no_tradable_bfill": true,
+    "close_derived_signals_trade_no_earlier_than": "next_configured_execution_time"
+  }
+}

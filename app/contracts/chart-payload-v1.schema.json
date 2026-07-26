@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lo2cin4bt/app/contracts/chart-payload-v1.schema.json",
+  "title": "lo2cin4bt App Chart Payload v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contract_id",
+    "run_id",
+    "chart_type",
+    "title",
+    "series",
+    "axes",
+    "legend",
+    "source_hashes",
+    "artifact_source_refs",
+    "generated_at"
+  ],
+  "properties": {
+    "schema_version": {"const": "plot_bundle.v1"},
+    "contract_id": {"const": "lo2cin4bt.plot_bundle.v1"},
+    "run_id": {"type": "string", "minLength": 1},
+    "chart_type": {"type": "string", "minLength": 1},
+    "title": {"type": "string", "minLength": 1},
+    "series": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["series_id", "label", "x", "y"],
+        "properties": {
+          "series_id": {"type": "string", "minLength": 1},
+          "label": {"type": "string", "minLength": 1},
+          "x": {"type": "array"},
+          "y": {"type": "array"},
+          "annotations": {"type": "array"}
+        }
+      }
+    },
+    "axes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y"],
+      "properties": {
+        "x": {"type": "string", "minLength": 1},
+        "y": {"type": "string", "minLength": 1}
+      }
+    },
+    "legend": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
+    "source_hashes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"}
+    },
+    "artifact_source_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "generated_at": {"type": "string", "minLength": 1}
+  }
+}

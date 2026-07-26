@@ -1,0 +1,33 @@
+{
+  "schema_version": "plot_bundle.v1",
+  "contract_id": "lo2cin4bt.plot_bundle.v1",
+  "run_id": "20260414_b7c3d8129f4a",
+  "chart_type": "asset_curve_compare",
+  "title": "SPY semantic strategy equity curve",
+  "series": [
+    {
+      "series_id": "strategy",
+      "label": "Strategy",
+      "x": ["2020-01-01", "2020-01-02"],
+      "y": [100.0, 101.5],
+      "annotations": []
+    },
+    {
+      "series_id": "benchmark",
+      "label": "Buy and Hold",
+      "x": ["2020-01-01", "2020-01-02"],
+      "y": [100.0, 100.4],
+      "annotations": []
+    }
+  ],
+  "axes": {"x": "date", "y": "equity"},
+  "legend": ["Strategy", "Buy and Hold"],
+  "source_hashes": [
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ],
+  "artifact_source_refs": [
+    "outputs/app/run_snapshots/20260414_b7c3d8129f4a/managed_artifacts/portfolio/20260414_SPY_equity.parquet",
+    "outputs/app/run_snapshots/20260414_b7c3d8129f4a/managed_artifacts/metricstracker/20260414_SPY_metrics.parquet"
+  ],
+  "generated_at": "2026-04-14T13:31:30+08:00"
+}

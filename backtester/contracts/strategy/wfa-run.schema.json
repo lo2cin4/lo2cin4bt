@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lo2cin4bt/contracts/wfa-run.schema.json",
+  "title": "lo2cin4bt Workflow WFA Run Config",
+  "description": "Workflow contract for walk-forward analysis or rolling validation. It references one strategy_run config and adds windowing, candidate selection, acceptance, and output controls without opening a separate strategy path.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "wfa_run"},
+    "strategy_run_path": {
+      "type": "string",
+      "pattern": "^(?![A-Za-z]:)(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?:workspace/runs/)?[A-Za-z0-9._/-]+\\.json$",
+      "description": "Path to the referenced strategy_run config. This is the preferred field for workflow contracts."
+    },
+    "windowing": {
+      "type": "object",
+      "properties": {
+        "mode": {"type": "string"},
+        "size_mode": {"type": ["string", "null"]},
+        "target_window_count": {"type": ["integer", "null"]},
+        "train_size": {"type": ["integer", "null"]},
+        "test_size": {"type": ["integer", "null"]},
+        "train_ratio": {"type": ["number", "null"]},
+        "test_ratio": {"type": ["number", "null"]},
+        "step_size": {"type": ["integer", "null"]}
+      }
+    },
+    "optimizer": {
+      "type": "object",
+      "properties": {
+        "selection_constraints": {"type": "object"}
+      },
+      "additionalProperties": true
+    },
+    "acceptance": {"type": "object"},
+    "outputs": {
+      "type": "object",
+      "properties": {
+        "selected_optimum": {"type": "boolean"},
+        "candidate_diagnostics": {"type": "boolean"},
+        "window_backtests": {"type": "boolean"}
+      }
+    },
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "workflow_id": {
+          "enum": ["walk_forward_analysis", "rolling_validation"]
+        },
+        "created_at": {"type": "string", "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}(?:T.*)?$"},
+        "run_type": {"type": "string"},
+        "is_default": {
+          "type": "boolean",
+          "description": "Explicit product-owned default marker. UI badges must not infer this value from workflow, filename, run_type, or display_label."
+        },
+        "display_label": {"type": "string"}
+      },
+      "required": ["workflow_id"]
+    },
+    "engine": {"type": ["string", "object"]},
+    "metadata": {"type": "object"}
+  },
+  "allOf": [
+    {
+      "required": ["strategy_run_path"]
+    }
+  ],
+  "required": ["schema_version", "platform", "windowing", "optimizer", "acceptance", "outputs"]
+}

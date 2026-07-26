@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>實驗 04 資料來源檢查</title>
+  <link rel="stylesheet" href="../assets/lecture.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand"><strong>lo2cin4bt 課程</strong><span>實驗 04</span></div>
+      <input class="search" data-search placeholder="搜尋章節">
+      <nav class="nav-list" data-nav></nav>
+    </aside>
+    <main class="content">
+      <article class="module">
+        <p class="kicker">實驗（Lab）04</p>
+        <h1>資料來源檢查</h1>
+        <p>這個實驗檢查資料來源、資產代號（symbol）、頻率、交易日曆、時區與比較基準。資料條件不一致時，績效數字沒有解讀價值。</p>
+
+        <h2>人工操作版</h2>
+        <ol>
+          <li>檢查 <code>data.provider</code> 是否為程式庫（repo）支援或已有範例路徑的資料來源（provider），例如雅虎財經（yfinance）、幣安（binance）、Coinbase 交易所（coinbase）、本地檔案（file）、富途（futu）或盈透證券（ibkr）</li>
+          <li>確認資產代號（symbol）格式符合資料來源，例如幣安（Binance）用 <code>BTCUSDT</code>，Coinbase 交易所常見 <code>BTC-USD</code></li>
+          <li>確認 <code>frequency</code>、<code>calendar</code>、<code>timezone</code> 與策略假設一致</li>
+          <li>檢查比較基準（benchmark）欄位；多資產投資組合要寫出比較基準</li>
+          <li>若使用富途（FUTU）或盈透證券（IBKR），帳戶、應用程式（app）或應用程式介面（API）權限只用於讀取行情；登入與權限開通由使用者完成，本實驗不做下單、不操作資金</li>
+        </ol>
+
+        <h2>代理與技能版（Agent / Skill）</h2>
+        <pre><code>請由 lo2cin4btWorkAgent 使用 lo2cin4bt-backtesting 的執行前核對清單（Pre-Run Checklist）。
+請檢查設定檔（config）的資料來源（provider）、資產代號（symbol）、頻率（frequency）、交易日曆（calendar）、時區（timezone）、比較基準（benchmark）、成本與滑價。
+如果資料來源需要外部應用程式（app）、主機與連接埠（host / port）、權杖（token）或行情權限，請列為需要澄清（needs_clarification）。
+不要下單，不要操作資金，不要做實盤交易。
+若需要登入、開通行情應用程式介面（API）、主機與連接埠（host / port）、權杖（token）或行情權限，請列為需要澄清（needs_clarification），由使用者完成。</code></pre>
+
+        <section class="evidence">
+          <h2>專案證據</h2>
+          <ul>
+            <li><code>README.md</code> 的數據源列表</li>
+            <li><code>dataloader/</code></li>
+            <li><code>outputs/app/run_snapshots/&lt;run_id&gt;/data_lineage_manifest.json</code></li>
+            <li><code>outputs/app/run_registry/&lt;run_id&gt;.json</code></li>
+            <li><code>skills/lo2cin4bt/references/quant-interpretation-risks.md</code></li>
+          </ul>
+        </section>
+
+        <div class="pager">
+          <a href="../Lab_03_WFA_Rolling/index.html">上一個實驗</a>
+          <a href="../Lab_05_Performance_Analysis/index.html">下一個實驗</a>
+        </div>
+      </article>
+    </main>
+  </div>
+  <script src="../assets/lecture.js"></script>
+</body>
+</html>

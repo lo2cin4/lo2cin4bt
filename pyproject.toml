@@ -1,0 +1,56 @@
+[project]
+name = "lo2cin4bt"
+version = "2.1.0"
+description = "Browser-first quantitative research, backtesting, parameter-matrix, and WFA workspace."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*.py" = ["E402"]
+"tests/*.py" = ["E402"]
+"verification/scripts/*.py" = ["E402"]
+
+[tool.mypy]
+python_version = "3.12"
+namespace_packages = false
+follow_imports = "skip"
+files = [
+    "app/api/payloads.py",
+    "app/api/scheduler.py",
+    "app/runtime/runtime.py",
+    "autorunner/DataLoader_autorunner.py",
+    "autorunner/BacktestRunner_autorunner.py",
+    "autorunner/MetricsRunner_autorunner.py",
+    "backtester/ops/registry.py",
+    "backtester/MultiAssetPortfolioBundleExporter_backtester.py",
+    "backtester/UnifiedBacktestRunner_backtester.py",
+    "dataloader/futu_loader.py",
+    "dataloader/market_data_loader.py",
+    "scripts/doctor.py",
+    "statanalyser/DistributionTest_statanalyser.py",
+    "statanalyser/ReportGenerator_statanalyser.py",
+    "statanalyser/SeasonalAnalysis_statanalyser.py",
+    "validation_workflow/HeatmapMatrixBuilder_validation_workflow.py",
+    "validation_workflow/ResultsExporter_validation_workflow.py",
+    "validation_workflow/RobustSelector_validation_workflow.py",
+    "validation_workflow/WalkForwardEngine_validation_workflow.py",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "futu.*",
+    "psutil.*",
+    "scipy.*",
+    "sklearn.*",
+    "statsmodels.*",
+    "yfinance.*",
+]
+ignore_missing_imports = true

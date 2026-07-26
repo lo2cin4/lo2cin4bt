@@ -1,0 +1,162 @@
+{
+  "schema_version": "strategy_run",
+  "platform": {
+    "strategy_mode_id": "multi_asset_portfolio",
+    "strategy_profile_id": "calendar_event_portfolio",
+    "workflow_id": "parameter_matrix",
+    "created_at": "2026-06-23",
+    "run_type": "example",
+    "is_default": true,
+    "display_label": "BTC-USD | Monthly Nth Weekday Same Session Matrix | Coinbase"
+  },
+  "data": {
+    "provider": "coinbase",
+    "frequency": "1D",
+    "interval": "1d",
+    "calendar": "CRYPTO_24_7",
+    "timezone": "UTC",
+    "start_date": "2017-08-17",
+    "start_policy": "common_available",
+    "benchmark": {
+      "provider": "coinbase",
+      "symbol": "BTC-USD",
+      "label": "BTC-USD buy and hold",
+      "interval": "1d"
+    }
+  },
+  "universe": {
+    "symbols": [
+      "BTC-USD"
+    ],
+    "universe_policy": "single_crypto_pair"
+  },
+  "computed_fields": [],
+  "signals": {
+    "entry": {
+      "op": "calendar.nth_weekday_of_month",
+      "months": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "ordinal": {
+        "param_ref": "month_week"
+      },
+      "weekday": {
+        "param_ref": "weekday"
+      }
+    },
+    "exit": {
+      "op": "session.same_session_close"
+    },
+    "side": "long",
+    "target_weight": 1,
+    "conflict_policy": "same_session_exit"
+  },
+  "selection": {},
+  "allocation": {
+    "method": "position_state",
+    "target_weight": 1,
+    "cash_policy": "keep_unallocated_cash"
+  },
+  "rebalance": {
+    "trigger": {
+      "op": "calendar.every_session"
+    }
+  },
+  "fill_model": {
+    "timing": "timeline",
+    "entry_price": "open",
+    "entry_time": "00:00:00",
+    "exit_price": "close",
+    "exit_time": "23:59:59",
+    "session_scope": "same_session",
+    "same_session_exit": true,
+    "position_policy": {
+      "on_entry_signal_while_holding": "ignore_new_signal"
+    },
+    "actions": [
+      {
+        "signal": "entry",
+        "offset_bars": 0,
+        "price": "open",
+        "action": "enter"
+      },
+      {
+        "signal": "entry",
+        "offset_bars": 0,
+        "price": "close",
+        "action": "exit"
+      }
+    ],
+    "matrix_workers": 5,
+    "matrix_result_retention": 25,
+    "cost": {
+      "transaction_cost": 0.001,
+      "slippage": 0.0005
+    }
+  },
+  "risk": {
+    "max_positions": 1,
+    "max_gross_exposure": 1,
+    "long_short": "long_only",
+    "allow_short": false
+  },
+  "parameter_domains": {
+    "month_week": {
+      "type": "range",
+      "start": 1,
+      "end": 4,
+      "step": 1
+    },
+    "weekday": {
+      "type": "set",
+      "values": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday"
+      ]
+    }
+  },
+  "combo_limits": {
+    "warn_combos": 28,
+    "hard_cap_combos": 40
+  },
+  "metricstracker": {
+    "enable_metrics_analysis": true,
+    "time_unit": 365,
+    "risk_free_rate": 0.04
+  },
+  "outputs": {
+    "equity_curve": true,
+    "trade_summary": true,
+    "entry_exit_markers": true,
+    "rebalance_audit": true,
+    "holdings": true
+  },
+  "metadata": {
+    "example": true,
+    "local_research_only": true,
+    "strategy_id": "btcusd_monthly_nth_weekday_same_session_coinbase_example",
+    "notes": [
+      "Parameter matrix: month_week 1-4 times weekday Monday-Sunday, applied to every month.",
+      "On matching event sessions the strategy buys BTC-USD at the open and closes the position at the same session close.",
+      "Daily crypto candles approximate same-session open/close under exchange UTC candle conventions and are not executable fill guarantees.",
+      "This public example is for local research and contract testing only.",
+      "It is not a profitability claim, WFA pass, live-trading signal, broker instruction, or investment advice."
+    ]
+  }
+}

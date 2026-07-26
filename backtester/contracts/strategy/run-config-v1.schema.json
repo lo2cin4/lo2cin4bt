@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lo2cin4bt/contracts/run-config-v1.schema.json",
+  "title": "lo2cin4bt Run Config v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "run_id"],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "chunk_size": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "requested_mode": {
+      "type": "string",
+      "enum": ["auto", "node_ir"]
+    },
+    "strategy_mode_id": {
+      "type": "string",
+      "description": "Strategy structure mode id from backtester/contracts/strategy/mode-registry-v1.json. Workflow types such as WFA or Parameter Matrix must not be stored here."
+    },
+    "analysis_overlay_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Optional analysis overlays such as pattern win-rate scanning."
+    },
+    "workflow_id": {
+      "type": "string",
+      "enum": ["single_backtest", "parameter_matrix", "walk_forward_analysis", "rolling_validation", "statanalyser"],
+      "description": "Analysis workflow used to produce the artifact. This is separate from strategy_mode_id."
+    },
+    "platform": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "strategy_mode_id": {
+          "type": "string",
+          "description": "Strategy structure mode id from mode-registry-v1.json."
+        },
+        "workflow_id": {
+          "type": "string",
+          "enum": ["single_backtest", "parameter_matrix", "walk_forward_analysis", "rolling_validation", "statanalyser"],
+          "description": "Analysis workflow used to produce the artifact. This is separate from strategy_mode_id."
+        },
+        "analysis_overlay_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "run_type": {
+          "type": "string"
+        }
+      }
+    },
+    "execution_plan_output_dir": {
+      "type": "string"
+    },
+    "streaming_enabled": {
+      "type": "boolean",
+      "default": false
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

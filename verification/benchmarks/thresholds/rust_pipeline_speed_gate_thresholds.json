@@ -1,0 +1,10 @@
+{
+  "rust": {
+    "max_total_seconds": 20.0,
+    "max_operation_seconds": {
+      "daily_rank_accounting": 8.0,
+      "rank_selection": 5.0,
+      "metrics_batch": 5.0
+    }
+  }
+}

@@ -9,7 +9,7 @@ MetricsRunner_autorunner.py
 
 【流程與數據流】
 ------------------------------------------------------------
-- 由 Base_autorunner 調用，接收回測結果與 metrics 配置
+- 由 AppRuntimeService / canonical autorunner path 調用，接收回測結果與 metrics 配置
 - 解析配置 → 選擇目標 Parquet → 計算績效 → 匯出結果 → 顯示摘要
 
 【維護與擴充重點】
@@ -23,18 +23,19 @@ from __future__ import annotations
 
 import logging
 import os
+import json
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-import pandas as pd
 from rich.table import Table
 
 from autorunner.utils import get_console
-from utils import show_error, show_info, show_success, show_warning
+from metricstracker.MetricConfig_metricstracker import resolve_metric_config
+from metricstracker.MetricsArtifactWriter_metricstracker import export_metrics_artifacts
+from utils import show_error, show_info, show_success
+from utils.filename_utils import bounded_filename_stem
 
 console = get_console()
-
-from metricstracker.MetricsExporter_metricstracker import MetricsExporter
 
 
 @dataclass
@@ -53,35 +54,51 @@ class MetricsRunnerAutorunner:
         self.logger = logger or logging.getLogger("lo2cin4bt.autorunner.metrics")
         from autorunner.utils import get_console
         self.console = get_console()
-        self.panel_title = "[bold #8f1511]📈 績效分析 MetricsTracker[/bold #8f1511]"
+        self.panel_title = "[bold #8f1511]Metrics Analysis[/bold #8f1511]"
         self.panel_error_style = "#8f1511"
         self.panel_success_style = "#dbac30"
         self.summary: Dict[str, Any] = {}
+        self.required_metric_columns = [
+            "Time",
+            "Backtest_id",
+            "Equity_value",
+            "Close",
+            "Trade_action",
+            "Trade_return",
+            "Position_size",
+            "BAH_Equity",
+            "BAH_Return",
+            "Drawdown",
+            "BAH_Drawdown",
+        ]
 
     def run(
-        self, backtest_results: Dict[str, Any], config: Dict[str, Any]
+        self,
+        backtest_results: Dict[str, Any],
+        config: Dict[str, Any],
+        *,
+        metrics_context: Optional[Dict[str, Any]] = None,
     ) -> Optional[Dict[str, Any]]:
         """執行績效分析主流程"""
 
         enable_metrics = config.get("enable_metrics_analysis", False)
         if not enable_metrics:
-            self.logger.info("Metrics analysis disabled in config, skip.")
-            return None
+            raise ValueError(
+                "metricstracker is mandatory for every canonical backtest; "
+                "enable_metrics_analysis must be true"
+            )
 
-        exported_files = backtest_results.get("exported_files", [])
-        target_files = self._collect_target_files(exported_files, config)
+        canonical_bundle = self._load_validated_canonical_bundle(backtest_results)
+        equity_path = str(canonical_bundle["bundle_paths"].get("equity_curve") or "")
+        target_files = [os.path.abspath(equity_path)] if equity_path else []
 
         if not target_files:
-            self._display_warning("找不到可用的回測 Parquet 檔，已跳過績效分析。")
-            self.summary = {
-                "enabled": True,
-                "executed": False,
-                "message": "No parquet files available",
-            }
-            return self.summary
+            raise ValueError("validated canonical result bundle is missing equity_curve")
 
-        time_unit = self._resolve_time_unit(config)
-        risk_free_rate = self._resolve_risk_free_rate(config)
+        resolved_metrics = resolve_metric_config(config)
+        time_unit = self._resolve_time_unit(resolved_metrics)
+        risk_free_rate = self._resolve_risk_free_rate(resolved_metrics)
+        benchmark_path, benchmark_symbol = self._benchmark_context(metrics_context)
 
         task_results: List[MetricsTaskResult] = []
         success_count = 0
@@ -101,6 +118,8 @@ class MetricsRunnerAutorunner:
                 file_path=file_path,
                 time_unit=time_unit,
                 risk_free_rate=risk_free_rate,
+                benchmark_parquet_path=benchmark_path,
+                benchmark_symbol=benchmark_symbol,
             )
             task_results.append(result)
             if result.status == "success":
@@ -119,69 +138,58 @@ class MetricsRunnerAutorunner:
         self._display_summary(task_results)
         return self.summary
 
+    def _load_validated_canonical_bundle(
+        self, backtest_results: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        for raw_path in backtest_results.get("exported_files", []) or []:
+            path = str(raw_path or "").strip()
+            if not path.lower().endswith(".json") or not os.path.isfile(path):
+                continue
+            try:
+                with open(path, encoding="utf-8") as handle:
+                    payload = json.load(handle)
+            except (OSError, json.JSONDecodeError):
+                continue
+            if not isinstance(payload, dict) or payload.get("schema_version") != "canonical_result_bundle.v1":
+                continue
+            validation = payload.get("validation")
+            result_hashes = payload.get("result_hashes")
+            candidates = payload.get("candidates")
+            candidate_count = int(payload.get("candidate_count") or 0)
+            if (
+                not isinstance(validation, dict)
+                or validation.get("status") != "valid"
+                or not isinstance(result_hashes, list)
+                or not isinstance(candidates, list)
+                or candidate_count <= 0
+                or len(result_hashes) != candidate_count
+                or len(candidates) != candidate_count
+                or len(str(payload.get("bundle_hash") or "")) != 64
+            ):
+                raise ValueError("canonical result bundle validation contract is invalid")
+            for candidate in candidates:
+                run_validation = candidate.get("run_validation") if isinstance(candidate, dict) else None
+                report = (
+                    run_validation.get("result_validation")
+                    if isinstance(run_validation, dict)
+                    else None
+                )
+                if (
+                    not isinstance(report, dict)
+                    or report.get("schema_version") != "result_validation_report.v1"
+                    or report.get("status") != "valid"
+                    or report.get("result_hash") not in result_hashes
+                ):
+                    raise ValueError("canonical result candidate is not validated")
+            bundle_paths = payload.get("bundle_paths")
+            if not isinstance(bundle_paths, dict):
+                raise ValueError("canonical result bundle_paths is invalid")
+            return payload
+        raise ValueError("metrics requires a validated canonical_result_bundle.v1")
+
     # ------------------------------------------------------------------
-    # 私有工具方法
+    # NOTE: translated to English.
     # ------------------------------------------------------------------
-
-    def _collect_target_files(
-        self, exported_files: List[str], config: Dict[str, Any]
-    ) -> List[str]:
-        file_selection_mode = config.get("file_selection_mode", "auto").lower()
-
-        # 固定路徑：records/backtester/
-        parquet_directory = os.path.join(
-            os.path.dirname(os.path.dirname(__file__)), "records", "backtester"
-        )
-        parquet_directory = os.path.abspath(parquet_directory)
-
-        # 先確保路徑存在
-        if not os.path.exists(parquet_directory):
-            self.logger.warning(
-                "Parquet directory does not exist: %s", parquet_directory
-            )
-            return exported_files
-
-        if file_selection_mode not in {"auto", "all"}:
-            self.logger.info(
-                "Unsupported file_selection_mode=%s, fallback to auto.",
-                file_selection_mode,
-            )
-            file_selection_mode = "auto"
-
-        if exported_files:
-            exported_abs = [os.path.abspath(path) for path in exported_files]
-        else:
-            exported_abs = []
-
-        if file_selection_mode == "auto":
-            if exported_abs:
-                exported_abs.sort(key=os.path.getmtime, reverse=True)
-                return [exported_abs[0]]
-            candidate = self._find_latest_parquet(parquet_directory)
-            return [candidate] if candidate else []
-
-        if exported_abs:
-            exported_abs.sort(key=os.path.getmtime, reverse=True)
-            return exported_abs
-        return self._list_all_parquet(parquet_directory)
-
-    def _find_latest_parquet(self, directory: str) -> Optional[str]:
-        parquet_files: List[str] = []
-        for entry in os.listdir(directory):
-            if entry.endswith(".parquet"):
-                parquet_files.append(os.path.join(directory, entry))
-        if not parquet_files:
-            return None
-        parquet_files.sort(key=os.path.getmtime, reverse=True)
-        return parquet_files[0]
-
-    def _list_all_parquet(self, directory: str) -> List[str]:
-        parquet_files: List[str] = []
-        for entry in os.listdir(directory):
-            if entry.endswith(".parquet"):
-                parquet_files.append(os.path.join(directory, entry))
-        parquet_files.sort(key=os.path.getmtime, reverse=True)
-        return parquet_files
 
     def _resolve_time_unit(self, config: Dict[str, Any]) -> int:
         value = config.get("time_unit")
@@ -219,6 +227,8 @@ class MetricsRunnerAutorunner:
         file_path: str,
         time_unit: int,
         risk_free_rate: float,
+        benchmark_parquet_path: Optional[str] = None,
+        benchmark_symbol: Optional[str] = None,
     ) -> MetricsTaskResult:
         abs_path = os.path.abspath(file_path)
         self.logger.info("Processing metrics for %s", abs_path)
@@ -230,38 +240,66 @@ class MetricsRunnerAutorunner:
             return MetricsTaskResult(abs_path, None, "failed", warning)
 
         try:
-            df = pd.read_parquet(abs_path)
-            MetricsExporter.export(df, abs_path, time_unit, risk_free_rate)
+            export_metrics_artifacts(
+                abs_path,
+                time_unit=time_unit,
+                risk_free_rate=risk_free_rate,
+                benchmark_parquet_path=benchmark_parquet_path,
+                benchmark_symbol=benchmark_symbol,
+            )
             output_path = self._derive_output_path(abs_path)
             self._display_success(f"已匯出績效：{os.path.basename(output_path)}")
-            
-            # 清理記憶體：刪除 df 並強制垃圾回收
-            del df
-            import gc
-            gc.collect()
-            
+
             return MetricsTaskResult(abs_path, output_path, "success")
-        except Exception as exc:  # pragma: no cover (防止執行時意外)
+        except Exception as exc:  # NOTE: translated to English.
             error_msg = f"績效分析失敗：{exc}"
             self.logger.exception(error_msg)
             self._display_error(error_msg)
             return MetricsTaskResult(abs_path, None, "failed", str(exc))
 
+    @staticmethod
+    def _benchmark_context(
+        metrics_context: Optional[Dict[str, Any]],
+    ) -> tuple[Optional[str], Optional[str]]:
+        context = metrics_context or {}
+        manifest_path = str(context.get("market_data_bundle_manifest") or "").strip()
+        symbol = str(context.get("benchmark_symbol") or "").strip()
+        if not manifest_path or not symbol:
+            return None, None
+        with open(manifest_path, encoding="utf-8") as handle:
+            manifest = json.load(handle)
+        tables = manifest.get("tables") or {}
+        benchmark_table = tables.get("benchmark_close") or {}
+        close_table = tables.get("close") or {}
+        selected_table = (
+            benchmark_table
+            if symbol in [str(value) for value in benchmark_table.get("columns") or []]
+            else close_table
+        )
+        close_path = str(selected_table.get("path") or "").strip()
+        columns = [str(value) for value in selected_table.get("columns") or []]
+        if not close_path or symbol not in columns:
+            raise ValueError(
+                f"configured benchmark {symbol} is absent from MarketDataBundle benchmark data"
+            )
+        return close_path, symbol
+
     def _derive_output_path(self, parquet_path: str) -> str:
         orig_name = os.path.splitext(os.path.basename(parquet_path))[0]
+        output_stem = bounded_filename_stem(orig_name, max_length=96, fallback="metrics")
         out_dir = os.path.join(
             os.path.dirname(os.path.dirname(parquet_path)), "metricstracker"
         )
-        return os.path.join(out_dir, f"{orig_name}_metrics.parquet")
+        return os.path.join(out_dir, f"{output_stem}_metrics.parquet")
 
     def _display_summary(self, task_results: List[MetricsTaskResult]) -> None:
-        table = Table(title="📈 績效分析摘要", show_lines=True, border_style="#dbac30")
+        table = Table(title="Metrics Analysis Summary", show_lines=True, border_style="#dbac30")
         table.add_column("檔案", style="white")
         table.add_column("輸出", style="#1e90ff")
         table.add_column("狀態", style="white")
 
         for result in task_results:
-            status_display = "✅ 成功" if result.status == "success" else "❌ 失敗"
+            status_display = "SUCCESS" if result.status == "success" else "FAILED"
             output_display = (
                 os.path.basename(result.output_path) if result.output_path else "—"
             )

@@ -1,0 +1,403 @@
+{
+  "batch_id": "first_round",
+  "description": "High-value truth validation cases for old/new comparison.",
+  "cases": [
+    {
+      "id": "dataloader_skip_predictor_true",
+      "module": "dataloader",
+      "compare_mode": "old_vs_new",
+      "enabled": true,
+      "description": "File source daily OHLC with price-only predictor fallback.",
+      "config": {
+        "dataloader": {
+          "source": "file",
+          "frequency": "1d",
+          "start_date": "2024-01-17",
+          "file_config": {
+            "file_path": "${FIXTURE_ROOT}/backtester/mini_ohlc_truth.csv",
+            "time_column": "Time",
+            "time_format": "%Y-%m-%d",
+            "open_column": "Open",
+            "high_column": "High",
+            "low_column": "Low",
+            "close_column": "Close",
+            "volume_column": "Volume"
+          },
+          "predictor_config": {
+            "skip_predictor": true
+          },
+          "difference_config": {
+            "enable_difference": false
+          }
+        }
+      }
+    },
+    {
+      "id": "dataloader_excel_predictor_merge",
+      "module": "dataloader",
+      "compare_mode": "old_vs_new",
+      "enabled": true,
+      "description": "Daily file source with Excel predictor merge.",
+      "config": {
+        "dataloader": {
+          "source": "file",
+          "frequency": "1d",
+          "start_date": "2024-01-17",
+          "file_config": {
+            "file_path": "${FIXTURE_ROOT}/dataloader/price_daily_overlap_2024.csv",
+            "time_column": "time",
+            "time_format": "%Y-%m-%d",
+            "open_column": "open",
+            "high_column": "high",
+            "low_column": "low",
+            "close_column": "close"
+          },
+          "predictor_config": {
+            "predictor_source": "file",
+            "predictor_path": "${FIXTURE_ROOT}/dataloader/predictor_example_slice.xlsx",
+            "predictor_column": "X",
+            "skip_predictor": false,
+            "time_column": "Date",
+            "time_format": "%Y-%m-%d"
+          },
+          "difference_config": {
+            "enable_difference": false
+          }
+        }
+      }
+    },
+    {
+      "id": "dataloader_csv_timestamp_5m",
+      "module": "dataloader",
+      "compare_mode": "old_vs_new",
+      "enabled": true,
+      "description": "5-minute source with CSV predictor merge and timestamp column.",
+      "config": {
+        "dataloader": {
+          "source": "file",
+          "frequency": "5m",
+          "start_date": "2025-09-24",
+          "file_config": {
+            "file_path": "${FIXTURE_ROOT}/dataloader/price_5m_overlap_20250924.csv",
+            "time_column": "time",
+            "time_format": "%Y-%m-%d %H:%M:%S",
+            "open_column": "open",
+            "high_column": "high",
+            "low_column": "low",
+            "close_column": "close",
+            "volume_column": "volume"
+          },
+          "predictor_config": {
+            "predictor_source": "file",
+            "predictor_path": "${FIXTURE_ROOT}/dataloader/predicting_5min_slice.csv",
+            "predictor_column": "Crypto Open Interest",
+            "skip_predictor": false,
+            "time_column": "time",
+            "time_format": "%Y-%m-%d %H:%M:%S"
+          },
+          "difference_config": {
+            "enable_difference": false
+          }
+        }
+      }
+    },
+    {
+      "id": "statanalyser_correlation",
+      "module": "statanalyser",
+      "compare_mode": "old_vs_new",
+      "enabled": true,
+      "description": "Correlation analysis with daily price source and ETF balance predictor.",
+      "config": {
+        "dataloader": {
+          "source": "file",
+          "frequency": "1d",
+          "start_date": "2024-01-16",
+          "file_config": {
+            "file_path": "${FIXTURE_ROOT}/dataloader/price_daily_overlap_2024.csv",
+            "time_column": "time",
+            "time_format": "%Y-%m-%d",
+            "open_column": "open",
+            "high_column": "high",
+            "low_column": "low",
+            "close_column": "close"
+          },
+          "predictor_config": {
+            "predictor_source": "file",
+            "predictor_path": "${FIXTURE_ROOT}/dataloader/etf_balance_total_slice.csv",
+            "predictor_column": "total",
+            "skip_predictor": false,
+            "time_column": "timestamp",
+            "time_format": "%d/%m/%Y"
+          }
+        },
+        "statanalyser": {
+          "enabled": true,
+          "fixture_dataset": "${FIXTURE_ROOT}/statanalyser/correlation_truth_dataset.csv",
+          "target": {
+            "predictor_column": "total",
+            "return_column": "close_return",
+            "diff_mode": "none"
+          },
+          "tests": {
+            "correlation": {
+              "enabled": true,
+              "output": [
+                "summary",
+                "matrix"
+              ]
+            }
+          },
+          "report": {
+            "formats": [
+              "json",
+              "md"
+            ],
+            "output_dir": "${OUTPUT_ROOT}/records/statanalyser",
+            "include_plots": false,
+            "include_raw_tables": true,
+            "fail_on_error": true
+          }
+        }
+      }
+    },
+    {
+      "id": "backtester_ma1_ma4",
+      "module": "backtester",
+      "compare_mode": "candidate_only_truth",
+      "enabled": true,
+      "description": "MA long entry and MA exit on isolated daily file fixture.",
+      "config": {
+        "dataloader": {
+          "source": "file",
+          "frequency": "1d",
+          "start_date": "2024-01-17",
+          "file_config": {
+            "file_path": "${FIXTURE_ROOT}/backtester/mini_ohlc_truth.csv",
+            "time_column": "Time",
+            "time_format": "%Y-%m-%d",
+            "open_column": "Open",
+            "high_column": "High",
+            "low_column": "Low",
+            "close_column": "Close",
+            "volume_column": "Volume"
+          },
+          "predictor_config": {
+            "skip_predictor": true
+          }
+        },
+        "backtester": {
+          "strategy_mode": "v2",
+          "strategy_contract_path": "${FIXTURE_ROOT}/backtester/strategy-v2-mini-price-timer.json",
+          "engine_mode": "auto",
+          "selected_predictor": "X",
+          "trading_params": {
+            "transaction_cost": 0.0,
+            "slippage": 0.0,
+            "trade_delay": 1,
+            "trade_price": "open",
+            "execution_backend": "rust_engine"
+          },
+          "export_config": {
+            "export_csv": false,
+            "export_excel": false,
+            "output_dir": "${OUTPUT_ROOT}/records/backtester"
+          }
+        },
+        "metricstracker": {
+          "enable_metrics_analysis": false
+        }
+      },
+      "expected_truth": {
+        "resolved_engine_mode": "node_ir",
+        "expected_rows": 8,
+        "required_columns": [
+          "Time",
+          "Trade_action",
+          "Open_position_price",
+          "Close_position_price",
+          "Holding_period_count",
+          "Position_size",
+          "strategy_mode"
+        ],
+        "expected_nonzero_trade_actions": 3,
+        "entry_row": {
+          "Time": "2024-01-20",
+          "Trade_action": 1,
+          "Open_position_price": 103.0,
+          "Position_size": 1.0
+        },
+        "exit_row": {
+          "Time": "2024-01-22",
+          "Trade_action": 4,
+          "Close_position_price": 105.0,
+          "Position_size": 0.0
+        }
+      }
+    },
+    {
+      "id": "backtester_ma1_nday1",
+      "module": "backtester",
+      "compare_mode": "candidate_only_truth",
+      "enabled": true,
+      "description": "Sequential NDAY case for 2.0 only; baseline old does not support NDAY.",
+      "config": {
+        "dataloader": {
+          "source": "file",
+          "frequency": "1d",
+          "start_date": "2024-01-17",
+          "file_config": {
+            "file_path": "${FIXTURE_ROOT}/backtester/mini_ohlc_nday_truth.csv",
+            "time_column": "Time",
+            "time_format": "%Y-%m-%d",
+            "open_column": "Open",
+            "high_column": "High",
+            "low_column": "Low",
+            "close_column": "Close",
+            "volume_column": "Volume"
+          },
+          "predictor_config": {
+            "skip_predictor": true
+          }
+        },
+        "backtester": {
+          "strategy_mode": "v2",
+          "strategy_contract_path": "${FIXTURE_ROOT}/backtester/strategy-v2-mini-price-timer.json",
+          "engine_mode": "auto",
+          "selected_predictor": "X",
+          "trading_params": {
+            "transaction_cost": 0.0,
+            "slippage": 0.0,
+            "trade_delay": 1,
+            "trade_price": "open",
+            "execution_backend": "rust_engine"
+          },
+          "export_config": {
+            "export_csv": false,
+            "export_excel": false,
+            "output_dir": "${OUTPUT_ROOT}/records/backtester"
+          }
+        },
+        "metricstracker": {
+          "enable_metrics_analysis": false
+        }
+      },
+      "expected_truth": {
+        "resolved_engine_mode": "node_ir",
+        "expected_rows": 9,
+        "required_columns": [
+          "Time",
+          "Trade_action",
+          "Open_position_price",
+          "Close_position_price",
+          "Holding_period_count",
+          "Position_size",
+          "strategy_mode"
+        ],
+        "expected_nonzero_trade_actions": 1,
+        "entry_row": {
+          "Time": "2024-01-24",
+          "Trade_action": 1,
+          "Open_position_price": 103.0,
+          "Position_size": 1.0
+        }
+      }
+    },
+    {
+      "id": "metricstracker_from_ma_case",
+      "module": "metrics",
+      "compare_mode": "candidate_only_truth",
+      "enabled": true,
+      "description": "Run metrics from a simple MA backtest case.",
+      "config": {
+        "dataloader": {
+          "source": "file",
+          "frequency": "1d",
+          "start_date": "2024-01-17",
+          "file_config": {
+            "file_path": "${FIXTURE_ROOT}/backtester/mini_ohlc_truth.csv",
+            "time_column": "Time",
+            "time_format": "%Y-%m-%d",
+            "open_column": "Open",
+            "high_column": "High",
+            "low_column": "Low",
+            "close_column": "Close",
+            "volume_column": "Volume"
+          },
+          "predictor_config": {
+            "skip_predictor": true
+          }
+        },
+        "backtester": {
+          "strategy_mode": "v2",
+          "strategy_contract_path": "${FIXTURE_ROOT}/backtester/strategy-v2-mini-price-timer.json",
+          "engine_mode": "auto",
+          "selected_predictor": "X",
+          "trading_params": {
+            "transaction_cost": 0.0,
+            "slippage": 0.0,
+            "trade_delay": 1,
+            "trade_price": "open",
+            "execution_backend": "rust_engine"
+          },
+          "export_config": {
+            "export_csv": false,
+            "export_excel": false,
+            "output_dir": "${OUTPUT_ROOT}/records/backtester"
+          }
+        },
+        "metricstracker": {
+          "enable_metrics_analysis": true,
+          "file_selection_mode": "all",
+          "time_unit": 252,
+          "risk_free_rate": 0.02
+        }
+      },
+      "expected_truth": {
+        "metrics_rows": 8,
+        "required_columns": [
+          "Time",
+          "Equity_value",
+          "BAH_Equity",
+          "BAH_Return",
+          "Drawdown",
+          "Backtest_id"
+        ],
+        "metadata_rows": 1,
+        "backtester": {
+          "resolved_engine_mode": "node_ir",
+          "expected_rows": 8,
+          "required_columns": [
+            "Time",
+            "Trade_action",
+            "Open_position_price",
+            "Close_position_price",
+            "Holding_period_count",
+            "Position_size",
+            "strategy_mode"
+          ],
+          "expected_nonzero_trade_actions": 3,
+          "entry_row": {
+            "Time": "2024-01-20",
+            "Trade_action": 1,
+            "Open_position_price": 103.0,
+            "Position_size": 1.0
+          },
+          "exit_row": {
+            "Time": "2024-01-22",
+            "Trade_action": 4,
+            "Close_position_price": 105.0,
+            "Position_size": 0.0
+          }
+        }
+      }
+    },
+    {
+      "id": "consumer_sanity_placeholder",
+      "module": "consumer_contract",
+      "compare_mode": "old_vs_new",
+      "enabled": false,
+      "description": "Disabled legacy Python plotter consumer contract placeholder; visualization now lives in plotter/web.",
+      "config": {}
+    }
+  ]
+}

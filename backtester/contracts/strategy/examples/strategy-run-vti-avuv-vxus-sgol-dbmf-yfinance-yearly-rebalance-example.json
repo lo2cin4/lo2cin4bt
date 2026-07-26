@@ -1,0 +1,110 @@
+{
+  "schema_version": "strategy_run",
+  "platform": {
+    "strategy_mode_id": "multi_asset_portfolio",
+    "strategy_profile_id": "allocation_portfolio",
+    "workflow_id": "single_backtest",
+    "created_at": "2026-06-21",
+    "run_type": "example",
+    "is_default": true,
+    "display_label": "VTI AVUV VXUS SGOL DBMF | Fixed Weights Annual Rebalance | yfinance"
+  },
+  "data": {
+    "provider": "yfinance",
+    "frequency": "1D",
+    "interval": "1d",
+    "calendar": "XNYS",
+    "timezone": "America/New_York",
+    "start_date": "2021-01-01",
+    "start_policy": "common_available",
+    "price_adjustment": "split_dividend_adjusted",
+    "benchmark": {
+      "provider": "yfinance",
+      "symbol": "VTI",
+      "label": "VTI benchmark",
+      "interval": "1d"
+    }
+  },
+  "universe": {
+    "symbols": [
+      "VTI",
+      "AVUV",
+      "VXUS",
+      "SGOL",
+      "DBMF"
+    ],
+    "universe_policy": "static_public_etf_list",
+    "survivorship_policy": "static_user_defined_etf_universe",
+    "as_of_date": "2026-05-19",
+    "delisted_policy": "not_applicable_for_static_current_etf_example",
+    "point_in_time_constituents": false
+  },
+  "computed_fields": [],
+  "signals": {},
+  "selection": {},
+  "allocation": {
+    "method": "fixed_weights",
+    "weights": {
+      "VTI": 0.3,
+      "AVUV": 0.1,
+      "VXUS": 0.2,
+      "SGOL": 0.2,
+      "DBMF": 0.2
+    },
+    "cash_policy": "keep_unallocated_cash"
+  },
+  "rebalance": {
+    "trigger": {
+      "op": "calendar.year_start"
+    }
+  },
+  "fill_model": {
+    "timing": "timeline",
+    "actions": [
+      {
+        "signal": "rebalance",
+        "offset_bars": 0,
+        "price": "close",
+        "action": "set_target_weights"
+      }
+    ],
+    "cost": {
+      "transaction_cost": 0.001,
+      "slippage": 0.0005
+    }
+  },
+  "risk": {
+    "max_positions": 5,
+    "max_gross_exposure": 1,
+    "long_short": "long_only",
+    "allow_short": false
+  },
+  "parameter_domains": {},
+  "metricstracker": {
+    "enable_metrics_analysis": true,
+    "time_unit": 252,
+    "risk_free_rate": 0.04
+  },
+  "outputs": {
+    "equity_curve": true,
+    "trade_summary": true,
+    "entry_exit_markers": false,
+    "rebalance_audit": true,
+    "holdings": true,
+    "asset_contribution": true
+  },
+  "metadata": {
+    "example": true,
+    "public_example": true,
+    "local_research_only": true,
+    "strategy_id": "vti_avuv_vxus_sgol_dbmf_fixed_weights_yearly_rebalance_yfinance_example",
+    "notes": [
+      "Static ETF allocation: VTI 30%, AVUV 10%, VXUS 20%, SGOL 20%, DBMF 20%.",
+      "The portfolio rebalances on the first available XNYS trading session of each year.",
+      "DBMF started trading in 2019 and this example uses start_policy=common_available to avoid mixing unavailable histories.",
+      "The ETF list is static and user-defined; it is not a point-in-time investable universe study.",
+      "This public example is for local research and contract testing only.",
+      "It is not a profitability claim, WFA pass, live-trading signal, broker instruction, or investment advice."
+    ]
+  }
+}

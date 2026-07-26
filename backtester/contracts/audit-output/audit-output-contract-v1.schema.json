@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lo2cin4bt/contracts/audit-output-contract-v1.schema.json",
+  "title": "lo2cin4bt Audit Output Contract v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contract_id",
+    "placement_policy",
+    "summary_index_fields",
+    "detailed_feature_audit_fields",
+    "ui_policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "contract_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "placement_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primary_result_artifacts",
+        "metadata_sidecar_suffix",
+        "audit_json_suffix",
+        "audit_parquet_suffix",
+        "machine_readable_detailed_audit",
+        "audit_parquet_compression",
+        "audit_json_inline_row_limit",
+        "audit_json_chunk_suffix"
+      ],
+      "properties": {
+        "primary_result_artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": [
+              "backtest_parquet",
+              "metrics_parquet",
+              "wfa_parquet"
+            ]
+          }
+        },
+        "metadata_sidecar_suffix": {
+          "type": "string",
+          "minLength": 1
+        },
+        "audit_json_suffix": {
+          "type": "string",
+          "minLength": 1
+        },
+        "audit_parquet_suffix": {
+          "type": "string",
+          "minLength": 1
+        },
+        "audit_parquet_compression": {
+          "type": "string",
+          "minLength": 1
+        },
+        "audit_json_inline_row_limit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "audit_json_chunk_suffix": {
+          "type": "string",
+          "minLength": 1
+        },
+        "machine_readable_detailed_audit": {
+          "type": "boolean"
+        }
+      }
+    },
+    "summary_index_fields": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "detailed_feature_audit_fields": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "ui_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "newbie_default_view",
+        "hide_detailed_audit_by_default",
+        "ai_reader_friendly"
+      ],
+      "properties": {
+        "newbie_default_view": {
+          "type": "string",
+          "enum": [
+            "summary_only",
+            "summary_with_warnings"
+          ]
+        },
+        "hide_detailed_audit_by_default": {
+          "type": "boolean"
+        },
+        "ai_reader_friendly": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

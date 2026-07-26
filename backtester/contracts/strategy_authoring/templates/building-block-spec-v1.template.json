@@ -1,0 +1,116 @@
+{
+  "schema_version": "1.0",
+  "source_layer": "building_block_registry",
+  "template_only": true,
+  "do_not_run": true,
+  "registry_id": "lo2cin4bt-op-registry-v1",
+  "canonical_id": "workspace.indicator.example",
+  "aliases": [
+    "example_indicator"
+  ],
+  "block_kind": "indicator",
+  "category": "Strategy Building Blocks",
+  "spec_version": "1.0",
+  "status": "experimental",
+  "stability": "workspace_review_required",
+  "usage_sites": [
+    {
+      "site": "multi_asset.indicators",
+      "support": "supported",
+      "accepted_names": [
+        "workspace.indicator.example",
+        "example_indicator"
+      ],
+      "notes": "Workspace-local reviewed indicator."
+    }
+  ],
+  "params_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "source",
+      "period"
+    ],
+    "properties": {
+      "source": {"type": "string", "default": "close"},
+      "period": {"type": "integer", "minimum": 1}
+    }
+  },
+  "optimizable_params": [
+    "period"
+  ],
+  "input_shape": "numeric_series",
+  "output_type": "numeric_frame",
+  "output_shape": "numeric_frame",
+  "temporal_metadata": {
+    "observation_time": "source value at the current bar",
+    "availability_time": "after the current source bar is available",
+    "earliest_trade_time": "not before the source bar is available",
+    "lookback_bars": {
+      "kind": "param",
+      "description": "period bars",
+      "param": "period"
+    },
+    "lag_bars": 0,
+    "calendar": "caller-provided data index",
+    "timezone": "caller-provided data timezone",
+    "stateful": false,
+    "leakage_warnings": [
+      "Do not backfill future values into tradable signal rows."
+    ]
+  },
+  "data_alignment": {
+    "join_mode": "caller_runtime_defined",
+    "fill_policy": "no backfill for tradable signals",
+    "missing_data_policy": "runtime validation and data-health checks remain authoritative",
+    "source_calendar": "caller-provided data index",
+    "source_timezone": "caller-provided data timezone"
+  },
+  "leakage_flags": {
+    "uses_future": false,
+    "allows_tradable_bfill": false,
+    "requires_point_in_time_source": true
+  },
+  "wfa_safety": {
+    "train_only_selection_required": true,
+    "oos_must_not_refit": true,
+    "window_local_cache_required": true
+  },
+  "implementation": {
+    "path": "workspace/ops/example_indicator/op.py",
+    "symbols": [
+      "compute"
+    ],
+    "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "source_hashes": {
+      "workspace/ops/example_indicator/op.py": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  "evidence_paths": [
+    "tests/test_workspace_example_indicator.py"
+  ],
+  "audit": {
+    "source_time_required": true,
+    "calendar_event_rows_required": false
+  },
+  "cache": {
+    "cache_key_must_include": [
+      "canonical_id",
+      "params",
+      "input identity",
+      "implementation source_hash"
+    ]
+  },
+  "deprecation": {
+    "status": "active",
+    "replacement": null
+  },
+  "docs": {
+    "display_name": "Example Indicator",
+    "beginner_term": "Strategy Building Block"
+  },
+  "unsupported_message": "This workspace building block is not supported at the requested usage site until code, tests, and quant safety metadata pass review.",
+  "safety_warnings": [
+    "Workspace indicators prove mechanics only; they do not prove strategy profitability."
+  ]
+}

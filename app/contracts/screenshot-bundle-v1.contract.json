@@ -1,0 +1,55 @@
+{
+  "schema_version": "screenshot_bundle.v1",
+  "captures": [
+    {
+      "filename": "equity_curve.png",
+      "route": "overview",
+      "sections": ["equity_curve"]
+    },
+    {
+      "filename": "list.png",
+      "route": "overview",
+      "sections": ["strategy_list"]
+    },
+    {
+      "filename": "parameter_matrix.png",
+      "route": "parameter_matrix",
+      "sections": ["parameter_matrix"]
+    },
+    {
+      "filename": "best_summary.png",
+      "route": "backtest",
+      "sections": ["best_summary"]
+    },
+    {
+      "filename": "metrics1.png",
+      "route": "backtest",
+      "sections": ["portfolio_context"]
+    },
+    {
+      "filename": "risk1.png",
+      "route": "backtest",
+      "sections": ["risk_diagnostics"]
+    },
+    {
+      "filename": "risk2.png",
+      "route": "backtest",
+      "sections": ["risk_gate_audit"]
+    },
+    {
+      "filename": "metrics2.png",
+      "route": "backtest",
+      "sections": ["metrics2"]
+    },
+    {
+      "filename": "metrics3.png",
+      "route": "backtest",
+      "sections": ["metrics3"]
+    },
+    {
+      "filename": "metrics4.png",
+      "route": "backtest",
+      "sections": ["metrics4"]
+    }
+  ]
+}

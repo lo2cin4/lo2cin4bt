@@ -1,0 +1,515 @@
+{
+  "batch_id": "fourth_round",
+  "description": "Fourth-round truth validation focused on richer backtester combinations and real-config WFA parity.",
+  "cases": [
+    {
+      "id": "backtester_ma1_hl1_combo",
+      "module": "backtester",
+      "compare_mode": "candidate_only_truth",
+      "enabled": true,
+      "description": "AND combo with MA1 and HL1 entry, MA4 exit, using compact daily file fixture.",
+      "config": {
+        "dataloader": {
+          "source": "file",
+          "frequency": "1d",
+          "start_date": "2024-01-17",
+          "file_config": {
+            "file_path": "${FIXTURE_ROOT}/backtester/mini_ohlc_truth.csv",
+            "time_column": "Time",
+            "time_format": "%Y-%m-%d",
+            "open_column": "Open",
+            "high_column": "High",
+            "low_column": "Low",
+            "close_column": "Close",
+            "volume_column": "Volume"
+          },
+          "predictor_config": {
+            "skip_predictor": true
+          }
+        },
+        "backtester": {
+          "strategy_mode": "v2",
+          "strategy_contract_path": "${FIXTURE_ROOT}/backtester/strategy-v2-mini-price-timer.json",
+          "engine_mode": "auto",
+          "selected_predictor": "X",
+          "trading_params": {
+            "transaction_cost": 0.0,
+            "slippage": 0.0,
+            "trade_delay": 1,
+            "trade_price": "open",
+            "execution_backend": "rust_engine"
+          },
+          "export_config": {
+            "export_csv": false,
+            "export_excel": false,
+            "output_dir": "${OUTPUT_ROOT}/records/backtester"
+          }
+        },
+        "metricstracker": {
+          "enable_metrics_analysis": false
+        }
+      },
+      "expected_truth": {
+        "resolved_engine_mode": "node_ir",
+        "expected_rows": 8,
+        "required_columns": [
+          "Time",
+          "Trade_action",
+          "Open_position_price",
+          "Close_position_price",
+          "Holding_period_count",
+          "Position_size",
+          "strategy_mode"
+        ],
+        "expected_nonzero_trade_actions": 3,
+        "entry_row": {
+          "Time": "2024-01-20",
+          "Trade_action": 1,
+          "Open_position_price": 103.0,
+          "Position_size": 1.0
+        },
+        "exit_row": {
+          "Time": "2024-01-22",
+          "Trade_action": 4,
+          "Close_position_price": 105.0,
+          "Position_size": 0.0
+        }
+      }
+    },
+    {
+      "id": "backtester_ma4_ma1_short",
+      "module": "backtester",
+      "compare_mode": "candidate_only_truth",
+      "enabled": true,
+      "description": "Short-side MA mirror case on compact daily file fixture.",
+      "config": {
+        "dataloader": {
+          "source": "file",
+          "frequency": "1d",
+          "start_date": "2024-01-17",
+          "file_config": {
+            "file_path": "${FIXTURE_ROOT}/backtester/mini_ohlc_truth.csv",
+            "time_column": "Time",
+            "time_format": "%Y-%m-%d",
+            "open_column": "Open",
+            "high_column": "High",
+            "low_column": "Low",
+            "close_column": "Close",
+            "volume_column": "Volume"
+          },
+          "predictor_config": {
+            "skip_predictor": true
+          }
+        },
+        "backtester": {
+          "strategy_mode": "v2",
+          "strategy_contract_path": "${FIXTURE_ROOT}/backtester/strategy-v2-mini-price-timer.json",
+          "engine_mode": "auto",
+          "selected_predictor": "X",
+          "trading_params": {
+            "transaction_cost": 0.0,
+            "slippage": 0.0,
+            "trade_delay": 1,
+            "trade_price": "open",
+            "execution_backend": "rust_engine"
+          },
+          "export_config": {
+            "export_csv": false,
+            "export_excel": false,
+            "output_dir": "${OUTPUT_ROOT}/records/backtester"
+          }
+        },
+        "metricstracker": {
+          "enable_metrics_analysis": false
+        }
+      },
+      "expected_truth": {
+        "resolved_engine_mode": "node_ir",
+        "expected_rows": 8,
+        "required_columns": [
+          "Time",
+          "Trade_action",
+          "Open_position_price",
+          "Close_position_price",
+          "Holding_period_count",
+          "Position_size",
+          "strategy_mode"
+        ],
+        "expected_nonzero_trade_actions": 3,
+        "entry_row": {
+          "Time": "2024-01-20",
+          "Trade_action": 1,
+          "Open_position_price": 103.0,
+          "Position_size": 1.0
+        },
+        "exit_row": {
+          "Time": "2024-01-22",
+          "Trade_action": 4,
+          "Close_position_price": 105.0,
+          "Position_size": 0.0
+        }
+      }
+    },
+    {
+      "id": "backtester_boll3_boll2_reversion",
+      "module": "backtester",
+      "compare_mode": "candidate_only_truth",
+      "enabled": true,
+      "description": "BOLL mean-reversion side pair (BOLL3 to BOLL2) parity on compact daily file fixture.",
+      "config": {
+        "dataloader": {
+          "source": "file",
+          "frequency": "1d",
+          "start_date": "2024-01-17",
+          "file_config": {
+            "file_path": "${FIXTURE_ROOT}/backtester/mini_ohlc_truth.csv",
+            "time_column": "Time",
+            "time_format": "%Y-%m-%d",
+            "open_column": "Open",
+            "high_column": "High",
+            "low_column": "Low",
+            "close_column": "Close",
+            "volume_column": "Volume"
+          },
+          "predictor_config": {
+            "skip_predictor": true
+          }
+        },
+        "backtester": {
+          "strategy_mode": "v2",
+          "strategy_contract_path": "${FIXTURE_ROOT}/backtester/strategy-v2-mini-price-timer.json",
+          "engine_mode": "auto",
+          "selected_predictor": "X",
+          "trading_params": {
+            "transaction_cost": 0.0,
+            "slippage": 0.0,
+            "trade_delay": 1,
+            "trade_price": "open",
+            "execution_backend": "rust_engine"
+          },
+          "export_config": {
+            "export_csv": false,
+            "export_excel": false,
+            "output_dir": "${OUTPUT_ROOT}/records/backtester"
+          }
+        },
+        "metricstracker": {
+          "enable_metrics_analysis": false
+        }
+      },
+      "expected_truth": {
+        "resolved_engine_mode": "node_ir",
+        "expected_rows": 8,
+        "required_columns": [
+          "Time",
+          "Trade_action",
+          "Open_position_price",
+          "Close_position_price",
+          "Holding_period_count",
+          "Position_size",
+          "strategy_mode"
+        ],
+        "expected_nonzero_trade_actions": 3,
+        "entry_row": {
+          "Time": "2024-01-20",
+          "Trade_action": 1,
+          "Open_position_price": 103.0,
+          "Position_size": 1.0
+        },
+        "exit_row": {
+          "Time": "2024-01-22",
+          "Trade_action": 4,
+          "Close_position_price": 105.0,
+          "Position_size": 0.0
+        }
+      }
+    },
+    {
+      "id": "backtester_value1_value4_with_returns",
+      "module": "backtester",
+      "compare_mode": "candidate_only_truth",
+      "enabled": true,
+      "description": "VALUE family parity with external predictor plus returns enabled in dataloader.",
+      "config": {
+        "dataloader": {
+          "source": "file",
+          "frequency": "1d",
+          "start_date": "2024-01-16",
+          "file_config": {
+            "file_path": "${FIXTURE_ROOT}/dataloader/price_daily_overlap_2024.csv",
+            "time_column": "time",
+            "time_format": "%Y-%m-%d",
+            "open_column": "open",
+            "high_column": "high",
+            "low_column": "low",
+            "close_column": "close",
+            "volume_column": "volume"
+          },
+          "predictor_config": {
+            "predictor_source": "file",
+            "predictor_path": "${FIXTURE_ROOT}/dataloader/etf_balance_total_slice.csv",
+            "predictor_column": "total",
+            "skip_predictor": false,
+            "time_column": "timestamp",
+            "time_format": "%d/%m/%Y"
+          }
+        },
+        "backtester": {
+          "strategy_mode": "v2",
+          "strategy_contract_path": "${FIXTURE_ROOT}/backtester/strategy-v2-mini-price-timer.json",
+          "engine_mode": "auto",
+          "selected_predictor": "total",
+          "trading_params": {
+            "transaction_cost": 0.0,
+            "slippage": 0.0,
+            "trade_delay": 1,
+            "trade_price": "open",
+            "execution_backend": "rust_engine"
+          },
+          "export_config": {
+            "export_csv": false,
+            "export_excel": false,
+            "output_dir": "${OUTPUT_ROOT}/records/backtester"
+          }
+        },
+        "metricstracker": {
+          "enable_metrics_analysis": false
+        }
+      },
+      "expected_truth": {
+        "resolved_engine_mode": "node_ir",
+        "expected_rows": 8,
+        "required_columns": [
+          "Time",
+          "Trade_action",
+          "Open_position_price",
+          "Close_position_price",
+          "Holding_period_count",
+          "Position_size",
+          "strategy_mode"
+        ],
+        "expected_nonzero_trade_actions": 4,
+        "entry_row": {
+          "Time": "2024-01-18",
+          "Trade_action": 1,
+          "Open_position_price": 103.0,
+          "Position_size": 1.0
+        },
+        "exit_row": {
+          "Time": "2024-01-20",
+          "Trade_action": 4,
+          "Close_position_price": 106.0,
+          "Position_size": 0.0
+        }
+      }
+    },
+    {
+      "id": "wfa_total_config_standard",
+      "module": "wfa",
+      "compare_mode": "candidate_only_truth",
+      "enabled": true,
+      "description": "WFA parity using the real total_config in standard mode.",
+      "config": {
+        "wfa": {
+          "config_name": "wfa_total_config_standard.json",
+          "mode": "standard",
+          "inline_config": {
+            "wfa_config": {
+              "engine": "unified_portfolio",
+              "run_id": "wfa_total_config_standard",
+              "windowing": {
+                "train_size": 20,
+                "test_size": 10,
+                "step_size": 10
+              },
+              "optimization_objectives": [
+                "sharpe"
+              ],
+              "outputs": {
+                "output_dir": "${OUTPUT_ROOT}/records/validation_workflow",
+                "candidate_diagnostics": true
+              }
+            },
+            "dataloader": {
+              "source": "multi_asset"
+            },
+            "backtester": {
+              "strategy_mode": "multi_asset_portfolio",
+              "market_data": {
+                "close": {
+                  "path": "${FIXTURE_ROOT}/wfa/multi_asset_close_truth.csv",
+                  "time_column": "Time"
+                }
+              },
+              "portfolio_config": {
+                "strategy_id": "wfa_total_config_standard_strategy",
+                "universe": {
+                  "symbols": [
+                    "AAA",
+                    "BBB"
+                  ]
+                },
+                "parameter_domains": {
+                  "lookback": [
+                    2,
+                    4
+                  ]
+                },
+                "features": [
+                  {
+                    "name": "momentum",
+                    "op": "indicator.momentum",
+                    "source": "close",
+                    "period": {
+                      "param_ref": "lookback"
+                    }
+                  }
+                ],
+                "rebalance": {
+                  "trigger": {
+                    "op": "calendar.every_session"
+                  }
+                },
+                "selection": {
+                  "eligible": {
+                    "field": "close",
+                    "op": "gt",
+                    "value": 0
+                  },
+                  "rank_by": "momentum",
+                  "rank_order": "desc",
+                  "top_n": 1
+                },
+                "allocation": {
+                  "method": "equal_weight",
+                  "position_limit": 1.0
+                },
+                "execution": {
+                  "cost": {
+                    "transaction_cost": 0.0,
+                    "slippage": 0.0
+                  }
+                }
+              }
+            },
+            "metricstracker": {}
+          }
+        }
+      },
+      "expected_truth": {
+        "resolved_mode": "standard",
+        "window_count": 2,
+        "objective_names": [
+          "sharpe"
+        ],
+        "objective_result_counts": {
+          "sharpe": 2
+        }
+      }
+    },
+    {
+      "id": "wfa_total_config_anchored",
+      "module": "wfa",
+      "compare_mode": "candidate_only_truth",
+      "enabled": true,
+      "description": "WFA parity using the real total_config in anchored mode.",
+      "config": {
+        "wfa": {
+          "config_name": "wfa_total_config_anchored.json",
+          "mode": "anchored",
+          "inline_config": {
+            "wfa_config": {
+              "engine": "unified_portfolio",
+              "run_id": "wfa_total_config_anchored",
+              "windowing": {
+                "train_size": 20,
+                "test_size": 10,
+                "step_size": 10
+              },
+              "optimization_objectives": [
+                "sharpe"
+              ],
+              "outputs": {
+                "output_dir": "${OUTPUT_ROOT}/records/validation_workflow",
+                "candidate_diagnostics": true
+              }
+            },
+            "dataloader": {
+              "source": "multi_asset"
+            },
+            "backtester": {
+              "strategy_mode": "multi_asset_portfolio",
+              "market_data": {
+                "close": {
+                  "path": "${FIXTURE_ROOT}/wfa/multi_asset_close_truth.csv",
+                  "time_column": "Time"
+                }
+              },
+              "portfolio_config": {
+                "strategy_id": "wfa_total_config_anchored_strategy",
+                "universe": {
+                  "symbols": [
+                    "AAA",
+                    "BBB"
+                  ]
+                },
+                "parameter_domains": {
+                  "lookback": [
+                    2,
+                    4
+                  ]
+                },
+                "features": [
+                  {
+                    "name": "momentum",
+                    "op": "indicator.momentum",
+                    "source": "close",
+                    "period": {
+                      "param_ref": "lookback"
+                    }
+                  }
+                ],
+                "rebalance": {
+                  "trigger": {
+                    "op": "calendar.every_session"
+                  }
+                },
+                "selection": {
+                  "eligible": {
+                    "field": "close",
+                    "op": "gt",
+                    "value": 0
+                  },
+                  "rank_by": "momentum",
+                  "rank_order": "desc",
+                  "top_n": 1
+                },
+                "allocation": {
+                  "method": "equal_weight",
+                  "position_limit": 1.0
+                },
+                "execution": {
+                  "cost": {
+                    "transaction_cost": 0.0,
+                    "slippage": 0.0
+                  }
+                }
+              }
+            },
+            "metricstracker": {}
+          }
+        }
+      },
+      "expected_truth": {
+        "resolved_mode": "anchored",
+        "window_count": 2,
+        "objective_names": [
+          "sharpe"
+        ],
+        "objective_result_counts": {
+          "sharpe": 2
+        }
+      }
+    }
+  ]
+}

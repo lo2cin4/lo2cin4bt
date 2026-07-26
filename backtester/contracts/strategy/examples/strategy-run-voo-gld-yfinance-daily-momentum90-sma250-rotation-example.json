@@ -1,0 +1,109 @@
+{
+  "schema_version": "strategy_run",
+  "platform": {
+    "strategy_mode_id": "multi_asset_portfolio",
+    "strategy_profile_id": "rotation_portfolio",
+    "workflow_id": "single_backtest",
+    "created_at": "2026-06-21",
+    "run_type": "example",
+    "is_default": true,
+    "display_label": "VOO GLD | 90D Momentum 250D SMA Filter | yfinance"
+  },
+  "data": {
+    "provider": "yfinance",
+    "frequency": "1D",
+    "interval": "1d",
+    "calendar": "XNYS",
+    "timezone": "America/New_York",
+    "start_date": "2011-01-01",
+    "start_policy": "common_available",
+    "benchmark": {
+      "provider": "yfinance",
+      "symbol": "SPY",
+      "label": "SPY benchmark",
+      "interval": "1d"
+    }
+  },
+  "universe": {
+    "symbols": [
+      "VOO",
+      "GLD"
+    ],
+    "universe_policy": "all_symbols"
+  },
+  "computed_fields": [
+    {
+      "name": "return_momentum",
+      "op": "indicator.momentum",
+      "source": "close",
+      "period": 90
+    },
+    {
+      "name": "sma_filter",
+      "op": "indicator.sma",
+      "source": "close",
+      "period": 250
+    }
+  ],
+  "signals": {},
+  "selection": {
+    "eligible": {
+      "field": "close",
+      "op": "gt",
+      "right_field": "sma_filter"
+    },
+    "rank_by": "return_momentum",
+    "rank_order": "desc",
+    "top_n": 1
+  },
+  "allocation": {
+    "method": "equal_weight",
+    "position_limit": 1,
+    "cash_policy": "keep_unallocated_cash"
+  },
+  "rebalance": {
+    "trigger": {
+      "op": "calendar.every_session"
+    }
+  },
+  "fill_model": {
+    "timing": "signal_close_for_next_bar",
+    "price": "close_to_close",
+    "cost": {
+      "transaction_cost": 0.001,
+      "slippage": 0.0005
+    }
+  },
+  "risk": {
+    "max_positions": 1,
+    "max_gross_exposure": 1,
+    "long_short": "long_only",
+    "allow_short": false
+  },
+  "parameter_domains": {},
+  "metricstracker": {
+    "enable_metrics_analysis": true,
+    "time_unit": 252,
+    "risk_free_rate": 0.04
+  },
+  "outputs": {
+    "equity_curve": true,
+    "trade_summary": true,
+    "entry_exit_markers": true,
+    "rebalance_audit": true,
+    "holdings": true,
+    "asset_contribution": true
+  },
+  "metadata": {
+    "example": true,
+    "local_research_only": true,
+    "strategy_id": "voo_gld_momentum90_sma250_rotation_yfinance_example",
+    "notes": [
+      "Each session ranks VOO and GLD by trailing 90-session return.",
+      "The strategy holds the highest ranked asset only when it is above its own 250-session SMA; otherwise it stays in cash.",
+      "Each session close determines the target for the next return period; the strategy never earns the same close that produced its signal.",
+      "This public example is for local research and contract testing only.",
+      "It is not a profitability claim, WFA pass, live-trading signal, broker instruction, or investment advice."
+    ]
+  }
+}

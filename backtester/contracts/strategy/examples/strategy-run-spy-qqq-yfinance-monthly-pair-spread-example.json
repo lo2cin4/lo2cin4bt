@@ -1,0 +1,100 @@
+{
+  "schema_version": "strategy_run",
+  "platform": {
+    "strategy_mode_id": "multi_asset_portfolio",
+    "strategy_profile_id": "pair_spread_portfolio",
+    "workflow_id": "single_backtest",
+    "created_at": "2026-07-08",
+    "run_type": "example",
+    "is_default": true,
+    "display_label": "SPY QQQ | Monthly Pair Spread Same Session | yfinance"
+  },
+  "data": {
+    "provider": "yfinance",
+    "frequency": "1D",
+    "interval": "1d",
+    "calendar": "XNYS",
+    "timezone": "America/New_York",
+    "start_date": "2015-01-01",
+    "start_policy": "common_available",
+    "benchmark": {
+      "provider": "yfinance",
+      "symbol": "SPY",
+      "label": "SPY benchmark",
+      "interval": "1d"
+    }
+  },
+  "universe": {
+    "symbols": ["SPY", "QQQ"],
+    "universe_policy": "configured_symbols"
+  },
+  "computed_fields": [],
+  "signals": {
+    "entry": {
+      "op": "calendar.nth_weekday_of_month",
+      "ordinal": 1,
+      "weekday": "monday"
+    }
+  },
+  "selection": {},
+  "allocation": {
+    "method": "fixed_weights",
+    "cash_policy": "keep_unallocated_cash"
+  },
+  "rebalance": {},
+  "fill_model": {
+    "timing": "timeline",
+    "actions": [
+      {
+        "signal": "entry",
+        "offset_bars": 0,
+        "price": "open",
+        "action": "set_target_weights",
+        "weights": {"SPY": 1.0, "QQQ": -1.0}
+      },
+      {
+        "signal": "entry",
+        "offset_bars": 0,
+        "price": "close",
+        "action": "flatten"
+      }
+    ],
+    "cost": {
+      "transaction_cost": 0.001,
+      "slippage": 0.0005
+    }
+  },
+  "risk": {
+    "max_positions": 2,
+    "max_gross_exposure": 2.0,
+    "long_short": "market_neutral",
+    "allow_short": true
+  },
+  "parameter_domains": {},
+  "metricstracker": {
+    "enable_metrics_analysis": true,
+    "time_unit": 252,
+    "risk_free_rate": 0.04
+  },
+  "outputs": {
+    "equity_curve": true,
+    "trade_summary": true,
+    "entry_exit_markers": true,
+    "rebalance_audit": true,
+    "holdings": true,
+    "asset_contribution": true
+  },
+  "metadata": {
+    "example": true,
+    "public_example": true,
+    "local_research_only": true,
+    "strategy_id": "spy_qqq_monthly_pair_spread_yfinance_example",
+    "notes": [
+      "This example uses the pair_spread_portfolio contract-reserved profile.",
+      "On the first Monday of each month it opens a same-session SPY long versus QQQ short spread, then flattens at the close.",
+      "The profile is expressed through shared timeline actions instead of a separate backtest engine family.",
+      "This public example is for local research and contract testing only.",
+      "It is not a profitability claim, WFA pass, live-trading signal, broker instruction, or investment advice."
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+# Optional broker gateway dependency inputs. Install requirements-brokers.lock.
+# Install only if you intend to use provider=futu or provider=ibkr.
+# This profile includes runtime dependencies, then adds broker packages.
+-r requirements.txt
+
+futu-api>=8.0.0
+ib-insync>=0.9.86

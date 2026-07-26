@@ -1,0 +1,112 @@
+{
+  "schema_version": "strategy_run",
+  "platform": {
+    "strategy_mode_id": "multi_asset_portfolio",
+    "strategy_profile_id": "multi_leg_event_portfolio",
+    "workflow_id": "single_backtest",
+    "created_at": "2026-07-08",
+    "run_type": "example",
+    "is_default": true,
+    "display_label": "QQQ TLT GLD | Monthly Hedge Overlay | yfinance"
+  },
+  "data": {
+    "provider": "yfinance",
+    "frequency": "1D",
+    "interval": "1d",
+    "calendar": "XNYS",
+    "timezone": "America/New_York",
+    "start_date": "2015-01-01",
+    "start_policy": "common_available",
+    "benchmark": {
+      "provider": "yfinance",
+      "symbol": "QQQ",
+      "label": "QQQ benchmark",
+      "interval": "1d"
+    }
+  },
+  "universe": {
+    "symbols": ["QQQ", "TLT", "GLD"],
+    "universe_policy": "configured_symbols"
+  },
+  "computed_fields": [],
+  "signals": {
+    "entry": {
+      "op": "calendar.nth_weekday_of_month",
+      "ordinal": 3,
+      "weekday": "friday"
+    }
+  },
+  "selection": {},
+  "allocation": {
+    "method": "fixed_weights",
+    "cash_policy": "keep_unallocated_cash"
+  },
+  "rebalance": {
+    "trigger": {
+      "op": "calendar.first_session"
+    }
+  },
+  "fill_model": {
+    "timing": "timeline",
+    "actions": [
+      {
+        "signal": "rebalance",
+        "offset_bars": 0,
+        "price": "open",
+        "action": "set_target_weights",
+        "weights": {"QQQ": 1.0}
+      },
+      {
+        "signal": "entry",
+        "offset_bars": 0,
+        "price": "open",
+        "action": "set_target_weights",
+        "weights": {"TLT": 0.5, "GLD": 0.5}
+      },
+      {
+        "signal": "entry",
+        "offset_bars": 0,
+        "price": "close",
+        "action": "set_target_weights",
+        "weights": {"QQQ": 1.0}
+      }
+    ],
+    "cost": {
+      "transaction_cost": 0.001,
+      "slippage": 0.0005
+    }
+  },
+  "risk": {
+    "max_positions": 2,
+    "max_gross_exposure": 1.0,
+    "long_short": "long_only",
+    "allow_short": false
+  },
+  "parameter_domains": {},
+  "metricstracker": {
+    "enable_metrics_analysis": true,
+    "time_unit": 252,
+    "risk_free_rate": 0.04
+  },
+  "outputs": {
+    "equity_curve": true,
+    "trade_summary": true,
+    "entry_exit_markers": true,
+    "rebalance_audit": true,
+    "holdings": true,
+    "asset_contribution": true
+  },
+  "metadata": {
+    "example": true,
+    "public_example": true,
+    "local_research_only": true,
+    "strategy_id": "qqq_tlt_gld_monthly_hedge_overlay_yfinance_example",
+    "notes": [
+      "This example uses the multi_leg_event_portfolio contract-reserved profile.",
+      "QQQ is the baseline allocation. On the third Friday of each month the portfolio rotates into a defensive TLT/GLD basket for the session, then restores QQQ at the close.",
+      "The multi-leg structure is compiled into shared timeline actions instead of introducing another engine family.",
+      "This public example is for local research and contract testing only.",
+      "It is not a profitability claim, WFA pass, live-trading signal, broker instruction, or investment advice."
+    ]
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "schema_version": "2.0",
+  "strategy_id": "truth.v2.mini.price.timer",
+  "name": "Truth Fixture - Mini Price Timer",
+  "description": "Synthetic candidate-only truth strategy for compact verification fixtures.",
+  "data_context": {
+    "primary_instrument": "TEST",
+    "frequency": "1D",
+    "timezone": "UTC",
+    "calendar": "XNYS"
+  },
+  "parameter_domains": {
+    "entry_level": {
+      "type": "set",
+      "values": [
+        101
+      ]
+    },
+    "hold_days": {
+      "type": "set",
+      "values": [
+        2
+      ]
+    }
+  },
+  "entry": {
+    "op": "gt",
+    "left": {
+      "field": "price.close"
+    },
+    "right": {
+      "param_ref": "entry_level"
+    }
+  },
+  "exit": {
+    "op": "timer_bars",
+    "value": {
+      "param_ref": "hold_days"
+    }
+  },
+  "engine_preferences": {
+    "requested_mode": "auto",
+    "allow_hybrid": false,
+    "max_combinations": 10
+  }
+}

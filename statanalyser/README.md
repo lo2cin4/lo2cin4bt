@@ -2,7 +2,7 @@
 
 ## 模組概覽（Module Overview）
 
-**statanalyser** 是 Lo2cin4BT 量化回測框架的統計分析模組，負責對行情數據、預測因子等進行相關性、穩定性、自相關、分布、季節性等多維度統計檢定與特徵分析，並自動產生標準化分析報告，協助策略開發與因子篩選。
+**statanalyser** 是 lo2cin4bt 量化回測框架的統計分析模組，負責對行情數據、預測因子等進行相關性、穩定性、自相關、分布、季節性等多維度統計檢定與特徵分析，並自動產生標準化分析報告，協助策略開發與因子篩選。
 
 - **輸入來源**：標準化 DataFrame（含行情、因子、收益率等欄位）
 - **輸出目標**：統計分析結果 dict、標準化報告（txt/csv/excel），供策略開發、因子篩選、回測流程參考
@@ -136,8 +136,9 @@ flowchart TD
 ## 疑難排解（持續更新）
 
 1. 數據欄位缺失/型態錯誤 22/07/2025
-問題詳情：請先用 dataloader/validator_loader 處理。
-解決方法：執行 dataloader/validator_loader.py。
+問題詳情：請先確認輸入資料已由 `dataloader/market_data_loader.py` 或
+`dataloader/market_data_loader.py` 載入及正規化。
+解決方法：檢查 `Time/Open/High/Low/Close/Volume` 欄位與日期格式。
 
 2. 分析失敗/報錯 22/07/2025
 問題詳情：請確認數據長度、型態、欄位名稱正確。

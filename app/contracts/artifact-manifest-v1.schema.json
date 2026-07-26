@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lo2cin4bt/app/contracts/artifact-manifest-v1.schema.json",
+  "title": "lo2cin4bt App Artifact Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "contract_id", "run_id", "artifacts"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "contract_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "artifact_type",
+          "path",
+          "required_by_pages",
+          "status",
+          "generated_at",
+          "content_contract",
+          "source_stage"
+        ],
+        "properties": {
+          "artifact_type": {"type": "string", "minLength": 1},
+          "path": {"type": "string", "minLength": 1},
+          "required_by_pages": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1}
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "writing", "ready", "missing", "failed"]
+          },
+          "generated_at": {"type": ["string", "null"]},
+          "content_contract": {"type": "string", "minLength": 1},
+          "source_stage": {"type": "string", "minLength": 1},
+          "optional": {"type": "boolean"},
+          "notes": {"type": ["string", "null"]}
+        }
+      }
+    }
+  }
+}

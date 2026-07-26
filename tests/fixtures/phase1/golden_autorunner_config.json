@@ -1,0 +1,50 @@
+{
+  "dataloader": {
+    "source": "file",
+    "frequency": "1D",
+    "file_config": {
+      "file_path": "tests/fixtures/phase1/backtest_input.csv",
+      "time_column": "Time",
+      "open_column": "Open",
+      "high_column": "High",
+      "low_column": "Low",
+      "close_column": "Close",
+      "volume_column": "Volume"
+    },
+    "predictor_config": {
+      "skip_predictor": true
+    }
+  },
+  "backtester": {
+    "selected_predictor": "X",
+    "condition_pairs": [
+      {
+        "entry": ["MA1"],
+        "exit": ["MA3"]
+      }
+    ],
+    "indicator_params": {
+      "MA1_strategy_1": {
+        "ma_type": "SMA",
+        "ma_range": "2:2:1"
+      },
+      "MA3_strategy_1": {
+        "ma_type": "SMA",
+        "ma_range": "2:2:1"
+      }
+    },
+    "trading_params": {
+      "transaction_cost": 0.0,
+      "slippage": 0.0,
+      "trade_delay": 0,
+      "trade_price": "close"
+    },
+    "export_config": {
+      "export_csv": true,
+      "export_excel": true
+    }
+  },
+  "metricstracker": {
+    "enable_metrics_analysis": false
+  }
+}

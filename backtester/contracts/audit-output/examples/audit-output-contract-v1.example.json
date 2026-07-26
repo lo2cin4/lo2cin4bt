@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "contract_id": "lo2cin4bt.audit-output.v1",
+  "placement_policy": {
+    "primary_result_artifacts": [
+      "backtest_parquet",
+      "metrics_parquet",
+      "wfa_parquet"
+    ],
+    "metadata_sidecar_suffix": "_metadata.json",
+    "audit_json_suffix": "_audit.json",
+    "audit_parquet_suffix": "_audit.parquet",
+    "audit_parquet_compression": "zstd",
+    "audit_json_inline_row_limit": 1000,
+    "audit_json_chunk_suffix": "_audit_rows_001.jsonl",
+    "machine_readable_detailed_audit": true
+  },
+  "summary_index_fields": [
+    "execution_plan_hash",
+    "feature_contract_path",
+    "feature_contract_hash",
+    "source_audit_id"
+  ],
+  "detailed_feature_audit_fields": [
+    "feature_field",
+    "source_id",
+    "source_uri",
+    "source_time",
+    "join_mode",
+    "value_origin",
+    "age_bars",
+    "was_filled",
+    "lag_applied",
+    "stale_flag"
+  ],
+  "ui_policy": {
+    "newbie_default_view": "summary_with_warnings",
+    "hide_detailed_audit_by_default": true,
+    "ai_reader_friendly": true
+  }
+}

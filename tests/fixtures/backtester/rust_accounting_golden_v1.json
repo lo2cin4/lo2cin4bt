@@ -1,0 +1,49 @@
+{
+  "schema_version": "rust_accounting_golden.v1",
+  "cases": [
+    {
+      "case_id": "full_rotation_without_cost",
+      "input": {
+        "config": {
+          "starting_equity": 100.0,
+          "cost_rate": 0.0,
+          "max_gross_exposure": 1.0,
+          "allow_short": false
+        },
+        "checkpoints": [
+          {"time": "2024-01-02", "returns": {}, "target_weights": {"AAA": 1.0}},
+          {"time": "2024-02-01", "returns": {"AAA": 0.1, "BBB": 0.0}, "target_weights": {"BBB": 1.0}}
+        ]
+      },
+      "expected": {
+        "final_equity": 110.0,
+        "active_rebalances": 2,
+        "turnover": [1.0, 2.0],
+        "cash_weight": [0.0, 0.0],
+        "gross_exposure": [1.0, 1.0]
+      }
+    },
+    {
+      "case_id": "fixed_weight_drift_rebalance_without_cost",
+      "input": {
+        "config": {
+          "starting_equity": 100.0,
+          "cost_rate": 0.0,
+          "max_gross_exposure": 1.0,
+          "allow_short": false
+        },
+        "checkpoints": [
+          {"time": "2024-01-02", "returns": {}, "target_weights": {"AAA": 0.6, "BBB": 0.4}},
+          {"time": "2024-02-01", "returns": {"AAA": 0.1, "BBB": 0.0}, "target_weights": {"AAA": 0.6, "BBB": 0.4}}
+        ]
+      },
+      "expected": {
+        "final_equity": 106.0,
+        "active_rebalances": 2,
+        "turnover": [1.0, 0.0452830188679245],
+        "cash_weight": [0.0, 0.0],
+        "gross_exposure": [1.0, 1.0]
+      }
+    }
+  ]
+}

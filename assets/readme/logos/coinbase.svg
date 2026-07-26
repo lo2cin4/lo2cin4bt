@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="32" viewBox="0 0 120 32" role="img" aria-label="Coinbase data source badge">
+  <rect width="120" height="32" rx="8" fill="#111827"/>
+  <rect x="0.5" y="0.5" width="119" height="31" rx="7.5" fill="none" stroke="#374151"/>
+  <circle cx="16" cy="16" r="6" fill="#0052FF"/>
+  <text x="30" y="21" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" fill="#F9FAFB">Coinbase</text>
+</svg>

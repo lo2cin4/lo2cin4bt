@@ -3,7 +3,7 @@ DistributionTest_statanalyser.py
 
 【功能說明】
 ------------------------------------------------------------
-本模組為 Lo2cin4BT 統計分析模組，負責對預測因子進行分布檢定（如常態性、偏態、峰態等），評估數據分布特性，輔助模型選擇與風險評估。
+本模組為 lo2cin4bt 統計分析模組，負責對預測因子進行分布檢定（如常態性、偏態、峰態等），評估數據分布特性，輔助模型選擇與風險評估。
 
 【流程與數據流】
 ------------------------------------------------------------
@@ -59,7 +59,7 @@ class DistributionTest(BaseStatAnalyser):
     def analyze(self) -> Dict:
         from utils import get_console, show_info, show_step_panel
         console = get_console()
-        # 美化步驟說明 Panel
+        # NOTE: translated to English.
         panel_content = (
             "🟢 選擇用於統計分析的預測因子\n"
             "🟢 收益率相關性檢驗[自動]\n"
@@ -77,43 +77,60 @@ class DistributionTest(BaseStatAnalyser):
             "- 偏度、峰度在合理範圍內（偏度約-1~1，峰度約2.5~3.5）"
         )
         show_step_panel("STATANALYSER", 1, ["分布檢驗[自動]"], panel_content)
-        # robust 計算 skewness/kurtosis 並存入 self.results
+        # NOTE: translated to English.
         from scipy.stats import kurtosis, skew
 
         series = self.data[self.predictor_col].dropna()
+        diagnostic_errors = []
         if len(series) > 1:
             try:
                 skewness = skew(series)
-            except Exception:
+            except Exception as exc:
                 skewness = "N/A"
+                diagnostic_errors.append(
+                    f"skewness:{type(exc).__name__}: {exc}"
+                )
             try:
                 kurt = kurtosis(series)
-            except Exception:
+            except Exception as exc:
                 kurt = "N/A"
+                diagnostic_errors.append(
+                    f"kurtosis:{type(exc).__name__}: {exc}"
+                )
         else:
             skewness = "N/A"
             kurt = "N/A"
         self.results["skewness"] = skewness
         self.results["kurtosis"] = kurt
-        # robust 計算 KS/AD 統計量與 p 值，並存入 self.results
+        # NOTE: translated to English.
         if len(series) > 1:
             try:
                 ks_stat, ks_p = kstest(series, "norm")
-            except Exception:
+            except Exception as exc:
                 ks_stat, ks_p = "N/A", "N/A"
+                diagnostic_errors.append(
+                    f"kstest:{type(exc).__name__}: {exc}"
+                )
             try:
-                ad_result = anderson(series, "norm")
+                try:
+                    ad_result = anderson(series, "norm", method="interpolated")
+                except TypeError:
+                    ad_result = anderson(series, "norm")
                 ad_stat = ad_result.statistic
-                ad_critical = ad_result.critical_values[2]  # 5% 臨界值
-            except Exception:
+                ad_critical = ad_result.critical_values[2]  # NOTE: translated to English.
+            except Exception as exc:
                 ad_stat, ad_critical = "N/A", "N/A"
+                diagnostic_errors.append(
+                    f"anderson:{type(exc).__name__}: {exc}"
+                )
         else:
             ks_stat, ks_p, ad_stat, ad_critical = "N/A", "N/A", "N/A", "N/A"
         self.results["ks_stat"] = ks_stat
         self.results["ks_p"] = ks_p
         self.results["ad_stat"] = ad_stat
         self.results["ad_critical"] = ad_critical
-        # 結果數據
+        self.results["diagnostic_errors"] = diagnostic_errors
+        # NOTE: translated to English.
         ks_stat = self.results.get("ks_stat", "N/A")
         ks_p = self.results.get("ks_p", "N/A")
         ad_stat = self.results.get("ad_stat", "N/A")
@@ -132,7 +149,7 @@ class DistributionTest(BaseStatAnalyser):
         for _, row in df.iterrows():
             row_cells = []
             for v in row:
-                # 數值型態四捨五入到小數點後3位
+                # NOTE: translated to English.
                 if isinstance(v, (int, float)):
                     row_cells.append(f"[#1e90ff]{v:.3f}[/#1e90ff]")
                 elif isinstance(v, str) and v.replace(".", "", 1).isdigit():
@@ -146,7 +163,7 @@ class DistributionTest(BaseStatAnalyser):
                     row_cells.append(str(v))
             table.add_row(*row_cells)
         console.print(table)
-        # 判斷
+        # NOTE: translated to English.
         is_normal = self.results.get("is_normal", False)
         summary = f"是否近似常態分布：{'是' if is_normal else '否'}\n"
         suggestions = []

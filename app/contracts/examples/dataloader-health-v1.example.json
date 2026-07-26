@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "contract_id": "lo2cin4bt-app-dataloader-health-v1",
+  "run_id": "20260414_b7c3d8129f4a",
+  "source_list": [
+    {"source_id": "price", "uri": "yfinance:SPY", "join_mode": "primary"},
+    {"source_id": "vix", "uri": "workspace/datasets/vix_yfinance_daily.csv", "join_mode": "asof"},
+    {"source_id": "breadth", "uri": "workspace/datasets/BREADTH.csv", "join_mode": "left"}
+  ],
+  "primary_source": "price",
+  "missing_ratio": 0.0,
+  "audit_available": true,
+  "fill_ratio": 0.008,
+  "stale_ratio": 0.031,
+  "max_age_bars": 1,
+  "join_mode": "mixed",
+  "calendar_policy": "primary_market_calendar",
+  "source_audit_id": "audit_6f331f4a",
+  "warnings": ["breadth uses explicit dayfirst parsing"],
+  "errors": []
+}

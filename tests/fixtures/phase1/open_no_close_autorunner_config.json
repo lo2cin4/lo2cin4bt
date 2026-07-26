@@ -1,0 +1,55 @@
+{
+  "_version": "1.0.0",
+  "_description": "Deterministic regression: open-only path where the exit window never becomes available.",
+  "dataloader": {
+    "source": "file",
+    "frequency": "1D",
+    "start_date": "2020-01-01",
+    "file_config": {
+      "file_path": "tests/fixtures/smoke/price_data_ma_cross.csv",
+      "time_column": "time",
+      "time_format": "%Y-%m-%d",
+      "open_column": "open",
+      "high_column": "high",
+      "low_column": "low",
+      "close_column": "close",
+      "volume_column": "volume"
+    },
+    "predictor_config": {
+      "skip_predictor": true
+    }
+  },
+  "backtester": {
+    "selected_predictor": "X",
+    "condition_pairs": [
+      {
+        "entry": ["MA1"],
+        "exit": ["MA2"]
+      }
+    ],
+    "indicator_params": {
+      "MA1_strategy_1": {
+        "ma_type": "SMA",
+        "ma_range": "2:2:1"
+      },
+      "MA2_strategy_1": {
+        "ma_type": "SMA",
+        "ma_range": "100:100:1"
+      }
+    },
+    "trading_params": {
+      "transaction_cost": 0.0,
+      "slippage": 0.0,
+      "trade_delay": 0,
+      "trade_price": "open"
+    },
+    "export_config": {
+      "export_csv": false,
+      "export_excel": false
+    },
+    "initial_capital": 1000000
+  },
+  "metricstracker": {
+    "enable_metrics_analysis": false
+  }
+}

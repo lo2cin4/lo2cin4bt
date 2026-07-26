@@ -1,0 +1,57 @@
+{
+  "schema_version": "wfa_run",
+  "strategy_run_path": "workspace/runs/strategy-run-qqq-yfinance-daily-sma-cross-matrix-example.json",
+  "engine": "unified_portfolio_wfa",
+  "platform": {
+    "workflow_id": "walk_forward_analysis",
+    "created_at": "2026-06-17",
+    "run_type": "example",
+    "is_default": true,
+    "display_label": "QQQ | Daily SMA Cross | yfinance"
+  },
+  "windowing": {
+    "mode": "rolling",
+    "size_mode": "ratio",
+    "target_window_count": 6,
+    "train_ratio": 0.6,
+    "test_ratio": 0.2,
+    "step_size": 126
+  },
+  "optimizer": {
+    "type": "grid",
+    "objectives": ["sharpe", "calmar"],
+    "primary_objective": "sharpe",
+    "candidate_limit": 60,
+    "random_seed": 42,
+    "selection_constraints": {
+      "enabled": true,
+      "min_is_active_rebalances": 2,
+      "min_is_exposure_ratio": 0.05,
+      "min_is_nonzero_return_days": 5,
+      "max_lookback_fraction_of_train": 0.45
+    }
+  },
+  "acceptance": {
+    "require_positive_oos": true,
+    "min_oos_sharpe": 0.0,
+    "min_oos_calmar": 0.0,
+    "min_oos_is_ratio": 0.7
+  },
+  "outputs": {
+    "selected_optimum": true,
+    "candidate_diagnostics": true,
+    "window_backtests": true
+  },
+  "metadata": {
+    "example": true,
+    "local_research_only": true,
+    "strategy_id": "qqq_daily_sma_cross_wfa_yfinance_example",
+    "notes": [
+      "Workflow example that references the reusable QQQ daily SMA cross strategy_run in workspace/runs.",
+      "This file defines validation workflow settings only; the strategy structure stays in the referenced strategy_run config.",
+      "Uses the unified portfolio WFA runtime and samples up to 60 parameter candidates deterministically.",
+      "Acceptance gates and selected optimum outputs are research diagnostics only.",
+      "This example does not certify profitability, live trading, full WFA pass, broker readiness, tradability, or investment advice."
+    ]
+  }
+}
