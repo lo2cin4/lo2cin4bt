@@ -43,7 +43,7 @@ flowchart LR
   RustOps --> Request["引擎請求（EngineRequest）<br/>統一執行契約"]
   Request --> Accounting["Rust 逐期記帳<br/>現金 / 持倉 / 費用 / 資金曲線"]
   Accounting --> Artifacts["受管產物（managed artifacts）<br/>指標 / 資金曲線 / 持倉 / 稽核"]
-  Artifacts --> UI["指標總覽 / 回測詳情<br/>使用者介面（UI）"]
+  Artifacts --> UI["指標總覽 / 回測詳情<br/>用戶介面（UI）"]
           </pre>
           <p class="diagram-caption">
             指標、訊號、排名、權重、成交與記帳都由 Rust 正式路線處理；Python 只驗證輸入、載入資料與協調流程。

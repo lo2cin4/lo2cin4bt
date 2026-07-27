@@ -45,7 +45,7 @@ flowchart LR
 <tr><td>總報酬（Total Return）</td><td>整段回測的累積報酬，由期末資金曲線（equity）相對初始資金計算。</td><td>顯示策略在回測期的總盈虧。</td><td>單一數字不能證明穩健；高總報酬可能來自單一暴露、尾端行情或過度調參。</td><td>單資產多反映持有／空倉節奏；多資產受配置（allocation）、再平衡及資產貢獻（asset contribution）共同影響。</td></tr>
 <tr><td>年化複合成長率（CAGR）</td><td>把整段總報酬換算成每年複利增長。</td><td>用來比較不同期間長度的策略。</td><td>短樣本數值容易誇大；不到完整市場週期要保守。</td><td>多資產要和曝險（exposure）、換手率（turnover）、比較基準（benchmark）一起看。</td></tr>
 <tr><td>夏普比率（Sharpe）</td><td>以總波動衡量的風險調整報酬。</td><td>數值越高，代表每承受一單位波動取得的報酬越高。</td><td>夏普比率不能描述尾部風險與回報路徑。</td><td>多資產分散（diversification）可能降低波動，但要確認不是假分散。</td></tr>
-<tr><td>最大回撤（Max Drawdown / MDD）</td><td>資金曲線（equity）從歷史高點到低點的最大跌幅。</td><td>衡量資金壓力與使用者能否承受策略。</td><td>低最大回撤不代表未來低風險；可能是樣本短或長期空倉。</td><td>多資產要搭配配置變化（allocation changes）尋找回撤來源。</td></tr>
+<tr><td>最大回撤（Max Drawdown / MDD）</td><td>資金曲線（equity）從歷史高點到低點的最大跌幅。</td><td>衡量資金壓力與用戶能否承受策略。</td><td>低最大回撤不代表未來低風險；可能是樣本短或長期空倉。</td><td>多資產要搭配配置變化（allocation changes）尋找回撤來源。</td></tr>
 <tr><td>卡瑪比率（Calmar）</td><td><code>CAGR / abs(Max Drawdown)</code>。</td><td>用回撤（drawdown）衡量報酬品質。</td><td>最大回撤很小時，卡瑪比率會被放大。</td><td>多資產若靠低曝險壓低回撤，要同時看平均曝險（Avg Exposure）。</td></tr>
 <tr><td>比較基準報酬（Benchmark Return）</td><td>指定比較基準或推導比較基準的同期間報酬。</td><td>回答「持有比較基準會得到甚麼結果」。</td><td>錯誤比較基準會扭曲策略比較。</td><td>單資產可推導同資產買入持有（same-symbol buy-and-hold）；多資產要在設定檔（config）指定比較基準。</td></tr>
 <tr><td>超額報酬（Excess Return）</td><td>策略報酬減比較基準報酬。</td><td>判斷策略是否超越比較基準。</td><td>忽略回撤、換手率與成本會高估可用性。</td><td>多資產要確認比較基準能代表投資目標。</td></tr>

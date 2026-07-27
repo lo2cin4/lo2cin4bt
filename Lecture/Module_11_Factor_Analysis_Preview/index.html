@@ -9,7 +9,7 @@
   <ul>
     <li><code>strategy_run.factor_pipeline</code> 可描述因子資料處理。</li>
     <li><code>factorhandler/</code> 可產生及匯出獨立因子研究產物。</li>
-    <li><code>statanalyser/</code> 可按使用者要求，對已生成資料做統計診斷。</li>
+    <li><code>statanalyser/</code> 可按用戶要求，對已生成資料做統計診斷。</li>
   </ul>
 
   <h2>它不代表甚麼</h2>
@@ -24,7 +24,7 @@
 flowchart LR
   Result["已驗證標準結果包<br/>CanonicalResultBundle"] --> Metrics["Rust 指標 + 繪圖資料包<br/>PlotBundle"]
   Metrics --> UI["正式 React 結果頁"]
-  Result -. "使用者選擇診斷" .-> Diagnostics["可選因子／統計診斷"]
+  Result -. "用戶選擇診斷" .-> Diagnostics["可選因子／統計診斷"]
   Diagnostics -.-> OptionalAPI["可選應用程式介面資料<br/>目前無專屬 React 路由"]
   </pre></section>
 

@@ -273,7 +273,7 @@ const lectureGlossaryTerms = [
     key: "factor-diagnostics",
     label: "因子診斷（factor diagnostics）",
     aliases: ["因子診斷（factor diagnostics）", "可選因子診斷"],
-    definition: "用統計方法檢查因子資料的分布、關係及研究訊號。它是使用者選擇的研究工具，不是每次回測或前端報告的必經步驟。",
+    definition: "用統計方法檢查因子資料的分布、關係及研究訊號。它是用戶選擇的研究工具，不是每次回測或前端報告的必經步驟。",
   },
   {
     key: "diagnostic-payload",

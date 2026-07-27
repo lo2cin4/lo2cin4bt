@@ -10,26 +10,26 @@ Version policy follows `MAJOR.MINOR.PATCH`:
 
 ## 2.1.0 - Unified Rust Research Runtime
 
-Release date: 2026-07-22.
+Release date: 2026-07-27.
 
 ### 繁體中文
 
-本版本完成 2.0 beta 開始的 Rust 架構升級，並把重點放在回測可信度、執行速度及使用體驗。以下內容以使用者可感受到的改變為主。
+本版本完成 2.0 beta 開始的 Rust 架構升級，並把重點放在回測可信度、執行速度及使用體驗。以下內容以用戶可感受到的改變為主。
 
 #### 主要升級
 
 - **所有受支援策略改用同一個 Rust 回測核心。** 單次回測、參數矩陣（Parameter Matrix）、前向分析（WFA）及滾動驗證不再各走不同程式路線，結果更一致，新策略亦更容易加入平台。
-- **增加可重用的策略積木及技術指標。** 使用者可以組合選股、擇時、資產配置、日曆事件、配對／價差、多腿事件、多空輪動，以及 EMA、RSI、MACD、布林通道、波動率和標準分數等條件。
-- **增加月度多空輪動能力。** 平台可以按排名同時買入強勢資產及賣空弱勢資產，控制總曝險與淨曝險，並把借貨成本計入回測。
-- **增加八個公開內建策略範例。** 新使用者可以直接試用 QQQ 均線穿越、BTC 日曆效應、月度避險、配對價差、選股擇時、板塊多空輪動、動能輪動及固定配置，不必由空白設定開始。
-- **增加一鍵截圖匯出。** 使用者可以一次保存資金曲線、策略表、參數矩陣、回測摘要、風險診斷、再平衡、資產貢獻及配置變化，方便研究記錄與分享。
-- **增加中文先行的互動課程及專案 AI 技能（Skill）。** 新使用者可以跟隨學習路線理解回測、指標、前向分析和執行中心，也可以讓 AI 協助建立設定及解讀結果。
+- **增加可重用的策略積木及技術指標。** 用戶可以組合選股、擇時、資產配置、日曆事件、配對／價差、多腿事件、多空輪動，以及 EMA、RSI、MACD、布林通道、波動率和標準分數等條件。
+- **增加月度多空輪動能力。** 回測時可以按排名買入強勢資產、賣空弱勢資產，控制總曝險與淨曝險，並把借貨成本計入回測。
+- **增加八個公開內建策略範例。** 用戶可以試用 QQQ 均線穿越、BTC 日曆效應、月度避險、配對價差、選股擇時、板塊多空輪動、動能輪動與固定配置策略。
+- **增加一鍵截圖匯出。** 用戶可以一次保存資金曲線、策略表、參數矩陣、回測摘要、風險診斷、再平衡、資產貢獻及配置變化，方便研究記錄與分享。
+- **增加中文先行的互動課程及專案 AI 技能（Skill）。** 用戶可以跟隨學習路線理解回測、指標、前向分析和執行中心，也可以讓 AI 協助建立設定及解讀結果。
 
 #### 體驗改善
 
-- **前端統一由 `http://127.0.0.1:2424/` 提供。** 使用者不再需要判斷應該開啟哪一個開發伺服器或連接埠，所有正式頁面都使用同一條啟動路線。
+- **前端統一由 `http://127.0.0.1:2424/` 提供。** 用戶不再需要判斷應該開啟哪一個開發伺服器或連接埠，所有正式頁面都使用同一條啟動路線。
 - **大型參數矩陣的工作排程已改良。** 大型工作不再長時間佔用全部容量，其他較小回測可以獲得執行機會，而完整候選結果仍會按設定保留。
-- **策略名稱及摘要改為從標準設定產生。** 回測清單會顯示日期、資產、策略概念、工作流程及簡短執行識別碼，使用者更容易分辨不同結果。
+- **策略名稱及摘要改為從標準設定產生。** 回測清單會顯示日期、資產、策略概念、工作流程及簡短執行識別碼，用戶更容易分辨不同結果。
 - **回測輸出及刪除流程已統一。** 刪除一個回測時，平台會一併清除相關狀態、圖表、截圖及審閱產物，避免舊資料繼續出現在前端。
 - **交易時間及成本假設已標準化。** 收市後確認的訊號會在下一個合資格時段執行，公開範例亦統一使用 `0.1%` 交易費率，減少前視偏差及過度樂觀的結果。
 
@@ -40,14 +40,14 @@ Release date: 2026-07-22.
 - **修正策略比較的預設顯示。** 比較頁預設顯示首三名策略，資金曲線預設只顯示一個策略，避免大量線條令圖表難以閱讀。
 - **修正參數矩陣、熱圖及前向分析頁面的空白與排版問題。** 候選資料、熱圖及 WFA 結果可以正常顯示，長名稱、卡片和表格亦不再超出畫面。
 - **修正前向分析重複計算相同樣本外（OOS）區間。** 相同測試只會執行一次並由相關候選共用，保留原有結果內容之餘縮短等候時間。
-- **修正長頁面截圖出現半透明白帶。** 匯出的指標及配置截圖現在會保持一致背景，不再在分段位置出現白霧。
+- **修正長頁面截圖問題。** 匯出的指標及配置截圖現在會保持一致背景，不再在分段位置出現顯示問題。
 
 #### 架構整理與驗收
 
 - **移除已由 Rust 取代的 Python 回測器、舊設定映射及策略專屬執行路線。** 平台不再同時維護兩套會產生不同結果的回測邏輯，舊設定及舊結果需要按 2.1 格式重新執行。
 - **所有結果增加強制驗證關卡。** 未通過資料、帳務及結果完整性檢查的回測不會交給績效頁或前端，降低錯誤結果被當成有效研究證據的風險。
 - **更新黃金測試（golden test）及完整驗收套件。** 測試現已覆蓋前視偏差、固定排序、帳務、借貨成本、介面合約、前端頁面及乾淨環境回測，讓後續改動更容易發現結果退化。
-- **公開版本移除私人策略、回測結果、生成輸出及內部維護資料。** GitHub 使用者只會取得產品所需的程式、範例和文件，不會包含擁有者的私人研究內容。
+- **公開版本移除私人策略、回測結果、生成輸出及內部維護資料。** GitHub 用戶只會取得產品所需的程式、範例和文件，不會包含擁有者的私人研究內容。
 - **本版本仍定位為本機研究軟體。** 平台不會向券商提交訂單，也不會把任何回測結果視為實盤交易授權。
 
 ### English
@@ -58,8 +58,8 @@ This release completes the Rust architecture upgrade started in the 2.0 beta, wi
 
 - **All supported strategies now use one shared Rust backtest engine.** Single backtests, Parameter Matrix, WFA, and rolling validation no longer follow separate execution paths, producing more consistent results and making new strategies easier to add.
 - **Reusable strategy building blocks and technical indicators were added.** Users can combine selection, timing, allocation, calendar events, pair/spread, multi-leg, and long/short rotation logic with EMA, RSI, MACD, Bollinger Bands, volatility, z-score, and other fields.
-- **Monthly long/short rotation is now supported.** The platform can buy stronger assets and short weaker assets from the same ranking, control gross and net exposure, and include borrow costs in the backtest.
-- **Eight public built-in strategy examples were added.** New users can start with QQQ moving-average cross, BTC calendar effects, monthly hedging, pair spread, selection/timing, sector long/short rotation, momentum rotation, and fixed allocation instead of writing a config from scratch.
+- **Monthly long/short rotation is now supported.** Backtests can rank assets, buy the strongest, short the weakest, control gross and net exposure, and include borrow costs.
+- **Eight public built-in strategy examples were added.** Users can try QQQ moving-average cross, BTC calendar effects, monthly hedging, pair spread, selection/timing, sector long/short rotation, momentum rotation, and fixed-allocation strategies.
 - **One-click screenshot export was added.** Users can save equity curves, strategy lists, parameter matrices, summaries, risk diagnostics, rebalances, asset contributions, and allocation changes in one action.
 - **A Chinese-first interactive Lecture and project AI Skills were added.** New users can follow a guided path through backtests, metrics, WFA, and Run Center, or ask AI to help create configs and interpret results.
 
@@ -78,7 +78,7 @@ This release completes the Rust architecture upgrade started in the 2.0 beta, wi
 - **Default strategy comparison views were fixed.** The comparison page shows the top three strategies by default and the equity chart starts with one strategy, reducing visual clutter.
 - **Blank and overflowing Parameter Matrix, heatmap, and WFA panels were fixed.** Candidate data, heatmaps, and WFA results now render correctly, while long names, cards, and tables stay inside the layout.
 - **Repeated WFA work for identical out-of-sample windows was fixed.** Matching candidates now share one OOS calculation, preserving the same outputs while reducing waiting time.
-- **Translucent white bands in long-page screenshots were fixed.** Exported metric and allocation images now keep a consistent background across capture boundaries.
+- **Long-page screenshot issues were fixed.** Exported metric and allocation images now keep a consistent background across capture boundaries.
 
 #### Architecture Cleanup And Validation
 

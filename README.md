@@ -16,7 +16,7 @@ lo2cin4bt 是由 lo2cin4 使用 AI 建立的量化策略回測框架。你只需
 
 ## ✨ 為何使用 lo2cin4bt
 
-- **開源可檢查**：使用者可以檢查框架怎樣處理資料、訊號與回測結果。
+- **開源可檢查**：用戶可以檢查框架怎樣處理資料、訊號與回測結果。
 - **本機研究**：資料與策略研究留在自己的電腦，不需要先上雲端。
 - **新手友善流程**：先把想法交給 AI，再由 AI 建立工作區設定，最後在瀏覽器檢查結果。
 - **回測與視覺化一體化**：單次回測、參數矩陣、前向分析（Walk-Forward Analysis，WFA）與結果頁都屬於同一條本機流程。
@@ -144,7 +144,7 @@ git pull
 - **參數矩陣與前向分析**：Python 負責展開參數候選、切分前向分析（WFA）時段及安排工作；每一個候選回測仍會進入同一個 Rust 核心。Rust 未支援的策略形狀會報錯，不會暗中改用 Python 回測。
 - **兩者的連接方式**：`backtester/RustCoreBridge_backtester.py` 管理專案固定的持續 Rust 引擎服務（persistent Rust engine service）`engine_service_cli`，並透過 JSON 與 Parquet 格式的資料合約（data contract）交換資料。
 
-對使用者而言，完整流程是：向 AI 說出策略 → Python 檢查設定、載入資料及安排工作 → Rust 執行回測、驗證結果及計算績效 → Python 保存結果並交給瀏覽器顯示。
+對用戶而言，完整流程是：向 AI 說出策略 → Python 檢查設定、載入資料及安排工作 → Rust 執行回測、驗證結果及計算績效 → Python 保存結果並交給瀏覽器顯示。
 
 目前支援的正式路徑不需要額外安裝 PyO3、maturin 或 Python 擴充套件檔（extension wheel）。
 
