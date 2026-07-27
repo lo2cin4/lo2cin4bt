@@ -3,10 +3,10 @@
 <body><div class="layout"><aside class="sidebar"><div class="brand"><strong>lo2cin4bt 教學</strong><span>模組 05</span></div><input class="search" data-search placeholder="搜尋課程"><nav class="nav-list" data-nav></nav></aside>
 <main class="content"><article class="module">
   <p class="kicker">模組 05</p><h1>策略語義與策略組件（Strategy Building Blocks）</h1>
-  <p>使用者可以用日常語句描述策略。人工智能（AI）要把概念拆成資料來源、指標、訊號、選股、配置、成交、風控及驗證規則，再核對每項規則是否有對應的策略組件（building block）。能力判斷（capability verdict）會說明策略可建立、需要補充資料，還是需要開發新組件。</p>
+  <p>用戶可以用日常語句描述策略。人工智能（AI）要把概念拆成資料來源、指標、訊號、選股、配置、成交、風控及驗證規則，再核對每項規則是否有對應的策略組件（building block）。能力判斷（capability verdict）會說明策略可建立、需要補充資料，還是需要開發新組件。</p>
   <section class="mermaid-panel"><h2>由概念到執行</h2><pre class="mermaid">
 flowchart LR
-  User["使用者策略概念"] --> Verdict["能力判斷"]
+  User["用戶策略概念"] --> Verdict["能力判斷"]
   Verdict -->|支援 supported| DSL["策略設定語言<br/>Strategy Config DSL"]
   Verdict -->|需要釐清 needs clarification| Questions["補足可觀察規則"]
   Verdict -->|不支援 unsupported| Build["新增組件與測試"]
