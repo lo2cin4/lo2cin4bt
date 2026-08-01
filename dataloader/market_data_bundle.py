@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Mapping, Sequence
 
+import numpy as np
 import pandas as pd
 from jsonschema import Draft202012Validator  # type: ignore[import-untyped]
 
@@ -37,6 +38,7 @@ _TIMESTAMP_COLUMNS = (
     "available_timestamp",
 )
 _BARS = ("open", "high", "low", "close", "volume")
+_OHLC_ENVELOPE_MAX_ULPS = 8.0
 _TABLE_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 _SCHEMA_PATH = (
     Path(__file__).resolve().parents[1]
@@ -768,7 +770,12 @@ def _validate_ohlcv_tables(
         numeric = frame.apply(pd.to_numeric, errors="coerce")
         if numeric.isna().any().any():
             raise ValueError(f"MarketDataBundle {name} table contains missing values")
-        invalid = numeric.lt(0.0) if name == "volume" else numeric.le(0.0)
+        invalid = ~np.isfinite(numeric.to_numpy(dtype=np.float64))
+        invalid |= (
+            numeric.lt(0.0).to_numpy()
+            if name == "volume"
+            else numeric.le(0.0).to_numpy()
+        )
         if invalid.any().any():
             raise ValueError(f"MarketDataBundle {name} table contains invalid values")
     open_ = frames["open"].apply(pd.to_numeric, errors="coerce")
@@ -776,15 +783,36 @@ def _validate_ohlcv_tables(
     low = frames["low"].apply(pd.to_numeric, errors="coerce")
     close = frames["close"].apply(pd.to_numeric, errors="coerce")
     if (
-        high.lt(open_).any().any()
-        or high.lt(close).any().any()
-        or low.gt(open_).any().any()
-        or low.gt(close).any().any()
-        or high.lt(low).any().any()
+        _violates_ohlcv_minimum(high, open_)
+        or _violates_ohlcv_minimum(high, close)
+        or _violates_ohlcv_minimum(open_, low)
+        or _violates_ohlcv_minimum(close, low)
+        or _violates_ohlcv_minimum(high, low)
     ):
         raise ValueError(
             "MarketDataBundle OHLCV price relationships are invalid"
         )
+
+
+def _violates_ohlcv_minimum(
+    actual: pd.DataFrame,
+    minimum: pd.DataFrame,
+) -> bool:
+    """Return whether ``actual >= minimum`` fails beyond float round-off.
+
+    The allowance is eight float64 units in the last place (ULPs) at the
+    larger absolute operand.  This makes the comparison scale-aware and
+    symmetric without accepting a fixed monetary error or provider-specific
+    exception.  Non-finite values always violate the relationship.
+    """
+
+    actual_values = actual.to_numpy(dtype=np.float64)
+    minimum_values = minimum.to_numpy(dtype=np.float64)
+    finite = np.isfinite(actual_values) & np.isfinite(minimum_values)
+    scale = np.maximum(np.abs(actual_values), np.abs(minimum_values))
+    tolerance = _OHLC_ENVELOPE_MAX_ULPS * np.spacing(scale)
+    violation = (~finite) | ((minimum_values - actual_values) > tolerance)
+    return bool(violation.any())
 
 
 def _validate_session_windows(

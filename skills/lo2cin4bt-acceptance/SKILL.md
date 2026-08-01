@@ -1,7 +1,7 @@
 ---
 name: lo2cin4bt-acceptance
 description: Repo-local acceptance skill for lo2cin4bt. Use when checking whether a deliverable satisfies the user request, repo contracts, skills, public/GitHub boundary, tests, stale docs, forbidden paths, and no-trading-advice disclaimers.
-version: 2.2.0
+version: 2.2.1
 status: active
 category: auditor
 use_when:

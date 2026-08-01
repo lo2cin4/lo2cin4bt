@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-RELEASE_VERSION = "2.2.0"
+RELEASE_VERSION = "2.2.1"
 LICENSE_ID = "CC-BY-NC-4.0"
 UV_VERSION = "0.11.32"
 RETIRED_REQUIREMENTS_FILES = (

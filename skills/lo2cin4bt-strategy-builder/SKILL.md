@@ -1,7 +1,7 @@
 ---
 name: lo2cin4bt-strategy-builder
 description: Repo-local strategy builder skill for lo2cin4bt. Use when converting plain-language strategy ideas into supported, needs-clarification, or unsupported verdicts, and when drafting strategy run or WFA configs from Strategy Building Blocks.
-version: 2.2.0
+version: 2.2.1
 status: active
 category: workflow
 use_when:

@@ -1,4 +1,4 @@
-# Troubleshooting lo2cin4bt 2.2.0
+# Troubleshooting lo2cin4bt 2.2.1
 
 Use this for current browser-first lo2cin4bt.
 

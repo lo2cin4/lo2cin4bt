@@ -56,7 +56,7 @@ def create_app(repo_root: Path) -> FastAPI:
     mimetypes.add_type("font/ttf", ".ttf")
     mimetypes.add_type("font/woff2", ".woff2")
     service = AppAPIService(repo_root)
-    app = FastAPI(title="lo2cin4bt App API", version="2.2.0")
+    app = FastAPI(title="lo2cin4bt App API", version="2.2.1")
     app.state.app_service = service
     app.add_middleware(
         CORSMiddleware,

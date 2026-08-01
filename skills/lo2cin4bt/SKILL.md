@@ -1,7 +1,7 @@
 ---
 name: lo2cin4bt
 description: Operate, teach, and troubleshoot the lo2cin4bt quantitative research/backtesting repo. Use when Codex needs to install or launch lo2cin4bt, create or review strategy run or WFA configs, run local backtests, Parameter Matrix, WFA or rolling validation, explain frontend metrics/artifacts/AI-readable packs, or recover beginner setup/runtime issues while respecting repo-only evidence and no-live-trading boundaries.
-version: 2.2.0
+version: 2.2.1
 status: active
 category: workflow
 use_when:

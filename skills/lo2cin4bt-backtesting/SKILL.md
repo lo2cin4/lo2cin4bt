@@ -1,7 +1,7 @@
 ---
 name: lo2cin4bt-backtesting
 description: Repo-local backtesting skill for lo2cin4bt. Use when running or troubleshooting local strategy_run, Parameter Matrix, WFA, rolling validation, Run Center discovery, frontend startup, payload refresh, screenshots, or generated artifacts.
-version: 2.2.0
+version: 2.2.1
 status: active
 category: workflow
 use_when:

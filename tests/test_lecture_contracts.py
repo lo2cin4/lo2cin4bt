@@ -403,7 +403,7 @@ def test_lecture_has_no_retired_flat_time_fields_or_old_release_label() -> None:
     assert "lo2cin4bt 2.1.0" not in lecture_text
     assert '"frequency"' not in lecture_text
     assert "頻率（frequency）" not in lecture_text
-    assert "lo2cin4bt 2.2.0" in lecture_text
+    assert "lo2cin4bt 2.2.1" in lecture_text
     assert "run_failure.v1" in lecture_text
 
 

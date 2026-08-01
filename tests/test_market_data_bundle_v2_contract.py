@@ -196,12 +196,79 @@ def test_daily_bundle_rejects_subdaily_physical_index_before_normalization(
         )
 
 
-def test_bundle_rejects_invalid_ohlcv_price_relationships(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("field", "related_field", "offset"),
+    [
+        ("open", "high", 0.01),
+        ("close", "high", 0.01),
+        ("open", "low", -0.01),
+        ("close", "low", -0.01),
+    ],
+)
+def test_bundle_rejects_materially_invalid_ohlcv_price_relationships(
+    tmp_path: Path,
+    field: str,
+    related_field: str,
+    offset: float,
+) -> None:
     data = _daily_data()
-    frames = dict(data.frames)
-    frames["open"] = frames["high"] + 1.0
+    frames = {name: frame.copy() for name, frame in data.frames.items()}
+    frames[field].iloc[0, 0] = frames[related_field].iloc[0, 0] + offset
 
     with pytest.raises(ValueError, match="OHLCV price relationships"):
+        build_market_data_bundle(
+            ExternalMarketData(
+                frames=frames,
+                execution_stream=data.execution_stream,
+                execution_timeline=data.execution_timeline,
+                session_windows=data.session_windows,
+            ),
+            spec=_spec(),
+            output_root=tmp_path,
+        )
+
+
+@pytest.mark.parametrize(
+    ("symbol", "row", "high_value", "close_value"),
+    [
+        ("QQQ", 0, 60.26078796386718, 60.26078796386719),
+        ("SQQQ", 1, 255372.01562499997, 255372.015625),
+    ],
+)
+def test_bundle_accepts_adjusted_ohlcv_one_ulp_rounding(
+    tmp_path: Path,
+    symbol: str,
+    row: int,
+    high_value: float,
+    close_value: float,
+) -> None:
+    data = _daily_data()
+    frames = {name: frame.copy() for name, frame in data.frames.items()}
+    frames["open"].iloc[row, frames["open"].columns.get_loc(symbol)] = high_value - 1.0
+    frames["high"].iloc[row, frames["high"].columns.get_loc(symbol)] = high_value
+    frames["low"].iloc[row, frames["low"].columns.get_loc(symbol)] = high_value - 2.0
+    frames["close"].iloc[row, frames["close"].columns.get_loc(symbol)] = close_value
+
+    bundle = build_market_data_bundle(
+        ExternalMarketData(
+            frames=frames,
+            execution_stream=data.execution_stream,
+            execution_timeline=data.execution_timeline,
+            session_windows=data.session_windows,
+        ),
+        spec=_spec(),
+        output_root=tmp_path,
+    )
+
+    assert bundle.read_manifest()["row_count"] == 2
+
+
+def test_bundle_rejects_non_finite_ohlcv_value(tmp_path: Path) -> None:
+    data = _daily_data()
+    frames = {name: frame.copy() for name, frame in data.frames.items()}
+    frames["high"].iloc[0, 0] = float("inf")
+
+    with pytest.raises(ValueError, match="high table contains invalid values"):
         build_market_data_bundle(
             ExternalMarketData(
                 frames=frames,

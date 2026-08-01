@@ -1,4 +1,4 @@
-# Troubleshooting lo2cin4bt 2.2.0
+# Troubleshooting lo2cin4bt 2.2.1
 
 This is the current browser-first troubleshooting guide. The app runs through
 FastAPI + React at `http://127.0.0.1:2424/`.

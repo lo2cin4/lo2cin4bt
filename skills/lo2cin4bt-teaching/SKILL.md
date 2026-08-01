@@ -1,7 +1,7 @@
 ---
 name: lo2cin4bt-teaching
 description: Repo-local teaching skill for lo2cin4bt. Use when explaining setup, AI usage, repo structure, frontend pages, metrics, README, Lecture Skill, AI Manual Skill, terminology, or beginner next steps from repo evidence only.
-version: 2.2.0
+version: 2.2.1
 status: active
 category: workflow
 use_when:

@@ -1,6 +1,6 @@
 [project]
 name = "lo2cin4bt"
-version = "2.2.0"
+version = "2.2.1"
 description = "Browser-first quantitative research, backtesting, parameter-matrix, and WFA workspace."
 readme = "README.md"
 requires-python = ">=3.12"

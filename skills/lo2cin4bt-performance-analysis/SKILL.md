@@ -1,7 +1,7 @@
 ---
 name: lo2cin4bt-performance-analysis
 description: Repo-local performance analysis skill for lo2cin4bt. Use when explaining generated metrics, equity curves, drawdowns, trades, rebalances, costs, slippage, benchmarks, Parameter Matrix, WFA, missing fields, and claims that require independent quantitative risk review.
-version: 2.2.0
+version: 2.2.1
 status: active
 category: reference-backed
 use_when:

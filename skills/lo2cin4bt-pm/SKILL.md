@@ -1,7 +1,7 @@
 ---
 name: lo2cin4bt-pm
 description: Repo-local PM routing skill for lo2cin4bt. Use when ProjectManager must classify a request, assign one lo2cin4btWorkAgent, select the required task skills, enforce the current runtime architecture and safety boundaries, and identify out-of-scope work.
-version: 2.2.0
+version: 2.2.1
 status: active
 category: workflow
 use_when:

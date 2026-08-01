@@ -8,6 +8,20 @@ Version policy follows `MAJOR.MINOR.PATCH`:
 - MINOR: meaningful user-facing feature changes.
 - MAJOR: large compatibility-breaking changes.
 
+## 2.2.1 - Adjusted Price Data Validation Fix
+
+Release date: 2026-08-01.
+
+### 繁體中文
+
+- **經調整價格可以正常載入。** 使用 yfinance 的股息及拆股調整價格時，極微小的數值誤差不再被誤判為不合法，相關回測可以正常開始。
+- **資料品質檢查仍然嚴格。** 真正不符合開高低收關係、缺失或無效的價格資料仍會令回測停止並顯示錯誤。
+
+### English
+
+- **Adjusted prices now load correctly.** Tiny numerical differences in yfinance dividend- and split-adjusted prices are no longer mistaken for invalid data, so affected backtests can start normally.
+- **Data-quality checks remain strict.** Prices with genuinely invalid open-high-low-close relationships, missing values, or invalid values still stop the backtest with an error.
+
 ## 2.2.0 - Intraday And Multi-Timeframe Research
 
 Release date: 2026-07-31.
