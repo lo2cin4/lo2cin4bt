@@ -42,7 +42,7 @@ Release date: 2026-07-31.
 
 - **Python 安裝及執行統一改用 uv。** 一個 `uv.lock` 會鎖定正式依賴；安裝、啟動、測試及診斷都使用相同環境，減少缺少套件、不同電腦安裝出不同版本及舊虛擬環境互相影響的問題。
 - **更新執行中心、參數矩陣及前向分析圖片。** README、互動課程、疑難排解、專案 AI 技能及代理說明亦已按分鐘回測、資料來源限制及新版畫面同步更新。
-- **公開前檢查更完整。** 發布流程會確認正式產品已提交、沒有遺漏新檔案，並分別檢查來源、外部複本及準備提交的檔案；Company 工作區不會被設成產品 GitHub 遠端。
+- **公開前檢查更完整。** 正式產品現在直接使用獨立的 `Repo` Git 倉庫；發布流程會核對乾淨的 `main`、指定的 GitHub 遠端、最新遠端歷史、公開檔案及 Company 子模組指標。Company 本身不會被設成產品 GitHub 遠端。
 
 #### 使用提醒
 
@@ -79,7 +79,7 @@ This release expands lo2cin4bt from primarily daily research into a platform tha
 
 - **Python installation and execution now use uv throughout.** A single `uv.lock` pins the supported environment, and installation, launch, tests, and diagnostics all use that environment. This reduces missing-package errors and differences between machines.
 - **Run Center, Parameter Matrix, and WFA screenshots were refreshed.** The README, interactive Lecture, troubleshooting guides, project AI Skills, and agent instructions were also updated for intraday research, provider limits, and the current interface.
-- **Pre-release checks were strengthened.** The release flow verifies that the product is committed and complete, then checks the source, external copy, and staged files separately. The Company workspace is never configured as the product GitHub remote.
+- **Pre-release checks were strengthened.** The product now uses the independent `Repo` Git repository directly. The release flow verifies clean `main`, the approved GitHub remote, fetched history, public files, and the matching Company submodule pointer. The Company workspace is never configured as the product GitHub remote.
 
 #### Usage Notes
 
