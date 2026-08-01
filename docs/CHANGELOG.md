@@ -14,15 +14,15 @@ Release date: 2026-07-31.
 
 ### 繁體中文
 
-本版本把 lo2cin4bt 由以日線研究為主，擴展成可以可靠處理分鐘、小時及其他周期的研究平台。改動重點不只是「讀到分鐘資料」，而是確保資料時間、交易時段、成交先後、績效計算及畫面展示都使用同一套規則。
+本版本把 lo2cin4bt 由以日線研究為主，擴展成可以可靠處理分鐘、小時及其他周期的研究平台。資料時間、交易時段、成交先後、績效計算及畫面展示現採用同一套規則。
 
 #### 主要升級
 
-- **正式支援日內及多周期回測。** 策略可以使用 1 分鐘、5 分鐘、15 分鐘、1 小時、4 小時、6 小時、12 小時、日線及其他已聲明周期。日線來源可以直接使用；需要配合不同決策與成交周期時，系統會按設定處理，毋須建立另一套策略或回測流程。
+- **正式支援日內及多周期回測。** 策略可以使用 1 分鐘、5 分鐘、15 分鐘、1 小時、4 小時、6 小時、12 小時、日線及其他已聲明周期。日線來源毋須轉換；需要配合不同決策與成交周期時，系統會按設定處理，毋須建立另一套策略或回測流程。
 - **高周期訊號可以在較低周期執行。** 例如策略可以等一小時資料完成後才確認訊號，再於下一個合資格的分鐘價格成交。訊號不會預先看到尚未完成的資料，減少回測結果因偷看未來而過度樂觀。
-- **加入 Binance BTCUSDT 一分鐘雙均線範例。** 內建範例使用 10／20 期簡單移動平均線，並以完整一個月、43,200 個分鐘資金點作固定測試，讓用戶可以直接檢查分鐘資料、成交、資金曲線及績效是否一致。
-- **資料來源會先確認是否支援所選周期。** yfinance 只接受日線；Binance、Coinbase、FUTU 及 IBKR 會按各自已聲明的能力檢查請求。供應商不支援、資料缺漏、時間重複或先後錯亂時，回測會停止並清楚說明原因，不會暗中改用另一個周期或資料來源。
-- **分鐘策略會顯示真正的日內資金曲線。** 畫面會保留每個分鐘或原始資料點的資金變化、買賣位置及時間，不會把整個交易日壓成一個點。日線策略則繼續顯示日線資金曲線。
+- **加入 Binance BTCUSDT 一分鐘雙均線範例。** 內建範例使用 10／20 期簡單移動平均線，並以完整一個月、43,200 個分鐘資金點作固定測試，供用戶檢查分鐘資料、成交、資金曲線及績效是否一致。
+- **資料來源會先確認是否支援所選周期。** yfinance 只接受日線；Binance、Coinbase、FUTU 及 IBKR 會按各自已聲明的能力檢查請求。供應商不支援、資料缺漏、時間重複或先後錯亂時，回測會停止並列出原因，不會暗中改用另一個周期或資料來源。
+- **分鐘策略會顯示完整日內資金曲線。** 畫面會保留每個分鐘或原始資料點的資金變化、買賣位置及時間，不會把整個交易日壓成一個點。日線策略則繼續顯示日線資金曲線。
 - **新增日內最大回撤。** 用戶除了可以查看跨日最大回撤，亦可以看到同一交易時段內曾經出現的最大資金跌幅，更容易發現日終數字未能反映的日內風險。
 
 #### 績效與交易時間
@@ -33,16 +33,14 @@ Release date: 2026-07-31.
 
 #### 參數矩陣與前向分析改善
 
-- **大型參數研究會分批執行。** 研究大量分鐘資料及參數組合時，系統會限制每批同時保留的內容，降低記憶體突然用盡的風險；完整排名仍會保留，排名最高的候選亦會保存完整回測資料供檢查。
-- **參數矩陣會準確連接候選與結果。** Python、Rust、績效檔案及前端現在使用相同身份名稱，畫面不會把某組參數的排名連到另一組參數的資金曲線。
-- **前向分析原有的訓練期／樣本外測試概念沒有改變。** 2.2.0 改善的是執行可靠性：每個窗口只用訓練期選參數，再把同一組參數放到下一段未見資料測試；相同樣本外區間毋須重複計算，而畫面會準確開啟該窗口真正選中的結果。
-- **指定結果缺失時會直接報錯。** 指標、回測、參數矩陣及前向分析頁不會因為指定結果不存在或載入失敗，便靜默改為顯示第一份結果，避免用戶在不知情下閱讀錯誤回測。
+- **大型參數研究更穩定。** 使用大量分鐘資料及參數組合時，研究可以完成，並保留完整排名及排名最高候選的回測結果。
+- **每組參數都會開啟自己的結果。** 排名、資金曲線及績效資料會保持一致，不會把一組參數連到另一組結果。
+- **前向分析會按每個窗口分開選參數和測試。** 系統只用訓練期選參數，再把同一組參數放到下一段未見資料測試；畫面會開啟該窗口選中的結果。
+- **指定結果缺失時會報錯。** 指標、回測、參數矩陣及前向分析頁不會因為指定結果不存在或載入失敗，便靜默改為顯示第一份結果，避免用戶在不知情下閱讀錯誤回測。
 
-#### 安裝與使用改善
+#### 介面與教學
 
-- **Python 安裝及執行統一改用 uv。** 一個 `uv.lock` 會鎖定正式依賴；安裝、啟動、測試及診斷都使用相同環境，減少缺少套件、不同電腦安裝出不同版本及舊虛擬環境互相影響的問題。
-- **更新執行中心、參數矩陣及前向分析圖片。** README、互動課程、疑難排解、專案 AI 技能及代理說明亦已按分鐘回測、資料來源限制及新版畫面同步更新。
-- **公開前檢查更完整。** 正式產品現在直接使用獨立的 `Repo` Git 倉庫；發布流程會核對乾淨的 `main`、指定的 GitHub 遠端、最新遠端歷史、公開檔案及 Company 子模組指標。Company 本身不會被設成產品 GitHub 遠端。
+- **操作畫面與教學已同步更新。** 執行中心、參數矩陣、前向分析、README、互動課程及疑難排解內容已配合分鐘回測、資料來源限制及新版功能更新。
 
 #### 使用提醒
 
@@ -51,7 +49,7 @@ Release date: 2026-07-31.
 
 ### English
 
-This release expands lo2cin4bt from primarily daily research into a platform that can reliably handle minute, hourly, and other timeframes. The upgrade goes beyond loading intraday rows: data timestamps, trading sessions, execution order, performance calculations, and frontend charts now follow the same rules.
+This release expands lo2cin4bt from primarily daily research into a platform that can reliably handle minute, hourly, and other timeframes. Data timestamps, trading sessions, execution order, performance calculations, and frontend charts now follow the same rules.
 
 #### Major Upgrades
 
@@ -70,16 +68,14 @@ This release expands lo2cin4bt from primarily daily research into a platform tha
 
 #### Parameter Matrix And WFA Improvements
 
-- **Large parameter studies now run in bounded batches.** Minute data and large candidate sets no longer require every full result to remain in memory at once. The complete ranking is retained, while the highest-ranked candidates keep full backtest artifacts for review.
-- **Parameter candidates now link to the correct result.** Python, Rust, metrics artifacts, and the frontend use the same candidate identity, preventing one parameter row from opening another candidate's equity curve.
-- **The original train/out-of-sample concept of WFA has not changed.** Version 2.2.0 makes the execution dependable: each window selects parameters from training data only, applies that exact selection to the next unseen period, reuses identical out-of-sample work, and opens the result actually selected for that window.
+- **Large parameter studies are more dependable.** Studies using extensive minute data and parameter combinations can complete while retaining the full ranking and full backtest results for the highest-ranked candidates.
+- **Each parameter set opens its own result.** Rankings, equity curves, and performance data remain aligned, so one parameter row cannot open another candidate's result.
+- **WFA selects and tests parameters separately for each window.** Each window selects parameters from training data only, applies that selection to the next unseen period, and opens the result selected for that window.
 - **Missing requested results now fail visibly.** Metrics, Backtests, Parameter Matrix, and WFA no longer switch to the first available result when a requested artifact is missing or cannot be loaded.
 
-#### Installation And Usability
+#### Interface And Guidance
 
-- **Python installation and execution now use uv throughout.** A single `uv.lock` pins the supported environment, and installation, launch, tests, and diagnostics all use that environment. This reduces missing-package errors and differences between machines.
-- **Run Center, Parameter Matrix, and WFA screenshots were refreshed.** The README, interactive Lecture, troubleshooting guides, project AI Skills, and agent instructions were also updated for intraday research, provider limits, and the current interface.
-- **Pre-release checks were strengthened.** The product now uses the independent `Repo` Git repository directly. The release flow verifies clean `main`, the approved GitHub remote, fetched history, public files, and the matching Company submodule pointer. The Company workspace is never configured as the product GitHub remote.
+- **The interface and guidance now match the new workflow.** Run Center, Parameter Matrix, WFA, the README, the interactive Lecture, and troubleshooting guidance were updated for intraday research, provider limits, and the current interface.
 
 #### Usage Notes
 
