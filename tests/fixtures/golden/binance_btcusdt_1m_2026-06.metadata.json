@@ -1,0 +1,14 @@
+{
+  "schema_version": "binance_ohlcv_golden_fixture.v1",
+  "provider": "binance",
+  "endpoint": "https://api.binance.com/api/v3/klines",
+  "symbol": "BTCUSDT",
+  "interval": "1m",
+  "timestamp_convention": "bar_open",
+  "start_inclusive": "2026-06-01T00:00:00+00:00",
+  "end_exclusive": "2026-07-01T00:00:00+00:00",
+  "row_count": 43200,
+  "session_count": 30,
+  "sha256": "4db6b3b4a4a5edb68d68307e8bed8bd7577ca00025e2e995bddba63b451007d5",
+  "captured_at": "2026-07-28T13:59:07.163160Z"
+}

@@ -1,7 +1,7 @@
 ---
 name: lo2cin4bt-teaching
 description: Repo-local teaching skill for lo2cin4bt. Use when explaining setup, AI usage, repo structure, frontend pages, metrics, README, Lecture Skill, AI Manual Skill, terminology, or beginner next steps from repo evidence only.
-version: 2.1.0
+version: 2.2.0
 status: active
 category: workflow
 use_when:
@@ -121,7 +121,7 @@ not_trading_advice_notice:
 ## Validation
 
 ```powershell
-python -m pytest tests/test_agent_skill_lecture_alignment.py tests/test_lecture_contracts.py -q
+uv run --locked --exact --group dev python -m pytest tests/test_agent_skill_lecture_alignment.py tests/test_lecture_contracts.py -q
 ```
 
 Pass criteria: local links resolve, UTF-8 is valid, lessons teach the shared

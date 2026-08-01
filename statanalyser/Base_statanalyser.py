@@ -67,7 +67,10 @@ class BaseStatAnalyser(ABC):
         if normalized in {"absolute", "abs", "diff"}:
             return "absolute"
         if normalized in {"relative", "rel", "ratio"}:
-            return "relative"
+            raise ValueError(
+                "Relative diff is retired from Python; provide a canonical "
+                "Rust-computed return column"
+            )
         raise ValueError(f"Unsupported diff_mode: {diff_mode}")
 
     @staticmethod
@@ -80,15 +83,10 @@ class BaseStatAnalyser(ABC):
         source = pd.to_numeric(df[predictor_col], errors="coerce")
         if source.isna().any() or not np.isfinite(source.to_numpy()).all():
             raise ValueError(f"Predictor column contains invalid values: {predictor_col}")
-        diff_col = f"{predictor_col}_{'abs' if diff_mode == 'absolute' else 'rel'}_diff"
-        if diff_mode == "absolute":
-            df[diff_col] = source.diff()
-        else:
-            if (source <= 0.0).any():
-                raise ValueError(
-                    f"Relative difference requires positive values: {predictor_col}"
-                )
-            df[diff_col] = source.pct_change(fill_method=None)
+        if diff_mode != "absolute":
+            raise ValueError(f"Unsupported Python diff_mode: {diff_mode}")
+        diff_col = f"{predictor_col}_abs_diff"
+        df[diff_col] = source.diff()
         invalid = ~np.isfinite(df[diff_col].iloc[1:].to_numpy())
         if invalid.any():
             raise ValueError(f"Difference calculation produced invalid values: {diff_col}")

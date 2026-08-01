@@ -8,8 +8,12 @@ from typing import Dict
 import pandas as pd
 
 
-def canonical_equity_summary(equity_curve: pd.DataFrame) -> Dict[str, float]:
-    """Return observed equity endpoints without inventing missing results."""
+def canonical_equity_summary(
+    equity_curve: pd.DataFrame,
+    *,
+    rust_total_return: object,
+) -> Dict[str, float]:
+    """Return observed endpoints plus the authoritative Rust total return."""
     if not isinstance(equity_curve, pd.DataFrame) or equity_curve.empty:
         raise ValueError("Canonical equity curve is empty")
     if "Equity_value" not in equity_curve.columns:
@@ -23,8 +27,14 @@ def canonical_equity_summary(equity_curve: pd.DataFrame) -> Dict[str, float]:
 
     start_equity = float(values.iloc[0])
     end_equity = float(values.iloc[-1])
+    try:
+        total_return = float(rust_total_return)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Canonical equity summary requires Rust total_return") from exc
+    if not math.isfinite(total_return):
+        raise ValueError("Canonical Rust total_return must be finite")
     return {
         "start_equity": start_equity,
         "end_equity": end_equity,
-        "total_return": (end_equity / start_equity) - 1.0,
+        "total_return": total_return,
     }

@@ -8,9 +8,87 @@ import pytest
 from app.runtime.registry import AppRegistry
 from app.runtime.module_identity import VALIDATION_WORKFLOW_CANONICAL
 from app.runtime.runtime import AppRuntimeService
+from dataloader.market_data_loader import MarketDataContractError
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _typed_daily_data(provider: str, **extra: object) -> dict[str, object]:
+    stream_id = "execution_daily"
+    return {
+        "provider": provider,
+        "bar_time": {
+            "schema_version": "bar_time_contract.v1",
+            "contract_id": "lo2cin4bt.bar_time_contract.v1",
+            "session_model": {
+                "calendar_id": "XNYS",
+                "timezone": "America/New_York",
+                "session_scope": "regular",
+                "session_label_policy": "exchange_local_date",
+                "non_session_bar_policy": "reject",
+            },
+            "timestamp_model": {
+                "time_standard": "UTC",
+                "precision": "nanosecond",
+                "clock": "historical_available_time",
+                "ordering": (
+                    "available_time_then_event_time_then_external_execution_sequence"
+                    "_then_lifecycle_stage_then_stream_id_then_source_sequence"
+                ),
+            },
+            "price_model": {
+                "price_basis": "split_dividend_adjusted",
+                "corporate_action_policy": "provider_applied",
+            },
+            "streams": [
+                {
+                    "stream_id": stream_id,
+                    "role": "execution",
+                    "source": {"kind": "external", "provider_id": provider},
+                    "bar_spec": {
+                        "aggregation": "time",
+                        "step": 1,
+                        "unit": "day",
+                        "price_type": "last",
+                        "alignment": "session_open",
+                    },
+                    "timestamp_semantics": {
+                        "timestamp_convention": "bar_close",
+                        "interval_boundary": "left_open_right_closed",
+                        "bar_open_time_column": "bar_open_timestamp",
+                        "bar_close_time_column": "bar_close_timestamp",
+                        "available_time_column": "available_timestamp",
+                        "session_label_column": "session_label",
+                        "availability_policy": "bar_close",
+                    },
+                }
+            ],
+        },
+        "stream_binding": {
+            "execution_stream_id": stream_id,
+            "decision_stream_id": stream_id,
+        },
+        **extra,
+    }
+
+
+def _typed_dataloader(
+    provider: str,
+    *,
+    source: str,
+    symbols: list[str],
+    **extra: object,
+) -> dict[str, object]:
+    data = _typed_daily_data(provider)
+    return {
+        "source": source,
+        "provider": provider,
+        "asset_symbols": symbols,
+        "bar_time": data["bar_time"],
+        "stream_binding": data["stream_binding"],
+        **extra,
+    }
 
 
 def _valid_result_report(result_hash: str = "a" * 64) -> dict:
@@ -400,6 +478,7 @@ def test_app_runtime_materializes_included_examples_into_empty_workspace(tmp_pat
     examples = repo / "backtester" / "contracts" / "strategy" / "examples"
     examples.mkdir(parents=True)
     expected_runs = [
+        "strategy-run-btcusdt-binance-1m-sma-10-20-example.json",
         "strategy-run-btcusdt-binance-monthly-nth-weekday-same-session-matrix-example.json",
         "strategy-run-qqq-tlt-gld-yfinance-monthly-hedge-overlay-example.json",
         "strategy-run-qqq-yfinance-daily-sma-cross-matrix-example.json",
@@ -412,10 +491,13 @@ def test_app_runtime_materializes_included_examples_into_empty_workspace(tmp_pat
     from app.runtime.runtime import INCLUDED_STRATEGY_EXAMPLE_FILENAMES
 
     assert set(expected_runs) == set(INCLUDED_STRATEGY_EXAMPLE_FILENAMES)
-    assert len(INCLUDED_STRATEGY_EXAMPLE_FILENAMES) == 8
+    assert len(INCLUDED_STRATEGY_EXAMPLE_FILENAMES) == 9
     public_examples = REPO_ROOT / "backtester" / "contracts" / "strategy" / "examples"
-    assert len(list(public_examples.glob("strategy-run-*.json"))) == 8
-    assert "8 個公開內建回測範例" in (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    assert len(list(public_examples.glob("strategy-run-*.json"))) == 9
+    assert "9 個公開內建回測範例" in (REPO_ROOT / "README.md").read_text(encoding="utf-8")
+    assert "nine backtest examples" in (REPO_ROOT / "README.en.md").read_text(
+        encoding="utf-8"
+    )
     expected_wfas = [
         "wfa-run-qqq-yfinance-daily-sma-cross-example.json",
         "wfa-run-voo-gld-yfinance-daily-momentum90-sma250-rotation-example.json",
@@ -453,13 +535,12 @@ def test_app_runtime_compiles_single_strategy_run_to_engine_request() -> None:
             "strategy_preset_id": "single_asset_signal",
             "workflow_id": "single_backtest",
         },
-        "data": {
-            "provider": "file",
-            "frequency": "1D",
-            "file_path": "tests/fixtures/smoke/price_data_ma_cross.csv",
-            "date_column": "Time",
-            "price_column": "Close",
-        },
+        "data": _typed_daily_data(
+            "file",
+            file_path="tests/fixtures/smoke/price_data_ma_cross.csv",
+            date_column="Time",
+            price_column="Close",
+        ),
         "universe": {"symbols": ["TEST"]},
         "computed_fields": [],
         "signals": {
@@ -476,7 +557,7 @@ def test_app_runtime_compiles_single_strategy_run_to_engine_request() -> None:
 
     request = build_engine_request(config)
 
-    assert request["schema_version"] == "engine_request.v1"
+    assert request["schema_version"] == "engine_request.v2"
     assert request["strategy"]["strategy_mode_id"] == "multi_asset_portfolio"
     assert request["strategy"]["strategy_profile_id"] == "selection_timing_portfolio"
     assert request["data_requirements"]["provider"] == "file"
@@ -499,7 +580,7 @@ def test_app_runtime_compiles_multi_strategy_run_to_same_engine_request() -> Non
 
     request = build_engine_request(config)
 
-    assert request["schema_version"] == "engine_request.v1"
+    assert request["schema_version"] == "engine_request.v2"
     assert request["strategy"]["strategy_mode_id"] == "multi_asset_portfolio"
     assert request["strategy"]["strategy_profile_id"] == "rotation_portfolio"
     assert request["data_requirements"]["symbols"] == ["VOO", "GLD"]
@@ -516,7 +597,7 @@ def test_app_runtime_routes_unified_selection_profile_through_bundle_dataloader(
             "strategy_preset_id": "single_asset_signal",
             "workflow_id": "single_backtest",
         },
-        "data": {"provider": "yfinance", "frequency": "1D", "start_date": "2020-01-01"},
+        "data": _typed_daily_data("yfinance", start_date="2020-01-01"),
         "universe": {"symbols": ["QQQ"]},
     }
 
@@ -526,7 +607,7 @@ def test_app_runtime_routes_unified_selection_profile_through_bundle_dataloader(
     assert "provider=yfinance" in profile
 
 
-def test_app_runtime_rejects_subdaily_strategy_before_engine_request() -> None:
+def test_app_runtime_rejects_legacy_frequency_before_engine_request() -> None:
     from backtester.EngineRequest_backtester import build_engine_request
 
     config = {
@@ -545,7 +626,7 @@ def test_app_runtime_rejects_subdaily_strategy_before_engine_request() -> None:
         "metadata": {"strategy_id": "subdaily_app_runtime_probe"},
     }
 
-    with pytest.raises(ValueError, match="session-level bars only"):
+    with pytest.raises(ValueError, match="legacy frequency fields"):
         build_engine_request(config)
 
 
@@ -673,7 +754,8 @@ def test_app_runtime_writes_portfolio_matrix_summary_artifact(tmp_path: Path) ->
                 "coverage": "all_candidates",
                 "rows": [
                     {
-                        "backtest_id": "candidate_1",
+                        "backtest_id": "matrix_probe:parameter_matrix:candidate_1",
+                        "strategy_id": "matrix_probe:parameter_matrix:candidate_1",
                         "semantic_combo": {"short_ma": "20", "long_ma": "100"},
                         "total_return": 0.01,
                     }
@@ -722,18 +804,18 @@ def test_data_lineage_manifest_hashes_local_file_source(tmp_path: Path) -> None:
     manifest = runtime._build_data_lineage_manifest(  # pylint: disable=protected-access
         run_id="lineage_local",
         module="autorunner",
-        dataloader_config={
-            "source": "file",
-            "frequency": "1D",
-            "file_config": {"file_path": "workspace/datasets/prices.csv"},
-        },
+        dataloader_config=_typed_dataloader(
+            "file",
+            source="file",
+            symbols=["TEST"],
+            file_config={"file_path": "workspace/datasets/prices.csv"},
+        ),
         data=data,
         raw_config={
-            "data": {
-                "provider": "file",
-                "file_path": "workspace/datasets/prices.csv",
-                "frequency": "1D",
-            },
+            "data": _typed_daily_data(
+                "file",
+                file_path="workspace/datasets/prices.csv",
+            ),
             "universe": {"symbols": ["TEST"], "universe_policy": "fixed_symbols"},
             "fill_model": {"timing": "next_bar_after_signal"},
         },
@@ -766,20 +848,14 @@ def test_data_lineage_manifest_keeps_provider_source_partial() -> None:
     manifest = runtime._build_data_lineage_manifest(  # pylint: disable=protected-access
         run_id="lineage_provider",
         module="autorunner",
-        dataloader_config={
-            "source": "yfinance",
-            "frequency": "1D",
-            "yfinance_config": {"symbol": "QQQ", "interval": "1d"},
-        },
+        dataloader_config=_typed_dataloader(
+            "yfinance",
+            source="multi_asset",
+            symbols=["QQQ"],
+        ),
         data=data,
         raw_config={
-            "data": {
-                "provider": "yfinance",
-                "frequency": "1D",
-                "interval": "1d",
-                "timezone": "America/New_York",
-                "calendar": "XNYS",
-            },
+            "data": _typed_daily_data("yfinance"),
             "universe": {"symbols": ["QQQ"]},
             "fill_model": {"timing": "next_bar_after_signal"},
         },
@@ -806,10 +882,14 @@ def test_data_lineage_manifest_writes_consumed_provider_snapshot(tmp_path: Path)
     manifest = runtime._write_data_lineage_manifest(  # pylint: disable=protected-access
         run_id="lineage_snapshot",
         module="autorunner",
-        dataloader_config={"source": "yfinance", "frequency": "1D", "asset_symbols": ["QQQ"]},
+        dataloader_config=_typed_dataloader(
+            "yfinance",
+            source="multi_asset",
+            symbols=["QQQ"],
+        ),
         data=data,
         raw_config={
-            "data": {"provider": "yfinance", "frequency": "1D"},
+            "data": _typed_daily_data("yfinance"),
             "universe": {"symbols": ["QQQ"]},
             "fill_model": {"timing": "next_bar_after_signal"},
         },
@@ -870,14 +950,14 @@ def test_data_lineage_manifest_point_in_time_universe_sets_low_survivorship_risk
     manifest = runtime._build_data_lineage_manifest(  # pylint: disable=protected-access
         run_id="lineage_pit",
         module="autorunner",
-        dataloader_config={
-            "source": "yfinance",
-            "frequency": "1D",
-            "asset_symbols": ["AAA", "BBB"],
-        },
+        dataloader_config=_typed_dataloader(
+            "yfinance",
+            source="multi_asset",
+            symbols=["AAA", "BBB"],
+        ),
         data=data,
         raw_config={
-            "data": {"provider": "yfinance", "frequency": "1D"},
+            "data": _typed_daily_data("yfinance"),
             "universe": {
                 "symbols": ["AAA", "BBB"],
                 "universe_policy": "point_in_time_snapshot",
@@ -918,14 +998,14 @@ def test_data_lineage_manifest_snapshot_date_only_constituents_require_exact_as_
     manifest = runtime._build_data_lineage_manifest(  # pylint: disable=protected-access
         run_id="lineage_stale_snapshot_constituents",
         module="autorunner",
-        dataloader_config={
-            "source": "yfinance",
-            "frequency": "1D",
-            "asset_symbols": ["AAA", "BBB"],
-        },
+        dataloader_config=_typed_dataloader(
+            "yfinance",
+            source="multi_asset",
+            symbols=["AAA", "BBB"],
+        ),
         data=data,
         raw_config={
-            "data": {"provider": "yfinance", "frequency": "1D"},
+            "data": _typed_daily_data("yfinance"),
             "universe": {
                 "symbols": ["AAA", "BBB"],
                 "universe_policy": "point_in_time_snapshot",
@@ -960,10 +1040,14 @@ def test_data_lineage_manifest_current_provider_source_cannot_prove_survivorship
     manifest = runtime._build_data_lineage_manifest(  # pylint: disable=protected-access
         run_id="lineage_current_provider",
         module="autorunner",
-        dataloader_config={"source": "yfinance", "frequency": "1D", "asset_symbols": ["AAA"]},
+        dataloader_config=_typed_dataloader(
+            "yfinance",
+            source="multi_asset",
+            symbols=["AAA"],
+        ),
         data=data,
         raw_config={
-            "data": {"provider": "yfinance", "frequency": "1D"},
+            "data": _typed_daily_data("yfinance"),
             "universe": {
                 "symbols": ["AAA"],
                 "universe_policy": "point_in_time_snapshot",
@@ -990,10 +1074,14 @@ def test_data_lineage_manifest_factor_audit_blocks_unproven_pit_factor() -> None
     manifest = runtime._build_data_lineage_manifest(  # pylint: disable=protected-access
         run_id="lineage_factor_audit",
         module="autorunner",
-        dataloader_config={"source": "yfinance", "frequency": "1D", "asset_symbols": ["AAA"]},
+        dataloader_config=_typed_dataloader(
+            "yfinance",
+            source="multi_asset",
+            symbols=["AAA"],
+        ),
         data=pd.DataFrame({"Time": pd.to_datetime(["2026-01-01"]), "Close": [100.0]}),
         raw_config={
-            "data": {"provider": "yfinance", "frequency": "1D"},
+            "data": _typed_daily_data("yfinance"),
             "universe": {"symbols": ["AAA"]},
             "factor_pipeline": {
                 "schema_version": "factor_pipeline.v1",
@@ -1018,10 +1106,14 @@ def test_data_lineage_manifest_fixed_source_type_cannot_prove_survivorship() -> 
     manifest = runtime._build_data_lineage_manifest(  # pylint: disable=protected-access
         run_id="lineage_fixed_source_type",
         module="autorunner",
-        dataloader_config={"source": "yfinance", "frequency": "1D", "asset_symbols": ["AAA"]},
+        dataloader_config=_typed_dataloader(
+            "yfinance",
+            source="multi_asset",
+            symbols=["AAA"],
+        ),
         data=pd.DataFrame({"Time": pd.to_datetime(["2026-01-01"]), "Close": [100.0]}),
         raw_config={
-            "data": {"provider": "yfinance", "frequency": "1D"},
+            "data": _typed_daily_data("yfinance"),
             "universe": {
                 "symbols": ["AAA"],
                 "universe_policy": "point_in_time_snapshot",
@@ -1047,10 +1139,14 @@ def test_data_lineage_manifest_historical_constituents_path_requires_as_of_date(
     manifest = runtime._build_data_lineage_manifest(  # pylint: disable=protected-access
         run_id="lineage_missing_as_of",
         module="autorunner",
-        dataloader_config={"source": "yfinance", "frequency": "1D", "asset_symbols": ["AAA"]},
+        dataloader_config=_typed_dataloader(
+            "yfinance",
+            source="multi_asset",
+            symbols=["AAA"],
+        ),
         data=pd.DataFrame({"Time": pd.to_datetime(["2026-01-01"]), "Close": [100.0]}),
         raw_config={
-            "data": {"provider": "yfinance", "frequency": "1D"},
+            "data": _typed_daily_data("yfinance"),
             "universe": {
                 "symbols": ["AAA"],
                 "universe_policy": "point_in_time_snapshot",
@@ -1074,15 +1170,15 @@ def test_data_lineage_manifest_internal_strategy_loader_is_partial() -> None:
     manifest = runtime._build_data_lineage_manifest(  # pylint: disable=protected-access
         run_id="lineage_internal",
         module="autorunner",
-        dataloader_config={
-            "source": "strategy_run_market_data",
-            "frequency": "1D",
-            "asset_symbols": ["VOO", "GLD"],
-        },
+        dataloader_config=_typed_dataloader(
+            "yfinance",
+            source="strategy_run_market_data",
+            symbols=["VOO", "GLD"],
+        ),
         data=pd.DataFrame(),
         raw_config={
             "schema_version": "strategy_run",
-            "data": {"provider": "yfinance", "frequency": "1D"},
+            "data": _typed_daily_data("yfinance"),
             "universe": {"symbols": ["VOO", "GLD"]},
         },
         primary_artifact=None,
@@ -1112,15 +1208,15 @@ def test_data_lineage_manifest_captures_wfa_windows() -> None:
     manifest = runtime._build_data_lineage_manifest(  # pylint: disable=protected-access
         run_id="lineage_wfa",
         module=VALIDATION_WORKFLOW_CANONICAL,
-        dataloader_config={
-            "source": "yfinance",
-            "frequency": "1D",
-            "yfinance_config": {"symbol": "QQQ", "interval": "1d"},
-        },
+        dataloader_config=_typed_dataloader(
+            "yfinance",
+            source="multi_asset",
+            symbols=["QQQ"],
+        ),
         data=pd.DataFrame({"Time": pd.to_datetime(["2020-01-01"])}),
         raw_config={
             "schema_version": "wfa_run",
-            "data": {"provider": "yfinance", "frequency": "1D"},
+            "data": _typed_daily_data("yfinance"),
             "universe": {"symbols": ["QQQ"]},
         },
         primary_artifact=None,
@@ -1158,7 +1254,7 @@ def test_data_lineage_manifest_wfa_uses_referenced_strategy_universe(tmp_path: P
                     "strategy_mode_id": "multi_asset_portfolio",
                     "workflow_id": "single_backtest",
                 },
-                "data": {"provider": "yfinance", "frequency": "1D"},
+                    "data": _typed_daily_data("yfinance"),
                     "universe": {
                         "symbols": ["AAA", "BBB"],
                         "universe_policy": "point_in_time_snapshot",
@@ -1203,7 +1299,11 @@ def test_data_lineage_manifest_wfa_uses_referenced_strategy_universe(tmp_path: P
     manifest = runtime._build_data_lineage_manifest(  # pylint: disable=protected-access
         run_id="lineage_wfa_strategy_ref",
         module=VALIDATION_WORKFLOW_CANONICAL,
-        dataloader_config={"source": "yfinance", "frequency": "1D", "asset_symbols": ["AAA", "BBB"]},
+        dataloader_config=_typed_dataloader(
+            "yfinance",
+            source="multi_asset",
+            symbols=["AAA", "BBB"],
+        ),
         data=pd.DataFrame({"Time": pd.to_datetime(["2020-01-01"])}),
         raw_config=lineage_raw_config,
         primary_artifact=None,
@@ -1247,6 +1347,44 @@ def test_failed_run_writes_unknown_data_lineage_manifest(tmp_path: Path) -> None
     assert registry_entry["lineage_status"] == "unknown"
 
 
+def test_failed_run_projects_structured_data_error_for_frontend_and_ai(
+    tmp_path: Path,
+) -> None:
+    runtime = AppRuntimeService(tmp_path)
+    run_id = "failed_data_contract"
+    registry_payload = runtime._base_registry(  # pylint: disable=protected-access
+        run_id=run_id,
+        module="autorunner",
+        entrypoint="test",
+        status="running",
+    )
+    stage_status = runtime._new_stage_status(run_id, "autorunner")  # pylint: disable=protected-access
+    error = MarketDataContractError(
+        "missing_bar",
+        "binance bars are incomplete",
+        provider="binance",
+        details={"missing_bar_count": 1},
+    )
+
+    result = runtime._fail_run(  # pylint: disable=protected-access
+        run_id=run_id,
+        registry_payload=registry_payload,
+        stage_status=stage_status,
+        stage_name="dataloader",
+        message=f"dataloader failed: {error}",
+        failure=error.to_payload(),
+    )
+
+    registry_entry = runtime.registry.load_registry_entry(run_id)
+    written_stage = runtime.registry.load_stage_status(run_id)
+    failed_stage = next(
+        item for item in written_stage["stages"] if item["stage"] == "dataloader"
+    )
+    assert result["failure"]["error_code"] == "missing_bar"
+    assert registry_entry["failure"]["provider"] == "binance"
+    assert failed_stage["failure"]["details"]["missing_bar_count"] == 1
+
+
 def test_app_export_reads_json_artifacts_through_fail_closed_reader(tmp_path: Path) -> None:
     runtime = AppRuntimeService(tmp_path)
     artifact = tmp_path / "artifact.json"
@@ -1276,7 +1414,10 @@ def test_app_export_accepts_empty_optional_benchmark_series(
     metrics_path = metrics_dir / "backtest_test_metrics.parquet"
     pd.DataFrame(
         {
-            "Backtest_id": ["allocation", "allocation"],
+            "Backtest_id": [
+                "allocation:single_backtest:fixed",
+                "allocation:single_backtest:fixed",
+            ],
             "Time": ["2026-01-01", "2026-01-02"],
             "Equity_value": [100.0, 101.0],
             "BAH_Equity": [None, None],
@@ -1295,7 +1436,9 @@ def test_app_export_accepts_empty_optional_benchmark_series(
     )
 
     def fake_plot_bundle(request: dict, **_kwargs: object) -> dict:
-        assert [item["series_id"] for item in request["series"]] == ["allocation"]
+        assert [item["series_id"] for item in request["series"]] == [
+            "allocation:single_backtest:fixed"
+        ]
         return {"schema_version": "PlotBundle.v1", **request}
 
     monkeypatch.setattr(
@@ -1309,3 +1452,153 @@ def test_app_export_accepts_empty_optional_benchmark_series(
     )
 
     assert len(artifacts) == 1
+
+
+def test_intraday_chart_uses_execution_equity_instead_of_session_close_curve(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runtime = AppRuntimeService(tmp_path)
+    run_id = "intraday_equity"
+    runtime.registry.write_registry_entry(
+        {
+            "run_id": run_id,
+            "module": "autorunner",
+            "status": "completed",
+            "execution_bar_spec": {
+                "aggregation": "time",
+                "step": 1,
+                "unit": "minute",
+            },
+        }
+    )
+    metrics_dir = tmp_path / "metricstracker"
+    metrics_dir.mkdir()
+    metrics_path = metrics_dir / "intraday_metrics.parquet"
+    pd.DataFrame(
+        {
+            "Backtest_id": [
+                "strategy:single_backtest:fixed",
+                "strategy:single_backtest:fixed",
+            ],
+            "Time": ["2026-01-01", "2026-01-02"],
+            "Equity_value": [100.0, 102.0],
+        }
+    ).to_parquet(metrics_path, index=False)
+    execution_path = tmp_path / "intraday_execution_equity_curve.parquet"
+    pd.DataFrame(
+        {
+            "Backtest_id": ["strategy:single_backtest:fixed"] * 3,
+            "Time": [
+                "2026-01-01T00:01:00Z",
+                "2026-01-01T00:02:00Z",
+                "2026-01-01T00:03:00Z",
+            ],
+            "Session_label": ["2026-01-01"] * 3,
+            "Equity_value": [100.0, 99.0, 101.0],
+        }
+    ).to_parquet(execution_path, index=False)
+    canonical_path = tmp_path / "canonical_result_bundle.json"
+    canonical_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "canonical_result_bundle.v1",
+                "validation": {"status": "valid"},
+                "result_hashes": ["a" * 64],
+            }
+        ),
+        encoding="utf-8",
+        )
+
+    def fake_plot_bundle(request: dict, **_kwargs: object) -> dict:
+        strategy = next(
+            item
+            for item in request["series"]
+            if item["series_id"] == "strategy:single_backtest:fixed"
+        )
+        assert strategy["x"] == [
+            "2026-01-01T00:01:00Z",
+            "2026-01-01T00:02:00Z",
+            "2026-01-01T00:03:00Z",
+        ]
+        assert strategy["y"] == [100.0, 99.0, 101.0]
+        assert str(execution_path) in request["artifact_source_refs"]
+        return {"schema_version": "PlotBundle.v1", **request}
+
+    monkeypatch.setattr(
+        "backtester.RustCoreBridge_backtester.run_plot_bundle_via_cli",
+        fake_plot_bundle,
+    )
+
+    artifacts = runtime._write_backtest_chart_payloads(  # noqa: SLF001
+        run_id,
+        [metrics_path, execution_path, canonical_path],
+    )
+
+    assert len(artifacts) == 1
+
+
+def test_canonical_execution_equity_filename_remains_classifiable(tmp_path: Path) -> None:
+    runtime = AppRuntimeService(tmp_path)
+    artifact_type, required_pages, optional = runtime._classify_artifact(
+        Path(
+            "backtest_20260729_BTCUSDT_SMA-10-20_cross_single_"
+            "portfolio-execution-equity_btcusdt_execution_equity_curve_abc123.parquet"
+        )
+    )
+
+    assert artifact_type == "portfolio_execution_equity_curve_parquet"
+    assert required_pages == ["metrics_explorer", "results_library"]
+    assert optional is False
+
+
+def test_intraday_backtest_detail_selects_execution_equity_artifact(
+    tmp_path: Path,
+) -> None:
+    runtime = AppRuntimeService(tmp_path)
+    run_id = "intraday_detail"
+    runtime.registry.write_registry_entry(
+        {
+            "run_id": run_id,
+            "module": "autorunner",
+            "status": "completed",
+            "execution_bar_spec": {
+                "aggregation": "time",
+                "step": 1,
+                "unit": "minute",
+            },
+        }
+    )
+    session_equity = tmp_path / "strategy_equity_curve.parquet"
+    execution_equity = tmp_path / "strategy_execution_equity_curve.parquet"
+    session_equity.touch()
+    execution_equity.touch()
+
+    selected = runtime._portfolio_detail_equity_artifact(  # noqa: SLF001
+        run_id,
+        [session_equity, execution_equity],
+    )
+
+    assert selected == execution_equity
+
+
+def test_detail_metrics_matrix_carries_rust_sortino_into_portfolio_contract() -> None:
+    metrics = AppRuntimeService._detail_metrics_matrix(
+        {
+            "Sortino": 1.25,
+            "Total_return": 0.10,
+            "Annualized_return (CAGR)": 0.05,
+            "Sharpe": 0.75,
+            "Max_drawdown": -0.08,
+            "Trade_count": 4,
+        },
+        {
+            "total_return": 0.10,
+            "cagr": 0.05,
+            "sharpe": 0.75,
+            "max_drawdown": -0.08,
+            "trade_count": 4,
+        },
+    )
+
+    assert metrics["sortino"] == pytest.approx(1.25)

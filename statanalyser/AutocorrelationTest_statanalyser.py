@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+import plotly.graph_objects as go  # type: ignore[import-untyped]
+from plotly.subplots import make_subplots  # type: ignore[import-untyped]
 from statsmodels.tsa.stattools import acf, pacf
 
 from .Base_statanalyser import BaseStatAnalyser
@@ -19,13 +20,20 @@ class AutocorrelationTest(BaseStatAnalyser):
         data: pd.DataFrame,
         predictor_col: str,
         return_col: str,
-        freq: str = "D",
+        bar_spec: Mapping[str, Any],
         analysis_config: Optional[Dict[str, Any]] = None,
     ) -> None:
         super().__init__(data, predictor_col, return_col, analysis_config=analysis_config)
-        self.freq = str(freq).upper() if freq else "D"
-        if self.freq not in {"D", "H", "T"}:
-            self.freq = "D"
+        aggregation = str(bar_spec.get("aggregation") or "")
+        unit = str(bar_spec.get("unit") or "")
+        step = bar_spec.get("step")
+        if aggregation != "time":
+            raise ValueError("Autocorrelation requires a time-aggregated decision BarSpec")
+        if unit not in {"minute", "hour", "day", "week", "month"}:
+            raise ValueError(f"Unsupported autocorrelation BarSpec unit: {unit!r}")
+        if isinstance(step, bool) or not isinstance(step, int) or step <= 0:
+            raise ValueError("Autocorrelation BarSpec step must be a positive integer")
+        self.bar_spec = dict(bar_spec)
 
     def analyze(self) -> Dict[str, Any]:
         from rich.table import Table
@@ -54,16 +62,20 @@ class AutocorrelationTest(BaseStatAnalyser):
             lags = 0
 
         if lags <= 0:
-            lags = {
-                "D": min(60, len(series) // 2),
-                "H": min(24, len(series) // 2),
-                "T": min(120, len(series) // 2),
-            }.get(self.freq, min(20, len(series) // 2))
+            base_lags = {
+                "minute": 120,
+                "hour": 24,
+                "day": 60,
+                "week": 52,
+                "month": 24,
+            }[str(self.bar_spec["unit"])]
+            cadence_lags = max(1, base_lags // int(self.bar_spec["step"]))
+            lags = min(cadence_lags, len(series) // 2)
 
         panel_content = (
             "自動化自相關檢驗\n"
             f"Predictor: {self.predictor_col}\n"
-            f"Frequency: {self.freq}\n"
+            f"Decision BarSpec: {self.bar_spec['step']} {self.bar_spec['unit']}\n"
             f"Lags: {lags}\n"
         )
         show_step_panel("STATANALYSER", 1, ["自相關性檢驗[自動]"], panel_content)

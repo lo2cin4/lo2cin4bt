@@ -29,24 +29,35 @@ Teach only the current config expression and current compute model.
   `node_modules/`, Cargo caches, or Rust `target/`.
 - Module 02: data providers and symbol conventions. Do not mix Binance and
   Coinbase symbol formats without an adapter. Teach that configs describe data
-  requirements: provider, symbols, date range, and optional
-  `data.external_features[]`. Do not teach users to prebuild separate
+  requirements: provider, symbols, date range, typed `data.bar_time`, stream
+  bindings, and optional `data.external_features[]`. `yfinance` is daily-only;
+  intraday requests must match the exact provider capability. Missing,
+  duplicated, or out-of-order rows stop the run with structured failure
+  evidence. Do not teach users to prebuild separate
   open/high/low/close/feature CSV files for one strategy.
 - Module 03: current configs are `strategy_run` and `wfa_run`. New timing uses
-  `fill_model.timing = "timeline"` and explicit `actions[]`.
+  `fill_model.timing = "timeline"` and explicit `actions[]`. Teach typed
+  `data.bar_time`, execution versus decision streams, direct daily input, and
+  shared-Rust higher-timeframe derivation without look-ahead.
 - Module 04: Run Center creates app-managed results. Result pages do not show
-  configs until a run has completed.
+  configs until a run has completed. Intraday charts retain intraday equity and
+  trade timestamps; headline annualized metrics use validated session closes,
+  with `intraday_max_drawdown` shown separately.
 - Module 05: strategy semantics converge into signals, selections, target
   weights, and timeline actions. Baseline portfolio positions can use
   `calendar.first_session`; re-entry timer extension uses
   `fill_model.position_policy.on_entry_signal_while_holding = "reset_timer"`.
 - Module 06: Parameter Matrix expands only declared `parameter_domains` backed
   by schema/op support and `param_ref`; arbitrary config fields are not
-  automatically sweepable.
+  automatically sweepable. Large jobs use bounded batches. Every candidate
+  keeps summary/ranking evidence, while only retained top candidates require
+  full equity/trade/plot artifacts.
 - Module 07: metricstracker uses Rust/Polars parquet reads plus Rust metric
   math. Explain `metricstracker.time_unit` and `metricstracker.risk_free_rate`.
 - Module 08: WFA runs selected strategy routes per window; it is not investment
-  proof and should be read with regime and overfitting caution.
+  proof and should be read with regime and overfitting caution. The validation
+  method is unchanged; current behavior adds bounded large-job execution and
+  exact objective-to-artifact selection.
 - Module 09: safety checks include look-ahead guards, cost/slippage, benchmark
   alignment, invariant checks, and the shared flatten-first risk contract.
   Supported post-trigger routes are `permanent_stop` and
@@ -56,6 +67,13 @@ Teach only the current config expression and current compute model.
   which changes positions still executes through the shared Rust engine.
 - Labs and app UI teaching should cite the actual page payload or artifact path
   rather than screenshots alone.
+- Canonical candidate identity is
+  `base_strategy_id:workflow_id:parameter_suffix` (`fixed` without parameter
+  values). Candidate, objective, retained artifact, WFA window, and dashboard
+  payload must match exactly; missing evidence is a contract error, not a
+  fallback selection.
+- Python setup and execution use only `uv sync --locked` and
+  `uv run --locked --exact`.
 
 ## Data Requirements Boundary
 

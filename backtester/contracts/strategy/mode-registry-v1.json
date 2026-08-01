@@ -15,8 +15,8 @@
     {
       "id": "factor_pipeline",
       "label": "Factor pipeline",
-      "status": "contract_reserved",
-      "description": "Shared vector layer for factor construction, preprocessing, composite scoring, point-in-time audit, cache, and StatAnalyser outputs. It feeds existing single-asset or multi-asset modes rather than becoming a separate engine family."
+      "status": "retired_fail_closed",
+      "description": "Retired because the implementation changed results in Python. Supported factor calculations must use computed_fields[] in the shared Rust engine; unsupported operations require a reviewed Rust building block."
     }
   ],
   "strategy_profiles": [

@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Mapping, Optional
 
 from jsonschema import Draft202012Validator
 
-from backtester.timeframe_utils import is_subdaily_timeframe
+from backtester.timeframe_contracts import validate_bar_time_contract
 
 from .registry import (
     MULTI_ASSET_CONDITION,
@@ -121,7 +121,7 @@ class _StrategyRunSupportChecker:
         self.issues: List[StrategyBuildingBlockIssue] = []
 
     def check(self, config: Mapping[str, Any]) -> None:
-        self._check_session_level_time_granularity(config)
+        self._check_time_contract(config)
         for retired_section in ("features", "indicators"):
             if retired_section in config:
                 self._issue(
@@ -157,23 +157,102 @@ class _StrategyRunSupportChecker:
         fill_model = _dict(config.get("fill_model"))
         self._check_timeline_fill_model(fill_model, config)
 
-    def _check_session_level_time_granularity(self, config: Mapping[str, Any]) -> None:
+    def _check_time_contract(self, config: Mapping[str, Any]) -> None:
         data = _dict(config.get("data"))
         market_data = _dict(data.get("market_data"))
-        for path, value in (
-            ("data.frequency", data.get("frequency")),
-            ("data.interval", data.get("interval")),
-            ("data.market_data.frequency", market_data.get("frequency")),
-            ("data.market_data.interval", market_data.get("interval")),
+        benchmark = _dict(data.get("benchmark"))
+        for path, present in (
+            ("data.frequency", "frequency" in data),
+            ("data.interval", "interval" in data),
+            ("data.calendar", "calendar" in data),
+            ("data.timezone", "timezone" in data),
+            ("data.market_data.frequency", "frequency" in market_data),
+            ("data.market_data.interval", "interval" in market_data),
+            ("data.market_data.calendar", "calendar" in market_data),
+            ("data.market_data.timezone", "timezone" in market_data),
+            ("data.benchmark.frequency", "frequency" in benchmark),
+            ("data.benchmark.interval", "interval" in benchmark),
+            ("data.benchmark.calendar", "calendar" in benchmark),
+            ("data.benchmark.timezone", "timezone" in benchmark),
         ):
-            if is_subdaily_timeframe(value):
+            if present:
                 self._issue(
                     path,
-                    str(value or ""),
+                    "legacy_time_field",
                     "runtime.timeframe",
-                    "strategy_run portfolio runtime currently supports session-level bars only; sub-daily frequency/interval values are not supported",
+                    "data.bar_time is the only supported time contract; legacy time "
+                    "fields are not supported",
                 )
                 return
+
+        bar_time = data.get("bar_time")
+        if not isinstance(bar_time, Mapping) or not bar_time:
+            self._issue(
+                "data.bar_time",
+                "",
+                "runtime.timeframe",
+                "strategy_run requires an explicit typed data.bar_time contract",
+            )
+            return
+        try:
+            validate_bar_time_contract(bar_time)
+        except ValueError as exc:
+            self._issue(
+                "data.bar_time",
+                "",
+                "runtime.timeframe",
+                str(exc),
+            )
+            return
+
+        binding = data.get("stream_binding")
+        expected_fields = {"execution_stream_id", "decision_stream_id"}
+        if not isinstance(binding, Mapping):
+            self._issue(
+                "data.stream_binding",
+                "",
+                "runtime.timeframe",
+                "strategy_run requires explicit execution and decision stream bindings",
+            )
+            return
+        if set(binding) != expected_fields:
+            self._issue(
+                "data.stream_binding",
+                "",
+                "runtime.timeframe",
+                "stream_binding must contain only execution_stream_id and "
+                "decision_stream_id",
+            )
+            return
+
+        streams = {
+            str(stream.get("stream_id") or ""): stream
+            for stream in list(bar_time.get("streams") or [])
+            if isinstance(stream, Mapping)
+        }
+        execution_stream_id = str(binding.get("execution_stream_id") or "").strip()
+        decision_stream_id = str(binding.get("decision_stream_id") or "").strip()
+        execution_stream = streams.get(execution_stream_id)
+        if execution_stream is None or execution_stream.get("role") != "execution":
+            self._issue(
+                "data.stream_binding.execution_stream_id",
+                execution_stream_id,
+                "runtime.timeframe",
+                "execution_stream_id must reference the declared execution stream",
+            )
+            return
+        decision_stream = streams.get(decision_stream_id)
+        if decision_stream is None or (
+            decision_stream_id != execution_stream_id
+            and decision_stream.get("role") != "decision"
+        ):
+            self._issue(
+                "data.stream_binding.decision_stream_id",
+                decision_stream_id,
+                "runtime.timeframe",
+                "decision_stream_id must reference a declared decision stream or the "
+                "execution stream",
+            )
 
     def _check_indicator(self, indicator: Any, path: str, *, section: str) -> None:
         if not isinstance(indicator, Mapping):

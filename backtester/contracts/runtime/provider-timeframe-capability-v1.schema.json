@@ -1,0 +1,403 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lo2cin4bt/contracts/runtime/provider-timeframe-capability-v1.schema.json",
+  "title": "ProviderTimeframeCapabilityV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contract_id",
+    "provider_id",
+    "market_data_kind",
+    "source_kind",
+    "supported_timeframes",
+    "unsupported_request_policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "provider_timeframe_capability.v1"
+    },
+    "contract_id": {
+      "const": "lo2cin4bt.provider_timeframe_capability.v1"
+    },
+    "provider_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "market_data_kind": {
+      "const": "bars"
+    },
+    "source_kind": {
+      "const": "external"
+    },
+    "supported_timeframes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/timeframeCapability"
+      }
+    },
+    "unsupported_request_policy": {
+      "$ref": "#/$defs/unsupportedRequestPolicy"
+    }
+  },
+  "$defs": {
+    "timeframeCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "aggregation",
+        "step",
+        "unit",
+        "price_types",
+        "alignments",
+        "calendar_ids",
+        "history",
+        "timestamp_semantics",
+        "session_scopes",
+        "price_policy",
+        "quality_policy"
+      ],
+      "properties": {
+        "aggregation": {
+          "const": "time"
+        },
+        "step": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "unit": {
+          "enum": [
+            "minute",
+            "hour",
+            "day",
+            "week",
+            "month"
+          ]
+        },
+        "price_types": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "last",
+              "bid",
+              "ask",
+              "mid"
+            ]
+          }
+        },
+        "alignments": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "session_open",
+              "calendar_period_start"
+            ]
+          }
+        },
+        "calendar_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "history": {
+          "$ref": "#/$defs/historyCapability"
+        },
+        "timestamp_semantics": {
+          "$ref": "#/$defs/timestampSemantics"
+        },
+        "session_scopes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "regular",
+              "24x7"
+            ]
+          }
+        },
+        "price_policy": {
+          "$ref": "#/$defs/pricePolicy"
+        },
+        "quality_policy": {
+          "$ref": "#/$defs/qualityPolicy"
+        }
+      }
+    },
+    "historyCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "depth",
+        "pagination"
+      ],
+      "properties": {
+        "depth": {
+          "$ref": "#/$defs/historyDepth"
+        },
+        "pagination": {
+          "$ref": "#/$defs/pagination"
+        }
+      }
+    },
+    "historyDepth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "amount",
+        "unit"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "bounded",
+            "unbounded"
+          ]
+        },
+        "amount": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "unit": {
+          "enum": [
+            "bar",
+            "calendar_day",
+            "session",
+            "month",
+            "year",
+            null
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "bounded"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "amount": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "unit": {
+                "enum": [
+                  "bar",
+                  "calendar_day",
+                  "session",
+                  "month",
+                  "year"
+                ]
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "amount": {
+                "const": null
+              },
+              "unit": {
+                "const": null
+              }
+            }
+          }
+        }
+      ]
+    },
+    "pagination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "max_bars_per_request"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "not_supported",
+            "optional",
+            "required"
+          ]
+        },
+        "max_bars_per_request": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "not_supported"
+              }
+            },
+            "required": [
+              "mode"
+            ]
+          },
+          "then": {
+            "properties": {
+              "max_bars_per_request": {
+                "const": null
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "max_bars_per_request": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "timestampSemantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "timestamp_convention",
+        "precision",
+        "timezone",
+        "availability"
+      ],
+      "properties": {
+        "timestamp_convention": {
+          "enum": [
+            "bar_open",
+            "bar_close"
+          ]
+        },
+        "precision": {
+          "enum": [
+            "second",
+            "millisecond",
+            "microsecond",
+            "nanosecond"
+          ]
+        },
+        "timezone": {
+          "type": "string",
+          "minLength": 1
+        },
+        "availability": {
+          "enum": [
+            "bar_close",
+            "provider_reported"
+          ]
+        }
+      }
+    },
+    "pricePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "price_basis",
+        "corporate_action_policy"
+      ],
+      "properties": {
+        "price_basis": {
+          "enum": [
+            "raw",
+            "split_adjusted",
+            "split_dividend_adjusted"
+          ]
+        },
+        "corporate_action_policy": {
+          "enum": [
+            "provider_applied",
+            "separate_events",
+            "not_available"
+          ]
+        }
+      }
+    },
+    "qualityPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "missing_bar_policy",
+        "duplicate_timestamp_policy",
+        "out_of_order_policy"
+      ],
+      "properties": {
+        "missing_bar_policy": {
+          "enum": [
+            "preserve_gap",
+            "explicit_null",
+            "fail"
+          ]
+        },
+        "duplicate_timestamp_policy": {
+          "const": "fail"
+        },
+        "out_of_order_policy": {
+          "enum": [
+            "sort_then_validate",
+            "fail"
+          ]
+        }
+      }
+    },
+    "unsupportedRequestPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unsupported_timeframe",
+        "unavailable_history_depth",
+        "unsupported_session_scope",
+        "unsupported_price_basis",
+        "incompatible_timestamp_semantics",
+        "provider_fallback",
+        "frequency_fallback"
+      ],
+      "properties": {
+        "unsupported_timeframe": {
+          "const": "fail"
+        },
+        "unavailable_history_depth": {
+          "const": "fail"
+        },
+        "unsupported_session_scope": {
+          "const": "fail"
+        },
+        "unsupported_price_basis": {
+          "const": "fail"
+        },
+        "incompatible_timestamp_semantics": {
+          "const": "fail"
+        },
+        "provider_fallback": {
+          "const": "forbidden"
+        },
+        "frequency_fallback": {
+          "const": "forbidden"
+        }
+      }
+    }
+  }
+}

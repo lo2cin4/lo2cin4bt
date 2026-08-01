@@ -1,7 +1,7 @@
 ---
 name: lo2cin4bt-performance-analysis
 description: Repo-local performance analysis skill for lo2cin4bt. Use when explaining generated metrics, equity curves, drawdowns, trades, rebalances, costs, slippage, benchmarks, Parameter Matrix, WFA, missing fields, and claims that require independent quantitative risk review.
-version: 2.1.0
+version: 2.2.0
 status: active
 category: reference-backed
 use_when:
@@ -221,7 +221,7 @@ claims_blocked:
 ## Validation
 
 ```powershell
-python -m pytest tests/test_app_api_payloads.py tests/test_ai_readable_output.py tests/test_agent_skill_lecture_alignment.py -q
+uv run --locked --exact --group dev python -m pytest tests/test_app_api_payloads.py tests/test_ai_readable_output.py tests/test_agent_skill_lecture_alignment.py -q
 ```
 
 Pass criteria: values trace to canonical generated evidence, missing fields are not converted to zero, and matrix/WFA claims retain their correct boundaries.

@@ -89,11 +89,18 @@ class MetricsRunnerAutorunner:
             )
 
         canonical_bundle = self._load_validated_canonical_bundle(backtest_results)
-        equity_path = str(canonical_bundle["bundle_paths"].get("equity_curve") or "")
+        equity_path = str(
+            canonical_bundle["bundle_paths"].get("execution_equity_curve")
+            or canonical_bundle["bundle_paths"].get("equity_curve")
+            or ""
+        )
         target_files = [os.path.abspath(equity_path)] if equity_path else []
 
         if not target_files:
-            raise ValueError("validated canonical result bundle is missing equity_curve")
+            raise ValueError(
+                "validated canonical result bundle is missing execution_equity_curve "
+                "and equity_curve"
+            )
 
         resolved_metrics = resolve_metric_config(config)
         time_unit = self._resolve_time_unit(resolved_metrics)

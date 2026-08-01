@@ -1,6 +1,6 @@
 [package]
 name = "lo2cin4bt_core"
-version = "2.1.0"
+version = "2.2.0"
 edition = "2021"
 license = "CC-BY-NC-4.0"
 

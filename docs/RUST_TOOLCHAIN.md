@@ -59,7 +59,7 @@ the compute layer harder to maintain.
 ```bash
 cargo check --manifest-path rust/lo2cin4bt_core/Cargo.toml --bin engine_service_cli
 cargo test --manifest-path rust/lo2cin4bt_core/Cargo.toml --quiet
-python -m pytest tests/test_metricstracker_parquet_rust.py -q
+uv run --locked --exact --group dev python -m pytest tests/test_metricstracker_parquet_rust.py -q
 ```
 
 `metricstracker` uses Rust/Polars to read parquet files directly before sending

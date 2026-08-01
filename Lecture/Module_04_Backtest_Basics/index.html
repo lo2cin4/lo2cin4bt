@@ -71,7 +71,7 @@ flowchart LR
           <ol>
             <li>
               <strong>啟動平台</strong>
-              <span>執行 <code>python main.py</code>，打開 <code>http://127.0.0.1:2424/</code>。</span>
+              <span>執行 <code>uv run --locked --exact python main.py</code>，打開 <code>http://127.0.0.1:2424/</code>。</span>
             </li>
             <li>
               <strong>在執行中心（Run Center）選擇設定檔</strong>
@@ -91,7 +91,7 @@ flowchart LR
         <h2>回測前檢查</h2>
         <div class="learning-rail">
           <div class="rail-item"><strong>設定檔結構綱要（Config schema）</strong><span>只接受現行 <code>strategy_run</code> 契約（contract）；舊設定檔（config）不會自動映射或補欄位。</span></div>
-          <div class="rail-item"><strong>資料完整性</strong><span>確認資產、比較基準（benchmark）、頻率及有效起始日都能載入。</span></div>
+          <div class="rail-item"><strong>資料完整性</strong><span>確認資產、比較基準（benchmark）、行情週期契約（bar_time）及有效起始日都能載入；缺失、重複或次序錯亂會停止執行。</span></div>
           <div class="rail-item"><strong>參數範圍（Parameter domain）</strong><span><code>parameter_matrix</code> 需要非空參數範圍；空物件會成為沒有參數範圍（no-domain）狀態。<code>single_backtest</code> 的標準寫法是 <code>{}</code>。</span></div>
           <div class="rail-item"><strong>驗證選擇</strong><span>固定配置可做單次回測。跨時段檢查要選擇滾動驗證（Rolling Validation），系統不會附加該工作。</span></div>
         </div>
@@ -111,11 +111,16 @@ flowchart LR
           </p>
         </section>
 
+        <section class="note">
+          <h2>分鐘策略會顯示什麼</h2>
+          <p>一分鐘策略的資金曲線及買賣標記保留一分鐘時間戳，前端可沿回測期間查看日內變化。年化複合成長率、夏普比率、索提諾比率、年化波動率及卡瑪比率先取每個市場交易時段最後一個已驗證資金點，再按設定的每年交易時段數計算。日內最大回撤（Intraday Max Drawdown）另行量度交易時段內曾出現的最大跌幅，不會被日結曲線遮蓋。</p>
+        </section>
+
         <section class="evidence">
           <h2>專案證據</h2>
           <ul>
             <li><code>backtester/UnifiedBacktestRunner_backtester.py</code></li>
-            <li><code>backtester/contracts/runtime/engine-request-v1.schema.json</code></li>
+            <li><code>backtester/contracts/runtime/engine-request-v2.schema.json</code></li>
             <li><code>rust/lo2cin4bt_core/src/lib.rs</code></li>
             <li><code>rust/lo2cin4bt_core/src/result_validator.rs</code></li>
           </ul>

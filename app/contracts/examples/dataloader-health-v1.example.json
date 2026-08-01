@@ -14,7 +14,7 @@
   "stale_ratio": 0.031,
   "max_age_bars": 1,
   "join_mode": "mixed",
-  "calendar_policy": "primary_market_calendar",
+  "calendar_id": "XNYS",
   "source_audit_id": "audit_6f331f4a",
   "warnings": ["breadth uses explicit dayfirst parsing"],
   "errors": []

@@ -45,16 +45,17 @@ function numericValue(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-function dateKey(value: unknown): string {
+function timestampKey(value: unknown): string {
   const raw = String(value ?? '').trim()
   if (!raw) return ''
-  return raw.includes('T') ? raw.slice(0, 10) : raw.slice(0, 10)
+  const parsed = Date.parse(raw)
+  return Number.isFinite(parsed) ? `ms:${parsed}` : `raw:${raw}`
 }
 
 function timeValue(value: unknown): number | null {
-  const key = dateKey(value)
-  if (!key) return null
-  const parsed = Date.parse(key)
+  const raw = String(value ?? '').trim()
+  if (!raw) return null
+  const parsed = Date.parse(raw)
   return Number.isFinite(parsed) ? parsed : null
 }
 
@@ -63,7 +64,7 @@ function displayTime(row: any): string {
   if (explicit) return explicit
   const raw = String(firstValue(row, ['Time', 'time', 'entry_time', 'exit_time']) ?? '').trim()
   if (!raw) return '-'
-  return raw.includes('T') ? raw.replace('T', ' ').slice(0, 16) : raw.slice(0, 10)
+  return raw.includes('T') ? raw.replace('T', ' ') : raw
 }
 
 function tradePrice(row: any): number | null {
@@ -135,23 +136,23 @@ function markerText(row: any, side: 'buy' | 'sell', language: 'en' | 'zh-Hant', 
   return lines.join('<br>')
 }
 
-function compactMarkersByDate(markers: MarkerPoint[], language: 'en' | 'zh-Hant'): MarkerPoint[] {
-  const byDate = new Map<string, MarkerPoint & { count: number }>()
+function compactMarkersByTimestamp(markers: MarkerPoint[], language: 'en' | 'zh-Hant'): MarkerPoint[] {
+  const byTimestamp = new Map<string, MarkerPoint & { count: number }>()
   for (const marker of markers) {
-    const key = dateKey(marker.x)
-    const existing = byDate.get(key)
+    const key = timestampKey(marker.x)
+    const existing = byTimestamp.get(key)
     if (!existing) {
-      byDate.set(key, { ...marker, count: 1 })
+      byTimestamp.set(key, { ...marker, count: 1 })
       continue
     }
     existing.count += 1
     existing.text = `${existing.text}<br><br>${marker.text}`
   }
-  return [...byDate.values()].map((marker) => ({
+  return [...byTimestamp.values()].map((marker) => ({
     x: marker.x,
     y: marker.y,
     text: marker.count > 1
-      ? `${language === 'zh-Hant' ? '同日交易' : 'Same-day trades'}: ${marker.count}<br><br>${marker.text}`
+      ? `${language === 'zh-Hant' ? '同一時點交易' : 'Same-timestamp trades'}: ${marker.count}<br><br>${marker.text}`
       : marker.text,
   }))
 }
@@ -167,22 +168,22 @@ export function buildTradeMarkerTraces({
   if (!Array.isArray(equitySeries) || !equitySeries.length || !Array.isArray(tradeRows) || !tradeRows.length) {
     return []
   }
-  const equityByDate = new Map<string, MarkerPoint>()
+  const equityByTimestamp = new Map<string, MarkerPoint>()
   const equityPoints: Array<MarkerPoint & { t: number }> = []
   for (const point of equitySeries) {
-    const key = dateKey(point.time)
+    const key = timestampKey(point.time)
     const y = chartValue(point.value, equityScale)
     if (!key || y === null || !Number.isFinite(Number(y))) continue
     const markerPoint = { x: String(point.time ?? key), y: Number(y), text: '' }
-    equityByDate.set(key, markerPoint)
+    equityByTimestamp.set(key, markerPoint)
     const t = timeValue(point.time)
     if (t !== null) equityPoints.push({ ...markerPoint, t })
   }
   equityPoints.sort((left, right) => left.t - right.t)
 
   const nearestEquityPoint = (rawTime: unknown): MarkerPoint | null => {
-    const key = dateKey(rawTime)
-    const exact = equityByDate.get(key)
+    const key = timestampKey(rawTime)
+    const exact = equityByTimestamp.get(key)
     if (exact) return exact
     const target = timeValue(rawTime)
     if (target === null || !equityPoints.length) return null
@@ -216,8 +217,8 @@ export function buildTradeMarkerTraces({
     else sells.push(marker)
   }
 
-  const compactBuys = compactMarkersByDate(buys, language)
-  const compactSells = compactMarkersByDate(sells, language)
+  const compactBuys = compactMarkersByTimestamp(buys, language)
+  const compactSells = compactMarkersByTimestamp(sells, language)
   const traces: any[] = []
   if (compactBuys.length) {
     traces.push({

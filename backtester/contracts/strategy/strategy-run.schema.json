@@ -84,11 +84,56 @@
     },
     "data": {
       "type": "object",
+      "required": ["bar_time", "stream_binding"],
+      "allOf": [
+        {
+          "not": {
+            "anyOf": [
+              {"required": ["frequency"]},
+              {"required": ["interval"]},
+              {"required": ["calendar"]},
+              {"required": ["timezone"]}
+            ]
+          }
+        }
+      ],
       "properties": {
         "provider": {"type": ["string", "null"]},
-        "frequency": {"type": ["string", "null"]},
-        "calendar": {"type": ["string", "null"]},
-        "timezone": {"type": ["string", "null"]},
+        "bar_time": {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "contract_id",
+            "session_model",
+            "timestamp_model",
+            "price_model",
+            "streams"
+          ],
+          "properties": {
+            "schema_version": {"const": "bar_time_contract.v1"},
+            "contract_id": {"const": "lo2cin4bt.bar_time_contract.v1"},
+            "session_model": {"type": "object"},
+            "timestamp_model": {"type": "object"},
+            "price_model": {"type": "object"},
+            "streams": {"type": "array", "minItems": 1}
+          },
+          "additionalProperties": false
+        },
+        "stream_binding": {
+          "type": "object",
+          "required": ["execution_stream_id", "decision_stream_id"],
+          "properties": {
+            "execution_stream_id": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "decision_stream_id": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$"
+            }
+          },
+          "additionalProperties": false
+        },
         "start_date": {"type": ["string", "null"]},
         "start_policy": {"type": ["string", "null"]},
         "external_features": {
@@ -96,7 +141,17 @@
           "description": "External local features to join onto provider market data. Use this for market-level or symbol-level research data such as breadth or macro series.",
           "items": {"type": "object"}
         },
-        "benchmark": {}
+        "benchmark": {
+          "type": "object",
+          "not": {
+            "anyOf": [
+              {"required": ["frequency"]},
+              {"required": ["interval"]},
+              {"required": ["calendar"]},
+              {"required": ["timezone"]}
+            ]
+          }
+        }
       }
     },
     "universe": {
@@ -133,58 +188,9 @@
     },
     "factor_pipeline": {
       "type": "object",
-      "description": "Optional factor-investing pipeline. This is a capability layer shared by single-asset and multi-asset strategies, not a separate engine family.",
-      "properties": {
-        "schema_version": {"type": ["string", "null"]},
-        "external_config_path": {"type": ["string", "null"]},
-        "data_requirements": {
-          "type": "object",
-          "properties": {
-            "price_fields": {"type": "array", "items": {"type": "string"}},
-            "fundamental_fields": {"type": "array", "items": {"type": "string"}},
-            "classification_fields": {"type": "array", "items": {"type": "string"}},
-            "alternative_fields": {"type": "array", "items": {"type": "string"}},
-            "point_in_time_required": {"type": "boolean"}
-          },
-          "additionalProperties": true
-        },
-        "construction": {
-          "type": "array",
-          "description": "Single-factor or multi-factor construction definitions, such as value, momentum, quality, growth, or volatility.",
-          "items": {"type": "object"}
-        },
-        "preprocessing": {
-          "type": "array",
-          "description": "Cross-sectional cleanup steps such as winsorize, standardize, neutralize, missing-value policy, and lag audit.",
-          "items": {"type": "object"}
-        },
-        "composite": {
-          "type": "object",
-          "description": "Multi-factor score construction, such as equal weight, IC weight, regression weight, or ranker output.",
-          "additionalProperties": true
-        },
-        "point_in_time": {
-          "type": "object",
-          "properties": {
-            "known_at_field": {"type": ["string", "null"]},
-            "effective_at_field": {"type": ["string", "null"]},
-            "lag_policy": {"type": ["string", "null"]},
-            "fail_on_lookahead": {"type": "boolean"}
-          },
-          "additionalProperties": true
-        },
-        "cache": {
-          "type": "object",
-          "properties": {
-            "enabled": {"type": "boolean"},
-            "namespace": {"type": ["string", "null"]},
-            "key_fields": {"type": "array", "items": {"type": "string"}}
-          },
-          "additionalProperties": true
-        },
-        "outputs": {"type": "object"}
-      },
-      "additionalProperties": true
+      "maxProperties": 0,
+      "deprecated": true,
+      "description": "Retired. Omit this field and express supported factor inputs with computed_fields[] so calculations run in the shared Rust engine. The empty object is reserved only for the canonical internal request shape."
     },
     "computed_fields": {
       "type": "array",
@@ -318,7 +324,7 @@
         "enable_metrics_analysis": {"type": "boolean"},
         "time_unit": {
           "type": ["integer", "number", "string"],
-          "description": "Annualization period count. Defaults to 252 for traditional daily assets and 365 for crypto when omitted."
+          "description": "Annual session count applied after canonical Rust session-close projection. Defaults to 252 for traditional exchanges and 365 for crypto when omitted."
         },
         "risk_free_rate": {
           "type": ["integer", "number", "string"],
@@ -363,6 +369,16 @@
       "additionalProperties": false
     },
     "outputs": {"type": "object"},
-    "metadata": {"type": "object"}
+    "metadata": {
+      "type": "object",
+      "required": ["strategy_id"],
+      "properties": {
+        "strategy_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+        }
+      },
+      "additionalProperties": true
+    }
   }
 }

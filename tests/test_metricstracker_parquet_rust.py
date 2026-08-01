@@ -19,7 +19,10 @@ def _assert_metric_close(actual, expected) -> None:
 
 def _sample_metric_frame() -> pd.DataFrame:
     rows = []
-    for backtest_id, closes in [("b2", [100, 110, 105, 120]), ("a1", [100, 95, 98, 102])]:
+    for backtest_id, closes in [
+        ("b2:parameter_matrix:fixed", [100, 110, 105, 120]),
+        ("a1:parameter_matrix:fixed", [100, 95, 98, 102]),
+    ]:
         equity = [100.0]
         actions = [0.0, 1.0, 0.0, 4.0]
         trade_returns = [None, None, None, (closes[-1] / closes[1]) - 1.0]
@@ -31,6 +34,9 @@ def _sample_metric_frame() -> pd.DataFrame:
             rows.append(
                 {
                     "Time": pd.Timestamp("2024-01-01") + pd.Timedelta(days=idx),
+                    "Session_label": (
+                        pd.Timestamp("2024-01-01") + pd.Timedelta(days=idx)
+                    ).strftime("%Y-%m-%d"),
                     "Backtest_id": backtest_id,
                     "Equity_value": equity[idx],
                     "Close": float(close),
@@ -62,7 +68,10 @@ def test_rust_metrics_parquet_service_matches_existing_rust_batch_path(tmp_path:
 
     assert parquet_summary["row_count"] == 2
     assert len(parquet_summary["metrics"]) == 2
-    assert {row["Backtest_id"] for row in parquet_summary["metrics"]} == {"a1", "b2"}
+    assert {row["Backtest_id"] for row in parquet_summary["metrics"]} == {
+        "a1:parameter_matrix:fixed",
+        "b2:parameter_matrix:fixed",
+    }
     assert len(parquet_summary["enriched_rows"]) == len(source)
 
 
@@ -86,13 +95,19 @@ def test_metrics_exporter_can_export_directly_from_parquet(tmp_path: Path) -> No
     assert metrics_path.exists()
 
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    assert {row["Backtest_id"] for row in metadata} == {"a1", "b2"}
+    assert {row["Backtest_id"] for row in metadata} == {
+        "a1:parameter_matrix:fixed",
+        "b2:parameter_matrix:fixed",
+    }
     assert {row["Metrics_kernel"] for row in metadata} == {"rust_metrics_parquet_v1"}
 
     metrics_frame = pd.read_parquet(metrics_path)
-    assert {"Time", "Equity_value", "BAH_Equity", "BAH_Return", "Drawdown", "Backtest_id"}.issubset(
+    assert {"Time", "Session_label", "Equity_value", "BAH_Equity", "BAH_Return", "Drawdown", "Backtest_id"}.issubset(
         metrics_frame.columns
     )
+    assert {
+        row["Annualization"]["basis"] for row in metadata
+    } == {"session_close_projection"}
     assert len(metrics_frame) == len(source)
 
 

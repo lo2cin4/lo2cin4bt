@@ -15,13 +15,16 @@ def compute_metrics_for_frame(
     *,
     time_unit: int,
     risk_free_rate: float,
-    backtest_id: str = "default",
+    backtest_id: str,
 ) -> Dict[str, Any]:
     if not isinstance(frame, pd.DataFrame) or frame.empty:
         return {}
     if "Equity_value" not in frame.columns:
         raise ValueError("Rust metrics frame requires Equity_value")
+    if "Session_label" not in frame.columns:
+        raise ValueError("Rust metrics frame requires canonical Session_label")
     equity = pd.to_numeric(frame["Equity_value"], errors="coerce").to_numpy(dtype=np.float64)
+    session_labels = frame["Session_label"].astype(str).tolist()
     def optional(name: str) -> list[float | None]:
         values = pd.to_numeric(
             frame.get(name, pd.Series(np.nan, index=frame.index)), errors="coerce"
@@ -34,6 +37,7 @@ def compute_metrics_for_frame(
             "backtest_ids": [str(backtest_id)],
             "equity": [float(value) for value in equity],
             "bah_equity": [float(value) for value in equity],
+            "session_labels": session_labels,
             "trade_actions": optional("Trade_action"),
             "trade_returns": optional("Trade_return"),
             "position_size": optional("Position_size"),
@@ -45,7 +49,12 @@ def compute_metrics_for_frame(
     rows = summary.get("metrics")
     if not isinstance(rows, list) or len(rows) != 1 or not isinstance(rows[0], dict):
         raise RuntimeError("Rust metrics batch returned an invalid metrics contract")
-    return {
+    result = {
         key: (float("nan") if value is None else value)
         for key, value in rows[0].items()
     }
+    annualization = summary.get("annualization")
+    if not isinstance(annualization, dict):
+        raise RuntimeError("Rust metrics batch returned no annualization contract")
+    result["Annualization"] = annualization
+    return result

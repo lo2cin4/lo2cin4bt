@@ -28,6 +28,8 @@ pub enum MetricsParquetError {
     MissingEquity,
     #[error("parquet metrics input requires Backtest_id")]
     MissingBacktestId,
+    #[error("parquet metrics input requires Session_label")]
+    MissingSessionLabel,
     #[error("parquet column is incomplete or non-finite: {0}")]
     InvalidColumn(String),
     #[error("parquet contains no rows")]
@@ -86,6 +88,8 @@ fn metrics_batch_from_dataframe(
     }
     let backtest_id_values =
         string_column(df, "Backtest_id")?.ok_or(MetricsParquetError::MissingBacktestId)?;
+    let session_labels =
+        string_column(df, "Session_label")?.ok_or(MetricsParquetError::MissingSessionLabel)?;
     let (backtest_ids, group_start, group_end) = group_boundaries(&backtest_id_values, row_count);
 
     let close = required_complete_numeric_column(df, "Close")?;
@@ -134,6 +138,7 @@ fn metrics_batch_from_dataframe(
         backtest_ids,
         equity,
         bah_equity,
+        session_labels,
         close: close
             .map(|values| values.into_iter().map(Some).collect())
             .unwrap_or_default(),

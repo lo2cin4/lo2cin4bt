@@ -88,6 +88,7 @@ def _metrics_batch_payload() -> Dict[str, Any]:
     trade_actions: List[float] = []
     trade_returns: List[float | None] = []
     position_size: List[float] = []
+    session_labels: List[str] = []
     group_start: List[int] = []
     group_end: List[int] = []
     backtest_ids: List[str] = []
@@ -108,6 +109,7 @@ def _metrics_batch_payload() -> Dict[str, Any]:
             trade_actions.append(1.0 if is_entry else 4.0 if is_exit else 0.0)
             trade_returns.append((value / equity[-30]) - 1.0 if is_exit and len(equity) >= 30 else None)
             position_size.append(1.0 if point % 63 < 31 else 0.0)
+            session_labels.append(str(date(2020, 1, 1) + timedelta(days=point)))
             cursor += 1
         group_end.append(cursor)
     return {
@@ -116,6 +118,7 @@ def _metrics_batch_payload() -> Dict[str, Any]:
         "backtest_ids": backtest_ids,
         "equity": equity,
         "bah_equity": bah_equity,
+        "session_labels": session_labels,
         "trade_actions": trade_actions,
         "trade_returns": trade_returns,
         "position_size": position_size,

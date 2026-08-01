@@ -366,6 +366,11 @@ def test_shared_lecture_glossary_explains_difficult_terms() -> None:
         "黃金測試（golden test）",
         "因子診斷（factor diagnostics）",
         "診斷資料（diagnostic payload）",
+        "行情週期契約（bar_time）",
+        "執行資料流（execution stream）",
+        "決策資料流（decision stream）",
+        "日內最大回撤（Intraday Max Drawdown）",
+        "候選識別碼（candidate_id）",
     )
     behavior_contracts = (
         "const lectureGlossaryTerms = [",
@@ -389,6 +394,17 @@ def test_shared_lecture_glossary_explains_difficult_terms() -> None:
     assert "它不是只檢查預設指標" in lecture_js
     assert "資料來源、指標、訊號、選股、配置、成交、風控及驗證規則" in module_05
     assert "能力判斷（capability verdict）" in module_05
+
+
+def test_lecture_has_no_retired_flat_time_fields_or_old_release_label() -> None:
+    lecture_text = "\n".join(
+        page.read_text(encoding="utf-8") for page in LECTURE.rglob("*.html")
+    )
+    assert "lo2cin4bt 2.1.0" not in lecture_text
+    assert '"frequency"' not in lecture_text
+    assert "頻率（frequency）" not in lecture_text
+    assert "lo2cin4bt 2.2.0" in lecture_text
+    assert "run_failure.v1" in lecture_text
 
 
 def test_reader_facing_lecture_copy_has_no_optional_adverbs() -> None:

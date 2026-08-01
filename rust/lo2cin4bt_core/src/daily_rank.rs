@@ -2,6 +2,8 @@ use crate::accounting::{
     apply_risk_gates, AccountingConfig, AccountingError, AccountingRiskGateEvent,
 };
 use crate::artifact_tables::write_result_rows_parquet;
+use crate::candidate_identity::parse_candidate_id;
+use crate::computed_fields::returns::simple_return;
 use crate::computed_fields::{compute_fields, ComputedFieldError, ComputedFieldSpec};
 use crate::result_validator::{
     validate_result_tables, ResultTableView, ResultValidationError, ResultValidationReport,
@@ -11,6 +13,7 @@ use crate::risk::{
     SHADOW_RECOVERY_ARMED_ACTION, SHADOW_RECOVERY_RESUMED_ACTION,
 };
 use crate::selection::{run_rank_selection, RankSelectionInput, RankSelectionSummary};
+use crate::session_progress::SessionProgress;
 use crate::simulation::{
     execute_target_weight_orders, maintenance_margin_breached, SettlementEvent,
     SettlementInstruction, SettlementLedger, SimulatedOrderEvent, SimulationError,
@@ -141,6 +144,7 @@ pub struct DailyRankConditionInput {
 #[derive(Debug, Clone, Serialize)]
 pub struct DailyRankAccountingEvent {
     pub date: String,
+    pub session_label: String,
     pub rebalance: bool,
     pub equity_after_trade: f64,
     pub portfolio_return: f64,
@@ -249,6 +253,8 @@ pub enum DailyRankAccountingError {
     UnsupportedComparator(String),
     #[error("invalid daily rank condition: {0}")]
     InvalidCondition(String),
+    #[error("invalid session progression: {0}")]
+    InvalidSessionProgress(String),
     #[error(transparent)]
     Accounting(#[from] AccountingError),
     #[error(transparent)]
@@ -261,6 +267,10 @@ pub enum DailyRankAccountingError {
     ResultValidation(#[from] ResultValidationError),
     #[error("artifact export failed: {0}")]
     ArtifactExport(String),
+    #[error("invalid canonical candidate_id: {0}")]
+    InvalidCandidateId(String),
+    #[error("duplicate canonical candidate_id: {0}")]
+    DuplicateCandidateId(String),
 }
 
 fn map_computed_field_error(error: ComputedFieldError) -> DailyRankAccountingError {
@@ -314,13 +324,13 @@ pub fn run_daily_rank_accounting(
             } else {
                 input.close[row * cols + col]
             };
-            let pre_trade_return = current_open / previous_close - 1.0;
+            let pre_trade_return = simple_return(current_open, previous_close);
             if !pre_trade_return.is_finite() {
                 return Err(DailyRankAccountingError::NonFiniteDerivedReturn { row, col });
             }
             pre_trade_returns[row * cols + col] = pre_trade_return;
             if input.execute_next_open {
-                let post_trade_return = input.close[row * cols + col] / current_open - 1.0;
+                let post_trade_return = simple_return(input.close[row * cols + col], current_open);
                 if !post_trade_return.is_finite() {
                     return Err(DailyRankAccountingError::NonFiniteDerivedReturn { row, col });
                 }
@@ -343,9 +353,13 @@ pub fn run_daily_rank_accounting(
     let mut shadow_equity = 0.0;
     let mut shadow_weights = vec![0.0; cols];
     let mut settlement_ledger = SettlementLedger::default();
+    let mut session_progress = SessionProgress::default();
 
     for row in 0..rows {
-        if row > 0 {
+        let session = session_progress
+            .observe(&input.dates[row], &input.config.session_label_by_event_time)
+            .map_err(DailyRankAccountingError::InvalidSessionProgress)?;
+        if session.advanced {
             settlement_ledger.advance_session();
         }
         let row_start = row * cols;
@@ -448,15 +462,17 @@ pub fn run_daily_rank_accounting(
                             shadow_weights[col] * (1.0 + post_returns_row[col]) / denominator;
                     }
                 }
-                let shadow_short_gross = shadow_weights
-                    .iter()
-                    .filter(|weight| **weight < 0.0)
-                    .map(|weight| weight.abs())
-                    .sum::<f64>();
-                shadow_equity *= (1.0
-                    - shadow_short_gross * input.config.short_borrow_rate_annual
-                        / input.config.borrow_day_count as f64)
-                    .max(0.0);
+                if session.advanced {
+                    let shadow_short_gross = shadow_weights
+                        .iter()
+                        .filter(|weight| **weight < 0.0)
+                        .map(|weight| weight.abs())
+                        .sum::<f64>();
+                    shadow_equity *= (1.0
+                        - shadow_short_gross * input.config.short_borrow_rate_annual
+                            / input.config.borrow_day_count as f64)
+                        .max(0.0);
+                }
             }
             if risk_control.observe_shadow_equity(shadow_equity) {
                 risk_gate_events.push(AccountingRiskGateEvent {
@@ -597,14 +613,16 @@ pub fn run_daily_rank_accounting(
             .filter(|weight| **weight < 0.0)
             .map(|weight| weight.abs())
             .sum::<f64>();
-        let borrow_cost = if short_gross > 0.0 && input.config.short_borrow_rate_annual > 0.0 {
-            let cost = equity * short_gross * input.config.short_borrow_rate_annual
-                / input.config.borrow_day_count as f64;
-            equity = (equity - cost).max(0.0);
-            cost
-        } else {
-            0.0
-        };
+        let borrow_cost =
+            if session.advanced && short_gross > 0.0 && input.config.short_borrow_rate_annual > 0.0
+            {
+                let cost = equity * short_gross * input.config.short_borrow_rate_annual
+                    / input.config.borrow_day_count as f64;
+                equity = (equity - cost).max(0.0);
+                cost
+            } else {
+                0.0
+            };
         previous_weights = final_weights.clone();
         equity_peak = equity_peak.max(equity);
         let gross_exposure = previous_weights
@@ -636,6 +654,7 @@ pub fn run_daily_rank_accounting(
             .collect();
         events.push(DailyRankAccountingEvent {
             date: input.dates[row].clone(),
+            session_label: session.label,
             rebalance: execute_rebalance,
             equity_after_trade: equity,
             portfolio_return: daily_return,
@@ -666,6 +685,7 @@ pub fn run_daily_rank_accounting(
     let result_validation = validate_result_tables(ResultTableView {
         result_schema_version: &result_tables.schema_version,
         equity_curve: &result_tables.equity_curve,
+        execution_equity_curve: &[],
         holdings: &result_tables.holdings,
         rebalance_audit: &result_tables.rebalance_audit,
         rebalance_trades: &result_tables.rebalance_trades,
@@ -675,7 +695,7 @@ pub fn run_daily_rank_accounting(
     Ok(DailyRankAccountingSummary {
         start_equity,
         final_equity: equity,
-        total_return: equity / start_equity - 1.0,
+        total_return: simple_return(equity, start_equity),
         days: rows,
         active_rebalances,
         average_turnover: turnover_sum / rows as f64,
@@ -699,21 +719,17 @@ pub fn run_daily_rank_accounting_batch(
         .unwrap_or(false);
     let mut results = Vec::with_capacity(input.candidates.len());
     let mut full_summaries: Vec<(String, DailyRankAccountingSummary)> = Vec::new();
-    let mut seen_ids: BTreeMap<String, usize> = BTreeMap::new();
+    let mut seen_ids = BTreeSet::new();
 
-    for (idx, candidate) in input.candidates.into_iter().enumerate() {
-        let candidate_id = if candidate.candidate_id.trim().is_empty() {
-            format!("candidate_{idx}")
-        } else {
-            candidate.candidate_id
-        };
-        let suffix = seen_ids.entry(candidate_id.clone()).or_insert(0);
-        let unique_id = if *suffix == 0 {
-            candidate_id
-        } else {
-            format!("{candidate_id}_{}", *suffix)
-        };
-        *suffix += 1;
+    for candidate in input.candidates {
+        parse_candidate_id(&candidate.candidate_id)
+            .map_err(DailyRankAccountingError::InvalidCandidateId)?;
+        if !seen_ids.insert(candidate.candidate_id.clone()) {
+            return Err(DailyRankAccountingError::DuplicateCandidateId(
+                candidate.candidate_id,
+            ));
+        }
+        let candidate_id = candidate.candidate_id;
         let summary = run_daily_rank_accounting(DailyRankAccountingInput {
             config: input.config.clone(),
             dates: input.dates.clone(),
@@ -737,10 +753,10 @@ pub fn run_daily_rank_accounting_batch(
             target_change: candidate.target_change,
         })?;
         if export_artifacts {
-            full_summaries.push((unique_id.clone(), summary.clone()));
+            full_summaries.push((candidate_id.clone(), summary.clone()));
         }
         results.push(DailyRankCompactResult {
-            candidate_id: unique_id,
+            candidate_id,
             resolved_params: candidate.resolved_params,
             final_equity: summary.final_equity,
             total_return: summary.total_return,
@@ -787,6 +803,7 @@ fn export_daily_rank_bundle(
     let mut bundle_paths = BTreeMap::new();
     let table_specs = [
         ("equity_curve", "equity_curve"),
+        ("execution_equity_curve", "execution_equity_curve"),
         ("holdings", "holdings"),
         ("rebalance_audit", "rebalance_audit"),
         ("rebalance_trades", "rebalance_trades"),
@@ -816,7 +833,7 @@ fn combined_daily_rank_rows(
     let mut out = Vec::new();
     for (candidate_id, summary) in summaries {
         let rows = match table_key {
-            "equity_curve" => &summary.result_tables.equity_curve,
+            "equity_curve" | "execution_equity_curve" => &summary.result_tables.equity_curve,
             "holdings" => &summary.result_tables.holdings,
             "rebalance_audit" => &summary.result_tables.rebalance_audit,
             "rebalance_trades" => &summary.result_tables.rebalance_trades,
@@ -1161,6 +1178,7 @@ fn build_equity_rows(
         .map(|event| {
             let mut row = BTreeMap::new();
             row.insert("Time".to_string(), json!(event.date));
+            row.insert("Session_label".to_string(), json!(event.session_label));
             row.insert(
                 "Equity_value".to_string(),
                 json_f64(event.equity_after_trade),
@@ -2170,5 +2188,73 @@ mod tests {
         assert!(summary.events[0].borrow_cost.abs() < 1e-12);
         assert!((summary.events[1].borrow_cost - 0.05).abs() < 1e-12);
         assert!((summary.final_equity - 99.95).abs() < 1e-12);
+    }
+
+    #[test]
+    fn intraday_rank_rows_do_not_repeat_session_borrow_cost() {
+        let event_times = [
+            "2024-03-11T13:31:00Z",
+            "2024-03-11T13:32:00Z",
+            "2024-03-11T13:33:00Z",
+            "2024-03-12T13:31:00Z",
+        ];
+        let session_label_by_event_time = event_times
+            .iter()
+            .map(|event_time| {
+                (
+                    (*event_time).to_string(),
+                    if event_time.starts_with("2024-03-11") {
+                        "2024-03-11".to_string()
+                    } else {
+                        "2024-03-12".to_string()
+                    },
+                )
+            })
+            .collect();
+        let summary = run_daily_rank_accounting(DailyRankAccountingInput {
+            config: AccountingConfig {
+                allow_short: true,
+                short_borrow_rate_annual: 0.252,
+                borrow_day_count: 252,
+                session_label_by_event_time,
+                simulated_account: crate::simulation::SimulatedAccountConfig {
+                    account_type: crate::simulation::SimulatedAccountType::Margin,
+                    leverage_limit: 1.0,
+                    initial_margin_ratio: 1.0,
+                    maintenance_margin_ratio: 0.25,
+                    allow_short_borrow: true,
+                    settlement_days: 0,
+                },
+                ..AccountingConfig::default()
+            },
+            dates: event_times
+                .iter()
+                .map(|value| (*value).to_string())
+                .collect(),
+            symbols: vec!["AAA".to_string(), "BBB".to_string()],
+            close: vec![100.0; 8],
+            open: Vec::new(),
+            execute_next_open: false,
+            market_fields: BTreeMap::new(),
+            rebalance: vec![true, false, false, false],
+            eligible: vec![true; 8],
+            score: vec![2.0, 1.0, 2.0, 1.0, 2.0, 1.0, 2.0, 1.0],
+            ascending: false,
+            top_n: 1,
+            short_bottom_n: 1,
+            long_gross_exposure: 0.5,
+            short_gross_exposure: 0.5,
+            position_limit: 0.5,
+            feature_specs: Vec::new(),
+            eligible_rule: None,
+            rank_by: None,
+            target_change: false,
+        })
+        .expect("intraday long-short daily rank should run");
+
+        assert!(summary.events[0].borrow_cost.abs() < 1e-12);
+        assert!(summary.events[1].borrow_cost.abs() < 1e-12);
+        assert!(summary.events[2].borrow_cost.abs() < 1e-12);
+        assert!((summary.events[3].borrow_cost - 0.05).abs() < 1e-12);
     }
 }

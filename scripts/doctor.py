@@ -11,12 +11,14 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+REQUIRED_UV_VERSION = (0, 11, 32)
 REQUIRED_RUST_VERSION = (1, 96, 0)
 MIN_NODE_20_VERSION = (20, 19, 0)
 MIN_NODE_22_VERSION = (22, 12, 0)
 
 PYTHON_MODULES = {
     "fastapi": "fastapi",
+    "exchange-calendars": "exchange_calendars",
     "numpy": "numpy",
     "orjson": "orjson",
     "pandas": "pandas",
@@ -144,6 +146,20 @@ def _parse_rust_version(version_line: str) -> tuple[int, int, int] | None:
     return int(major), int(minor), int(patch)
 
 
+def _uv_lock_is_current() -> bool:
+    try:
+        result = subprocess.run(
+            ["uv", "lock", "--check", "--project", str(ROOT)],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except Exception:
+        return False
+    return result.returncode == 0
+
+
 def _parse_node_version(version_line: str) -> tuple[int, int, int] | None:
     match = re.search(r"v?(\d+)\.(\d+)\.(\d+)", version_line)
     if not match:
@@ -177,7 +193,7 @@ def main() -> int:
     parser.add_argument(
         "--require-frontend-build",
         action="store_true",
-        help="Fail when Node/npm cannot rebuild the React frontend. Without this flag, an existing dist can still be served by python main.py.",
+        help="Fail when Node/npm cannot rebuild the React frontend. Without this flag, an existing dist can still be served through the locked uv app route.",
     )
     args = parser.parse_args()
 
@@ -191,6 +207,24 @@ def main() -> int:
     else:
         _fail("Python 3.12+ is required")
         failures += 1
+
+    uv_version = _command_version("uv")
+    required_uv_text = ".".join(str(part) for part in REQUIRED_UV_VERSION)
+    if uv_version is None:
+        _fail(f"uv {required_uv_text} is required")
+        failures += 1
+    else:
+        parsed_uv = _parse_rust_version(uv_version)
+        if parsed_uv != REQUIRED_UV_VERSION:
+            _fail(f"uv {required_uv_text} is required; found {uv_version}")
+            failures += 1
+        else:
+            _ok(f"uv available: {uv_version}")
+            if _uv_lock_is_current():
+                _ok("uv.lock is current")
+            else:
+                _fail("uv.lock is stale")
+                failures += 1
 
     for label, module in PYTHON_MODULES.items():
         if importlib.util.find_spec(module) is None:
@@ -215,7 +249,7 @@ def main() -> int:
                     _fail(message)
                     failures += 1
                 else:
-                    _warn(f"{message}; existing frontend dist can still be served by python main.py")
+                    _warn(f"{message}; existing frontend dist can still be served through the locked uv app route")
         else:
             message = "Node.js is required for rebuilding the React frontend"
             if _node_version_failure_is_fatal(
@@ -225,7 +259,7 @@ def main() -> int:
                 _fail(message)
                 failures += 1
             else:
-                _warn(f"{message}; existing frontend dist can still be served by python main.py")
+                _warn(f"{message}; existing frontend dist can still be served through the locked uv app route")
         if npm_version:
             _ok(f"npm available: {npm_version}")
         else:
@@ -237,7 +271,7 @@ def main() -> int:
                 _fail(message)
                 failures += 1
             else:
-                _warn(f"{message}; existing frontend dist can still be served by python main.py")
+                _warn(f"{message}; existing frontend dist can still be served through the locked uv app route")
 
     rust_version = _command_version("rustc")
     cargo_version = _command_version("cargo")
@@ -296,12 +330,14 @@ def main() -> int:
             )
 
     if frontend_dist_exists:
-        _ok("Frontend dist exists for python main.py serving")
+        _ok("Frontend dist exists for locked uv app serving")
     else:
         _warn(
             "Frontend dist is absent. This is normal after a fresh GitHub clone. "
-            "Run `cd plotter/web && npm ci && npm run build` before `python main.py`, "
-            "or run `python scripts/doctor.py --require-frontend-build` to make this a hard setup gate."
+            "Run `cd plotter/web && npm ci && npm run build` before "
+            "`uv run --locked --exact python main.py`, or run "
+            "`uv run --locked --exact python scripts/doctor.py --require-frontend-build` "
+            "to make this a hard setup gate."
         )
 
     if failures:

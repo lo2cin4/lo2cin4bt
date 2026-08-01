@@ -1,0 +1,61 @@
+{
+  "schema_version": "provider_timeframe_capability.v1",
+  "contract_id": "lo2cin4bt.provider_timeframe_capability.v1",
+  "provider_id": "fixture_daily_direct",
+  "market_data_kind": "bars",
+  "source_kind": "external",
+  "supported_timeframes": [
+    {
+      "aggregation": "time",
+      "step": 1,
+      "unit": "day",
+      "price_types": [
+        "last"
+      ],
+      "alignments": [
+        "session_open"
+      ],
+      "calendar_ids": [
+        "XNYS"
+      ],
+      "history": {
+        "depth": {
+          "kind": "bounded",
+          "amount": 20,
+          "unit": "year"
+        },
+        "pagination": {
+          "mode": "not_supported",
+          "max_bars_per_request": null
+        }
+      },
+      "timestamp_semantics": {
+        "timestamp_convention": "bar_open",
+        "precision": "second",
+        "timezone": "America/New_York",
+        "availability": "bar_close"
+      },
+      "session_scopes": [
+        "regular"
+      ],
+      "price_policy": {
+        "price_basis": "split_dividend_adjusted",
+        "corporate_action_policy": "provider_applied"
+      },
+      "quality_policy": {
+        "missing_bar_policy": "preserve_gap",
+        "duplicate_timestamp_policy": "fail",
+        "out_of_order_policy": "sort_then_validate"
+      }
+    }
+  ],
+  "unsupported_request_policy": {
+    "unsupported_timeframe": "fail",
+    "unavailable_history_depth": "fail",
+    "unsupported_session_scope": "fail",
+    "unsupported_price_basis": "fail",
+    "incompatible_timestamp_semantics": "fail",
+    "provider_fallback": "forbidden",
+    "frequency_fallback": "forbidden"
+  }
+}

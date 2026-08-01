@@ -6,6 +6,7 @@ Use this when the user is new, has only Codex or an AI coding assistant, and wan
 
 - Windows 10/11, macOS, or Linux.
 - Python 3.12 or newer.
+- uv 0.11.32.
 - Node.js 24 LTS recommended. Minimum supported frontend runtime is Node.js
   20.19.0 or 22.12.0.
 - Rust 1.96.0 through rustup for the Rust backtester/metricstracker core.
@@ -26,7 +27,8 @@ C:\dev-tools\nodejs
 C:\dev-tools\rust
 ```
 
-AI assistants should run `python scripts/doctor.py` to detect what is already
+AI assistants should run
+`uv run --locked --exact python scripts/doctor.py` to detect what is already
 available. If a tool is missing, install or point the user to a host location,
 then rerun doctor. Do not copy runtimes or build caches into the repo to make a
 local run work.
@@ -57,7 +59,7 @@ For other examples, use the current bundled examples, add configs from the owner
 ```powershell
 cd lo2cin4bt
 .\scripts\setup.ps1
-.\.venv\Scripts\python.exe main.py
+uv run --locked --exact python main.py
 ```
 
 Open:
@@ -71,7 +73,7 @@ http://127.0.0.1:2424/
 ```bash
 cd lo2cin4bt
 bash scripts/setup.sh
-.venv/bin/python main.py
+uv run --locked --exact python main.py
 ```
 
 Open:
@@ -85,17 +87,13 @@ http://127.0.0.1:2424/
 Use this when setup scripts fail or the user wants to see every step.
 
 ```bash
-python -m venv .venv
-# Windows: .\.venv\Scripts\Activate.ps1
-# macOS/Linux: source .venv/bin/activate
-python -m pip install --upgrade pip wheel setuptools
-python -m pip install -r requirements.lock
+uv sync --locked
 cd plotter/web
 npm ci
 npm run build
 cd ../..
-python scripts/doctor.py
-python main.py
+uv run --locked --exact python scripts/doctor.py
+uv run --locked --exact python main.py
 ```
 
 ## First Successful Run

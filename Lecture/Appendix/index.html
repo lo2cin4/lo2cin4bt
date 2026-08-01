@@ -12,10 +12,14 @@
 <table><tr><th>術語</th><th>說明</th></tr>
 <tr><td>目標權重（Target Weight）</td><td>策略想持有的資產權重，是記帳執行前的目標。</td></tr>
 <tr><td>逐期記帳（Sequential Accounting）</td><td>逐期處理現金、持倉、費用、換手率（turnover）、漂移（drift）及再平衡狀態。</td></tr>
+<tr><td>行情週期契約（bar_time）</td><td>聲明交易時段、時區、行情棒週期、時間戳、資料可用時間、價格處理及資料流來源。</td></tr>
+<tr><td>執行資料流（execution stream）</td><td>提供回測可成交的時間與價格；外部週期必須由資料來源支援。</td></tr>
+<tr><td>決策資料流（decision stream）</td><td>提供策略形成訊號的行情棒；可與執行資料流相同，或由共享 Rust 引擎按契約衍生。</td></tr>
 <tr><td>參數範圍（Parameter Domain）</td><td>參數矩陣（Matrix）與前向分析（WFA）的候選來源。</td></tr>
+<tr><td>候選識別碼（candidate_id）</td><td>以 <code>base_strategy_id:workflow_id:parameter_suffix</code> 配對候選摘要、排名、目標函數及完整產物；無參數時後綴為 <code>fixed</code>。</td></tr>
 <tr><td>選定最優解（Selected Optimum）</td><td>前向分析（WFA）在每個樣本內視窗（IS window）選出的策略（policy）。</td></tr>
 <tr><td>樣本外（OOS）</td><td>與樣本內配對的樣本外視窗（out-of-sample paired window）。</td></tr>
-<tr><td>風控門檻（Risk Gate）</td><td>最大持倉數（max positions）、最大訂單規模（max order size）、最大回撤（max drawdown）、最大單日虧損（max daily loss）等安全閘門；觸發後先全部平倉（flatten），再永久停止（permanent stop）或進入影子交易路線（shadow route）。</td></tr>
+<tr><td>風控門檻（Risk Gate）</td><td>最大持倉數（max positions）、最大訂單規模（max order size）、最大回撤（max drawdown）、最大單日虧損（max daily loss）等安全閘門；觸發後先全部平倉（flatten），再永久停止（permanent stop）或進入影子交易路線（shadow route）。影子交易是同一個共享 Rust 引擎內的明文風控狀態，不是後備回測器。</td></tr>
 </table>
 
 <h2>報告指標詞彙表（Report Metrics Glossary）</h2>
@@ -25,6 +29,7 @@
 <tr><td>年化複合成長率（CAGR）</td><td>把累積報酬換算成每年複利增長。</td><td>跨期間比較。</td></tr>
 <tr><td>夏普比率（Sharpe）</td><td>總波動風險調整報酬。</td><td>報酬／波動。</td></tr>
 <tr><td>最大回撤（Max Drawdown / MDD）</td><td>最大歷史回撤。</td><td>資金壓力。</td></tr>
+<tr><td>日內最大回撤（Intraday Max Drawdown）</td><td>以日內資金點計算的最大高點至低點跌幅。</td><td>分鐘或小時策略在交易時段內承受的資金壓力。</td></tr>
 <tr><td>卡瑪比率（Calmar）</td><td>年化複合成長率除以最大回撤絕對值。</td><td>回撤調整報酬（drawdown-adjusted return）。</td></tr>
 <tr><td>比較基準報酬（Benchmark Return）</td><td>比較基準（benchmark）的同期間報酬。</td><td>買入持有比較（buy-and-hold comparison）。</td></tr>
 <tr><td>超額報酬（Excess Return）</td><td>策略相對比較基準的超額報酬。</td><td>類似阿爾法比較（alpha-like comparison）。</td></tr>
@@ -63,13 +68,13 @@
 <h2>不支援回覆模板（Unsupported template）</h2>
 <pre><code>能力判斷：支援（supported）／需要釐清（needs_clarification）／不支援（unsupported）
 專案證據：說明檔（README）、結構綱要（schema）、設定檔（config）、測試（tests）、輸出檔案
-缺少資訊：資產範圍（universe）、資料供應者（provider）、頻率（frequency）、交易日曆（calendar）、比較基準（benchmark）、成交模型（fill_model）、風控（risk）
+缺少資訊：資產範圍（universe）、資料供應者（provider）、行情週期契約（bar_time）、執行／決策資料流、比較基準（benchmark）、成交模型（fill_model）、風控（risk）
 不支援部分：列出程式庫（repo）沒有證據的規則
 下一步：改成可支援的回測設定檔，或列出開發範圍（scope）</code></pre>
 
 <h2>發布檢查清單（Release checklist）</h2>
-<ul><li>人工智能手冊（AI Manual）與教學（Lecture）是否符合說明檔（README）與重構（refactor）文件。</li><li><code>strategy_run</code> 結構綱要章節（schema sections）是否變更。</li><li><code>workspace/runs/</code>、<code>workspace/wfa/</code> 是否可讀。</li><li>參數矩陣的沒有參數範圍（no-domain）狀態是否正常。</li><li>前向分析（WFA）的選定最優解與滾動驗證用詞是否分開。</li><li>風控門檻稽核（Risk Gate Audit）與投資組合不變條件（Portfolio Invariant）是否有測試（tests）。</li><li>未完成或尚未公開的功能是否沒有放入教學主線。</li></ul>
+<ul><li>人工智能手冊（AI Manual）與教學（Lecture）是否符合說明檔（README）與現行正式架構。</li><li><code>strategy_run</code> 結構綱要章節（schema sections）、行情週期契約（bar_time）及資料流綁定是否變更。</li><li>Python 命令是否只使用 <code>uv sync --locked</code> 及 <code>uv run --locked --exact</code>。</li><li>資料來源週期能力、資料品質停止規則及結構化錯誤是否有測試（tests）。</li><li><code>workspace/runs/</code>、<code>workspace/wfa/</code> 是否可讀。</li><li>參數矩陣的沒有參數範圍（no-domain）、分批執行、全候選摘要及前列完整產物狀態是否正常。</li><li>前向分析（WFA）的選定最優解、滾動驗證及候選產物配對是否分開。</li><li>日內資金曲線、交易標記、交易時段日結年化指標及日內最大回撤是否有測試。</li><li>舊產物缺少現行強制欄位時是否要求重新執行，而不是加入相容後備。</li><li>風控門檻稽核（Risk Gate Audit）與投資組合不變條件（Portfolio Invariant）是否有測試（tests）。</li><li>未完成或尚未公開的功能是否沒有放入教學主線。</li></ul>
 <h2>驗證命令</h2>
-<ul><li><code>python -m pytest tests\test_strategy_run_config.py tests\test_app_api_payloads.py -q</code></li><li><code>python -m pytest tests\test_rust_accounting_golden.py tests\test_unified_portfolio_wfa_runner.py -q</code></li><li><code>cd plotter/web && npm run build</code></li></ul>
+<ul><li><code>uv run --locked --exact --group dev python -m pytest tests\test_strategy_run_config.py tests\test_app_api_payloads.py -q</code></li><li><code>uv run --locked --exact --group dev python -m pytest tests\test_rust_accounting_golden.py tests\test_unified_portfolio_wfa_runner.py -q</code></li><li><code>cd plotter/web && npm run build</code></li></ul>
 <div class="pager"><a href="../Lab_05_Performance_Analysis/index.html">上一章</a><a href="../index.html">回首頁</a></div>
 </article></main></div><script src="../assets/lecture.js"></script></body></html>

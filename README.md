@@ -45,7 +45,7 @@ lo2cin4bt 是由 lo2cin4 使用 AI 建立的量化策略回測框架。你只需
 - 成功啟動 lo2cin4bt。
 - 打開瀏覽器回測平台。
 - 找到並執行內建策略示範。
-- 試跑目前 8 個公開內建回測範例。
+- 試跑目前 9 個公開內建回測範例。
 - 查看結果、圖表、績效指標、持倉與交易紀錄。
 - 打開網頁（HTML）教學或相關教學文件（tutorial）。
 - 由 `lo2cin4btWorkAgent` 使用 `lo2cin4bt-teaching` 技能（skill）學習平台操作方式。
@@ -98,7 +98,7 @@ Windows：
 git clone <repository-url> lo2cin4bt
 cd lo2cin4bt
 .\scripts\setup.ps1
-.\.venv\Scripts\python.exe main.py
+uv run --locked --exact python main.py
 ```
 
 macOS / Linux：
@@ -107,7 +107,7 @@ macOS / Linux：
 git clone <repository-url> lo2cin4bt
 cd lo2cin4bt
 bash scripts/setup.sh
-.venv/bin/python main.py
+uv run --locked --exact python main.py
 ```
 
 打開：
@@ -194,11 +194,12 @@ cp backtester/contracts/strategy/examples/strategy-run-vti-avuv-vxus-sgol-dbmf-y
 
 ## 🧩 目前支援的策略與研究流程
 
-公開版本提供 8 個可初始化的回測示範。它們不是 8 條獨立引擎路線，而是用不同策略積木組合設定，再交由同一個 Rust 核心執行。
+公開版本提供 9 個可初始化的回測示範。它們不是 9 條獨立引擎路線，而是用不同策略積木組合設定，再交由同一個 Rust 核心執行。
 
 | 公開示範 | 展示的策略能力 |
 | --- | --- |
 | QQQ 日線均線交叉 | 單資產訊號與擇時 |
+| BTCUSDT 1 分鐘 SMA(10,20) | 完整月份分鐘線、下一根開市成交與日內資金曲線 |
 | BTC 月內第 N 個星期事件 | 日曆與交易時段事件 |
 | QQQ、TLT、GLD 月度避險覆蓋 | 多腿事件與避險配置 |
 | SPY、QQQ 月度配對價差 | 配對與相對價值交易 |
@@ -252,7 +253,7 @@ lo2cin4bt 的目標是將策略想法放入一條有文件、有驗證、可檢�
 
 ## 🎯 未來目標
 
-- 維護涵蓋八個公開策略、前向分析（WFA）、Rust 指標與繪圖資料的固定基準回歸測試（golden regression）。
+- 維護涵蓋九個公開策略、前向分析（WFA）、Rust 指標與繪圖資料的固定基準回歸測試（golden regression）。
 - 提高核心模組覆蓋率。
 - 改善首次安裝與啟動檢查。
 - 簡化自訂指標接入流程。

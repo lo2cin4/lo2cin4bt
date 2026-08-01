@@ -2,11 +2,14 @@
 
 All fields are local research diagnostics. They are not investment advice.
 
-Annualized metrics use the run config's `metricstracker.time_unit` and
-`metricstracker.risk_free_rate`. If the config omits them, runtime defaults are
-`252` periods/year for traditional daily assets, `365` for crypto, and `0.04`
-for the annual risk-free rate. When comparing Sharpe, Sortino, CAGR, Calmar, or
-annualized volatility across runs, first confirm these assumptions match.
+Annualized metrics first use the canonical Rust
+`session_close_projection`: every accepted equity stream is reduced to the last
+accepted row in each typed session. They then use the run config's
+`metricstracker.time_unit` and `metricstracker.risk_free_rate`. If the config
+omits them, runtime defaults are `252` sessions/year for traditional exchanges,
+`365` for crypto, and `0.04` for the annual risk-free rate. The generated
+`Annualization` contract records the basis, projection policy, periods per year,
+and annual risk-free rate; consumers must not infer them from bar frequency.
 
 ## Core Performance Metrics
 
@@ -18,6 +21,7 @@ annualized volatility across runs, first confirm these assumptions match.
 | `sortino` | ratio | Return per unit downside volatility. | Not comparable if downside samples are scarce. |
 | `calmar` | ratio | CAGR divided by absolute max drawdown. | Can be unstable when drawdown is tiny. |
 | `max_drawdown` | ratio | Worst peak-to-trough equity loss. | Negative values indicate loss depth. |
+| `intraday_max_drawdown` | ratio | Worst peak-to-trough loss across the complete execution-bar equity path for an intraday run. | It supplements session-close `max_drawdown`; CAGR, Sharpe, Sortino, Calmar, and headline returns remain session-close based. Daily runs report it as not applicable. |
 | `average_drawdown` | ratio | Average drawdown while below peak. | Does not show duration by itself. |
 | `recovery_factor` | ratio | Total return divided by absolute max drawdown. | Inflated if drawdown is understated. |
 | `std` | ratio | Return volatility for the source period. | Check sampling frequency. |
@@ -29,6 +33,8 @@ annualized volatility across runs, first confirm these assumptions match.
 | `beta` | ratio | Sensitivity versus benchmark. | Not meaningful with wrong benchmark. |
 | `excess_return` | ratio | Strategy total return minus benchmark total return. | Only valid when benchmark is comparable. |
 | `final_equity` | currency/index | Ending equity value. | Starting equity is usually normalized around 100. |
+| `Projected_session_count` | count | Canonical typed sessions used by performance metrics. | Raw intraday row count is intentionally different. |
+| `Projected_return_interval_count` | count | True session-to-session return intervals (`sessions - 1`). | The seed equity row is not a return sample. |
 
 ## Trade And Exposure Metrics
 

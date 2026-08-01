@@ -30,7 +30,54 @@ def test_wfa_validator_accepts_optuna_blocks(tmp_path) -> None:
           },
           "data": {
             "provider": "yfinance",
-            "frequency": "1D",
+            "bar_time": {
+              "schema_version": "bar_time_contract.v1",
+              "contract_id": "lo2cin4bt.bar_time_contract.v1",
+              "session_model": {
+                "calendar_id": "XNYS",
+                "timezone": "America/New_York",
+                "session_scope": "regular",
+                "session_label_policy": "exchange_local_date",
+                "non_session_bar_policy": "reject"
+              },
+              "timestamp_model": {
+                "time_standard": "UTC",
+                "precision": "nanosecond",
+                "clock": "historical_available_time",
+                "ordering": "available_time_then_event_time_then_external_execution_sequence_then_lifecycle_stage_then_stream_id_then_source_sequence"
+              },
+              "price_model": {
+                "price_basis": "split_dividend_adjusted",
+                "corporate_action_policy": "provider_applied"
+              },
+              "streams": [
+                {
+                  "stream_id": "execution_daily",
+                  "role": "execution",
+                  "source": {"kind": "external", "provider_id": "yfinance"},
+                  "bar_spec": {
+                    "aggregation": "time",
+                    "step": 1,
+                    "unit": "day",
+                    "price_type": "last",
+                    "alignment": "session_open"
+                  },
+                  "timestamp_semantics": {
+                    "timestamp_convention": "bar_close",
+                    "interval_boundary": "left_open_right_closed",
+                    "bar_open_time_column": "bar_open_timestamp",
+                    "bar_close_time_column": "bar_close_timestamp",
+                    "available_time_column": "available_timestamp",
+                    "session_label_column": "session_label",
+                    "availability_policy": "bar_close"
+                  }
+                }
+              ]
+            },
+            "stream_binding": {
+              "execution_stream_id": "execution_daily",
+              "decision_stream_id": "execution_daily"
+            },
             "start_date": "2024-01-01"
           },
           "universe": {"symbols": ["QQQ"]},

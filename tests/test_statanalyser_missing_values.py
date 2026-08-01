@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 from statanalyser.AutocorrelationTest_statanalyser import AutocorrelationTest
+from statanalyser.Base_statanalyser import BaseStatAnalyser
 from statanalyser.StationarityTest_statanalyser import StationarityTest
 
 
@@ -22,11 +23,23 @@ def test_invalid_autocorrelation_lags_do_not_fall_back_to_frequency_default() ->
         _frame(),
         "predictor",
         "returns",
+        bar_spec={
+            "aggregation": "time",
+            "step": 1,
+            "unit": "day",
+            "price_type": "last",
+            "alignment": "session_open",
+        },
         analysis_config={"lags": ["invalid"]},
     )
 
     with pytest.raises(ValueError, match="lags"):
         analyser.analyze()
+
+
+def test_relative_diff_requires_a_canonical_rust_return_column() -> None:
+    with pytest.raises(ValueError, match="retired from Python"):
+        BaseStatAnalyser._normalize_diff_mode("relative")  # noqa: SLF001
 
 
 def test_failed_stationarity_tests_are_unavailable_not_false(

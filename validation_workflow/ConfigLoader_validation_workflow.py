@@ -119,8 +119,6 @@ class ConfigLoader:
             for item in list(universe.get("symbols") or [])
             if str(item).strip()
         ]
-        primary_symbol = symbols[0] if symbols else str(data_config.get("symbol") or "AAPL")
-
         return {
             "schema_version": "wfa_run",
             "strategy_run_path": normalized_wfa["strategy_run_path"],
@@ -128,7 +126,7 @@ class ConfigLoader:
             "wfa_config": self._wfa_config_from_strategy_run(normalized_wfa),
             "dataloader": self._dataloader_config_from_strategy_run(
                 data_config,
-                primary_symbol,
+                symbols,
             ),
             "backtester": self._backtester_config_from_strategy_run(
                 strategy_run_config,
@@ -182,31 +180,15 @@ class ConfigLoader:
     @staticmethod
     def _dataloader_config_from_strategy_run(
         data_config: Dict[str, Any],
-        primary_symbol: str,
+        symbols: List[str],
     ) -> Dict[str, Any]:
-        provider = str(data_config.get("provider") or "yfinance").strip().lower()
-        if provider in {"local", "multi_asset"}:
-            source = "multi_asset"
-        elif provider in {"file", "csv", "parquet"}:
-            source = "file"
-        else:
-            source = "yfinance"
-        dataloader: Dict[str, Any] = {
-            "source": source,
+        return {
+            "source": "multi_asset",
             "start_date": str(data_config.get("start_date") or "2020-01-01"),
-            "frequency": data_config.get("frequency") or "1D",
+            "asset_symbols": list(symbols),
+            "bar_time": deepcopy(data_config["bar_time"]),
+            "stream_binding": deepcopy(data_config["stream_binding"]),
         }
-        if source == "yfinance":
-            dataloader["yfinance_config"] = {
-                "symbol": primary_symbol,
-                "period": data_config.get("period") or "max",
-                "interval": data_config.get("interval") or "1d",
-            }
-        if source == "file":
-            dataloader["file_config"] = deepcopy(
-                ConfigLoader._dict(data_config.get("file_config"))
-            )
-        return dataloader
 
     @staticmethod
     def _backtester_config_from_strategy_run(

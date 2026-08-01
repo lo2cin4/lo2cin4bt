@@ -408,6 +408,10 @@ class AppAPIService:
             and str(row.get("config_filename", "")).strip()
             and not self._is_hidden_sample_run(row)
             and self._has_metrics_renderable_output(str(row.get("run_id", "")))
+            and self._has_current_time_context(str(row.get("run_id", "")))
+            and self._has_current_metrics_annualization(
+                str(row.get("run_id", ""))
+            )
         ]
         return self._dedupe_preferred_runs(autorunner_runs)
 
@@ -417,7 +421,31 @@ class AppAPIService:
             for row in self.registry.list_runs(module=VALIDATION_WORKFLOW_CANONICAL)
             if row.get("status") in {"completed", "partial"}
             and self._has_renderable_wfa(str(row.get("run_id", "")))
+            and self._has_current_time_context(str(row.get("run_id", "")))
         ]
+
+    def _has_current_time_context(self, run_id: str) -> bool:
+        try:
+            summary = self.payloads._strategy_summary(run_id)
+        except (FileNotFoundError, OSError, TypeError, ValueError):
+            return False
+        context = summary.get("time_context") if isinstance(summary, dict) else None
+        return bool(
+            isinstance(context, dict)
+            and isinstance(context.get("execution"), dict)
+            and isinstance(context.get("decision"), dict)
+        )
+
+    def _has_current_metrics_annualization(self, run_id: str) -> bool:
+        path = self._artifact_existing_path(run_id, "metricstracker_metadata")
+        if path is None:
+            return False
+        try:
+            rows = json.loads(path.read_text(encoding="utf-8-sig"))
+            MetricsContractPayloadService._annualization_contract(rows)
+        except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError):
+            return False
+        return True
 
     def stat_runs(self) -> List[Dict[str, Any]]:
         return [
@@ -559,7 +587,48 @@ class AppAPIService:
         }
 
     def backtest_detail(self, run_id: str, backtest_id: str) -> Dict[str, Any]:
-        return self.backtest_detail_contract.load(run_id, backtest_id)
+        payload = self.backtest_detail_contract.load(run_id, backtest_id)
+        overview = self.metrics_contract_payload.load(run_id)
+        matching_row = next(
+            (
+                row
+                for row in overview.get("rows", [])
+                if isinstance(row, dict)
+                and str(row.get("backtest_id") or "") == str(backtest_id)
+            ),
+            None,
+        )
+        if not isinstance(matching_row, dict):
+            raise ValueError(
+                f"Backtest detail has no matching metrics row: {backtest_id}"
+            )
+        strategy_summary = copy.deepcopy(overview.get("strategy_summary"))
+        annualization = copy.deepcopy(overview.get("annualization"))
+        time_context = (
+            strategy_summary.get("time_context")
+            if isinstance(strategy_summary, dict)
+            else None
+        )
+        if (
+            not isinstance(strategy_summary, dict)
+            or not isinstance(time_context, dict)
+            or not time_context
+            or not isinstance(annualization, dict)
+        ):
+            raise ValueError(
+                "Backtest detail requires typed time_context and annualization"
+            )
+        payload["api_projection_schema_version"] = "backtest_detail_api.v2"
+        payload["strategy_summary"] = strategy_summary
+        payload["time_context"] = copy.deepcopy(time_context)
+        payload["annualization"] = annualization
+        payload["projected_session_count"] = matching_row.get(
+            "projected_session_count"
+        )
+        payload["projected_return_interval_count"] = matching_row.get(
+            "projected_return_interval_count"
+        )
+        return payload
 
     def backtest_detail_path(self, run_id: str, backtest_id: str) -> Path:
         try:

@@ -1,3 +1,5 @@
+import re
+import tomllib
 from pathlib import Path
 
 
@@ -6,10 +8,19 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 def test_return_calculation_has_no_python_or_numba_fallback() -> None:
     assert not (PROJECT_ROOT / "dataloader" / "calculator_loader.py").exists()
+    assert not list((PROJECT_ROOT / "factorhandler").glob("*.py"))
 
-    requirements = (PROJECT_ROOT / "requirements.txt").read_text(encoding="utf-8").lower()
-    assert "numba" not in requirements
-    assert "llvmlite" not in requirements
+    with (PROJECT_ROOT / "pyproject.toml").open("rb") as handle:
+        pyproject = tomllib.load(handle)
+    dependency_specs = "\n".join(
+        [
+            *pyproject["project"]["dependencies"],
+            *pyproject["dependency-groups"]["dev"],
+            *pyproject["dependency-groups"]["brokers"],
+        ]
+    ).lower()
+    assert "numba" not in dependency_specs
+    assert "llvmlite" not in dependency_specs
     bridge_source = (
         PROJECT_ROOT / "backtester" / "RustCoreBridge_backtester.py"
     ).read_text(encoding="utf-8")
@@ -27,28 +38,36 @@ def test_return_calculation_has_no_python_or_numba_fallback() -> None:
         PROJECT_ROOT / "autorunner",
         PROJECT_ROOT / "backtester",
         PROJECT_ROOT / "dataloader",
-        PROJECT_ROOT / "factorhandler",
         PROJECT_ROOT / "metricstracker",
         PROJECT_ROOT / "statanalyser",
         PROJECT_ROOT / "validation_workflow",
     ]
     offenders: list[str] = []
+    return_math_offenders: list[str] = []
+    ratio_return_pattern = re.compile(
+        r"\b(?:close|price|recent|current)\s*/\s*"
+        r"(?:base|previous|prior)(?:\.[a-z_]+\([^)]*\))?\s*-\s*1(?:\.0)?\b",
+        re.IGNORECASE,
+    )
     for root in production_roots:
         for path in root.rglob("*.py"):
             text = path.read_text(encoding="utf-8", errors="ignore").lower()
             if "numba" in text or "llvmlite" in text or "returns_config" in text:
                 offenders.append(str(path.relative_to(PROJECT_ROOT)))
+            if ".pct_change(" in text or ratio_return_pattern.search(text):
+                return_math_offenders.append(str(path.relative_to(PROJECT_ROOT)))
 
     assert offenders == []
+    assert return_math_offenders == []
 
 
-def test_python_pandas_return_helpers_disable_implicit_forward_fill() -> None:
-    factor_source = (
-        PROJECT_ROOT / "factorhandler" / "FactorHandler_factorhandler.py"
+def test_autorunner_dataloader_has_no_python_factor_materialization_route() -> None:
+    dataloader_source = (
+        PROJECT_ROOT / "autorunner" / "DataLoader_autorunner.py"
     ).read_text(encoding="utf-8")
 
-    assert ".pct_change()" not in factor_source
-    assert ".pct_change(fill_method=None)" in factor_source
+    assert "FactorHandler" not in dataloader_source
+    assert "_materialize_factor_bundle" not in dataloader_source
 
 
 def test_canonical_runner_has_no_legacy_alias_or_numeric_default_path() -> None:

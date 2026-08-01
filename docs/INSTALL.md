@@ -3,6 +3,7 @@
 lo2cin4bt is designed to run locally without Docker. New users need:
 
 - Python 3.12 or newer
+- uv 0.11.32
 - Node.js 24 LTS recommended. Minimum supported frontend runtime is Node.js
   20.19.0 or 22.12.0 because Vite 6 requires those patch levels.
 - Rust 1.96.0 through rustup for the Rust backtester/metricstracker core
@@ -39,7 +40,8 @@ RUSTUP_HOME
 ```
 
 An AI CLI/IDE assistant can install or update Node/Rust for the user, but it
-should install them outside this repo and rerun `python scripts/doctor.py` after
+should install them outside this repo and rerun
+`uv run --locked --exact python scripts/doctor.py` after
 setup. Local caches such as `.venv/`, `plotter/web/node_modules/`, and
 `rust/**/target/` are disposable build/runtime artifacts and are intentionally
 ignored by Git.
@@ -50,7 +52,7 @@ ignored by Git.
 git clone <repository-url> lo2cin4bt
 cd lo2cin4bt
 .\scripts\setup.ps1
-.\.venv\Scripts\python.exe main.py
+uv run --locked --exact python main.py
 ```
 
 Then open:
@@ -73,7 +75,7 @@ Copy-Item backtester\contracts\strategy\examples\strategy-run-qqq-yfinance-daily
 git clone <repository-url> lo2cin4bt
 cd lo2cin4bt
 bash scripts/setup.sh
-.venv/bin/python main.py
+uv run --locked --exact python main.py
 ```
 
 On first app launch, Run Center seeds included examples into `workspace/runs/`.
@@ -87,28 +89,23 @@ cp backtester/contracts/strategy/examples/strategy-run-qqq-yfinance-daily-sma-cr
 ## Manual Install
 
 ```bash
-python -m venv .venv
-# Windows: .\.venv\Scripts\Activate.ps1
-# macOS/Linux: source .venv/bin/activate
-python -m pip install --upgrade pip wheel setuptools
-python -m pip install -r requirements.lock
+uv sync --locked
 cd plotter/web
 npm ci
 npm run build
 cd ../..
-python scripts/doctor.py
-python main.py
+uv run --locked --exact python scripts/doctor.py
+uv run --locked --exact python main.py
 ```
 
 ## Dependency Profiles
 
-- `requirements.txt`, `requirements-dev.txt`, and `requirements-brokers.txt`:
-  maintainer-edited dependency inputs.
-- `requirements.lock`: reproducible runtime installation for `python main.py`.
-- `requirements-dev.lock`: reproducible runtime plus test/dev tools used by CI.
-- `requirements-brokers.lock`: reproducible runtime plus optional FUTU / IBKR
-  adapter packages. Install it only when using `provider=futu` or
-  `provider=ibkr`.
+- `pyproject.toml`: the only maintainer-edited Python dependency authority.
+- `uv.lock`: the reproducible resolution for all supported dependency groups.
+- `[project].dependencies`: runtime used by the local app.
+- `[dependency-groups].dev`: test, lint, type-checking, and CI tools.
+- `[dependency-groups].brokers`: optional FUTU / IBKR adapter packages. Sync
+  this group only when using `provider=futu` or `provider=ibkr`.
 - `plotter/web/package-lock.json`: JavaScript dependency lockfile for the
   React/Vite frontend.
 - `plotter/web/package.json`: records the supported Node.js and npm engine
@@ -116,16 +113,14 @@ python main.py
 - `rust-toolchain.toml`: Rust toolchain pin for the local Rust core. See
   `docs/RUST_TOOLCHAIN.md`.
 
-Maintainers regenerate the Python lockfiles for the supported Python 3.12
-target:
+Maintainers update the single Python lock for the supported Python 3.12 target:
 
 ```bash
-uv pip compile requirements.txt --python-version 3.12 --universal --generate-hashes --output-file requirements.lock
-uv pip compile requirements-dev.txt --python-version 3.12 --universal --generate-hashes --output-file requirements-dev.lock
-uv pip compile requirements-brokers.txt --python-version 3.12 --universal --generate-hashes --output-file requirements-brokers.lock
+uv lock
+uv lock --check
 ```
 
-The setup scripts install `requirements.lock` by default. For dev tools, run
+The setup scripts run `uv sync --locked` by default. For dev tools, run
 `.\scripts\setup.ps1 -Dev` or `bash scripts/setup.sh --dev`. Broker packages are
 not part of the first run. Only add `-Brokers` or `--brokers` for optional
 market-data gateway experiments; this app does not place live orders.
@@ -136,7 +131,8 @@ builds the local React app. The lockfile pins versions and integrity hashes, but
 npm packages can still run install scripts. If you want to inspect Node
 dependencies first, use `.\scripts\setup.ps1 -SkipFrontend` or
 `bash scripts/setup.sh --skip-frontend`; the browser app will need a later
-manual `npm ci && npm run build` before `python main.py` can show the frontend.
+manual `npm ci && npm run build` before
+`uv run --locked --exact python main.py` can show the frontend.
 
 On first app launch, lo2cin4bt copies included examples from
 `backtester/contracts/strategy/examples/` into ignored local folders under
@@ -148,14 +144,15 @@ strategy configs with explicit repo-relative paths such as
 ## Development Install
 
 ```bash
-python -m pip install -r requirements-dev.lock
+uv sync --locked --group dev
+uv run --locked --exact --group dev python -m pytest -q
 cargo test --manifest-path rust/lo2cin4bt_core/Cargo.toml --quiet
 ```
 
 Optional FUTU / IBKR gateway packages:
 
 ```bash
-python -m pip install -r requirements-brokers.lock
+uv sync --locked --group brokers
 ```
 
 FUTU and IBKR also require local gateway applications, account login, API
@@ -225,7 +222,7 @@ For deeper automation or maintenance work, ask the assistant to also read:
 Run:
 
 ```bash
-python scripts/doctor.py
+uv run --locked --exact python scripts/doctor.py
 ```
 
 If the frontend is missing, run:
@@ -236,6 +233,6 @@ npm ci
 npm run build
 ```
 
-If Python dependencies fail to install, verify that your active Python is 3.12+
-and that the virtual environment is active. For current troubleshooting, use
-`skills/lo2cin4bt/references/troubleshooting.md`.
+If Python dependencies fail to install, verify that uv is exactly 0.11.32,
+`.python-version` selects Python 3.12, and `uv lock --check` succeeds. For
+current troubleshooting, use `skills/lo2cin4bt/references/troubleshooting.md`.

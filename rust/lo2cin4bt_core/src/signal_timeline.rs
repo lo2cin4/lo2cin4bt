@@ -1,6 +1,7 @@
 use crate::artifact_tables::write_result_rows_parquet;
+use crate::candidate_identity::parse_candidate_id;
 use crate::computed_fields::returns::{
-    session_return_series, ReturnSeriesError, SessionReturnSeries,
+    annualized_return, session_return_series, simple_return, ReturnSeriesError, SessionReturnSeries,
 };
 use crate::result_validator::ResultValidationReport;
 use crate::timeline::{
@@ -9,7 +10,7 @@ use crate::timeline::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 use thiserror::Error;
@@ -30,6 +31,10 @@ pub enum SignalTimelineError {
     Accounting(#[from] TimelineAccountingError),
     #[error("artifact export failed: {0}")]
     ArtifactExport(String),
+    #[error("invalid canonical candidate_id: {0}")]
+    InvalidCandidateId(String),
+    #[error("duplicate canonical candidate_id: {0}")]
+    DuplicateCandidateId(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,6 +86,7 @@ pub struct SingleAssetSignalCompactResult {
     pub cagr: f64,
     pub sharpe: f64,
     pub max_drawdown: f64,
+    pub intraday_max_drawdown: Option<f64>,
     pub days: usize,
     pub active_rebalances: usize,
     pub average_turnover: f64,
@@ -90,12 +96,25 @@ pub struct SingleAssetSignalCompactResult {
     pub timeline: Option<TimelineAccountingSummary>,
 }
 
+fn register_candidate_id(
+    candidate_id: String,
+    seen_ids: &mut HashSet<String>,
+) -> Result<String, SignalTimelineError> {
+    parse_candidate_id(&candidate_id).map_err(SignalTimelineError::InvalidCandidateId)?;
+    if !seen_ids.insert(candidate_id.clone()) {
+        return Err(SignalTimelineError::DuplicateCandidateId(candidate_id));
+    }
+    Ok(candidate_id)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SingleAssetSignalBatchSummary {
     pub candidate_count: usize,
     pub results: Vec<SingleAssetSignalCompactResult>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub artifact_bundle: Option<RustArtifactBundle>,
+    #[serde(skip)]
+    pub(crate) trusted_timelines: Vec<TimelineAccountingSummary>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -246,31 +265,21 @@ pub fn run_single_asset_next_open_signal_batch(
 ) -> Result<SingleAssetSignalBatchSummary, SignalTimelineError> {
     let row_count = input.dates.len();
     validate_common_series(&input.asset, &input.dates, &input.open, &input.close)?;
-    let mut seen_ids: HashMap<String, usize> = HashMap::new();
+    let mut seen_ids = HashSet::new();
     let mut results = Vec::with_capacity(input.candidates.len());
     let mut full_summaries: Vec<(String, TimelineAccountingSummary)> = Vec::new();
+    let mut trusted_timelines = Vec::with_capacity(input.candidates.len());
     let export_artifacts = input
         .artifact_output_dir
         .as_ref()
         .map(|value| !value.trim().is_empty())
         .unwrap_or(false);
 
-    for (idx, candidate) in input.candidates.into_iter().enumerate() {
+    for candidate in input.candidates {
         if candidate.entry_signal.len() != row_count || candidate.exit_signal.len() != row_count {
             return Err(SignalTimelineError::InvalidLength);
         }
-        let candidate_id = if candidate.candidate_id.trim().is_empty() {
-            format!("candidate_{idx}")
-        } else {
-            candidate.candidate_id
-        };
-        let suffix = seen_ids.entry(candidate_id.clone()).or_insert(0);
-        let unique_id = if *suffix == 0 {
-            candidate_id
-        } else {
-            format!("{candidate_id}_{}", *suffix)
-        };
-        *suffix += 1;
+        let candidate_id = register_candidate_id(candidate.candidate_id, &mut seen_ids)?;
 
         let summary = run_single_asset_next_open_signal_timeline(SingleAssetNextOpenSignalInput {
             config: input.config.clone(),
@@ -283,16 +292,18 @@ pub fn run_single_asset_next_open_signal_batch(
             target_weight: candidate.target_weight,
         })?;
         if export_artifacts {
-            full_summaries.push((unique_id.clone(), summary.clone()));
+            full_summaries.push((candidate_id.clone(), summary.clone()));
         }
+        trusted_timelines.push(summary.clone());
         results.push(SingleAssetSignalCompactResult {
-            candidate_id: unique_id,
+            candidate_id,
             resolved_params: candidate.resolved_params,
             final_equity: summary.final_equity,
             total_return: summary.total_return,
             cagr: summary_cagr(&summary),
             sharpe: summary_sharpe(&summary),
             max_drawdown: summary_max_drawdown(&summary),
+            intraday_max_drawdown: summary.intraday_max_drawdown,
             days: summary.days,
             active_rebalances: summary.active_rebalances,
             average_turnover: summary.average_turnover,
@@ -319,6 +330,7 @@ pub fn run_single_asset_next_open_signal_batch(
         candidate_count: results.len(),
         results,
         artifact_bundle,
+        trusted_timelines,
     })
 }
 
@@ -334,6 +346,7 @@ fn export_single_asset_signal_bundle(
     let mut bundle_paths = BTreeMap::new();
     let table_specs = [
         ("equity_curve", "equity_curve"),
+        ("execution_equity_curve", "execution_equity_curve"),
         ("holdings", "holdings"),
         ("rebalance_audit", "rebalance_audit"),
         ("rebalance_trades", "rebalance_trades"),
@@ -364,6 +377,7 @@ fn combined_table_rows(
     for (candidate_id, summary) in summaries {
         let rows = match table_key {
             "equity_curve" => &summary.result_tables.equity_curve,
+            "execution_equity_curve" => &summary.result_tables.execution_equity_curve,
             "holdings" => &summary.result_tables.holdings,
             "rebalance_audit" => &summary.result_tables.rebalance_audit,
             "rebalance_trades" => &summary.result_tables.rebalance_trades,
@@ -412,7 +426,7 @@ pub fn run_single_asset_calendar_same_session_batch(
         .iter()
         .map(|date| parse_ymd(date))
         .collect::<Result<Vec<_>, _>>()?;
-    let mut seen_ids: HashMap<String, usize> = HashMap::new();
+    let mut seen_ids = HashSet::new();
     let mut results = Vec::with_capacity(input.candidates.len());
     let mut full_summaries: Vec<(String, TimelineAccountingSummary)> = Vec::new();
     let export_artifacts = input
@@ -421,24 +435,13 @@ pub fn run_single_asset_calendar_same_session_batch(
         .map(|value| !value.trim().is_empty())
         .unwrap_or(false);
 
-    for (idx, candidate) in input.candidates.into_iter().enumerate() {
+    for candidate in input.candidates {
         if !candidate.target_weight.is_finite() || candidate.target_weight < 0.0 {
             return Err(SignalTimelineError::InvalidTargetWeight);
         }
         let weekday =
             parse_weekday(&candidate.weekday).ok_or(SignalTimelineError::InvalidLength)?;
-        let candidate_id = if candidate.candidate_id.trim().is_empty() {
-            format!("candidate_{idx}")
-        } else {
-            candidate.candidate_id
-        };
-        let suffix = seen_ids.entry(candidate_id.clone()).or_insert(0);
-        let unique_id = if *suffix == 0 {
-            candidate_id
-        } else {
-            format!("{candidate_id}_{}", *suffix)
-        };
-        *suffix += 1;
+        let candidate_id = register_candidate_id(candidate.candidate_id, &mut seen_ids)?;
 
         let summary = run_calendar_same_session_candidate(
             &input.config,
@@ -453,16 +456,17 @@ pub fn run_single_asset_calendar_same_session_batch(
             candidate.target_weight,
         )?;
         if export_artifacts {
-            full_summaries.push((unique_id.clone(), summary.clone()));
+            full_summaries.push((candidate_id.clone(), summary.clone()));
         }
         results.push(SingleAssetSignalCompactResult {
-            candidate_id: unique_id,
+            candidate_id,
             resolved_params: candidate.resolved_params,
             final_equity: summary.final_equity,
             total_return: summary.total_return,
             cagr: summary_cagr(&summary),
             sharpe: summary_sharpe(&summary),
             max_drawdown: summary_max_drawdown(&summary),
+            intraday_max_drawdown: summary.intraday_max_drawdown,
             days: summary.days,
             active_rebalances: summary.active_rebalances,
             average_turnover: summary.average_turnover,
@@ -492,6 +496,7 @@ pub fn run_single_asset_calendar_same_session_batch(
         candidate_count: results.len(),
         results,
         artifact_bundle,
+        trusted_timelines: Vec::new(),
     })
 }
 
@@ -504,7 +509,7 @@ pub fn run_calendar_overlay_batch(
         .iter()
         .map(|date| parse_ymd(date))
         .collect::<Result<Vec<_>, _>>()?;
-    let mut seen_ids: HashMap<String, usize> = HashMap::new();
+    let mut seen_ids = HashSet::new();
     let mut results = Vec::with_capacity(input.candidates.len());
     let mut full_summaries: Vec<(String, TimelineAccountingSummary)> = Vec::new();
     let export_artifacts = input
@@ -513,21 +518,10 @@ pub fn run_calendar_overlay_batch(
         .map(|value| !value.trim().is_empty())
         .unwrap_or(false);
 
-    for (idx, candidate) in input.candidates.into_iter().enumerate() {
+    for candidate in input.candidates {
         let weekday =
             parse_weekday(&candidate.weekday).ok_or(SignalTimelineError::InvalidLength)?;
-        let candidate_id = if candidate.candidate_id.trim().is_empty() {
-            format!("candidate_{idx}")
-        } else {
-            candidate.candidate_id
-        };
-        let suffix = seen_ids.entry(candidate_id.clone()).or_insert(0);
-        let unique_id = if *suffix == 0 {
-            candidate_id
-        } else {
-            format!("{candidate_id}_{}", *suffix)
-        };
-        *suffix += 1;
+        let candidate_id = register_candidate_id(candidate.candidate_id, &mut seen_ids)?;
 
         let summary = run_calendar_overlay_candidate(
             &input.config,
@@ -543,16 +537,17 @@ pub fn run_calendar_overlay_batch(
             &candidate.months,
         )?;
         if export_artifacts {
-            full_summaries.push((unique_id.clone(), summary.clone()));
+            full_summaries.push((candidate_id.clone(), summary.clone()));
         }
         results.push(SingleAssetSignalCompactResult {
-            candidate_id: unique_id,
+            candidate_id,
             resolved_params: candidate.resolved_params,
             final_equity: summary.final_equity,
             total_return: summary.total_return,
             cagr: summary_cagr(&summary),
             sharpe: summary_sharpe(&summary),
             max_drawdown: summary_max_drawdown(&summary),
+            intraday_max_drawdown: summary.intraday_max_drawdown,
             days: summary.days,
             active_rebalances: summary.active_rebalances,
             average_turnover: summary.average_turnover,
@@ -582,6 +577,7 @@ pub fn run_calendar_overlay_batch(
         candidate_count: results.len(),
         results,
         artifact_bundle,
+        trusted_timelines: Vec::new(),
     })
 }
 
@@ -589,7 +585,7 @@ pub fn run_reset_timer_batch(
     input: ResetTimerBatchInput,
 ) -> Result<SingleAssetSignalBatchSummary, SignalTimelineError> {
     validate_reset_timer_input(&input)?;
-    let mut seen_ids: HashMap<String, usize> = HashMap::new();
+    let mut seen_ids = HashSet::new();
     let mut results = Vec::with_capacity(input.candidates.len());
     let mut full_summaries: Vec<(String, TimelineAccountingSummary)> = Vec::new();
     let export_artifacts = input
@@ -601,22 +597,11 @@ pub fn run_reset_timer_batch(
     let restore_phase = normalize_reset_phase(&input.restore_phase, "close")?;
     let row_count = input.dates.len();
 
-    for (idx, candidate) in input.candidates.into_iter().enumerate() {
+    for candidate in input.candidates {
         if candidate.entry_signal.len() != row_count {
             return Err(SignalTimelineError::InvalidLength);
         }
-        let candidate_id = if candidate.candidate_id.trim().is_empty() {
-            format!("candidate_{idx}")
-        } else {
-            candidate.candidate_id
-        };
-        let suffix = seen_ids.entry(candidate_id.clone()).or_insert(0);
-        let unique_id = if *suffix == 0 {
-            candidate_id
-        } else {
-            format!("{candidate_id}_{}", *suffix)
-        };
-        *suffix += 1;
+        let candidate_id = register_candidate_id(candidate.candidate_id, &mut seen_ids)?;
 
         let summary = run_reset_timer_candidate(
             &input.config,
@@ -634,16 +619,17 @@ pub fn run_reset_timer_batch(
             &restore_phase,
         )?;
         if export_artifacts {
-            full_summaries.push((unique_id.clone(), summary.clone()));
+            full_summaries.push((candidate_id.clone(), summary.clone()));
         }
         results.push(SingleAssetSignalCompactResult {
-            candidate_id: unique_id,
+            candidate_id,
             resolved_params: candidate.resolved_params,
             final_equity: summary.final_equity,
             total_return: summary.total_return,
             cagr: summary_cagr(&summary),
             sharpe: summary_sharpe(&summary),
             max_drawdown: summary_max_drawdown(&summary),
+            intraday_max_drawdown: summary.intraday_max_drawdown,
             days: summary.days,
             active_rebalances: summary.active_rebalances,
             average_turnover: summary.average_turnover,
@@ -673,6 +659,7 @@ pub fn run_reset_timer_batch(
         candidate_count: results.len(),
         results,
         artifact_bundle,
+        trusted_timelines: Vec::new(),
     })
 }
 
@@ -1188,7 +1175,7 @@ fn summary_daily_returns(summary: &TimelineAccountingSummary) -> Vec<f64> {
     for event in &summary.daily_events {
         let equity = event.equity_after_trade;
         if previous_equity > 0.0 && equity.is_finite() {
-            returns.push(equity / previous_equity - 1.0);
+            returns.push(simple_return(equity, previous_equity));
         } else {
             returns.push(0.0);
         }
@@ -1225,7 +1212,10 @@ fn summary_cagr(summary: &TimelineAccountingSummary) -> f64 {
     }
     let years = summary.days as f64 / 252.0;
     if years > 0.0 {
-        (summary.final_equity / summary.start_equity).powf(1.0 / years) - 1.0
+        annualized_return(
+            simple_return(summary.final_equity, summary.start_equity),
+            years,
+        )
     } else {
         0.0
     }
@@ -1243,7 +1233,7 @@ fn summary_max_drawdown(summary: &TimelineAccountingSummary) -> f64 {
             peak = equity;
         }
         if peak > 0.0 {
-            let drawdown = equity / peak - 1.0;
+            let drawdown = simple_return(equity, peak);
             if drawdown < max_drawdown {
                 max_drawdown = drawdown;
             }
@@ -1298,14 +1288,14 @@ mod tests {
             artifact_run_id: None,
             candidates: vec![
                 SingleAssetSignalCandidateInput {
-                    candidate_id: "a".to_string(),
+                    candidate_id: "signal_probe:parameter_matrix:a".to_string(),
                     resolved_params: BTreeMap::from([("short".to_string(), "10".to_string())]),
                     entry_signal: vec![true, false, false],
                     exit_signal: vec![false, true, false],
                     target_weight: 1.0,
                 },
                 SingleAssetSignalCandidateInput {
-                    candidate_id: "b".to_string(),
+                    candidate_id: "signal_probe:parameter_matrix:b".to_string(),
                     resolved_params: BTreeMap::from([("short".to_string(), "20".to_string())]),
                     entry_signal: vec![false, false, false],
                     exit_signal: vec![false, false, false],
@@ -1317,7 +1307,10 @@ mod tests {
         let summary = run_single_asset_next_open_signal_batch(input).expect("batch should run");
 
         assert_eq!(summary.candidate_count, 2);
-        assert_eq!(summary.results[0].candidate_id, "a");
+        assert_eq!(
+            summary.results[0].candidate_id,
+            "signal_probe:parameter_matrix:a"
+        );
         assert_eq!(summary.results[0].active_rebalances, 2);
         assert_eq!(summary.results[1].final_equity, 100.0);
     }
@@ -1341,7 +1334,7 @@ mod tests {
             artifact_output_dir: Some(output_dir.to_string_lossy().to_string()),
             artifact_run_id: Some("bundle test".to_string()),
             candidates: vec![SingleAssetSignalCandidateInput {
-                candidate_id: "a".to_string(),
+                candidate_id: "signal_probe:single_backtest:fixed".to_string(),
                 resolved_params: BTreeMap::new(),
                 entry_signal: vec![true, false, false],
                 exit_signal: vec![false, true, false],
@@ -1360,5 +1353,38 @@ mod tests {
         }
         assert!(summary.results[0].timeline.is_none());
         let _ = std::fs::remove_dir_all(&output_dir);
+    }
+
+    #[test]
+    fn signal_batch_rejects_missing_or_duplicate_candidate_identity() {
+        let candidate = SingleAssetSignalCandidateInput {
+            candidate_id: "signal_probe:parameter_matrix:short_10".to_string(),
+            resolved_params: BTreeMap::new(),
+            entry_signal: vec![false],
+            exit_signal: vec![false],
+            target_weight: 1.0,
+        };
+        let input = |candidates| SingleAssetSignalBatchInput {
+            config: TimelineAccountingConfig::default(),
+            asset: "AAA".to_string(),
+            dates: vec!["2024-01-02".to_string()],
+            open: vec![100.0],
+            close: vec![100.0],
+            include_full_results: false,
+            artifact_output_dir: None,
+            artifact_run_id: None,
+            candidates,
+        };
+
+        let mut invalid = candidate.clone();
+        invalid.candidate_id.clear();
+        assert!(matches!(
+            run_single_asset_next_open_signal_batch(input(vec![invalid])),
+            Err(SignalTimelineError::InvalidCandidateId(_))
+        ));
+        assert!(matches!(
+            run_single_asset_next_open_signal_batch(input(vec![candidate.clone(), candidate])),
+            Err(SignalTimelineError::DuplicateCandidateId(_))
+        ));
     }
 }

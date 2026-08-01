@@ -1,7 +1,7 @@
 ---
 name: lo2cin4bt-pm
 description: Repo-local PM routing skill for lo2cin4bt. Use when ProjectManager must classify a request, assign one lo2cin4btWorkAgent, select the required task skills, enforce the current runtime architecture and safety boundaries, and identify out-of-scope work.
-version: 2.1.0
+version: 2.2.0
 status: active
 category: workflow
 use_when:
@@ -98,7 +98,8 @@ Rules:
 ## Host Tool Setup Policy
 lo2cin4bt follows a developer-style GitHub setup model:
 
-- The repo contains source code, configs, lockfiles, scripts, docs, skills, and
+- The repo contains source code, configs, `pyproject.toml`, `uv.lock`, scripts,
+  docs, skills, and
   tests.
 - The repo must not bundle Python, Node.js, Rust, `.venv/`, `node_modules/`,
   Cargo registry caches, or Rust `target/` build output.
@@ -107,16 +108,18 @@ lo2cin4bt follows a developer-style GitHub setup model:
 
 When setup or first-run work is requested:
 
-1. Run or request `python scripts/doctor.py` before guessing.
-2. If Python packages are missing, create/use `.venv/` and install
-   `requirements.lock`.
-3. If Python is missing or too old, help install or point to a host Python
-   available on `PATH` or through `PYTHON_HOME`; keep it outside the repo.
+1. Run or request `uv run --locked --exact python scripts/doctor.py` before
+   guessing.
+2. Require uv 0.11.32 and run `uv sync --locked`; use `--group dev` or
+   `--group brokers` only for those declared profiles.
+3. If Python is missing or too old, let uv install/select the Python 3.12
+   version declared by `.python-version`; do not introduce another route.
 4. If Node is missing or too old, help install or point to a host Node location,
    available on `PATH`, `LO2CIN4BT_NODE_HOME`, or `NODE_HOME`.
 5. If Rust is missing or too old, help install Rust 1.96.0 through rustup or
    point `LO2CIN4BT_RUST_HOME` to a host-managed directory outside the repo.
-6. Rerun `python scripts/doctor.py` after setup changes.
+6. Rerun `uv run --locked --exact python scripts/doctor.py` after setup
+   changes.
 7. Do not copy host runtimes, package caches, or build output into the repo to
    make setup pass.
 
@@ -125,15 +128,15 @@ When setup or first-run work is requested:
 For any release, mirror, or GitHub push request:
 
 1. Read `skills/lo2cin4bt/references/workspace-and-github-boundary.md`.
-2. Treat only source-Git-tracked files below the resolved `<project-root>/Repo`
-   product boundary as eligible source files.
-3. Require the destination GitHub URL as an explicit task input.
-4. Require a clean clone outside the parent Company tree, verified `origin`,
-   and passing source/tree/index release guards.
-5. Never add a product remote to Company and never push from the Company Git
-   root.
+2. Resolve the current Git root exactly to the product `Repo` directory.
+3. Require the approved GitHub URL as an explicit task input and verify both
+   product `origin` URLs against it.
+4. Require a clean product `main`, fetched remote history, no behind/diverged
+   state, and passing candidate/tracked release guards.
+5. When nested in Company, verify that the parent tracks `Repo` only as a Git
+   submodule. Never add a product remote to Company or push from Company.
 6. If any gate cannot be proven, route the task as `blocked`; do not approve a
-   manual copy, subtree push, force push, or exception.
+   manual copy, external-clone publisher, subtree push, force push, or exception.
 
 ## Output Format
 ```text
@@ -164,7 +167,7 @@ not_trading_advice_notice:
 ## Validation
 
 ```powershell
-python -m pytest tests/test_agent_skill_lecture_alignment.py -q
+uv run --locked --exact --group dev python -m pytest tests/test_agent_skill_lecture_alignment.py -q
 ```
 
 Pass criteria: routing names one `lo2cin4btWorkAgent`, selects exact skills, and contains no retired family-specific agent route.

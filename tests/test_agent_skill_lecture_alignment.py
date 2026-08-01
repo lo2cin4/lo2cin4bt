@@ -76,7 +76,7 @@ def test_core_skills_require_canonical_runtime_architecture() -> None:
     assert not missing, f"skills missing canonical runtime read: {missing}"
 
 
-def test_agents_and_skills_enforce_repo_only_github_publishing() -> None:
+def test_agents_and_skills_enforce_independent_repo_github_publishing() -> None:
     required_sources = (
         ROOT / "agents" / "lo2cin4bt_PM.agent.md",
         ROOT / "agents" / "lo2cin4btWorkAgent.agent.md",
@@ -87,12 +87,13 @@ def test_agents_and_skills_enforce_repo_only_github_publishing() -> None:
     combined = "\n".join(path.read_text(encoding="utf-8") for path in required_sources)
 
     for phrase in (
-        "Git-tracked files",
-        "explicit destination",
-        "clean clone",
-        "verified",
-        "Never add a product remote to Company",
-        "never push from the Company Git root",
+        "independent product Git root",
+        "explicit input",
+        "product `origin`",
+        "clean product `main`",
+        "Git submodule",
+        "no product remote",
+        "non-diverged",
         "without pushing",
     ):
         assert phrase.lower() in combined.lower(), phrase
@@ -100,7 +101,7 @@ def test_agents_and_skills_enforce_repo_only_github_publishing() -> None:
 
 def test_only_implemented_strategy_preset_is_public() -> None:
     schema = json.loads(
-        (ROOT / "backtester" / "contracts" / "runtime" / "engine-request-v1.schema.json")
+        (ROOT / "backtester" / "contracts" / "runtime" / "engine-request-v2.schema.json")
         .read_text(encoding="utf-8")
     )
     preset_values = schema["$defs"]["strategy"]["properties"]["strategy_preset_id"][
@@ -288,6 +289,61 @@ def test_ai_manual_describes_only_the_shared_rust_runtime() -> None:
     assert "persistent shared Rust engine" in manual
     assert "CanonicalResultBundle" in manual
     assert not [phrase for phrase in retired_phrases if phrase in manual]
+
+
+def test_agents_and_ai_guides_lock_current_time_identity_and_uv_contracts() -> None:
+    sources = (
+        ROOT / "agents" / "lo2cin4bt_PM.agent.md",
+        ROOT / "agents" / "lo2cin4btWorkAgent.agent.md",
+        ROOT / "docs" / "ai" / "AI_MANUAL_SKILL.md",
+        ROOT / "docs" / "ai" / "AI_SKILL_LECTURE_GUIDE.md",
+    )
+    combined = "\n".join(path.read_text(encoding="utf-8") for path in sources)
+    required = (
+        "data.bar_time",
+        "execution stream",
+        "decision stream",
+        "yfinance",
+        "daily-only",
+        "missing, duplicated, or out-of-order",
+        "intraday_max_drawdown",
+        "base_strategy_id:workflow_id:parameter_suffix",
+        "contract error",
+        "bounded batches",
+        "uv sync --locked",
+        "uv run --locked --exact",
+    )
+    combined_lower = combined.lower()
+    assert not [phrase for phrase in required if phrase.lower() not in combined_lower]
+    pm = sources[0].read_text(encoding="utf-8")
+    assert "`python scripts/cleanup_app_run.py" not in pm
+
+
+def test_lecture_teaches_current_intraday_provider_and_artifact_contracts() -> None:
+    pages = [
+        path.read_text(encoding="utf-8")
+        for path in (
+            ROOT / "Lecture" / "Module_02_Data_Providers" / "index.html",
+            ROOT / "Lecture" / "Module_03_Strategy_Run_Config" / "index.html",
+            ROOT / "Lecture" / "Module_06_Parameter_Matrix" / "index.html",
+            ROOT / "Lecture" / "Module_07_Backtests_Report" / "index.html",
+            ROOT / "Lecture" / "Module_08_WFA_Rolling_Validation" / "index.html",
+        )
+    ]
+    combined = "\n".join(pages)
+    required = (
+        "只接受日線",
+        "行情週期契約（bar_time）",
+        "執行資料流（execution stream）",
+        "決策資料流（decision stream）",
+        "日內最大回撤（Intraday Max Drawdown）",
+        "候選識別碼（candidate_id）",
+        "base_strategy_id:workflow_id:parameter_suffix",
+        "未被保留的候選沒有完整圖表，不代表回測失敗",
+        "研究方法沒有改寫",
+    )
+    assert not [phrase for phrase in required if phrase not in combined]
+    assert '"frequency"' not in combined
 
 
 def test_lecture_teaches_shared_rust_route_and_explicit_wfa() -> None:

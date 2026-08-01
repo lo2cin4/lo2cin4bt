@@ -42,29 +42,36 @@ targeted contract tests referenced by the README and quality gates.
 Run only the immutable result baselines:
 
 ```bash
-python -m pytest -m golden -q
+uv run --locked --exact --group dev python -m pytest -m golden -q
 ```
 
-The suite contains 15 cases:
+The suite contains 20 cases:
 
 - two low-level Rust accounting fixtures
 - one content-addressed `MarketDataBundle` fixture
+- one complete-month Binance BTCUSDT 1m SMA(10,20) fixture
+- one XNYS multilevel time-contract fixture
 - all eight public built-in strategy examples, including the two bounded
   parameter-matrix workflows
 - one Rust metrics fixture
+- one intraday-to-session-close metrics fixture
 - one Rust `PlotBundle.v1` fixture
 - one WFA selected-optimum fixture
+- two completed-period WFA warmup fixtures
 - one end-to-end config-to-metrics-and-plot fixture
 
 The canonical fixtures are:
 
 - `tests/fixtures/backtester/rust_accounting_golden_v1.json`
 - `tests/fixtures/golden/canonical_pipeline_golden_v1.json`
+- `tests/fixtures/golden/binance_btcusdt_1m_sma_10_20_golden_v1.json`
 
 The tests are:
 
 - `tests/test_rust_accounting_golden.py`
 - `tests/test_canonical_pipeline_golden.py`
+- `tests/test_binance_1m_sma_golden.py`
+- `tests/test_unified_portfolio_wfa_runner.py`
 
 The baselines lock stable business fields such as content hashes, resolved
 parameters, result hashes, equity, trades, turnover, costs, validation status,

@@ -13,7 +13,13 @@
         "uri": "workspace/datasets/QQQ_1D.csv",
         "column": "Close"
       },
-      "frequency": "1D",
+      "bar_spec": {
+        "aggregation": "time",
+        "step": 1,
+        "unit": "day",
+        "price_type": "last",
+        "alignment": "session_open"
+      },
       "timezone": "UTC",
       "dtype": "float",
       "fill_policy": "none",
@@ -28,7 +34,13 @@
         "uri": "workspace/datasets/VIX_1D.csv",
         "column": "Close"
       },
-      "frequency": "1D",
+      "bar_spec": {
+        "aggregation": "time",
+        "step": 1,
+        "unit": "day",
+        "price_type": "last",
+        "alignment": "session_open"
+      },
       "timezone": "UTC",
       "dtype": "float",
       "fill_policy": "ffill",

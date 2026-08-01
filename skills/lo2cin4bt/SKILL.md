@@ -1,7 +1,7 @@
 ---
 name: lo2cin4bt
 description: Operate, teach, and troubleshoot the lo2cin4bt quantitative research/backtesting repo. Use when Codex needs to install or launch lo2cin4bt, create or review strategy run or WFA configs, run local backtests, Parameter Matrix, WFA or rolling validation, explain frontend metrics/artifacts/AI-readable packs, or recover beginner setup/runtime issues while respecting repo-only evidence and no-live-trading boundaries.
-version: 2.1.0
+version: 2.2.0
 status: active
 category: workflow
 use_when:
@@ -90,7 +90,14 @@ When a user says "you are lo2cin4" or asks the AI to develop a strategy, load `a
 
 ### New User Setup
 
-Read `references/first-run.md`. Walk the user from clone or ZIP download to `python main.py`, `http://127.0.0.1:2424/`, `scripts/doctor.py`, and one completed local run. A clean public clone may have empty ignored `workspace/runs/` and `workspace/wfa/` folders; when the user wants runnable defaults, initialize supported example configs from bundled contracts into those folders. WFA configs should reference strategy configs with explicit `workspace/runs/<strategy-config>.json` paths.
+Read `references/first-run.md`. Walk the user from clone or ZIP download to
+`uv run --locked --exact python main.py`, `http://127.0.0.1:2424/`,
+`uv run --locked --exact python scripts/doctor.py`, and one completed local
+run. A clean public clone may have empty ignored `workspace/runs/` and
+`workspace/wfa/` folders; when the user wants runnable defaults, initialize
+supported example configs from bundled contracts into those folders. WFA
+configs should reference strategy configs with explicit
+`workspace/runs/<strategy-config>.json` paths.
 
 ### Strategy Creation
 
@@ -100,7 +107,7 @@ Read `references/strategy-authoring-template.md`, `references/strategy-config-fi
 supported | needs_clarification | unsupported_needs_new_building_block
 ```
 
-Only write a runnable config after provider, frequency, calendar/timezone, universe, benchmark, entry/exit or allocation rules, fill timing, cost/slippage, workflow, and parameter domains are known and supported by current repo contracts. The AI must also write a specific `platform.display_label`, then derive the result-selector and strategy-logic previews from the completed config. For unsupported or undefined strategies, write no runnable config until building block code, tests, and quant safety metadata exist.
+Only write a runnable config after provider, typed execution/decision `BarSpec`, session calendar/timezone, universe, benchmark, entry/exit or allocation rules, fill timing, cost/slippage, workflow, and parameter domains are known and supported by current repo contracts. The AI must also write a specific `platform.display_label`, then derive the result-selector and strategy-logic previews from the completed config. For unsupported or undefined strategies, write no runnable config until building block code, tests, and quant safety metadata exist.
 
 ### Result Explanation
 
@@ -147,7 +154,7 @@ module-specific folders under `outputs/`.
 ## Validation
 
 ```powershell
-python -m pytest tests/test_agent_skill_lecture_alignment.py tests/test_strategy_run_config.py tests/test_app_api_payloads.py -q
+uv run --locked --exact --group dev python -m pytest tests/test_agent_skill_lecture_alignment.py tests/test_strategy_run_config.py tests/test_app_api_payloads.py -q
 ```
 
 Pass criteria: all selected tests pass, the current runtime architecture is cited, and no retired agent or runtime path is introduced.

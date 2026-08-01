@@ -22,12 +22,18 @@ flowchart LR
     <tr><td>滾動驗證（Rolling validation）</td><td>固定策略或固定參數，在多個滾動樣本外視窗（rolling OOS windows）重複驗證。</td><td>檢查表現是否依賴某一段歷史。</td></tr>
   </table>
 
+  <section class="note">
+    <h2>2.2.0 改變了什麼</h2>
+    <p>前向分析仍是「樣本內選參數，下一段樣本外驗證」；研究方法沒有改寫。新版本處理的是大型一分鐘工作：候選分批執行、全部候選保留摘要，並只為需要展示的前列候選保存完整產物。儀表板選定的目標函數、候選識別碼及產物必須相符，否則回報契約錯誤，不會顯示另一個候選的結果。</p>
+  </section>
+
   <h2>閱讀結果</h2>
   <ul>
     <li>先看每個視窗的樣本內／樣本外（IS/OOS）日期，確認沒有重疊偷看。</li>
     <li>只把選定最優解（selected optimum）的樣本外（OOS）資料列當正式驗證結果；診斷候選（diagnostic candidates）不等於被選策略。</li>
     <li>比較樣本外正報酬視窗比例、樣本外／樣本內比率（OOS/IS ratio）、參數變動、成本及換手率（turnover）。</li>
     <li>相同候選（candidate）在同一樣本外視窗只執行一次；需要不同標籤時重用同一結果，不重跑計算。</li>
+    <li>候選識別碼（candidate_id）使用 <code>base_strategy_id:workflow_id:parameter_suffix</code>。每個視窗選定的目標、摘要與完整產物都要用同一識別碼。</li>
   </ul>
 
   <section class="evidence"><h2>專案證據</h2><ul>

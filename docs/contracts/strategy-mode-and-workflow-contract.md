@@ -17,7 +17,13 @@ Execution backend is separate from both mode and workflow:
 - `non_vector` / sequential event simulation
 - `vector_hybrid`: vector precompute for features/signals/selection/target weights, then sequential accounting for cash, costs, turnover, holdings, and rebalance state
 
-Factor pipelines are also separate from mode and workflow. A value/momentum/quality/growth/volatility factor strategy should remain `multi_asset_portfolio`, with `strategy_run.factor_pipeline` describing factor construction, preprocessing, composite score, point-in-time audit, cache, and StatAnalyser outputs.
+`strategy_run.factor_pipeline` is retired and fails closed because its former
+implementation performed result-changing factor and return calculations in
+Python. A value, momentum, quality, growth, or volatility strategy remains
+`multi_asset_portfolio`, but supported calculations must be expressed through
+`computed_fields[]` and executed by the shared Rust engine. There is no automatic
+mapping or fallback; an unsupported operation needs a reviewed Rust building
+block before the config becomes runnable.
 
 ## Strategy Mode
 
@@ -113,6 +119,6 @@ The app API builds `strategy_summary` from:
 - normalized `strategy_run` when available
 - original run or WFA config via `resolved_configs.run_config.config_path`
 - `platform.strategy_mode_id` and `platform.workflow_id`
-- resolved dataloader config for asset, period, and frequency
+- resolved dataloader config with typed execution/decision `BarSpec`
 - backtester trading params for fill timing and cost assumptions
 - strategy contract for entry, exit, and parameter domains

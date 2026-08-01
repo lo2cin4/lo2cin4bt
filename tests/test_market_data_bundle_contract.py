@@ -7,6 +7,14 @@ import pandas as pd
 import pytest
 from jsonschema import Draft202012Validator
 
+from dataloader.market_data_bundle import (
+    ExternalMarketData,
+    ExecutionStreamSpec,
+    SessionWindow,
+    build_market_data_bundle,
+)
+from dataloader.market_data_loader import MultiAssetMarketDataLoader
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = (
@@ -14,7 +22,7 @@ SCHEMA_PATH = (
     / "backtester"
     / "contracts"
     / "runtime"
-    / "market-data-bundle-v1.schema.json"
+    / "market-data-bundle-v2.schema.json"
 )
 EXAMPLE_PATH = (
     REPO_ROOT
@@ -22,19 +30,23 @@ EXAMPLE_PATH = (
     / "contracts"
     / "runtime"
     / "examples"
-    / "market-data-bundle-v1.example.json"
+    / "market-data-bundle-v2.example.json"
 )
 
 
 def _frames() -> dict[str, pd.DataFrame]:
-    index = pd.to_datetime(["2024-01-02", "2024-01-03"])
+    index = pd.DatetimeIndex(["2024-01-02", "2024-01-03"], name="Time")
+    close = pd.DataFrame(
+        {"AAA": [100.0, 101.0], "BBB": [200.0, 202.0]},
+        index=index,
+    )
     return {
-        "open": pd.DataFrame(
-            {"AAA": [99.0, 100.0], "BBB": [199.0, 200.0]},
-            index=index,
-        ),
-        "close": pd.DataFrame(
-            {"AAA": [100.0, 101.0], "BBB": [200.0, 202.0]},
+        "open": close - 1.0,
+        "high": close + 1.0,
+        "low": close - 2.0,
+        "close": close,
+        "volume": pd.DataFrame(
+            {"AAA": [1000.0, 1100.0], "BBB": [2000.0, 2100.0]},
             index=index,
         ),
         "factor": pd.DataFrame(
@@ -44,27 +56,98 @@ def _frames() -> dict[str, pd.DataFrame]:
     }
 
 
+def _stream() -> ExecutionStreamSpec:
+    return ExecutionStreamSpec.from_mapping(
+        {
+            "stream_id": "execution_daily",
+            "role": "execution",
+            "source": {"kind": "external", "provider_id": "fixture"},
+            "session_scope": "regular",
+            "row_key_kind": "session_label",
+            "bar_spec": {
+                "aggregation": "time",
+                "step": 1,
+                "unit": "day",
+                "price_type": "last",
+                "alignment": "session_open",
+            },
+            "timestamp_semantics": {
+                "timestamp_convention": "bar_close",
+                "interval_boundary": "left_open_right_closed",
+                "external_execution_sequence_column": (
+                    "external_execution_sequence"
+                ),
+                "bar_open_time_column": "bar_open_timestamp",
+                "bar_close_time_column": "bar_close_timestamp",
+                "available_time_column": "available_timestamp",
+                "session_label_column": "session_label",
+                "availability_policy": "bar_close",
+            },
+            "timeline_table": "execution_timeline",
+            "ohlcv_tables": {
+                "open": "open",
+                "high": "high",
+                "low": "low",
+                "close": "close",
+                "volume": "volume",
+            },
+        }
+    )
+
+
+def _data(
+    frames: dict[str, pd.DataFrame] | None = None,
+) -> ExternalMarketData:
+    index = pd.DatetimeIndex(["2024-01-02", "2024-01-03"], name="Time")
+    timeline = pd.DataFrame(
+        {
+            "external_execution_sequence": [0, 1],
+            "bar_open_timestamp": [
+                "2024-01-02T14:30:00Z",
+                "2024-01-03T14:30:00Z",
+            ],
+            "bar_close_timestamp": [
+                "2024-01-02T21:00:00Z",
+                "2024-01-03T21:00:00Z",
+            ],
+            "available_timestamp": [
+                "2024-01-02T21:00:00Z",
+                "2024-01-03T21:00:00Z",
+            ],
+            "session_label": ["2024-01-02", "2024-01-03"],
+        },
+        index=index,
+    )
+    return ExternalMarketData(
+        frames=frames or _frames(),
+        execution_stream=_stream(),
+        execution_timeline=timeline,
+        session_windows=[
+            SessionWindow.from_mapping(
+                {
+                    "session_label": label,
+                    "open_timestamp": f"{label}T14:30:00Z",
+                    "close_timestamp": f"{label}T21:00:00Z",
+                }
+            )
+            for label in ("2024-01-02", "2024-01-03")
+        ],
+    )
+
+
 def _spec() -> dict[str, object]:
     return {
         "provider": "fixture",
         "symbols": ["AAA", "BBB"],
-        "frequency": "1D",
-        "calendar": "XNYS",
+        "calendar_id": "XNYS",
         "timezone": "America/New_York",
         "point_in_time": True,
         "adjustment_policy": "split_dividend_adjusted",
-        "availability_policy": "bar_close",
     }
 
 
 def test_builds_schema_valid_content_addressed_bundle(tmp_path: Path) -> None:
-    mod = __import__("dataloader.market_data_bundle", fromlist=["dummy"])
-
-    bundle = mod.build_market_data_bundle(
-        _frames(),
-        spec=_spec(),
-        output_root=tmp_path,
-    )
+    bundle = build_market_data_bundle(_data(), spec=_spec(), output_root=tmp_path)
     manifest = bundle.read_manifest()
 
     Draft202012Validator(json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))).validate(
@@ -74,63 +157,64 @@ def test_builds_schema_valid_content_addressed_bundle(tmp_path: Path) -> None:
     assert bundle.content_hash == manifest["content_hash"]
     assert manifest["symbols"] == ["AAA", "BBB"]
     assert manifest["row_count"] == 2
-    assert manifest["time_semantics"] == {
-        "index_kind": "session_label",
-        "event_time_column": "Time",
-        "available_time_column": None,
-        "availability_policy": "bar_close",
-        "ordering": "event_time_then_table_name",
-    }
-    assert manifest["quality"]["duplicate_time_policy"] == "fail"
+    assert manifest["execution_stream"]["row_key_kind"] == "session_label"
+    assert "frequency" not in manifest
+    assert "time_semantics" not in manifest
+    assert manifest["quality"]["missing_value_policy"] == "fail"
     assert manifest["tables"]["close"]["role"] == "bars"
     assert manifest["tables"]["factor"]["role"] == "features"
-    assert manifest["tables"]["close"]["row_count"] == 2
+    assert manifest["tables"]["execution_timeline"]["role"] == "bar_timeline"
 
     loaded = bundle.load_frames()
     expected = _frames()
-    expected["close"].index.name = "Time"
-    expected["factor"].index.name = "Time"
     pd.testing.assert_frame_equal(loaded["close"], expected["close"], check_freq=False)
     pd.testing.assert_frame_equal(loaded["factor"], expected["factor"], check_freq=False)
 
 
-def test_loader_attaches_benchmark_without_expanding_trading_universe(
+def test_benchmark_does_not_expand_trading_universe(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    loader_mod = __import__("dataloader.market_data_loader", fromlist=["dummy"])
-    index = pd.to_datetime(["2024-01-02", "2024-01-03"])
+    loader = MultiAssetMarketDataLoader(repo_root=REPO_ROOT)
+    frames = _frames()
 
-    def fake_load(self, spec, config_file_path=None):
-        symbols = list(spec["symbols"])
-        values = {symbol: [100.0, 101.0] for symbol in symbols}
-        return {"close": pd.DataFrame(values, index=index)}
+    monkeypatch.setattr(
+        loader,
+        "load",
+        lambda *_args, **_kwargs: {
+            "close": pd.DataFrame(
+                {"SPY": [500.0, 501.0]},
+                index=frames["close"].index,
+            )
+        },
+    )
+    with_benchmark = loader._with_benchmark_close(
+        frames,
+        {
+            **_spec(),
+            "execution_stream": _stream().to_manifest(),
+            "benchmark": {"provider": "fixture", "symbol": "SPY"},
+        },
+        config_file_path=None,
+    )
+    bundle = build_market_data_bundle(
+        _data(with_benchmark),
+        spec=_spec(),
+        output_root=tmp_path,
+    )
 
-    monkeypatch.setattr(loader_mod.MultiAssetMarketDataLoader, "load", fake_load)
-    loader = loader_mod.MultiAssetMarketDataLoader(repo_root=REPO_ROOT)
-    spec = {
-        **_spec(),
-        "benchmark": {"provider": "fixture", "symbol": "SPY", "label": "SPY"},
-    }
-
-    bundle = loader.load_bundle(spec, output_root=tmp_path)
     manifest = bundle.read_manifest()
-    frames = bundle.load_frames()
-
     assert manifest["symbols"] == ["AAA", "BBB"]
     assert manifest["tables"]["benchmark_close"]["role"] == "benchmarks"
     assert manifest["tables"]["benchmark_close"]["columns"] == ["SPY"]
-    assert list(frames["benchmark_close"].columns) == ["SPY"]
 
 
 def test_same_content_has_same_bundle_hash_across_output_roots(tmp_path: Path) -> None:
-    mod = __import__("dataloader.market_data_bundle", fromlist=["dummy"])
-
-    first = mod.build_market_data_bundle(
-        _frames(), spec=_spec(), output_root=tmp_path / "first"
+    first = build_market_data_bundle(
+        _data(), spec=_spec(), output_root=tmp_path / "first"
     )
-    second = mod.build_market_data_bundle(
-        _frames(), spec=_spec(), output_root=tmp_path / "second"
+    second = build_market_data_bundle(
+        _data(), spec=_spec(), output_root=tmp_path / "second"
     )
 
     assert first.content_hash == second.content_hash
@@ -142,53 +226,37 @@ def test_shared_manifest_example_matches_python_canonical_hash() -> None:
     manifest = json.loads(EXAMPLE_PATH.read_text(encoding="utf-8"))
 
     mod.validate_market_data_bundle_manifest(manifest)
-
     assert mod.market_data_bundle_content_hash(manifest) == manifest["content_hash"]
 
 
 def test_bundle_rejects_duplicate_timestamps(tmp_path: Path) -> None:
-    mod = __import__("dataloader.market_data_bundle", fromlist=["dummy"])
     frames = _frames()
     frames["close"] = pd.concat([frames["close"], frames["close"].iloc[[0]]])
 
     with pytest.raises(ValueError, match="duplicate timestamps"):
-        mod.build_market_data_bundle(frames, spec=_spec(), output_root=tmp_path)
+        build_market_data_bundle(_data(frames), spec=_spec(), output_root=tmp_path)
 
 
-def test_bundle_removes_provider_rows_without_any_tradable_prices(
+def test_bundle_rejects_fully_missing_provider_rows_instead_of_dropping(
     tmp_path: Path,
 ) -> None:
-    mod = __import__("dataloader.market_data_bundle", fromlist=["dummy"])
     frames = _frames()
-    empty_time = pd.Timestamp("2024-01-04")
-    for name in ("open", "close"):
-        frames[name].loc[empty_time] = [float("nan"), float("nan")]
+    frames["close"].iloc[1] = [float("nan"), float("nan")]
 
-    bundle = mod.build_market_data_bundle(frames, spec=_spec(), output_root=tmp_path)
-    manifest = bundle.read_manifest()
-
-    assert manifest["row_count"] == 2
-    assert manifest["quality"]["missing_value_policy"] == "drop_rows"
-    assert manifest["quality"]["warnings"] == [
-        "removed 1 provider rows without any tradable prices"
-    ]
-    assert empty_time not in bundle.load_frames()["close"].index
+    with pytest.raises(ValueError, match="contains missing values"):
+        build_market_data_bundle(_data(frames), spec=_spec(), output_root=tmp_path)
 
 
 def test_bundle_rejects_partial_invalid_runtime_prices(tmp_path: Path) -> None:
-    mod = __import__("dataloader.market_data_bundle", fromlist=["dummy"])
     frames = _frames()
     frames["close"].iloc[1, 0] = float("nan")
 
-    with pytest.raises(ValueError, match="partial invalid prices for: AAA"):
-        mod.build_market_data_bundle(frames, spec=_spec(), output_root=tmp_path)
+    with pytest.raises(ValueError, match="contains missing values"):
+        build_market_data_bundle(_data(frames), spec=_spec(), output_root=tmp_path)
 
 
 def test_bundle_detects_table_tampering(tmp_path: Path) -> None:
-    mod = __import__("dataloader.market_data_bundle", fromlist=["dummy"])
-    bundle = mod.build_market_data_bundle(
-        _frames(), spec=_spec(), output_root=tmp_path
-    )
+    bundle = build_market_data_bundle(_data(), spec=_spec(), output_root=tmp_path)
     close_path = Path(bundle.read_manifest()["tables"]["close"]["path"])
     tampered = pd.read_parquet(close_path)
     tampered.iloc[0, 0] = 999.0
@@ -199,7 +267,6 @@ def test_bundle_detects_table_tampering(tmp_path: Path) -> None:
 
 
 def test_bundle_rejects_engine_request_symbol_mismatch(tmp_path: Path) -> None:
-    bundle_mod = __import__("dataloader.market_data_bundle", fromlist=["dummy"])
     request_mod = __import__("backtester.EngineRequest_backtester", fromlist=["dummy"])
     config = json.loads(
         (
@@ -212,100 +279,7 @@ def test_bundle_rejects_engine_request_symbol_mismatch(tmp_path: Path) -> None:
         ).read_text(encoding="utf-8")
     )
     request = request_mod.build_engine_request(config)
-    bundle = bundle_mod.build_market_data_bundle(
-        _frames(), spec=_spec(), output_root=tmp_path
-    )
+    bundle = build_market_data_bundle(_data(), spec=_spec(), output_root=tmp_path)
 
     with pytest.raises(ValueError, match="symbols do not match"):
         bundle.validate_against_engine_request(request)
-
-
-def test_autorunner_dataloader_returns_bundle_not_dataframe(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
-) -> None:
-    loader_mod = __import__("dataloader.market_data_loader", fromlist=["dummy"])
-    autorunner_mod = __import__("autorunner.DataLoader_autorunner", fromlist=["dummy"])
-    request_mod = __import__("backtester.EngineRequest_backtester", fromlist=["dummy"])
-    config = json.loads(
-        (
-            REPO_ROOT
-            / "backtester"
-            / "contracts"
-            / "strategy"
-            / "examples"
-            / "strategy-run-spy-qqq-yfinance-monthly-pair-spread-example.json"
-        ).read_text(encoding="utf-8")
-    )
-    request = request_mod.build_engine_request(config)
-    frames = _frames()
-    frames = {key: frame.rename(columns={"AAA": "SPY", "BBB": "QQQ"}) for key, frame in frames.items()}
-    monkeypatch.setattr(
-        loader_mod.MultiAssetMarketDataLoader,
-        "load",
-        lambda self, spec, config_file_path=None: frames,
-    )
-
-    loader = autorunner_mod.DataLoaderAutorunner()
-    bundle = loader.load_market_data_bundle(
-        request,
-        output_root=tmp_path,
-    )
-
-    assert isinstance(bundle, loader_mod.MarketDataBundle)
-    assert bundle.read_manifest()["symbols"] == ["SPY", "QQQ"]
-    assert loader.get_loading_summary()["bundle_id"] == bundle.bundle_id
-
-
-def test_bundle_is_the_only_backtest_data_boundary(tmp_path: Path) -> None:
-    bundle_mod = __import__("dataloader.market_data_bundle", fromlist=["dummy"])
-    request_mod = __import__("backtester.EngineRequest_backtester", fromlist=["dummy"])
-    runner_mod = __import__("autorunner.BacktestRunner_autorunner", fromlist=["dummy"])
-    config = {
-        "schema_version": "strategy_run",
-        "platform": {
-            "strategy_mode_id": "multi_asset_portfolio",
-            "strategy_profile_id": "allocation_portfolio",
-            "workflow_id": "single_backtest",
-        },
-        "data": {
-            "provider": "fixture",
-            "frequency": "1D",
-            "calendar": "XNYS",
-            "timezone": "America/New_York",
-        },
-        "universe": {"symbols": ["AAA", "BBB"]},
-        "allocation": {
-            "method": "fixed_weights",
-            "weights": {"AAA": 0.6, "BBB": 0.4},
-        },
-        "rebalance": {"trigger": {"op": "calendar.every_session"}},
-        "fill_model": {"cost": {"transaction_cost": 0.0, "slippage": 0.0}},
-        "risk": {"max_positions": 2, "max_gross_exposure": 1.0},
-        "parameter_domains": {},
-        "metadata": {"strategy_id": "bundle_boundary_probe"},
-    }
-    request = request_mod.build_engine_request(config)
-    bundle = bundle_mod.build_market_data_bundle(
-        _frames(),
-        spec=_spec(),
-        output_root=tmp_path,
-    )
-    runner = runner_mod.BacktestRunnerAutorunner()
-
-    result = runner.run_backtest(bundle, request)
-
-    assert result["success"] is True
-    assert result["market_data_bundle_id"] == bundle.bundle_id
-    assert result["market_data_bundle_hash"] == bundle.content_hash
-    with pytest.raises(TypeError, match="MarketDataBundle"):
-        runner.run_backtest(_frames()["close"], request)
-
-    custom_simulation = json.loads(json.dumps(config))
-    custom_simulation["simulation"] = {
-        "account": {"account_type": "margin", "leverage_limit": 2.0},
-    }
-    custom_request = request_mod.build_engine_request(custom_simulation)
-    margin_result = runner.run_backtest(bundle, custom_request)
-    assert margin_result["success"] is True
-    assert margin_result["market_data_bundle_id"] == bundle.bundle_id

@@ -98,7 +98,7 @@ Windows:
 git clone <repository-url> lo2cin4bt
 cd lo2cin4bt
 .\scripts\setup.ps1
-.\.venv\Scripts\python.exe main.py
+uv run --locked --exact python main.py
 ```
 
 macOS / Linux:
@@ -107,7 +107,7 @@ macOS / Linux:
 git clone <repository-url> lo2cin4bt
 cd lo2cin4bt
 bash scripts/setup.sh
-.venv/bin/python main.py
+uv run --locked --exact python main.py
 ```
 
 Open:
@@ -214,11 +214,12 @@ Full English walkthrough: <https://youtu.be/03CduKFc4sg?si=GE7Y2EFKnsiF3HFV>
 
 ## 🧩 Supported Strategies and Research Workflows
 
-The public version includes eight backtest examples that can be initialized locally. They are not eight separate engine routes. Each example combines reusable strategy building blocks and runs through the same Rust core.
+The public version includes nine backtest examples that can be initialized locally. They are not nine separate engine routes. Each example combines reusable strategy building blocks and runs through the same Rust core.
 
 | Public example | Strategy capability demonstrated |
 | --- | --- |
 | QQQ Daily SMA Cross | Single-asset signals and timing |
+| BTCUSDT 1-Minute SMA(10,20) | Complete-month minute bars, next-open fills, and intraday equity |
 | BTC Monthly Nth Weekday Event | Calendar and trading-session events |
 | QQQ, TLT, GLD Monthly Hedge Overlay | Multi-leg events and hedge allocation |
 | SPY, QQQ Monthly Pair Spread | Pair and relative-value trading |
@@ -272,7 +273,7 @@ lo2cin4bt aims to keep strategy ideas inside a documented, checkable research wo
 
 ## 🎯 Future Goals
 
-- Maintain Golden regression coverage across all eight public strategies, WFA, Rust metrics, and plot payloads.
+- Maintain Golden regression coverage across all nine public strategies, WFA, Rust metrics, and plot payloads.
 - Raise core module coverage.
 - Improve first-time installation and startup checks.
 - Simplify custom indicator onboarding.

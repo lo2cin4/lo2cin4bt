@@ -121,11 +121,13 @@
         "requested_end",
         "actual_start",
         "actual_end",
-        "frequency_requested",
-        "frequency_resolved",
+        "external_execution_stream_id",
+        "external_execution_bar_spec",
+        "decision_stream_id",
+        "decision_bar_spec",
         "timezone",
         "adjustment_policy",
-        "calendar_policy",
+        "calendar_id",
         "content_hash",
         "path_hash",
         "identity_hash"
@@ -143,11 +145,23 @@
         "requested_end": {"$ref": "#/$defs/nullable_string"},
         "actual_start": {"$ref": "#/$defs/nullable_string"},
         "actual_end": {"$ref": "#/$defs/nullable_string"},
-        "frequency_requested": {"$ref": "#/$defs/nullable_string"},
-        "frequency_resolved": {"$ref": "#/$defs/nullable_string"},
+        "external_execution_stream_id": {"$ref": "#/$defs/nullable_string"},
+        "external_execution_bar_spec": {
+          "oneOf": [
+            {"$ref": "#/$defs/bar_spec"},
+            {"type": "null"}
+          ]
+        },
+        "decision_stream_id": {"$ref": "#/$defs/nullable_string"},
+        "decision_bar_spec": {
+          "oneOf": [
+            {"$ref": "#/$defs/bar_spec"},
+            {"type": "null"}
+          ]
+        },
         "timezone": {"$ref": "#/$defs/nullable_string"},
         "adjustment_policy": {"$ref": "#/$defs/nullable_string"},
-        "calendar_policy": {"$ref": "#/$defs/nullable_string"},
+        "calendar_id": {"$ref": "#/$defs/nullable_string"},
         "content_hash": {"$ref": "#/$defs/nullable_string"},
         "path_hash": {"$ref": "#/$defs/nullable_string"},
         "identity_hash": {"$ref": "#/$defs/nullable_string"},
@@ -161,6 +175,25 @@
           }
         },
         "notes": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "bar_spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aggregation", "step", "unit", "price_type", "alignment"],
+      "properties": {
+        "aggregation": {"const": "time"},
+        "step": {"type": "integer", "minimum": 1},
+        "unit": {"enum": ["minute", "hour", "day", "week", "month"]},
+        "price_type": {"enum": ["last", "mark", "mid"]},
+        "alignment": {
+          "enum": [
+            "session_open",
+            "utc_boundary",
+            "calendar_week",
+            "calendar_month"
+          ]
+        }
       }
     },
     "consumed_data_snapshot": {

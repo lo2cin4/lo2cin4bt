@@ -17,6 +17,8 @@ from typing import Any, Callable, Dict, List, Optional, Sequence
 import numpy as np
 import pandas as pd
 from dataloader.market_data_bundle import MarketDataBundle
+from backtester.EngineRequest_backtester import validate_canonical_candidate_id
+from backtester.timeframe_contracts import validate_bar_time_contract
 
 from backtester.StrategyRunConfig_backtester import (
     is_strategy_run_schema_version,
@@ -46,6 +48,7 @@ from .module_identity import VALIDATION_WORKFLOW_CANONICAL, module_matches
 
 INCLUDED_STRATEGY_EXAMPLE_FILENAMES = frozenset(
     {
+        "strategy-run-btcusdt-binance-1m-sma-10-20-example.json",
         "strategy-run-btcusdt-binance-monthly-nth-weekday-same-session-matrix-example.json",
         "strategy-run-qqq-tlt-gld-yfinance-monthly-hedge-overlay-example.json",
         "strategy-run-qqq-yfinance-daily-sma-cross-matrix-example.json",
@@ -375,8 +378,11 @@ class AppRuntimeService:
         self._prepare_managed_autorunner_outputs(run_id, config_data)
         self._mark_stage(stage_status, "config_validation", "completed", "Config valid")
         registry_payload["symbol"] = self._extract_symbol(config_data.dataloader_config)
-        registry_payload["frequency"] = str(
-            config_data.dataloader_config.get("frequency", "1D")
+        registry_payload.update(
+            self._registry_time_contract(
+                config_data.dataloader_config,
+                raw_config,
+            )
         )
         request_strategy = self._dict_or_empty(engine_request.get("strategy"))
         registry_payload["strategy_mode"] = str(
@@ -403,12 +409,34 @@ class AppRuntimeService:
             data = market_data_bundle.primary_frame()
         except Exception as exc:
             self.logger.exception("Autorunner dataloader failed for %s", run_id)
+            failure_builder = getattr(exc, "to_payload", None)
+            failure = (
+                failure_builder()
+                if callable(failure_builder)
+                else {
+                    "schema_version": "run_failure.v1",
+                    "error_code": "dataloader_failure",
+                    "stage": "dataloader",
+                    "provider": str(
+                        self._dict_or_empty(
+                            self._dict_or_empty(engine_request.get("data_requirements")).get(
+                                "provider_config"
+                            )
+                        ).get("provider")
+                        or "unknown"
+                    ),
+                    "message": str(exc),
+                    "details": {},
+                    "action": "fix_data_or_config",
+                }
+            )
             return self._fail_run(
                 run_id=run_id,
                 registry_payload=registry_payload,
                 stage_status=stage_status,
                 stage_name="dataloader",
                 message=f"dataloader failed: {exc}",
+                failure=failure,
             )
         self.registry.write_snapshot_file(
             run_id,
@@ -614,8 +642,10 @@ class AppRuntimeService:
                 "config_filename": config_file.name,
                 "canonical_config_filename": canonical_config_filename(identity),
                 "symbol": self._extract_symbol(config_data.dataloader_config),
-                "frequency": data_loader.frequency
-                or config_data.dataloader_config.get("frequency", "1D"),
+                **self._registry_time_contract(
+                    config_data.dataloader_config,
+                    raw_config,
+                ),
                 "strategy_mode": str(
                     config_data.backtester_config.get("strategy_mode", "auto")
                 ),
@@ -1148,8 +1178,10 @@ class AppRuntimeService:
                 "config_filename": config_file.name,
                 "canonical_config_filename": canonical_config_filename(identity),
                 "symbol": self._extract_symbol(config_data.dataloader_config),
-                "frequency": data_loader.frequency
-                or config_data.dataloader_config.get("frequency", "1D"),
+                **self._registry_time_contract(
+                    config_data.dataloader_config,
+                    raw_config,
+                ),
                 "strategy_mode": str(
                     config_data.backtester_config.get("strategy_mode", "auto")
                 ),
@@ -1392,7 +1424,10 @@ class AppRuntimeService:
                 "config_filename": config_file.name,
                 "canonical_config_filename": canonical_config_filename(identity),
                 "symbol": self._extract_symbol(config_data.dataloader_config),
-                "frequency": str(config_data.dataloader_config.get("frequency", "1D")),
+                **self._registry_time_contract(
+                    config_data.dataloader_config,
+                    raw_config,
+                ),
                 "strategy_mode": str(
                     config_data.backtester_config.get("strategy_mode", "auto")
                 ),
@@ -1472,15 +1507,24 @@ class AppRuntimeService:
                     continue
                 window_id = int(item.get("window_id") or 0)
                 objective = str(item.get("objective") or "")
-                backtest_id = str(item.get("backtest_id") or getattr(result, "strategy_id", "") or "").strip()
-                if backtest_id:
-                    result.strategy_id = backtest_id
-                    if isinstance(getattr(result, "config", None), dict):
-                        result.config["strategy_id"] = backtest_id
+                backtest_id = str(item.get("backtest_id") or "").strip()
+                if not backtest_id:
+                    raise ValueError("WFA window backtest_id is required")
+                candidate_id = validate_canonical_candidate_id(
+                    getattr(result, "strategy_id", "")
+                )
+                result_config = getattr(result, "config", None)
+                if (
+                    not isinstance(result_config, dict)
+                    or str(result_config.get("strategy_id") or "") != candidate_id
+                ):
+                    raise ValueError(
+                        "WFA window Python strategy_id does not match Rust candidate_id"
+                    )
                 exported_paths = MultiAssetPortfolioExporterBacktester(
                     result=result,
                     output_dir=window_output_dir,
-                    run_id=backtest_id or f"wfa_window_{window_id:03d}_{objective}",
+                    run_id=backtest_id,
                     export_csv=False,
                 ).export()
                 if exported_paths and backtest_id:
@@ -2141,15 +2185,25 @@ class AppRuntimeService:
         rows: List[Dict[str, Any]] = []
         for item in backtest_results.get("results", []):
             params = item.get("params", {}) if isinstance(item, dict) else {}
+            backtest_id = validate_canonical_candidate_id(
+                item.get("Backtest_id") if isinstance(item, dict) else ""
+            )
+            strategy_id = validate_canonical_candidate_id(
+                item.get("strategy_id") if isinstance(item, dict) else ""
+            )
+            if backtest_id != strategy_id:
+                raise ValueError(
+                    "Backtest result index strategy_id does not match Backtest_id"
+                )
             rows.append(
                 {
-                    "backtest_id": item.get("Backtest_id"),
-                    "strategy_id": item.get("strategy_id"),
+                    "backtest_id": backtest_id,
+                    "strategy_id": strategy_id,
                     "strategy_display_label": self._build_strategy_display_label(
                         semantic_combo=dict(params.get("semantic_combo", {}) or {}),
                         semantic_run_label=params.get("semantic_run_label"),
-                        strategy_id=item.get("strategy_id"),
-                        backtest_id=item.get("Backtest_id"),
+                        strategy_id=strategy_id,
+                        backtest_id=backtest_id,
                     ),
                     "predictor": params.get("predictor"),
                     "semantic_fields": list(params.get("semantic_fields", []) or []),
@@ -2169,7 +2223,13 @@ class AppRuntimeService:
             if not isinstance(config, dict):
                 config = {}
             params = config.get("resolved_params", {}) if isinstance(config.get("resolved_params"), dict) else {}
-            backtest_id = str(getattr(item, "strategy_id", "") or config.get("strategy_id") or "")
+            backtest_id = validate_canonical_candidate_id(
+                getattr(item, "strategy_id", "")
+            )
+            if str(config.get("strategy_id") or "") != backtest_id:
+                raise ValueError(
+                    "Portfolio result Python strategy_id does not match result config"
+                )
             semantic_combo = {str(key): value for key, value in params.items()}
             rows.append(
                 {
@@ -2279,7 +2339,14 @@ class AppRuntimeService:
                 int(quality["max_age_bars"]) if audit_available else None
             ),
             "join_mode": "mixed" if len(source_list) > 1 else "primary",
-            "calendar_policy": "primary_market_calendar",
+            "calendar_id": str(
+                self._dict_or_empty(
+                    self._dict_or_empty(
+                        dataloader_config.get("bar_time")
+                    ).get("session_model")
+                ).get("calendar_id")
+                or ""
+            ),
             "source_audit_id": audit_meta.get("source_audit_id"),
             "warnings": list(quality.get("warnings", [])),
             "errors": [],
@@ -2509,6 +2576,10 @@ class AppRuntimeService:
         data: pd.DataFrame,
     ) -> List[Dict[str, Any]]:
         raw_data = AppRuntimeService._dict_or_empty(raw_config.get("data"))
+        time_contract = self._lineage_time_contract(
+            dataloader_config,
+            raw_config,
+        )
         provider = str(
             raw_data.get("provider")
             or dataloader_config.get("provider")
@@ -2547,11 +2618,8 @@ class AppRuntimeService:
                     "requested_end": self._lineage_requested_end(dataloader_config, raw_config),
                     "actual_start": self._lineage_data_range(data).get("start"),
                     "actual_end": self._lineage_data_range(data).get("end"),
-                    "frequency_requested": self._lineage_frequency(dataloader_config, raw_config),
-                    "frequency_resolved": self._lineage_resolved_frequency(dataloader_config, raw_config),
-                    "timezone": self._lineage_timezone(raw_config),
+                    **copy.deepcopy(time_contract),
                     "adjustment_policy": self._lineage_adjustment_policy(raw_config, dataloader_config),
-                    "calendar_policy": self._lineage_calendar_policy(raw_config),
                     "cache": None,
                     "notes": ["Internal strategy_run loader did not expose a content snapshot to AppRuntime."],
                 }
@@ -2577,11 +2645,8 @@ class AppRuntimeService:
                     "requested_end": self._lineage_requested_end(dataloader_config, raw_config),
                     "actual_start": self._lineage_data_range(data).get("start"),
                     "actual_end": self._lineage_data_range(data).get("end"),
-                    "frequency_requested": self._lineage_frequency(dataloader_config, raw_config),
-                    "frequency_resolved": self._lineage_resolved_frequency(dataloader_config, raw_config),
-                    "timezone": self._lineage_timezone(raw_config),
+                    **copy.deepcopy(time_contract),
                     "adjustment_policy": self._lineage_adjustment_policy(raw_config, dataloader_config),
-                    "calendar_policy": self._lineage_calendar_policy(raw_config),
                     "cache": None,
                     "notes": ["Provider identity is recorded, but provider content was not snapshotted."],
                 }
@@ -2600,11 +2665,8 @@ class AppRuntimeService:
                 "requested_end": self._lineage_requested_end(dataloader_config, raw_config),
                 "actual_start": self._lineage_data_range(data).get("start"),
                 "actual_end": self._lineage_data_range(data).get("end"),
-                "frequency_requested": self._lineage_frequency(dataloader_config, raw_config),
-                "frequency_resolved": self._lineage_resolved_frequency(dataloader_config, raw_config),
-                "timezone": self._lineage_timezone(raw_config),
+                **copy.deepcopy(time_contract),
                 "adjustment_policy": self._lineage_adjustment_policy(raw_config, dataloader_config),
-                "calendar_policy": self._lineage_calendar_policy(raw_config),
                 "cache": None,
                 "notes": ["No resolvable market data source was found in the runtime config."],
             }
@@ -2634,6 +2696,10 @@ class AppRuntimeService:
         )
         path_hash = self._hash_text(str(resolved_path)) if resolved_path else None
         data_range = self._lineage_data_range(data)
+        time_contract = self._lineage_time_contract(
+            dataloader_config,
+            raw_config,
+        )
         return {
             "source_id": "market_data",
             "source_type": "file",
@@ -2647,11 +2713,8 @@ class AppRuntimeService:
             "requested_end": self._lineage_requested_end(dataloader_config, raw_config),
             "actual_start": data_range.get("start"),
             "actual_end": data_range.get("end"),
-            "frequency_requested": self._lineage_frequency(dataloader_config, raw_config),
-            "frequency_resolved": self._lineage_resolved_frequency(dataloader_config, raw_config),
-            "timezone": self._lineage_timezone(raw_config),
+            **copy.deepcopy(time_contract),
             "adjustment_policy": self._lineage_adjustment_policy(raw_config, dataloader_config),
-            "calendar_policy": self._lineage_calendar_policy(raw_config),
             "cache": None,
             "notes": [] if content_hash else ["Local file path could not be hashed; lineage is partial."],
         }
@@ -2746,21 +2809,81 @@ class AppRuntimeService:
         return []
 
     @staticmethod
-    def _lineage_frequency(dataloader_config: Dict[str, Any], raw_config: Dict[str, Any]) -> Optional[str]:
+    def _lineage_time_contract(
+        dataloader_config: Dict[str, Any],
+        raw_config: Dict[str, Any],
+    ) -> Dict[str, Any]:
         raw_data = AppRuntimeService._dict_or_empty(raw_config.get("data"))
-        return str(raw_data.get("frequency") or dataloader_config.get("frequency") or "") or None
+        legacy_fields = sorted(
+            {"frequency", "interval", "calendar", "timezone"}
+            & (set(raw_data) | set(dataloader_config))
+        )
+        if legacy_fields:
+            raise ValueError(
+                "App runtime lineage rejects legacy time fields: "
+                + ", ".join(legacy_fields)
+            )
+        bar_time = raw_data.get("bar_time") or dataloader_config.get("bar_time")
+        binding = raw_data.get("stream_binding") or dataloader_config.get(
+            "stream_binding"
+        )
+        if not isinstance(bar_time, dict) or not isinstance(binding, dict):
+            raise ValueError(
+                "App runtime lineage requires typed bar_time and stream_binding"
+            )
+        validate_bar_time_contract(bar_time)
+        streams = {
+            str(stream.get("stream_id") or ""): stream
+            for stream in bar_time["streams"]
+            if isinstance(stream, dict)
+        }
+        execution_stream_id = str(binding.get("execution_stream_id") or "")
+        decision_stream_id = str(binding.get("decision_stream_id") or "")
+        execution_stream = streams.get(execution_stream_id)
+        decision_stream = streams.get(decision_stream_id)
+        if (
+            not isinstance(execution_stream, dict)
+            or execution_stream.get("role") != "execution"
+        ):
+            raise ValueError(
+                "App runtime lineage execution_stream_id must bind the execution stream"
+            )
+        if not isinstance(decision_stream, dict):
+            raise ValueError(
+                "App runtime lineage decision_stream_id must bind a declared stream"
+            )
+        session_model = AppRuntimeService._dict_or_empty(
+            bar_time.get("session_model")
+        )
+        return {
+            "external_execution_stream_id": execution_stream_id,
+            "external_execution_bar_spec": copy.deepcopy(
+                execution_stream["bar_spec"]
+            ),
+            "decision_stream_id": decision_stream_id,
+            "decision_bar_spec": copy.deepcopy(decision_stream["bar_spec"]),
+            "calendar_id": str(session_model.get("calendar_id") or ""),
+            "timezone": str(session_model.get("timezone") or ""),
+        }
 
     @staticmethod
-    def _lineage_resolved_frequency(dataloader_config: Dict[str, Any], raw_config: Dict[str, Any]) -> Optional[str]:
-        raw_data = AppRuntimeService._dict_or_empty(raw_config.get("data"))
-        for key in ("interval", "frequency"):
-            if raw_data.get(key):
-                return str(raw_data[key])
-        for nested_key in ("yfinance_config", "binance_config", "coinbase_config"):
-            nested = dataloader_config.get(nested_key)
-            if isinstance(nested, dict) and nested.get("interval"):
-                return str(nested["interval"])
-        return str(dataloader_config.get("interval") or dataloader_config.get("frequency") or "") or None
+    def _registry_time_contract(
+        dataloader_config: Dict[str, Any],
+        raw_config: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        time_contract = AppRuntimeService._lineage_time_contract(
+            dataloader_config,
+            raw_config,
+        )
+        return {
+            "execution_stream_id": time_contract[
+                "external_execution_stream_id"
+            ],
+            "decision_stream_id": time_contract["decision_stream_id"],
+            "execution_bar_spec": copy.deepcopy(
+                time_contract["external_execution_bar_spec"]
+            ),
+        }
 
     @staticmethod
     def _lineage_requested_start(dataloader_config: Dict[str, Any], raw_config: Dict[str, Any]) -> Optional[str]:
@@ -2771,16 +2894,6 @@ class AppRuntimeService:
     def _lineage_requested_end(dataloader_config: Dict[str, Any], raw_config: Dict[str, Any]) -> Optional[str]:
         raw_data = AppRuntimeService._dict_or_empty(raw_config.get("data"))
         return str(raw_data.get("end_date") or raw_data.get("end") or dataloader_config.get("end_date") or "") or None
-
-    @staticmethod
-    def _lineage_timezone(raw_config: Dict[str, Any]) -> Optional[str]:
-        raw_data = AppRuntimeService._dict_or_empty(raw_config.get("data"))
-        return str(raw_data.get("timezone") or "") or None
-
-    @staticmethod
-    def _lineage_calendar_policy(raw_config: Dict[str, Any]) -> Optional[str]:
-        raw_data = AppRuntimeService._dict_or_empty(raw_config.get("data"))
-        return str(raw_data.get("calendar") or raw_data.get("calendar_policy") or raw_data.get("start_policy") or "") or None
 
     @staticmethod
     def _lineage_adjustment_policy(raw_config: Dict[str, Any], dataloader_config: Dict[str, Any]) -> Optional[str]:
@@ -2813,15 +2926,21 @@ class AppRuntimeService:
         dataloader_config: Dict[str, Any],
         raw_config: Dict[str, Any],
     ) -> Dict[str, Any]:
+        time_contract = AppRuntimeService._lineage_time_contract(
+            dataloader_config,
+            raw_config,
+        )
         return {
             "provider": provider,
             "symbols": AppRuntimeService._lineage_symbols(dataloader_config, raw_config),
             "requested_start": AppRuntimeService._lineage_requested_start(dataloader_config, raw_config),
             "requested_end": AppRuntimeService._lineage_requested_end(dataloader_config, raw_config),
-            "frequency": AppRuntimeService._lineage_frequency(dataloader_config, raw_config),
-            "interval": AppRuntimeService._lineage_resolved_frequency(dataloader_config, raw_config),
-            "timezone": AppRuntimeService._lineage_timezone(raw_config),
-            "calendar_policy": AppRuntimeService._lineage_calendar_policy(raw_config),
+            "execution_stream_id": time_contract["external_execution_stream_id"],
+            "bar_spec": time_contract["external_execution_bar_spec"],
+            "decision_stream_id": time_contract["decision_stream_id"],
+            "decision_bar_spec": time_contract["decision_bar_spec"],
+            "timezone": time_contract["timezone"],
+            "calendar_id": time_contract["calendar_id"],
             "adjustment_policy": AppRuntimeService._lineage_adjustment_policy(raw_config, dataloader_config),
         }
 
@@ -3564,6 +3683,11 @@ class AppRuntimeService:
             or "_portfolio_matrix_summary" in name
         ):
             return "portfolio_matrix_summary_json", ["metrics_explorer", "results_library"], True
+        if (
+            name.endswith("_execution_equity_curve.parquet")
+            or "_portfolio-execution-equity_" in name
+        ):
+            return "portfolio_execution_equity_curve_parquet", ["metrics_explorer", "results_library"], False
         if name.endswith("_equity_curve.parquet") or "_portfolio-equity_" in name:
             return "portfolio_equity_curve_parquet", ["metrics_explorer", "results_library"], False
         if name.endswith("_holdings.parquet") or "_portfolio-holdings_" in name:
@@ -3671,20 +3795,36 @@ class AppRuntimeService:
         if canonical_path is None:
             raise ValueError("plotter requires validated canonical_result_bundle.v1")
 
-        df = pd.read_parquet(metrics_path)
-        if df.empty:
+        metrics_projection = pd.read_parquet(metrics_path)
+        if metrics_projection.empty:
             return rows
         required_columns = ["Time", "Equity_value"]
-        if any(column not in df.columns for column in required_columns):
+        if any(column not in metrics_projection.columns for column in required_columns):
             raise ValueError("metricstracker output is missing Time or Equity_value")
-        projection = df.copy()
+        projection = metrics_projection.copy()
+        execution_path: Optional[Path] = None
+        registry_entry = self.registry.load_registry_entry(run_id)
+        execution_bar_spec = self._dict_or_empty(
+            registry_entry.get("execution_bar_spec")
+        )
+        if execution_bar_spec.get("unit") in {"minute", "hour"}:
+            execution_path = self._select_primary_artifact(
+                artifacts,
+                "portfolio_execution_equity_curve_parquet",
+            )
+            if execution_path is None:
+                raise ValueError(
+                    "intraday plot requires portfolio_execution_equity_curve_parquet"
+                )
+            projection = pd.read_parquet(execution_path)
+            required_execution = {"Backtest_id", "Time", "Equity_value", "Session_label"}
+            if projection.empty or not required_execution.issubset(projection.columns):
+                raise ValueError(
+                    "intraday execution equity artifact is empty or incomplete"
+                )
         projection["Equity_value"] = pd.to_numeric(
             projection["Equity_value"], errors="coerce"
         )
-        if "BAH_Equity" in projection.columns:
-            projection["BAH_Equity"] = pd.to_numeric(
-                projection["BAH_Equity"], errors="coerce"
-            )
         projection = projection.dropna(subset=["Time", "Equity_value"])
         if projection.empty:
             raise ValueError("metricstracker output has no finite strategy equity rows")
@@ -3702,7 +3842,6 @@ class AppRuntimeService:
                         "y": [float(value) for value in group["Equity_value"].tolist()],
                     }
                 )
-            benchmark_group = grouped_projection[0][1]
         else:
             plot_series.append(
                 {
@@ -3712,7 +3851,11 @@ class AppRuntimeService:
                     "y": [float(value) for value in projection["Equity_value"].tolist()],
                 }
             )
-            benchmark_group = projection
+        benchmark_group = metrics_projection
+        if "Backtest_id" in metrics_projection.columns:
+            benchmark_group = next(
+                iter(metrics_projection.groupby("Backtest_id", sort=False))
+            )[1]
         if "BAH_Equity" in benchmark_group.columns:
             benchmark_group = benchmark_group.dropna(subset=["Time", "BAH_Equity"])
         if "BAH_Equity" in benchmark_group.columns and not benchmark_group.empty:
@@ -3734,7 +3877,11 @@ class AppRuntimeService:
                 "x_axis": "time",
                 "y_axis": "equity",
                 "source_hashes": list(canonical_bundle.get("result_hashes") or []),
-                "artifact_source_refs": [str(canonical_path), str(metrics_path)],
+                "artifact_source_refs": [
+                    str(canonical_path),
+                    str(metrics_path),
+                    *([str(execution_path)] if execution_path is not None else []),
+                ],
                 "generated_at": self._now_iso(),
             },
             timeout=60,
@@ -3852,9 +3999,7 @@ class AppRuntimeService:
         backtest_path = self._select_primary_artifact(artifacts, "backtester_parquet")
         portfolio_mode = backtest_path is None
         if portfolio_mode:
-            backtest_path = self._select_primary_artifact(
-                artifacts, "portfolio_equity_curve_parquet"
-            )
+            backtest_path = self._portfolio_detail_equity_artifact(run_id, artifacts)
         metrics_path = self._select_primary_artifact(artifacts, "metricstracker_parquet")
         if backtest_path is None or metrics_path is None:
             return []
@@ -3883,7 +4028,7 @@ class AppRuntimeService:
             if portfolio_mode
             else {"Backtest_id", "Time", "Close"}
         )
-        required_metrics = {"Backtest_id", "Time", "Equity_value"}
+        required_metrics = {"Backtest_id", "Time", "Session_label", "Equity_value"}
         if not required_backtest.issubset(backtest.columns) or not required_metrics.issubset(
             metrics.columns
         ):
@@ -3896,11 +4041,18 @@ class AppRuntimeService:
         metadata_rows = self._read_json_artifact(metadata_path)
         if not isinstance(metadata_rows, list):
             raise ValueError("metricstracker metadata artifact must contain a JSON array")
-        metadata_by_id = {
-            str(item.get("Backtest_id") or ""): item
-            for item in metadata_rows
-            if isinstance(item, dict)
-        }
+        metadata_by_id: Dict[str, Dict[str, Any]] = {}
+        for item in metadata_rows:
+            if not isinstance(item, dict):
+                raise ValueError("metricstracker metadata rows must be JSON objects")
+            metadata_backtest_id = validate_canonical_candidate_id(
+                item.get("Backtest_id")
+            )
+            if metadata_backtest_id in metadata_by_id:
+                raise ValueError(
+                    f"duplicate metricstracker metadata Backtest_id: {metadata_backtest_id}"
+                )
+            metadata_by_id[metadata_backtest_id] = item
         holdings = self._read_optional_parquet(
             self._select_primary_artifact(artifacts, "portfolio_holdings_parquet")
         )
@@ -3916,11 +4068,25 @@ class AppRuntimeService:
         matrix_summary = (
             self._read_json_artifact(matrix_path) if matrix_path is not None else {}
         )
-        matrix_by_id = {
-            str(item.get("backtest_id") or item.get("Backtest_id") or ""): item
-            for item in self._dict_or_empty(matrix_summary).get("rows", [])
-            if isinstance(item, dict)
-        }
+        matrix_by_id: Dict[str, Dict[str, Any]] = {}
+        for item in self._dict_or_empty(matrix_summary).get("rows", []):
+            if not isinstance(item, dict):
+                raise ValueError("portfolio matrix summary rows must be JSON objects")
+            matrix_backtest_id = validate_canonical_candidate_id(
+                item.get("backtest_id")
+            )
+            matrix_strategy_id = validate_canonical_candidate_id(
+                item.get("strategy_id")
+            )
+            if matrix_backtest_id != matrix_strategy_id:
+                raise ValueError(
+                    "portfolio matrix strategy_id does not match backtest_id"
+                )
+            if matrix_backtest_id in matrix_by_id:
+                raise ValueError(
+                    f"duplicate portfolio matrix backtest_id: {matrix_backtest_id}"
+                )
+            matrix_by_id[matrix_backtest_id] = item
         strategy_path = (
             self.registry.build_run_paths(run_id)["snapshot_dir"] / "strategy_run.json"
         )
@@ -3934,6 +4100,31 @@ class AppRuntimeService:
         )
 
         rows: List[Dict[str, Any]] = []
+        metric_backtest_ids = {
+            validate_canonical_candidate_id(value)
+            for value in metrics["Backtest_id"].dropna().astype(str).unique()
+        }
+        detail_backtest_ids = {
+            validate_canonical_candidate_id(value)
+            for value in backtest["Backtest_id"].dropna().astype(str).unique()
+        }
+        if metric_backtest_ids != detail_backtest_ids:
+            raise ValueError(
+                "backtest detail and metricstracker Backtest_id coverage do not match"
+            )
+        if set(metadata_by_id) != metric_backtest_ids:
+            raise ValueError(
+                "metricstracker metadata Backtest_id coverage does not match metrics"
+            )
+        if matrix_by_id and not metric_backtest_ids.issubset(matrix_by_id):
+            raise ValueError(
+                "metricstracker Backtest_id coverage is not contained in the "
+                "portfolio matrix"
+            )
+        if target_backtest_id is not None:
+            target_backtest_id = validate_canonical_candidate_id(
+                target_backtest_id
+            )
         for backtest_id, metric_group in metrics.groupby("Backtest_id", sort=False):
             if target_backtest_id is not None and str(backtest_id) != str(target_backtest_id):
                 continue
@@ -3969,7 +4160,7 @@ class AppRuntimeService:
                     or str(column).startswith(("Contribution_", "Weight_"))
                 )
             raw_columns = [column for column in raw_columns if column in detail_group.columns]
-            metric_columns = ["__time_key", "Equity_value"]
+            metric_columns = ["__time_key", "Session_label", "Equity_value"]
             if "BAH_Equity" in metric_group.columns:
                 metric_columns.append("BAH_Equity")
             joined = detail_group[raw_columns].merge(
@@ -4060,6 +4251,9 @@ class AppRuntimeService:
                     "asset": asset,
                     "result_type": "portfolio" if portfolio_mode else "single_asset",
                     "time": [str(value) for value in joined["Time"].tolist()],
+                    "session_labels": [
+                        str(value) for value in joined["Session_label"].tolist()
+                    ],
                     "open": [float(value) for value in joined["Open"].tolist()],
                     "high": [float(value) for value in joined["High"].tolist()],
                     "low": [float(value) for value in joined["Low"].tolist()],
@@ -4149,6 +4343,31 @@ class AppRuntimeService:
                 }
             )
         return rows
+
+    def _portfolio_detail_equity_artifact(
+        self,
+        run_id: str,
+        artifacts: List[Path],
+    ) -> Optional[Path]:
+        registry_entry = self.registry.load_registry_entry(run_id)
+        execution_bar_spec = self._dict_or_empty(
+            registry_entry.get("execution_bar_spec")
+        )
+        if execution_bar_spec.get("unit") in {"minute", "hour"}:
+            path = self._select_primary_artifact(
+                artifacts,
+                "portfolio_execution_equity_curve_parquet",
+            )
+            if path is None:
+                raise ValueError(
+                    "intraday backtest detail requires "
+                    "portfolio_execution_equity_curve_parquet"
+                )
+            return path
+        return self._select_primary_artifact(
+            artifacts,
+            "portfolio_equity_curve_parquet",
+        )
 
     @staticmethod
     def _read_optional_parquet(path: Optional[Path]) -> pd.DataFrame:
@@ -4278,6 +4497,7 @@ class AppRuntimeService:
             "average_drawdown": "Average_drawdown",
             "annualized_std": "Annualized_std",
             "annualized_downside_risk": "Annualized_downside_risk",
+            "sortino": "Sortino",
             "information_ratio": "Information_ratio",
             "alpha": "Alpha",
             "beta": "Beta",
@@ -4522,7 +4742,9 @@ class AppRuntimeService:
             "created_at": self._now_iso(),
             "completed_at": None,
             "symbol": "pending",
-            "frequency": "pending",
+            "execution_stream_id": "pending",
+            "decision_stream_id": "pending",
+            "execution_bar_spec": None,
             "strategy_mode": "pending",
             "config_filename": "",
             "semantic_label": "pending",
@@ -4616,12 +4838,20 @@ class AppRuntimeService:
         stage_status: Dict[str, Any],
         stage_name: str,
         message: str,
+        failure: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         self._mark_stage(stage_status, stage_name, "failed", message)
+        if failure:
+            stage_status["failure"] = failure
+            for item in stage_status["stages"]:
+                if item["stage"] == stage_name:
+                    item["failure"] = failure
         registry_payload["status"] = "failed"
         registry_payload["completed_at"] = self._now_iso()
         registry_payload["error_count"] = 1
         registry_payload["errors"] = [message]
+        if failure:
+            registry_payload["failure"] = failure
         registry_payload["lineage_status"] = "unknown"
         try:
             self._write_unknown_data_lineage_manifest(
@@ -4638,7 +4868,10 @@ class AppRuntimeService:
                 registry_payload["warnings"].append(f"Unable to write failed-run lineage manifest: {exc}")
         self.registry.write_stage_status(run_id, stage_status)
         self.registry.write_registry_entry(registry_payload)
-        return {"run_id": run_id, "status": "failed"}
+        result: Dict[str, Any] = {"run_id": run_id, "status": "failed"}
+        if failure:
+            result["failure"] = failure
+        return result
 
     def _write_unknown_data_lineage_manifest(
         self,
@@ -4689,11 +4922,13 @@ class AppRuntimeService:
                     "requested_end": None,
                     "actual_start": None,
                     "actual_end": None,
-                    "frequency_requested": None,
-                    "frequency_resolved": None,
+                    "external_execution_stream_id": None,
+                    "external_execution_bar_spec": None,
+                    "decision_stream_id": None,
+                    "decision_bar_spec": None,
                     "timezone": None,
                     "adjustment_policy": None,
-                    "calendar_policy": None,
+                    "calendar_id": None,
                     "content_hash": None,
                     "path_hash": None,
                     "identity_hash": None,

@@ -18,7 +18,7 @@ def test_ai_readable_output_materializes_shared_metrics_series(tmp_path: Path) -
     run_id = "run-ai-shared"
     paths = registry.build_run_paths(run_id)
     overview = {
-        "schema_version": "1.27",
+        "schema_version": "1.28",
         "contract_id": "lo2cin4bt-app-metrics-overview-payload-v1",
         "run_id": run_id,
         "series": [
@@ -41,7 +41,7 @@ def test_ai_readable_output_materializes_shared_metrics_series(tmp_path: Path) -
     output = json.loads(output_path.read_text(encoding="utf-8"))
 
     embedded = output["source_payloads"]["metrics_overview_payload"]
-    assert embedded["schema_version"] == "1.27"
+    assert embedded["schema_version"] == "1.28"
     assert embedded["series"][0]["y"] == [101.0]
 
 
@@ -182,7 +182,15 @@ def test_latest_runs_summary_keeps_lineage_registry_fields(tmp_path: Path) -> No
             "completed_at": "2026-05-15T00:00:01+08:00",
             "config_filename": "example.json",
             "symbol": "QQQ",
-            "frequency": "1D",
+            "execution_stream_id": "execution_daily",
+            "decision_stream_id": "execution_daily",
+            "execution_bar_spec": {
+                "aggregation": "time",
+                "step": 1,
+                "unit": "day",
+                "price_type": "last",
+                "alignment": "session_open",
+            },
             "strategy_mode": "auto",
             "semantic_label": "example",
             "display_label": "Example",

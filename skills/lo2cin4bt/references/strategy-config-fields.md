@@ -8,8 +8,8 @@ Collect:
 
 - Asset/universe.
 - Data provider.
-- Frequency.
-- Calendar and timezone.
+- Typed execution and decision `BarSpec`.
+- Session calendar and timezone inside `data.bar_time.session_model`.
 - Shared execution mode.
 - Strategy profile or authoring preset when relevant.
 - Workflow.
@@ -33,7 +33,7 @@ executable fields and never from the label or `metadata.notes`.
 | --- | --- | --- |
 | `schema_version` | declares config contract | omitting version on new configs |
 | `platform` | `strategy_mode_id`, `workflow_id`, specific `display_label` | adding `Backtest`, date, run id, workflow, or a generic family-only strategy name |
-| `data` | provider, frequency, calendar, timezone, benchmark, external features | comparing across incompatible providers |
+| `data` | provider, typed `bar_time`, `stream_binding`, benchmark, external features | comparing across incompatible providers or inventing a legacy frequency alias |
 | `universe` | tradable symbols | using current-only constituents without provenance |
 | `computed_fields` | named values computed from market data, such as SMA, EMA, momentum, volatility, ATR, RSI, MACD, z-score, percentile, or Bollinger values | using a computed field before it exists |
 | `signals` | entry/exit rules for signal strategies | writing natural language instead of structured fields |
@@ -80,6 +80,26 @@ Common public authoring presets:
 - `single_asset_signal`: a beginner-friendly authoring preset for one-asset signal strategies that compile into `selection_timing_portfolio`.
 
 Treat old names such as `dynamic_allocation_rules`, `multi_asset_trigger_selection`, or `calendar_event_session` as retired taxonomy rather than the current public contract.
+
+### Trading-session offset from month end
+
+For a rule defined relative to the last available trading session of each
+month, use the framework-native calendar block:
+
+```json
+"signals": {
+  "entry": {
+    "op": "calendar.session_offset_from_month_end",
+    "offset_sessions": -8
+  }
+}
+```
+
+`offset_sessions: 0` is the month-end session; `-8` is the eighth trading
+session before month end, counting only sessions present in the configured
+calendar/data axis. The signal is known before that session and may therefore
+use a same-session `+0` action. This block must not be emulated with an
+external feature CSV or a separate helper script.
 
 ## Semantic Indicator Support
 
@@ -249,7 +269,7 @@ Do not compare Sharpe, CAGR, Calmar, or annualized volatility across runs unless
 ## Validation Before Full Run
 
 - Validate schema.
-- Run `python scripts/doctor.py`.
+- Run `uv run --locked --exact python scripts/doctor.py`.
 - Start with one small config.
 - Confirm Metrics Overview and Backtests payloads exist.
 - Only then run a large Parameter Matrix or WFA.

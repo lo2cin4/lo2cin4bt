@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from jsonschema import Draft202012Validator
+from referencing import Registry, Resource
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -42,16 +43,26 @@ def _load(relative_path: str) -> dict:
     return json.loads((REPO_ROOT / relative_path).read_text(encoding="utf-8"))
 
 
+def _engine_request_validator() -> Draft202012Validator:
+    schema_path = RUNTIME_CONTRACT_ROOT / "engine-request-v2.schema.json"
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    bar_time_schema_path = RUNTIME_CONTRACT_ROOT / "bar-time-contract-v1.schema.json"
+    bar_time_schema = json.loads(bar_time_schema_path.read_text(encoding="utf-8"))
+    registry = Registry().with_resource(
+        bar_time_schema["$id"],
+        Resource.from_contents(bar_time_schema),
+    )
+    return Draft202012Validator(schema, registry=registry)
+
+
 def test_six_profiles_build_one_engine_request_contract() -> None:
     contract_mod = __import__("backtester.EngineRequest_backtester", fromlist=["dummy"])
-    schema = json.loads(
-        (RUNTIME_CONTRACT_ROOT / "engine-request-v1.schema.json").read_text(encoding="utf-8")
-    )
+    validator = _engine_request_validator()
     fixture_payload = json.loads(
         (
             RUNTIME_CONTRACT_ROOT
             / "examples"
-            / "engine-request-profile-fixtures-v1.json"
+            / "engine-request-profile-fixtures-v2.json"
         ).read_text(encoding="utf-8")
     )
     fixtures = {
@@ -59,20 +70,66 @@ def test_six_profiles_build_one_engine_request_contract() -> None:
         for item in fixture_payload["requests"]
     }
 
-    assert fixture_payload["schema_version"] == "engine_request_profile_fixtures.v1"
+    assert fixture_payload["schema_version"] == "engine_request_profile_fixtures.v2"
     assert set(fixtures) == set(PROFILE_SOURCES)
     for profile_id, source_path in PROFILE_SOURCES.items():
         request = contract_mod.build_engine_request(_load(source_path))
 
-        Draft202012Validator(schema).validate(request)
+        validator.validate(request)
         assert request == fixtures[profile_id]
-        assert request["schema_version"] == "engine_request.v1"
-        assert request["contract_id"] == "lo2cin4bt.engine_request.v1"
+        assert request["schema_version"] == "engine_request.v2"
+        assert request["contract_id"] == "lo2cin4bt.engine_request.v2"
         assert request["strategy"]["strategy_mode_id"] == "multi_asset_portfolio"
         assert request["strategy"]["strategy_profile_id"] == profile_id
+        assert request["strategy"]["strategy_id"] == (
+            f"{request['strategy']['base_strategy_id']}:"
+            f"{request['workflow']['workflow_id']}:fixed"
+        )
         assert request["request_hash"] == contract_mod.engine_request_hash(request)
         assert "producer_family" not in json.dumps(request)
         assert "portfolio_config" not in json.dumps(request)
+
+
+def test_candidate_identity_is_exactly_three_segments_and_fail_closed() -> None:
+    contract_mod = __import__("backtester.EngineRequest_backtester", fromlist=["dummy"])
+
+    assert (
+        contract_mod.canonical_candidate_id("alpha", "single_backtest")
+        == "alpha:single_backtest:fixed"
+    )
+    assert (
+        contract_mod.canonical_parameter_suffix({"short_ma": 10, "long_ma": 200})
+        == "long_ma_200_short_ma_10"
+    )
+    with pytest.raises(ValueError, match="base_strategy_id"):
+        contract_mod.canonical_candidate_id("", "single_backtest")
+    with pytest.raises(ValueError, match="workflow_id"):
+        contract_mod.canonical_candidate_id("alpha", "unknown")
+    with pytest.raises(ValueError, match="parameter_suffix"):
+        contract_mod.canonical_candidate_id("alpha", "single_backtest", "")
+    with pytest.raises(ValueError, match="must use"):
+        contract_mod.validate_canonical_candidate_id("alpha")
+
+
+def test_engine_request_rejects_candidate_identity_drift() -> None:
+    contract_mod = __import__("backtester.EngineRequest_backtester", fromlist=["dummy"])
+    request = contract_mod.build_engine_request(
+        _load(PROFILE_SOURCES["selection_timing_portfolio"])
+    )
+    request["strategy"]["strategy_id"] = "other:single_backtest:fixed"
+    request["request_hash"] = contract_mod.engine_request_hash(request)
+
+    with pytest.raises(ValueError, match="base_strategy_id"):
+        contract_mod.validate_engine_request(request)
+
+
+def test_engine_request_requires_explicit_base_strategy_id() -> None:
+    contract_mod = __import__("backtester.EngineRequest_backtester", fromlist=["dummy"])
+    config = _load(PROFILE_SOURCES["selection_timing_portfolio"])
+    config.pop("metadata")
+
+    with pytest.raises(ValueError, match="base_strategy_id"):
+        contract_mod.build_engine_request(config)
 
 
 def test_engine_request_uses_canonical_ops_and_typed_actions() -> None:
@@ -85,6 +142,30 @@ def test_engine_request_uses_canonical_ops_and_typed_actions() -> None:
     actions = request["strategy"]["decision_plan"]["required_actions"]
     assert "indicator.momentum" in operations
     assert set(actions).issubset({"enter", "exit", "flatten", "set_target_weights"})
+
+
+def test_engine_request_rejects_injected_retired_factor_pipeline() -> None:
+    contract_mod = __import__("backtester.EngineRequest_backtester", fromlist=["dummy"])
+    request = contract_mod.build_engine_request(
+        _load(PROFILE_SOURCES["selection_timing_portfolio"])
+    )
+    request["strategy"]["decision_plan"]["factor_pipeline"] = {
+        "schema_version": "factor_pipeline.v1",
+        "construction": [{"name": "momentum", "op": "factor.price_momentum"}],
+    }
+    request["request_hash"] = contract_mod.engine_request_hash(request)
+
+    schema_errors = list(_engine_request_validator().iter_errors(request))
+    assert any(
+        list(error.path) == ["strategy", "decision_plan", "factor_pipeline"]
+        for error in schema_errors
+    )
+
+    with pytest.raises(
+        ValueError,
+        match=r"factor_pipeline is retired.*computed_fields\[\].*shared Rust",
+    ):
+        contract_mod.validate_engine_request(request)
 
 
 def test_engine_request_materializes_explicit_account_venue_and_clock_defaults() -> None:

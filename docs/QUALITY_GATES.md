@@ -6,7 +6,7 @@ metrics pipeline, runtime, config schema, agent instructions, or frontend.
 ## Local Setup Gate
 
 ```powershell
-python scripts/doctor.py
+uv run --locked --exact --group dev python scripts/doctor.py
 ```
 
 `doctor.py` checks Python packages, Node/npm, Rust/Cargo, Rust release binaries,
@@ -15,17 +15,17 @@ workspace config folders, and the frontend build output.
 ## Complete Python And Golden Gate
 
 ```powershell
-python -m pytest -q
+uv run --locked --exact --group dev python -m pytest -q
 ```
 
-This is the release authority. It includes the 15-case Golden suite, runtime
+This is the release authority. It includes the 20-case Golden suite, runtime
 contracts, strategy examples, WFA, app payloads, Agent/Skill alignment, Lecture
 contracts, and interface audits.
 
 To isolate deterministic result regressions:
 
 ```powershell
-python -m pytest -m golden -q
+uv run --locked --exact --group dev python -m pytest -m golden -q
 ```
 
 The Golden gate covers the content-addressed dataloader bundle, all eight public
@@ -35,7 +35,7 @@ strategy examples, Rust accounting and metrics, WFA selected optimum,
 ## Runtime Example Gate
 
 ```powershell
-python -m pytest tests/test_strategy_run_examples_runtime.py -q
+uv run --locked --exact --group dev python -m pytest tests/test_strategy_run_examples_runtime.py -q
 ```
 
 This runs the built-in strategy examples through the runtime path and verifies
@@ -44,7 +44,7 @@ that result artifacts are generated as expected.
 ## WFA And App Runtime Gate
 
 ```powershell
-python -m pytest tests/test_unified_portfolio_wfa_runner.py tests/test_app_runtime_smoke.py -q
+uv run --locked --exact --group dev python -m pytest tests/test_unified_portfolio_wfa_runner.py tests/test_app_runtime_smoke.py -q
 ```
 
 This checks walk-forward analysis and the app runtime smoke path.
@@ -52,7 +52,7 @@ This checks walk-forward analysis and the app runtime smoke path.
 ## Focused Agent, Skill, And Lecture Gate
 
 ```powershell
-python -m pytest tests/test_ai_skill_docs.py tests/test_agent_skill_lecture_alignment.py tests/test_lecture_contracts.py -q
+uv run --locked --exact --group dev python -m pytest tests/test_ai_skill_docs.py tests/test_agent_skill_lecture_alignment.py tests/test_lecture_contracts.py -q
 ```
 
 This checks repo-local AI instructions, skills, and documentation references.
@@ -60,8 +60,8 @@ This checks repo-local AI instructions, skills, and documentation references.
 ## Type And Lint Gate
 
 ```powershell
-python -m mypy
-python -m ruff check .
+uv run --locked --exact --group dev python -m mypy
+uv run --locked --exact --group dev python -m ruff check .
 ```
 
 The mypy scope is intentionally controlled by `pyproject.toml`. Ruff is used
@@ -85,7 +85,7 @@ npm ci
 npm run build
 npx playwright install chromium
 cd ../..
-python main.py --no-browser
+uv run --locked --exact python main.py --no-browser
 ```
 
 With the app listening on port `2424`, run this in another terminal:
@@ -104,10 +104,11 @@ gate.
 
 ## Release Checklist
 
-- `python scripts/doctor.py` passes.
-- `python -m pytest -m golden -q` reports 15 passed.
+- `uv run --locked --exact --group dev python scripts/doctor.py` passes.
+- `uv run --locked --exact --group dev python -m pytest -m golden -q`
+  reports 20 passed.
 - Core regression, runtime example, WFA/app runtime, and AI docs tests pass.
-- `python -m mypy` passes.
+- `uv run --locked --exact --group dev python -m mypy` passes.
 - Ruff high-signal check passes.
 - Rust tests and release binary build pass when Rust-facing code changed.
 - Frontend build passes when UI or payload contracts changed.

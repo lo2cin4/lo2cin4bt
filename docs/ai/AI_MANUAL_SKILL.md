@@ -63,6 +63,21 @@ The current mental model is simple:
 6. Python remains the orchestration, config/schema validation, data-loading, and
    app-service layer. It is not a fallback strategy or metrics calculator.
 
+## Time And Data Contract
+
+- Runnable configs express timestamp and bar semantics through typed
+  `data.bar_time` plus execution/decision stream bindings. Do not teach the
+  retired flat `frequency`, `calendar`, or `timezone` fields.
+- Direct daily input remains daily input. A declared higher-timeframe decision
+  stream is derived by the shared Rust runtime from the execution stream; it is
+  not a second Python aggregation route.
+- `yfinance` supports daily requests only. Intraday provider requests must
+  match the declared Binance, Coinbase, FUTU, or IBKR capabilities. FUTU and
+  IBKR still require a working user gateway and data permission.
+- Missing, duplicated, or out-of-order rows fail the run with structured
+  failure evidence. The loader does not invent, reorder, backfill, or silently
+  switch provider data.
+
 Teach the boundary explicitly:
 
 - Supported production integration is subprocess/CLI based through
@@ -96,7 +111,32 @@ Strategy configs may set:
 Traditional daily assets default to 252 annualization days. Crypto defaults to
 365. The default annual risk-free rate is 0.04 unless the config overrides it.
 Sharpe, Sortino, CAGR, Calmar, and annualized volatility should be explained
-under those assumptions.
+under those assumptions. For intraday strategies, the displayed intraday equity
+and trades keep their bar timestamps, while headline annualized metrics use one
+validated equity close per market session. `intraday_max_drawdown` separately
+measures the largest peak-to-trough decline inside sessions.
+
+## Candidate And Artifact Contract
+
+- Canonical candidate identity is
+  `base_strategy_id:workflow_id:parameter_suffix`; parameterless runs use
+  `fixed`.
+- `run_id` and `request_id` identify an execution. They must not be used as a
+  substitute for candidate identity.
+- Ranking rows, selected objectives, retained artifacts, WFA windows, and
+  dashboard payloads must match the canonical candidate identity exactly.
+  Missing or mismatched evidence is a contract error; never display a nearby or
+  first-available result.
+- Parameter Matrix and WFA execute large candidate sets in bounded batches.
+  Every candidate retains summary/ranking evidence; only configured retained
+  top candidates are replayed for full equity, trade, and plot artifacts.
+
+## Python Dependency Route
+
+Use `uv sync --locked` for installation and
+`uv run --locked --exact ...` for Python commands. Do not teach pip,
+requirements-file, Poetry, direct virtual-environment activation, or unlocked
+fallback routes.
 
 ## Result Page Semantics
 

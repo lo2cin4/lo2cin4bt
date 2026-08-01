@@ -3,6 +3,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -16,7 +17,12 @@ if str(_REPO_ROOT) not in sys.path:
 from backtester.EngineRequest_backtester import build_engine_request  # noqa: E402
 from backtester.StrategyRunConfig_backtester import normalize_strategy_run_config  # noqa: E402
 from backtester.UnifiedBacktestRunner_backtester import UnifiedBacktestRunnerBacktester  # noqa: E402
-from dataloader.market_data_bundle import build_market_data_bundle  # noqa: E402
+from dataloader.market_data_bundle import (  # noqa: E402
+    ExternalMarketData,
+    ExecutionStreamSpec,
+    SessionWindow,
+    build_market_data_bundle,
+)
 from dataloader.market_data_loader import market_data_spec_from_requirements  # noqa: E402
 
 
@@ -101,12 +107,76 @@ def _frames_for_symbols(symbols: list[str], *, periods: int = 420) -> dict[str, 
     }
 
 
+def _direct_daily_external_data(
+    frames: dict[str, pd.DataFrame],
+    engine_request: dict,
+) -> ExternalMarketData:
+    bar_time = engine_request["data_requirements"]["bar_time"]
+    session_model = bar_time["session_model"]
+    execution = next(
+        stream for stream in bar_time["streams"] if stream["role"] == "execution"
+    )
+    stream = ExecutionStreamSpec.from_mapping(
+        {
+            **execution,
+            "session_scope": session_model["session_scope"],
+            "row_key_kind": "session_label",
+            "timestamp_semantics": {
+                **execution["timestamp_semantics"],
+                "external_execution_sequence_column": (
+                    "external_execution_sequence"
+                ),
+            },
+            "timeline_table": "execution_timeline",
+            "ohlcv_tables": {
+                "open": "open",
+                "high": "high",
+                "low": "low",
+                "close": "close",
+                "volume": "volume",
+            },
+        }
+    )
+    index = pd.DatetimeIndex(frames["close"].index, name="Time")
+    labels = index.strftime("%Y-%m-%d")
+    opens = pd.to_datetime(labels + "T00:00:00Z", utc=True)
+    closes = pd.to_datetime(labels + "T23:59:59Z", utc=True)
+    timeline = pd.DataFrame(
+        {
+            "external_execution_sequence": range(len(index)),
+            "bar_open_timestamp": opens,
+            "bar_close_timestamp": closes,
+            "available_timestamp": closes,
+            "session_label": labels,
+        },
+        index=index,
+    )
+    return ExternalMarketData(
+        frames=frames,
+        execution_stream=stream,
+        execution_timeline=timeline,
+        session_windows=[
+            SessionWindow.from_mapping(
+                {
+                    "session_label": label,
+                    "open_timestamp": open_time,
+                    "close_timestamp": close_time,
+                }
+            )
+            for label, open_time, close_time in zip(labels, opens, closes)
+        ],
+    )
+
+
 def _run_example(config: dict, tmp_path: Path):
     symbols = [str(item).upper() for item in config["universe"]["symbols"]]
     request = build_engine_request(copy.deepcopy(config))
-    spec = market_data_spec_from_requirements(request["data_requirements"])
+    spec = market_data_spec_from_requirements(
+        request["data_requirements"],
+        request["strategy"]["stream_binding"],
+    )
     bundle = build_market_data_bundle(
-        _frames_for_symbols(symbols),
+        _direct_daily_external_data(_frames_for_symbols(symbols), request),
         spec=spec,
         output_root=tmp_path / "market_data_bundle",
     )
@@ -135,6 +205,7 @@ def _assert_full_result_bundle(result: dict, expected_candidates: int) -> None:
         Path(path)
         for path in result.get("exported_files", [])
         if str(path).endswith("_equity_curve.parquet")
+        and not str(path).endswith("_execution_equity_curve.parquet")
     ]
     metadata_paths = [
         Path(path)
@@ -184,8 +255,11 @@ def test_matrix_result_retention_limits_exported_bundle_candidates(tmp_path):
     )
     engine_request = build_engine_request(config)
     market_data_bundle = build_market_data_bundle(
-        frames,
-        spec=market_data_spec_from_requirements(engine_request["data_requirements"]),
+        _direct_daily_external_data(frames, engine_request),
+        spec=market_data_spec_from_requirements(
+            engine_request["data_requirements"],
+            engine_request["strategy"]["stream_binding"],
+        ),
         output_root=tmp_path / "market_data_bundle",
     )
 
@@ -241,7 +315,60 @@ def test_generic_timer_matrix_uses_rust_timeline_variant_matrix(tmp_path):
             "strategy_profile_id": "multi_leg_event_portfolio",
             "workflow_id": "parameter_matrix",
         },
-        "data": {"provider": "synthetic", "frequency": "1D", "interval": "1d"},
+        "data": {
+            "provider": "synthetic",
+            "bar_time": {
+                "schema_version": "bar_time_contract.v1",
+                "contract_id": "lo2cin4bt.bar_time_contract.v1",
+                "session_model": {
+                    "calendar_id": "XNYS",
+                    "timezone": "America/New_York",
+                    "session_scope": "regular",
+                    "session_label_policy": "exchange_local_date",
+                    "non_session_bar_policy": "reject",
+                },
+                "timestamp_model": {
+                    "time_standard": "UTC",
+                    "precision": "nanosecond",
+                    "clock": "historical_available_time",
+                    "ordering": (
+                        "available_time_then_event_time_then_external_execution_sequence"
+                        "_then_lifecycle_stage_then_stream_id_then_source_sequence"
+                    ),
+                },
+                "price_model": {
+                    "price_basis": "split_dividend_adjusted",
+                    "corporate_action_policy": "provider_applied",
+                },
+                "streams": [
+                    {
+                        "stream_id": "execution_daily",
+                        "role": "execution",
+                        "source": {"kind": "external", "provider_id": "synthetic"},
+                        "bar_spec": {
+                            "aggregation": "time",
+                            "step": 1,
+                            "unit": "day",
+                            "price_type": "last",
+                            "alignment": "session_open",
+                        },
+                        "timestamp_semantics": {
+                            "timestamp_convention": "bar_close",
+                            "interval_boundary": "left_open_right_closed",
+                            "bar_open_time_column": "bar_open_timestamp",
+                            "bar_close_time_column": "bar_close_timestamp",
+                            "available_time_column": "available_timestamp",
+                            "session_label_column": "session_label",
+                            "availability_policy": "bar_close",
+                        },
+                    }
+                ],
+            },
+            "stream_binding": {
+                "execution_stream_id": "execution_daily",
+                "decision_stream_id": "execution_daily",
+            },
+        },
         "universe": {"symbols": ["SPY", "IEF"]},
         "signals": {
             "entry": {"field": "entry_signal", "op": "eq", "value": 1.0},
@@ -290,8 +417,11 @@ def test_generic_timer_matrix_uses_rust_timeline_variant_matrix(tmp_path):
     )
     engine_request = build_engine_request(normalized)
     market_data_bundle = build_market_data_bundle(
-        frames,
-        spec=market_data_spec_from_requirements(engine_request["data_requirements"]),
+        _direct_daily_external_data(frames, engine_request),
+        spec=market_data_spec_from_requirements(
+            engine_request["data_requirements"],
+            engine_request["strategy"]["stream_binding"],
+        ),
         output_root=tmp_path / "market_data_bundle",
     )
     portfolio_results, exported_files, matrix_summary = runner._run_portfolio_variant_batch(
@@ -331,10 +461,60 @@ def test_strategy_run_multi_asset_market_spec_preserves_external_features():
             "strategy_profile_id": "multi_leg_event_portfolio",
             "workflow_id": "single_backtest",
         },
+        "metadata": {"strategy_id": "multi_asset_market_spec"},
         "data": {
             "provider": "yfinance",
-            "frequency": "1D",
-            "interval": "1d",
+            "bar_time": {
+                "schema_version": "bar_time_contract.v1",
+                "contract_id": "lo2cin4bt.bar_time_contract.v1",
+                "session_model": {
+                    "calendar_id": "XNYS",
+                    "timezone": "America/New_York",
+                    "session_scope": "regular",
+                    "session_label_policy": "exchange_local_date",
+                    "non_session_bar_policy": "reject",
+                },
+                "timestamp_model": {
+                    "time_standard": "UTC",
+                    "precision": "nanosecond",
+                    "clock": "historical_available_time",
+                    "ordering": (
+                        "available_time_then_event_time_then_external_execution_sequence"
+                        "_then_lifecycle_stage_then_stream_id_then_source_sequence"
+                    ),
+                },
+                "price_model": {
+                    "price_basis": "split_dividend_adjusted",
+                    "corporate_action_policy": "provider_applied",
+                },
+                "streams": [
+                    {
+                        "stream_id": "execution_daily",
+                        "role": "execution",
+                        "source": {"kind": "external", "provider_id": "yfinance"},
+                        "bar_spec": {
+                            "aggregation": "time",
+                            "step": 1,
+                            "unit": "day",
+                            "price_type": "last",
+                            "alignment": "session_open",
+                        },
+                        "timestamp_semantics": {
+                            "timestamp_convention": "bar_close",
+                            "interval_boundary": "left_open_right_closed",
+                            "bar_open_time_column": "bar_open_timestamp",
+                            "bar_close_time_column": "bar_close_timestamp",
+                            "available_time_column": "available_timestamp",
+                            "session_label_column": "session_label",
+                            "availability_policy": "bar_close",
+                        },
+                    }
+                ],
+            },
+            "stream_binding": {
+                "execution_stream_id": "execution_daily",
+                "decision_stream_id": "execution_daily",
+            },
             "external_features": [
                 {
                     "name": "market_breadth",
@@ -364,7 +544,10 @@ def test_strategy_run_multi_asset_market_spec_preserves_external_features():
     }
 
     request = build_engine_request(copy.deepcopy(config))
-    spec = market_data_spec_from_requirements(request["data_requirements"])
+    spec = market_data_spec_from_requirements(
+        request["data_requirements"],
+        request["strategy"]["stream_binding"],
+    )
 
     assert spec["external_features"][0]["name"] == "market_breadth"
 
@@ -630,6 +813,114 @@ def test_matrix_result_retention_zero_keeps_summary_rows_only(monkeypatch, tmp_p
     assert calls == []
 
 
+def test_large_matrix_retention_uses_bounded_rust_batches_before_winner_replay(
+    monkeypatch, tmp_path
+):
+    runner = UnifiedBacktestRunnerBacktester()
+    variants = [
+        {
+            "suffix": str(index),
+            "config": {
+                "strategy_id": f"bounded_matrix:parameter_matrix:period_{index}",
+                "resolved_params": {"period": index},
+                "execution": {
+                    "matrix_result_retention": 2,
+                    "rust_batch_chunk_size": 3,
+                },
+            },
+        }
+        for index in range(10)
+    ]
+    calls = []
+
+    def fake_rust_batch(**kwargs):
+        chunk = list(kwargs["variants"])
+        ids = [item["config"]["strategy_id"] for item in chunk]
+        calls.append(ids)
+        results = [
+            SimpleNamespace(
+                strategy_id=str(item["config"]["strategy_id"]),
+                config=item["config"],
+            )
+            for strategy_id, item in zip(ids, chunk)
+        ]
+        rows = [
+            {
+                "strategy_id": str(item["config"]["strategy_id"]),
+                "backtest_id": str(item["config"]["strategy_id"]),
+                "semantic_combo": dict(item["config"]["resolved_params"]),
+                "sharpe": float(item["config"]["resolved_params"]["period"]),
+                "final_equity": 100.0,
+                "total_return": 0.0,
+                "cagr": 0.0,
+            }
+            for strategy_id, item in zip(ids, chunk)
+        ]
+        return results, rows, []
+
+    monkeypatch.setattr(runner, "_try_run_portfolio_rust_batch", fake_rust_batch)
+    monkeypatch.setattr(runner, "_export_portfolio_result_bundle", lambda **kwargs: [])
+
+    retained, exported, summary = runner._run_portfolio_variant_batch(
+        variants=variants,
+        market_data={},
+        export_config={"output_dir": str(tmp_path)},
+        run_id_base="bounded_matrix",
+        cache_dir=tmp_path,
+        portfolio_config={},
+        market_data_bundle=None,
+        engine_request=None,
+    )
+
+    assert [len(chunk) for chunk in calls] == [3, 3, 3, 1, 2]
+    assert calls[-1] == [
+        "bounded_matrix:parameter_matrix:period_8",
+        "bounded_matrix:parameter_matrix:period_9",
+    ]
+    assert [result.strategy_id for result in retained] == [
+        "bounded_matrix:parameter_matrix:period_9",
+        "bounded_matrix:parameter_matrix:period_8",
+    ]
+    assert exported == []
+    assert summary["variant_count"] == 10
+    assert summary["row_count"] == 10
+    assert summary["retained_result_count"] == 2
+    assert summary["compact_result_count"] == 8
+    assert [
+        row["result_materialization"] for row in summary["rows"]
+    ].count("full") == 2
+
+
+def test_resolved_engine_requests_share_one_canonical_candidate_identity() -> None:
+    runner = UnifiedBacktestRunnerBacktester()
+    config = _load_example(
+        "strategy-run-qqq-yfinance-daily-sma-cross-matrix-example.json"
+    )
+    request = build_engine_request(config)
+    variants = [
+        {
+            "config": {
+                "strategy_id": "legacy_python_underscore_id",
+                "resolved_params": {"short_ma": 20, "long_ma": 120},
+            },
+            "suffix": "short_ma_20_long_ma_120",
+        }
+    ]
+
+    resolved = runner._resolved_engine_requests_for_variants(
+        engine_request=request,
+        variants=variants,
+    )[0]
+
+    expected = (
+        "qqq_daily_sma_cross_yfinance_example:"
+        "parameter_matrix:long_ma_120_short_ma_20"
+    )
+    assert variants[0]["config"]["strategy_id"] == expected
+    assert resolved["strategy"]["strategy_id"] == expected
+    assert resolved["request_id"] == expected
+
+
 def test_btcusdt_monthly_nth_weekday_same_session_example_runs_full_matrix(tmp_path):
     config = _with_full_matrix_retention(
         _load_example("strategy-run-btcusdt-binance-monthly-nth-weekday-same-session-matrix-example.json")
@@ -736,6 +1027,42 @@ def test_multi_leg_event_profile_example_runs_as_shared_timeline_portfolio(tmp_p
     assert float(portfolio_result.equity_curve["Equity_value"].iloc[-1]) > 0.0
 
 
+def test_multi_leg_calendar_overlay_parameter_matrix_uses_grouped_engine_request_batch(tmp_path):
+    config = _with_full_matrix_retention(
+        _load_example("strategy-run-qqq-tlt-gld-yfinance-monthly-hedge-overlay-example.json")
+    )
+    config["platform"]["workflow_id"] = "parameter_matrix"
+    config["signals"]["entry"] = {
+        "op": "calendar.nth_weekday_of_month",
+        "months": [3, 6, 9, 12],
+        "ordinal": {"param_ref": "month_week"},
+        "weekday": {"param_ref": "weekday"},
+    }
+    config["parameter_domains"] = {
+        "month_week": {"type": "set", "values": [1, 2]},
+        "weekday": {"type": "set", "values": ["monday", "tuesday"]},
+    }
+
+    result = _run_example(config, tmp_path)
+
+    assert len(result["portfolio_results"]) == 4
+    assert len(result["portfolio_matrix_summary"]["rows"]) == 4
+    assert all(
+        item.validation_report["accounting_fast_path"]
+        == "calendar_overlay_rust_engine_request_batch"
+        for item in result["portfolio_results"]
+    )
+    assert all(
+        item.validation_report["timeline_producer"]
+        == "rust_engine_request_calendar_overlay_batch_v1"
+        for item in result["portfolio_results"]
+    )
+    assert all(
+        item.validation_report["status"] == "valid"
+        for item in result["portfolio_results"]
+    )
+
+
 def test_daily_rank_parameter_matrix_uses_grouped_engine_request_batch(tmp_path):
     config = _with_full_matrix_retention(
         _load_example("strategy-run-voo-gld-yfinance-daily-momentum90-sma250-rotation-example.json")
@@ -757,8 +1084,11 @@ def test_daily_rank_parameter_matrix_uses_grouped_engine_request_batch(tmp_path)
     )
     engine_request = build_engine_request(config)
     market_data_bundle = build_market_data_bundle(
-        frames,
-        spec=market_data_spec_from_requirements(engine_request["data_requirements"]),
+        _direct_daily_external_data(frames, engine_request),
+        spec=market_data_spec_from_requirements(
+            engine_request["data_requirements"],
+            engine_request["strategy"]["stream_binding"],
+        ),
         output_root=tmp_path / "market_data_bundle",
     )
 

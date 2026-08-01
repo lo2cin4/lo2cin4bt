@@ -6,35 +6,11 @@ from pathlib import Path
 import pandas as pd
 
 from backtester.UnifiedBacktestRunner_backtester import UnifiedBacktestRunnerBacktester
-from factorhandler.FactorArtifactExporter_factorhandler import FactorArtifactExporter
-from factorhandler.FactorHandler_factorhandler import FactorHandlerResult
 from statanalyser.ReportGenerator_statanalyser import ReportGenerator
 
 
 def _long_text(prefix: str) -> str:
     return prefix + "_" + "_".join(f"segment_{idx:03d}" for idx in range(40))
-
-
-def test_factor_artifact_exporter_bounds_long_run_id_and_factor_name(tmp_path: Path) -> None:
-    dates = pd.date_range("2024-01-01", periods=2, freq="D")
-    frame = pd.DataFrame({"AAA": [1.0, 2.0]}, index=dates)
-    factor_name = _long_text("composite_factor_score")
-    result = FactorHandlerResult(
-        factor_frame={factor_name: frame},
-        clean_factor_frame={},
-        factor_score_frame={factor_name: frame},
-        factor_quality_report={},
-        point_in_time_audit={},
-        cache_report={},
-    )
-
-    paths = FactorArtifactExporter(result, tmp_path, run_id=_long_text("factor_probe")).export()
-
-    assert paths
-    for raw_path in paths:
-        assert Path(raw_path).exists()
-        assert len(Path(raw_path).name) <= 150
-    assert any(path.endswith("_factorhandler-reports.json") for path in paths)
 
 
 def test_statanalyser_save_data_bounds_long_filename(tmp_path: Path) -> None:
@@ -96,7 +72,7 @@ def test_unified_rust_direct_bundle_metadata_bounds_long_run_id(tmp_path: Path) 
             },
         items=[
             {
-                "candidate_id": "candidate_a",
+                "candidate_id": "filename_bounds:parameter_matrix:fixed",
                 "final_equity": 100.0,
                 "total_return": 0.0,
                 "cagr": 0.0,
@@ -114,7 +90,13 @@ def test_unified_rust_direct_bundle_metadata_bounds_long_run_id(tmp_path: Path) 
                 },
             }
         ],
-        variants=[{"config": {"strategy_id": "candidate_a"}}],
+        variants=[
+            {
+                "config": {
+                    "strategy_id": "filename_bounds:parameter_matrix:fixed"
+                }
+            }
+        ],
         cost_rate=0.0,
     )
 

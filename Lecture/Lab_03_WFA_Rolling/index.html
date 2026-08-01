@@ -24,9 +24,12 @@
           <li>選擇 <code>workspace/wfa/</code> 內的 <code>wfa_run</code> 設定檔（config）</li>
           <li>確認它引用哪一份策略設定檔（strategy config），不要把策略邏輯重寫在前向分析（WFA）設定內</li>
           <li>執行後打開前向分析（WFA）頁，查看視窗數量（window count）、目標函數（objective）、選擇指標（selection metric）和選定最優解（selected optimum）</li>
+          <li>核對每個視窗的候選識別碼（candidate_id）、目標函數列及完整產物屬同一候選；不相符時應見到契約錯誤，不應看到另一候選的圖表</li>
           <li>分開閱讀樣本內（IS）與樣本外（OOS）指標，重點包括樣本外夏普比率（OOS Sharpe）、樣本外卡瑪比率（OOS Calmar）、樣本外總報酬（OOS total return）和樣本外／樣本內比率（OOS / IS ratio）</li>
           <li>投資組合策略要查看各視窗配置（allocation by window）、資產貢獻（asset contribution）、換手率（turnover）、成本拖累（cost drag）和風控門檻事件數（risk gate event counts）</li>
         </ol>
+
+        <p class="note">一分鐘資料不會改變前向分析方法。系統以分批方式處理候選，保存全部摘要，並為需要展示的前列候選建立完整產物，以控制記憶體用量。</p>
 
         <h2>代理與技能版（Agent / Skill）</h2>
         <pre><code>請由 lo2cin4btWorkAgent 使用 lo2cin4bt-backtesting。

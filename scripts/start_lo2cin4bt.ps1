@@ -7,9 +7,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-$VenvPython = Join-Path $RepoRoot ".venv\Scripts\python.exe"
-$SystemPython = (Get-Command python -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Source)
-$PreferredPython = [string]($env:LO2CIN4BT_PYTHON)
+$RequiredUvVersion = "0.11.32"
+$UvRunContract = "uv run --locked --exact"
 $LogDir = Join-Path $RepoRoot "logs"
 $LauncherLog = Join-Path $LogDir "launcher.log"
 $ServerOutLog = Join-Path $LogDir "launcher-server.out.log"
@@ -52,22 +51,26 @@ function Get-Lo2cin4btServerProcesses {
     }
 }
 
-function Resolve-Lo2cin4btPython {
-    if ($PreferredPython -and (Test-Path $PreferredPython)) {
-        return $PreferredPython
+function Resolve-Lo2cin4btUv {
+    $uvCommand = Get-Command uv -ErrorAction SilentlyContinue
+    if (-not $uvCommand) {
+        return $null
     }
-    if ($SystemPython -and (Test-Path $SystemPython)) {
-        return $SystemPython
+    $uvVersionLine = (& $uvCommand.Source --version | Select-Object -First 1)
+    if ($uvVersionLine -notmatch "^uv $([regex]::Escape($RequiredUvVersion))(?:\s|$)") {
+        Write-LauncherLog "uv $RequiredUvVersion is required; found '$uvVersionLine'."
+        return $null
     }
-    if (Test-Path $VenvPython) {
-        return $VenvPython
-    }
-    return $null
+    return $uvCommand.Source
 }
 
 function Start-Lo2cin4btDetachedServer {
-    param([string]$PythonPath)
+    param([string]$UvPath)
     $arguments = @(
+        "run"
+        "--locked"
+        "--exact"
+        "python"
         "-X"
         "faulthandler"
         "-u"
@@ -78,7 +81,7 @@ function Start-Lo2cin4btDetachedServer {
         "--no-browser"
     )
     $process = Start-Process `
-        -FilePath $PythonPath `
+        -FilePath $UvPath `
         -ArgumentList $arguments `
         -WorkingDirectory $RepoRoot `
         -RedirectStandardOutput $ServerOutLog `
@@ -120,24 +123,18 @@ foreach ($process in $stalePythonProcesses) {
     Stop-Lo2cin4btProcessTree -RootProcessId $process.ProcessId
 }
 
-if (-not (Test-Path $VenvPython)) {
-    Write-LauncherLog "Project venv python not found. Falling back to interpreter health resolution."
-}
-
-$PythonPath = Resolve-Lo2cin4btPython
-if (-not $PythonPath) {
-    Write-LauncherLog "No healthy Python interpreter found for lo2cin4bt app startup."
-    Write-LauncherLog "Checked preferred interpreter: $PreferredPython"
-    Write-LauncherLog "Checked system interpreter: $SystemPython"
-    Write-LauncherLog "Checked venv interpreter: $VenvPython"
+$UvPath = Resolve-Lo2cin4btUv
+if (-not $UvPath) {
+    Write-LauncherLog "uv $RequiredUvVersion is required for lo2cin4bt app startup."
+    Write-LauncherLog "Install the exact version, then run scripts\setup.ps1 before launching."
     Read-Host "Press Enter to close"
     exit 1
 }
-Write-LauncherLog "Using Python interpreter: $PythonPath"
+Write-LauncherLog "Using locked Python route: $UvRunContract"
 
 for ($attempt = 1; $attempt -le [Math]::Max(1, $RetryCount); $attempt++) {
     Write-LauncherLog "Launching server process (attempt $attempt/$RetryCount)."
-    $processId = Start-Lo2cin4btDetachedServer -PythonPath $PythonPath
+    $processId = Start-Lo2cin4btDetachedServer -UvPath $UvPath
     Write-LauncherLog "Detached server process created with PID $processId."
 
     $deadline = (Get-Date).AddSeconds($WaitSeconds)

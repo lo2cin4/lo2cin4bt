@@ -73,7 +73,7 @@ flowchart LR
 
         <div class="compare-grid">
           <section><h3>永久停止</h3><p>清平所有倉位後停止產生正式交易，run 會保留觸發時間、門檻、觀察值及清倉證據。</p></section>
-          <section><h3>影子交易路線（Shadow route）</h3><p>清平正式倉位後，策略訊號繼續在影子帳本（shadow ledger）評估；未滿足恢復條件前不會重返正式持倉。</p></section>
+          <section><h3>影子交易路線（Shadow route）</h3><p>清平正式倉位後，策略訊號繼續在影子帳本（shadow ledger）評估；未滿足恢復條件前不會重返正式持倉。這是同一個共享 Rust 引擎內明文設定的風控狀態，不是另一個回測器，也不是失敗時的後備路線。</p></section>
         </div>
 
         <div class="callout success">

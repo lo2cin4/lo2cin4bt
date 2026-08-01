@@ -1,0 +1,133 @@
+{
+  "schema_version": "market_data_bundle.v2",
+  "contract_id": "lo2cin4bt.market_data_bundle.v2",
+  "bundle_id": "mdb-28fc4b7daf3f24f1",
+  "content_hash": "28fc4b7daf3f24f1e86d5cf6882dbcc5cb861954b0714119dcca34dec3c52b86",
+  "symbols": ["QQQ"],
+  "calendar": "XNYS",
+  "timezone": "America/New_York",
+  "time_range": {
+    "start": "2024-07-03T00:00:00",
+    "end": "2024-07-03T00:00:00"
+  },
+  "row_count": 1,
+  "time_column": "Time",
+  "execution_stream": {
+    "stream_id": "execution_daily",
+    "role": "execution",
+    "source": {
+      "kind": "external",
+      "provider_id": "yfinance"
+    },
+    "session_scope": "regular",
+    "row_key_kind": "session_label",
+    "bar_spec": {
+      "aggregation": "time",
+      "step": 1,
+      "unit": "day",
+      "price_type": "last",
+      "alignment": "session_open"
+    },
+    "timestamp_semantics": {
+      "timestamp_convention": "bar_close",
+      "interval_boundary": "left_open_right_closed",
+      "external_execution_sequence_column": "external_execution_sequence",
+      "bar_open_time_column": "bar_open_timestamp",
+      "bar_close_time_column": "bar_close_timestamp",
+      "available_time_column": "available_timestamp",
+      "session_label_column": "session_label",
+      "availability_policy": "bar_close"
+    },
+    "timeline_table": "execution_timeline",
+    "ohlcv_tables": {
+      "open": "open",
+      "high": "high",
+      "low": "low",
+      "close": "close",
+      "volume": "volume"
+    }
+  },
+  "session_windows": [
+    {
+      "session_label": "2024-07-03",
+      "open_timestamp": "2024-07-03T13:30:00Z",
+      "close_timestamp": "2024-07-03T17:00:00Z"
+    }
+  ],
+  "quality": {
+    "missing_value_policy": "fail",
+    "duplicate_time_policy": "fail",
+    "out_of_order_policy": "fail",
+    "stale_value_policy": "preserve",
+    "warnings": []
+  },
+  "tables": {
+    "open": {
+      "role": "bars",
+      "transport": "parquet",
+      "path": null,
+      "content_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+      "columns": ["QQQ"],
+      "row_count": 1
+    },
+    "high": {
+      "role": "bars",
+      "transport": "parquet",
+      "path": null,
+      "content_hash": "2222222222222222222222222222222222222222222222222222222222222222",
+      "columns": ["QQQ"],
+      "row_count": 1
+    },
+    "low": {
+      "role": "bars",
+      "transport": "parquet",
+      "path": null,
+      "content_hash": "3333333333333333333333333333333333333333333333333333333333333333",
+      "columns": ["QQQ"],
+      "row_count": 1
+    },
+    "close": {
+      "role": "bars",
+      "transport": "parquet",
+      "path": null,
+      "content_hash": "4444444444444444444444444444444444444444444444444444444444444444",
+      "columns": ["QQQ"],
+      "row_count": 1
+    },
+    "volume": {
+      "role": "bars",
+      "transport": "parquet",
+      "path": null,
+      "content_hash": "5555555555555555555555555555555555555555555555555555555555555555",
+      "columns": ["QQQ"],
+      "row_count": 1
+    },
+    "execution_timeline": {
+      "role": "bar_timeline",
+      "transport": "parquet",
+      "path": null,
+      "content_hash": "6666666666666666666666666666666666666666666666666666666666666666",
+      "columns": [
+        "external_execution_sequence",
+        "bar_open_timestamp",
+        "bar_close_timestamp",
+        "available_timestamp",
+        "session_label"
+      ],
+      "row_count": 1
+    }
+  },
+  "lineage": {
+    "provider": "yfinance",
+    "source_hashes": {
+      "close": "4444444444444444444444444444444444444444444444444444444444444444",
+      "execution_timeline": "6666666666666666666666666666666666666666666666666666666666666666",
+      "high": "2222222222222222222222222222222222222222222222222222222222222222",
+      "low": "3333333333333333333333333333333333333333333333333333333333333333",
+      "open": "1111111111111111111111111111111111111111111111111111111111111111",
+      "volume": "5555555555555555555555555555555555555555555555555555555555555555"
+    },
+    "point_in_time": false,
+    "adjustment_policy": "split_dividend_adjusted"
+  }
+}

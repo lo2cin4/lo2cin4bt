@@ -24,16 +24,26 @@ import pandas as pd
 
 from backtester.EngineRequest_backtester import (
     build_engine_request,
+    canonical_candidate_id,
+    canonical_parameter_suffix,
     strategy_run_from_engine_request,
+    validate_base_strategy_id,
+    validate_canonical_candidate_id,
 )
 from backtester.StrategyRunConfig_backtester import (
     expand_parameter_combinations,
     normalize_strategy_run_config,
 )
 from backtester.UnifiedBacktestRunner_backtester import UnifiedBacktestRunnerBacktester
-from backtester.timeframe_utils import is_subdaily_timeframe
-from dataloader.market_data_bundle import MarketDataBundle, build_market_data_bundle
+from dataloader.market_data_bundle import (
+    ExternalMarketData,
+    ExecutionStreamSpec,
+    MarketDataBundle,
+    SessionWindow,
+    build_market_data_bundle,
+)
 from dataloader.market_data_loader import market_data_spec_from_requirements
+from metricstracker.MetricConfig_metricstracker import resolve_metric_config
 
 
 @dataclass
@@ -67,7 +77,23 @@ class UnifiedPortfolioWFARunner:
         market_data_bundle.validate_against_engine_request(data_request)
         self.market_data_bundle = market_data_bundle
         self.market_data = market_data_bundle.load_frames()
+        self.execution_timeline = market_data_bundle.load_execution_timeline()
+        close = self.market_data.get("close")
+        if not isinstance(close, pd.DataFrame) or close.empty:
+            raise ValueError("UnifiedPortfolioWFARunner requires non-empty close data")
+        self.execution_timeline = self.execution_timeline.reindex(close.index)
+        if self.execution_timeline.isna().any().any():
+            raise ValueError("WFA close data does not align with the typed execution timeline")
+        self._ordered_session_labels = self._validated_ordered_session_labels(
+            self.execution_timeline["session_label"]
+        )
         self.wfa_config = copy.deepcopy(wfa_config or {})
+        self.metric_config = resolve_metric_config(
+            self.strategy_config.get("metricstracker")
+            if isinstance(self.strategy_config.get("metricstracker"), dict)
+            else {},
+            source_config=self.strategy_config,
+        )
         strategy_platform = self.strategy_config.get("platform")
         strategy_workflow = (
             strategy_platform.get("workflow_id")
@@ -82,34 +108,12 @@ class UnifiedPortfolioWFARunner:
                 "UnifiedPortfolioWFARunner requires workflow_id="
                 "walk_forward_analysis or rolling_validation"
             )
-        self._ensure_session_level_market_data()
         self.objectives = self._objectives()
         self.selection_constraints = self._resolve_selection_constraints()
         self._last_windowing_metadata: Dict[str, Any] = {}
-
-    def _ensure_session_level_market_data(self) -> None:
-        data_config = (
-            self.strategy_config.get("data", {})
-            if isinstance(self.strategy_config.get("data"), dict)
-            else {}
-        )
-        for field_name in ("frequency", "interval"):
-            value = data_config.get(field_name)
-            if is_subdaily_timeframe(value):
-                raise ValueError(
-                    "multi_asset/session-level portfolio runtime only supports daily-or-slower bars; "
-                    f"sub-daily {field_name}={value!r} is not supported"
-                )
-
-        close_index = pd.to_datetime(self.market_data["close"].index, errors="coerce")
-        if getattr(close_index, "tz", None) is not None:
-            close_index = close_index.tz_localize(None)
-        diffs = pd.Series(close_index).sort_values().diff().dropna()
-        if not diffs.empty and diffs.min() < pd.Timedelta(days=1):
-            raise ValueError(
-                "multi_asset/session-level portfolio runtime only supports daily-or-slower bars; "
-                "sub-daily market_data index spacing is not supported"
-            )
+        self._metrics_annualization: Dict[str, Any] = {}
+        self._warmup_projection_evidence: List[Dict[str, Any]] = []
+        self._derived_bar_cache_evidence: List[Dict[str, Any]] = []
 
     def run(self) -> UnifiedPortfolioWFAResult:
         windows = self._windows()
@@ -123,8 +127,32 @@ class UnifiedPortfolioWFARunner:
         train_backend_counts: Dict[str, int] = {}
 
         for window_id, window in enumerate(windows, start=1):
-            train_data = self._slice_market_data(window["train_start"], window["train_end"])
-            test_data = self._slice_market_data(window["test_start"], window["test_end"])
+            train_warmup = self._required_warmup_sessions(window["train_start"])
+            test_warmup = self._required_warmup_sessions(window["test_start"])
+            self._warmup_projection_evidence.extend(
+                [
+                    {
+                        "window_id": window_id,
+                        "scope": "train",
+                        **train_warmup,
+                    },
+                    {
+                        "window_id": window_id,
+                        "scope": "test",
+                        **test_warmup,
+                    },
+                ]
+            )
+            train_data = self._slice_market_data(
+                window["train_start"],
+                window["train_end"],
+                warmup_sessions=int(train_warmup["required_execution_sessions"]),
+            )
+            test_data = self._slice_market_data(
+                window["test_start"],
+                window["test_end"],
+                warmup_sessions=int(test_warmup["required_execution_sessions"]),
+            )
             if train_data["close"].empty or test_data["close"].empty:
                 continue
             oos_cache: Dict[str, Dict[str, Any]] = {}
@@ -132,10 +160,23 @@ class UnifiedPortfolioWFARunner:
             train_results, train_backend = self._run_train_candidates(
                 candidates=candidates,
                 train_data=train_data,
-                train_size=len(train_data["close"].index),
+                train_size=self._evaluation_session_count(
+                    window["train_start"], window["train_end"]
+                ),
                 window_id=window_id,
+                evaluation_start=window["train_start"],
+                evaluation_end=window["train_end"],
             )
             train_backend_counts[train_backend] = train_backend_counts.get(train_backend, 0) + 1
+            for item in train_results:
+                validation = getattr(item.get("train_result"), "validation_report", {})
+                cache = (
+                    validation.get("derived_bar_cache")
+                    if isinstance(validation, dict)
+                    else None
+                )
+                if isinstance(cache, dict) and cache not in self._derived_bar_cache_evidence:
+                    self._derived_bar_cache_evidence.append(copy.deepcopy(cache))
             for item in train_results:
                 diagnostic_rows.append(
                     self._candidate_row(
@@ -154,6 +195,8 @@ class UnifiedPortfolioWFARunner:
                     cache=oos_cache,
                     candidate=selected["candidate"],
                     test_data=test_data,
+                    evaluation_start=window["test_start"],
+                    evaluation_end=window["test_end"],
                 )
                 test_result = copy.deepcopy(cached_oos["result"])
                 backtest_id = self._window_backtest_id(
@@ -212,6 +255,13 @@ class UnifiedPortfolioWFARunner:
                 "total_candidate_count": len(all_candidates),
                 **budget_metadata,
                 "windowing": self._last_windowing_metadata,
+                "annualization": copy.deepcopy(self._metrics_annualization),
+                "warmup_projection": copy.deepcopy(
+                    self._warmup_projection_evidence
+                ),
+                "derived_bar_cache_evidence": copy.deepcopy(
+                    self._derived_bar_cache_evidence
+                ),
                 "selection_constraints": self.selection_constraints,
                 "window_count": len(windows),
                 "train_backend_counts": train_backend_counts,
@@ -230,12 +280,16 @@ class UnifiedPortfolioWFARunner:
         train_data: Dict[str, pd.DataFrame],
         train_size: int,
         window_id: int,
+        evaluation_start: pd.Timestamp,
+        evaluation_end: pd.Timestamp,
     ) -> tuple[List[Dict[str, Any]], str]:
         batch_results = self._run_candidates_with_rust(
             candidates=candidates,
             market_data=train_data,
             run_id_base=f"wfa_train_window_{window_id:03d}",
             run_scope="validation_train_window",
+            evaluation_start=evaluation_start,
+            evaluation_end=evaluation_end,
         )
         if batch_results is not None:
             return [
@@ -243,6 +297,8 @@ class UnifiedPortfolioWFARunner:
                     candidate=candidate,
                     train_result=train_result,
                     train_size=train_size,
+                    evaluation_start=evaluation_start,
+                    evaluation_end=evaluation_end,
                 )
                 for candidate, train_result in zip(candidates, batch_results)
             ], self._train_backend_label(batch_results)
@@ -258,6 +314,8 @@ class UnifiedPortfolioWFARunner:
         cache: Dict[str, Dict[str, Any]],
         candidate: Dict[str, Any],
         test_data: Dict[str, pd.DataFrame],
+        evaluation_start: pd.Timestamp,
+        evaluation_end: pd.Timestamp,
     ) -> Dict[str, Any]:
         cache_key = self._candidate_cache_key(candidate)
         cached = cache.get(cache_key)
@@ -268,6 +326,8 @@ class UnifiedPortfolioWFARunner:
             market_data=test_data,
             run_id_base=f"wfa_oos_{cache_key[:12]}",
             run_scope="validation_test_window",
+            evaluation_start=evaluation_start,
+            evaluation_end=evaluation_end,
         )
         if not results:
             raise RuntimeError(
@@ -277,7 +337,12 @@ class UnifiedPortfolioWFARunner:
         result = results[0]
         cached = {
             "result": result,
-            "metrics": self._metrics(result.equity_curve),
+            "metrics": self._metrics(
+                result.equity_curve,
+                evaluation_start=evaluation_start,
+                evaluation_end=evaluation_end,
+                candidate_id=validate_canonical_candidate_id(result.strategy_id),
+            ),
         }
         cache[cache_key] = cached
         return cached
@@ -289,6 +354,8 @@ class UnifiedPortfolioWFARunner:
         market_data: Dict[str, pd.DataFrame],
         run_id_base: str,
         run_scope: str,
+        evaluation_start: pd.Timestamp,
+        evaluation_end: pd.Timestamp,
     ) -> Optional[List[Any]]:
         if not candidates:
             return None
@@ -298,8 +365,13 @@ class UnifiedPortfolioWFARunner:
                     candidate,
                     run_scope=run_scope,
                     market_data=market_data,
+                    evaluation_start=evaluation_start,
+                    evaluation_end=evaluation_end,
                 ),
                 "suffix": self._semantic_combo_suffix(candidate.get("params", {})),
+                "candidate_id": validate_canonical_candidate_id(
+                    candidate.get("candidate_id")
+                ),
             }
             for candidate in candidates
         ]
@@ -308,31 +380,100 @@ class UnifiedPortfolioWFARunner:
             candidates[0],
             run_scope=run_scope,
             market_data=market_data,
+            evaluation_start=evaluation_start,
+            evaluation_end=evaluation_end,
         )
         bridge = UnifiedBacktestRunnerBacktester()
+        chunk_size = self._rust_batch_chunk_size(
+            candidate_count=len(variants),
+            portfolio_config=first_config,
+        )
+        results: List[Any] = []
         with tempfile.TemporaryDirectory(prefix="lo2cin4bt-wfa-bundle-") as temporary_root:
             root = Path(temporary_root)
+            slice_spec = market_data_spec_from_requirements(
+                base_request["data_requirements"],
+                base_request["strategy"]["stream_binding"],
+            )
+            source_manifest = self.market_data_bundle.read_manifest()
+            slice_spec["adjustment_policy"] = source_manifest["lineage"][
+                "adjustment_policy"
+            ]
             market_data_bundle = build_market_data_bundle(
-                market_data,
-                spec=market_data_spec_from_requirements(base_request["data_requirements"]),
+                self._external_market_data_slice(market_data),
+                spec=slice_spec,
                 output_root=root / "market_data_bundle",
             )
-            batch = bridge.try_run_rust_matrix_batch(
-                variants=variants,
-                market_data=market_data,
-                market_data_bundle=market_data_bundle,
-                engine_request=base_request,
-                portfolio_config=first_config,
-                cache_dir=root / "results",
-                export_config={},
-                run_id_base=run_id_base,
-            )
-        if batch is None:
-            return None
-        results, _rows, _exported = batch
+            for chunk_index, start in enumerate(range(0, len(variants), chunk_size)):
+                chunk = variants[start : start + chunk_size]
+                chunk_config = dict(cast(Dict[str, Any], chunk[0]["config"]))
+                batch = bridge.try_run_rust_matrix_batch(
+                    variants=chunk,
+                    market_data=market_data,
+                    market_data_bundle=market_data_bundle,
+                    engine_request=base_request,
+                    portfolio_config=chunk_config,
+                    cache_dir=root / "results",
+                    export_config={},
+                    run_id_base=f"{run_id_base}_chunk_{chunk_index + 1:03d}",
+                )
+                if batch is None:
+                    return None
+                chunk_results, _rows, _exported = batch
+                if len(chunk_results) != len(chunk):
+                    return None
+                results.extend(chunk_results)
         if len(results) != len(candidates):
             return None
         return results
+
+    @staticmethod
+    def _rust_batch_chunk_size(
+        *,
+        candidate_count: int,
+        portfolio_config: Dict[str, Any],
+    ) -> int:
+        if candidate_count <= 1:
+            return max(1, candidate_count)
+        execution = portfolio_config.get("execution")
+        execution_cfg = execution if isinstance(execution, dict) else {}
+        raw_size = execution_cfg.get("rust_batch_chunk_size")
+        if raw_size is None:
+            return min(candidate_count, 16)
+        try:
+            size = int(raw_size)
+        except (TypeError, ValueError):
+            return min(candidate_count, 16)
+        return min(candidate_count, max(1, size))
+
+    def _external_market_data_slice(
+        self,
+        market_data: Dict[str, pd.DataFrame],
+    ) -> ExternalMarketData:
+        manifest = self.market_data_bundle.read_manifest()
+        execution_stream = ExecutionStreamSpec.from_mapping(
+            manifest["execution_stream"]
+        )
+        close = market_data.get("close")
+        if not isinstance(close, pd.DataFrame) or close.empty:
+            raise ValueError("WFA market-data slice requires close")
+        timeline = self.market_data_bundle.load_execution_timeline().reindex(close.index)
+        if timeline.isna().any().any():
+            raise ValueError(
+                "WFA market-data slice does not align with the execution timeline"
+            )
+        labels = set(str(item) for item in timeline["session_label"].tolist())
+        windows = [
+            SessionWindow.from_mapping(item)
+            for item in manifest["session_windows"]
+            if str(item.get("session_label") or "") in labels
+        ]
+        return ExternalMarketData(
+            frames=market_data,
+            execution_stream=execution_stream,
+            execution_timeline=timeline,
+            session_windows=windows,
+        )
 
     def _candidate_engine_config(
         self,
@@ -340,19 +481,22 @@ class UnifiedPortfolioWFARunner:
         *,
         run_scope: str,
         market_data: Dict[str, pd.DataFrame],
+        evaluation_start: pd.Timestamp,
+        evaluation_end: pd.Timestamp,
     ) -> Dict[str, Any]:
         request = self._candidate_engine_request(
             candidate,
             run_scope=run_scope,
             market_data=market_data,
+            evaluation_start=evaluation_start,
+            evaluation_end=evaluation_end,
         )
         strategy_config = strategy_run_from_engine_request(request)
         portfolio_config = UnifiedBacktestRunnerBacktester._portfolio_config_from_normalized(
             strategy_config
         )
-        candidate_id = str(candidate.get("candidate_id") or "").strip()
-        if candidate_id:
-            portfolio_config["strategy_id"] = candidate_id
+        candidate_id = validate_canonical_candidate_id(candidate.get("candidate_id"))
+        portfolio_config["strategy_id"] = candidate_id
         resolved_params = candidate.get("params")
         if isinstance(resolved_params, dict) and resolved_params:
             portfolio_config["resolved_params"] = dict(resolved_params)
@@ -367,14 +511,19 @@ class UnifiedPortfolioWFARunner:
         *,
         run_scope: str,
         market_data: Dict[str, pd.DataFrame],
+        evaluation_start: pd.Timestamp,
+        evaluation_end: pd.Timestamp,
     ) -> Dict[str, Any]:
         config = copy.deepcopy(candidate.get("config") or self.strategy_config)
         platform = dict(config.get("platform") or {})
         platform["workflow_id"] = self.workflow_id
         config["platform"] = platform
         params = candidate.get("params") if isinstance(candidate.get("params"), dict) else {}
-        window = self._engine_request_window(market_data)
-        candidate_id = str(candidate.get("candidate_id") or "candidate")
+        window = {
+            "start": evaluation_start.strftime("%Y-%m-%d"),
+            "end": evaluation_end.strftime("%Y-%m-%d"),
+        }
+        candidate_id = validate_canonical_candidate_id(candidate.get("candidate_id"))
         request_id = (
             f"{candidate_id}:{run_scope}:"
             f"{window['start']}:{window['end']}"
@@ -408,8 +557,17 @@ class UnifiedPortfolioWFARunner:
         candidate: Dict[str, Any],
         train_result: Any,
         train_size: int,
+        evaluation_start: pd.Timestamp,
+        evaluation_end: pd.Timestamp,
     ) -> Dict[str, Any]:
-        metrics = self._metrics(train_result.equity_curve)
+        metrics = self._metrics(
+            train_result.equity_curve,
+            evaluation_start=evaluation_start,
+            evaluation_end=evaluation_end,
+            candidate_id=validate_canonical_candidate_id(
+                candidate.get("candidate_id")
+            ),
+        )
         viability = self._candidate_viability(
             candidate=candidate,
             train_result=train_result,
@@ -436,20 +594,21 @@ class UnifiedPortfolioWFARunner:
         domains = self.strategy_config.get("parameter_domains", {})
         raw_metadata = self.strategy_config.get("metadata")
         metadata = dict(raw_metadata) if isinstance(raw_metadata, dict) else {}
-        base_id = str(metadata.get("strategy_id") or "unified_portfolio_wfa")
+        base_id = validate_base_strategy_id(metadata.get("strategy_id"))
+        workflow_id = self.workflow_id
         if not isinstance(domains, dict) or not domains:
             return [
                 {
                     "config": copy.deepcopy(self.strategy_config),
                     "params": {},
-                    "candidate_id": base_id,
+                    "candidate_id": canonical_candidate_id(base_id, workflow_id),
                 }
             ]
         combinations = expand_parameter_combinations(domains)
         candidates: List[Dict[str, Any]] = []
         for params in combinations:
-            suffix = "_".join(f"{key}_{self._slug(value)}" for key, value in params.items())
-            candidate_id = f"{base_id}_{suffix}" if suffix else base_id
+            suffix = canonical_parameter_suffix(params)
+            candidate_id = canonical_candidate_id(base_id, workflow_id, suffix)
             candidates.append(
                 {
                     "config": copy.deepcopy(self.strategy_config),
@@ -622,8 +781,9 @@ class UnifiedPortfolioWFARunner:
         }
 
     def _windows(self) -> List[Dict[str, pd.Timestamp]]:
-        close_index = pd.to_datetime(self.market_data["close"].index).tz_localize(None).normalize()
-        close_index = pd.DatetimeIndex(sorted(close_index.unique()))
+        close_index = pd.DatetimeIndex(
+            pd.to_datetime(self._ordered_session_labels, format="%Y-%m-%d")
+        )
         windowing = self.wfa_config.get("windowing", {}) if isinstance(self.wfa_config.get("windowing"), dict) else {}
         total = len(close_index)
         target_count = self._positive_int(windowing.get("target_window_count"), default=10)
@@ -725,17 +885,202 @@ class UnifiedPortfolioWFARunner:
             "requested_test_ratio": test_ratio,
             "strategy_max_lookback": strategy_lookback,
             "auto_indicators": auto_indicators,
+            "train_warmup_policy": "use_available_pre_window_history_and_report_completeness",
         }
         return windows
 
-    def _slice_market_data(self, start: pd.Timestamp, end: pd.Timestamp) -> Dict[str, pd.DataFrame]:
+    def _slice_market_data(
+        self,
+        start: pd.Timestamp,
+        end: pd.Timestamp,
+        *,
+        warmup_sessions: int = 0,
+    ) -> Dict[str, pd.DataFrame]:
+        start_label = start.strftime("%Y-%m-%d")
+        end_label = end.strftime("%Y-%m-%d")
+        try:
+            start_position = self._ordered_session_labels.index(start_label)
+            end_position = self._ordered_session_labels.index(end_label)
+        except ValueError as exc:
+            raise ValueError("WFA window is not present in the typed session timeline") from exc
+        if start_position > end_position:
+            raise ValueError("WFA window start must not be after window end")
+        warmup_start = max(0, start_position - max(0, int(warmup_sessions)))
+        included_labels = set(
+            self._ordered_session_labels[warmup_start : end_position + 1]
+        )
+        row_mask = self.execution_timeline["session_label"].astype(str).isin(
+            included_labels
+        )
         sliced: Dict[str, pd.DataFrame] = {}
         for key, frame in self.market_data.items():
-            normalized = frame.copy()
-            normalized.index = pd.to_datetime(normalized.index).tz_localize(None).normalize()
-            mask = (normalized.index >= start) & (normalized.index <= end)
-            sliced[key] = normalized.loc[mask].copy()
+            if not frame.index.equals(self.execution_timeline.index):
+                raise ValueError(
+                    f"WFA market-data field {key} does not align with execution timeline"
+                )
+            sliced[key] = frame.loc[row_mask.to_numpy()].copy()
         return sliced
+
+    @staticmethod
+    def _validated_ordered_session_labels(values: pd.Series) -> List[str]:
+        labels = values.astype(str).tolist()
+        if not labels:
+            raise ValueError("WFA execution timeline has no session labels")
+        ordered: List[str] = []
+        previous = ""
+        for label in labels:
+            try:
+                canonical = pd.Timestamp(label).strftime("%Y-%m-%d") == label
+            except (TypeError, ValueError):
+                canonical = False
+            if not canonical or (previous and label < previous):
+                raise ValueError(
+                    "WFA execution timeline requires ordered canonical session labels"
+                )
+            if not ordered or ordered[-1] != label:
+                ordered.append(label)
+            previous = label
+        return ordered
+
+    def _evaluation_session_count(
+        self, start: pd.Timestamp, end: pd.Timestamp
+    ) -> int:
+        start_label = start.strftime("%Y-%m-%d")
+        end_label = end.strftime("%Y-%m-%d")
+        return sum(start_label <= label <= end_label for label in self._ordered_session_labels)
+
+    def _required_warmup_sessions(self, evaluation_start: pd.Timestamp) -> Dict[str, Any]:
+        lookback = self._strategy_max_lookback_days(self.strategy_config)
+        start_label = evaluation_start.strftime("%Y-%m-%d")
+        try:
+            start_position = self._ordered_session_labels.index(start_label)
+        except ValueError as exc:
+            raise ValueError("WFA evaluation start is not a typed session label") from exc
+        decision_stream = self._bound_decision_stream()
+        source_value = decision_stream.get("source")
+        source: Dict[str, Any] = source_value if isinstance(source_value, dict) else {}
+        bar_spec_value = decision_stream.get("bar_spec")
+        bar_spec: Dict[str, Any] = (
+            bar_spec_value if isinstance(bar_spec_value, dict) else {}
+        )
+        unit = str(bar_spec.get("unit") or "")
+        step = max(1, int(bar_spec.get("step") or 1))
+        if lookback <= 0:
+            required = 0
+            available_units = 0
+            method = "no_lookback"
+        elif str(source.get("kind") or "") == "external":
+            required = min(lookback, start_position)
+            available_units = start_position
+            method = "external_stream_rows"
+        elif unit in {"week", "month"}:
+            start = pd.Timestamp(start_label)
+            threshold = (
+                start - pd.DateOffset(weeks=step * lookback)
+                if unit == "week"
+                else start - pd.DateOffset(months=step * lookback)
+            )
+            earlier = [
+                pd.Timestamp(label)
+                for label in self._ordered_session_labels[:start_position]
+                if pd.Timestamp(label) >= threshold
+            ]
+            required = len(earlier)
+            available_units = self._calendar_period_count(
+                self._ordered_session_labels[:start_position],
+                unit=unit,
+                step=step,
+            )
+            method = f"calendar_{unit}_span"
+        elif unit in {"day", "session"}:
+            required = min(lookback, start_position)
+            available_units = start_position
+            method = "derived_session_bars"
+        else:
+            counts = self.execution_timeline.iloc[:][
+                "session_label"
+            ].astype(str).value_counts(sort=False)
+            required = 0
+            available_units = 0
+            for label in reversed(self._ordered_session_labels[:start_position]):
+                required += 1
+                available_units += self._derived_intraday_bar_count(
+                    int(counts.get(label, 0)),
+                    decision_bar_spec=bar_spec,
+                    decision_source=source,
+                )
+                if available_units >= lookback:
+                    break
+            method = "typed_intraday_bar_capacity"
+        complete = available_units >= lookback
+        return {
+            "schema_version": "wfa_warmup_projection.v1",
+            "evaluation_start_session": start_label,
+            "decision_stream_id": str(decision_stream.get("stream_id") or ""),
+            "decision_bar_spec": copy.deepcopy(bar_spec),
+            "strategy_max_lookback_bars": lookback,
+            "projection_method": method,
+            "required_execution_sessions": required,
+            "available_decision_bars_or_periods": available_units,
+            "complete": complete,
+        }
+
+    def _bound_decision_stream(self) -> Dict[str, Any]:
+        data_value = self.strategy_config.get("data")
+        data: Dict[str, Any] = data_value if isinstance(data_value, dict) else {}
+        bar_time_value = data.get("bar_time")
+        bar_time: Dict[str, Any] = (
+            bar_time_value if isinstance(bar_time_value, dict) else {}
+        )
+        streams = bar_time.get("streams")
+        binding_value = data.get("stream_binding")
+        binding: Dict[str, Any] = (
+            binding_value if isinstance(binding_value, dict) else {}
+        )
+        decision_id = str(binding.get("decision_stream_id") or "")
+        for stream in streams if isinstance(streams, list) else []:
+            if isinstance(stream, dict) and stream.get("stream_id") == decision_id:
+                return stream
+        raise ValueError("WFA typed decision stream is missing")
+
+    def _derived_intraday_bar_count(
+        self,
+        execution_rows: int,
+        *,
+        decision_bar_spec: Dict[str, Any],
+        decision_source: Dict[str, Any],
+    ) -> int:
+        execution_stream = self.market_data_bundle.read_manifest()["execution_stream"]
+        execution_spec = execution_stream["bar_spec"]
+        duration = {"minute": 1, "hour": 60}
+        execution_minutes = duration.get(str(execution_spec.get("unit") or ""))
+        decision_minutes = duration.get(str(decision_bar_spec.get("unit") or ""))
+        if not execution_minutes or not decision_minutes:
+            raise ValueError("WFA intraday warmup requires typed minute/hour BarSpec")
+        source_minutes = execution_rows * execution_minutes * int(
+            execution_spec.get("step") or 1
+        )
+        target_minutes = decision_minutes * int(decision_bar_spec.get("step") or 1)
+        complete, remainder = divmod(source_minutes, target_minutes)
+        if remainder and decision_source.get("partial_final_bar_policy") == "emit":
+            complete += 1
+        return int(complete)
+
+    @staticmethod
+    def _calendar_period_count(
+        labels: List[str], *, unit: str, step: int
+    ) -> int:
+        if not labels:
+            return 0
+        periods = {
+            (
+                pd.Timestamp(label).to_period("W").ordinal // step
+                if unit == "week"
+                else pd.Timestamp(label).to_period("M").ordinal // step
+            )
+            for label in labels
+        }
+        return len(periods)
 
     def _select_candidate(self, train_results: List[Dict[str, Any]], objective: str) -> Dict[str, Any]:
         metric_key = self._objective_metric_key(objective)
@@ -946,6 +1291,7 @@ class UnifiedPortfolioWFARunner:
         if not isinstance(equity_curve, pd.DataFrame) or equity_curve.empty:
             raise ValueError("WFA requires a non-empty canonical equity_curve")
         required = {
+            "Session_label",
             "Equity_value",
             "Portfolio_return",
             "Turnover",
@@ -985,7 +1331,7 @@ class UnifiedPortfolioWFARunner:
 
         validated = equity_curve.copy()
         numeric_columns = sorted(
-            required
+            (required - {"Session_label"})
             | {f"Weight_{asset}" for asset in weight_assets}
             | {f"Contribution_{asset}" for asset in contribution_assets}
         )
@@ -998,6 +1344,12 @@ class UnifiedPortfolioWFARunner:
             validated[column] = values.astype(float)
         if (validated["Equity_value"] <= 0.0).any():
             raise ValueError("WFA equity_curve contains non-positive Equity_value")
+        session_labels = validated["Session_label"].astype(str)
+        if session_labels.str.fullmatch(r"\d{4}-\d{2}-\d{2}").ne(True).any():
+            raise ValueError("WFA equity_curve contains invalid Session_label")
+        if session_labels.tolist() != sorted(session_labels.tolist()):
+            raise ValueError("WFA equity_curve Session_label values are not ordered")
+        validated["Session_label"] = session_labels
         return validated
 
     @staticmethod
@@ -1086,17 +1438,39 @@ class UnifiedPortfolioWFARunner:
             "wfa_row_type": "candidate_diagnostic",
         }
 
-    @staticmethod
-    def _metrics(equity_curve: pd.DataFrame) -> Dict[str, Optional[float]]:
+    def _metrics(
+        self,
+        equity_curve: pd.DataFrame,
+        *,
+        evaluation_start: pd.Timestamp,
+        evaluation_end: pd.Timestamp,
+        candidate_id: str,
+    ) -> Dict[str, Optional[float]]:
         if equity_curve.empty or "Equity_value" not in equity_curve.columns:
             raise ValueError("WFA metrics require a non-empty canonical equity curve")
         from metricstracker.RustMetrics_metricstracker import compute_metrics_for_frame
 
+        validated = self._validated_equity_contract(equity_curve)
+        labels = validated["Session_label"].astype(str)
+        start_label = evaluation_start.strftime("%Y-%m-%d")
+        end_label = evaluation_end.strftime("%Y-%m-%d")
+        evaluation = validated.loc[
+            (labels >= start_label) & (labels <= end_label)
+        ].copy()
+        if evaluation.empty:
+            raise ValueError("WFA evaluation window has no canonical equity rows")
         row = compute_metrics_for_frame(
-            equity_curve,
-            time_unit=252,
-            risk_free_rate=0.0,
+            evaluation,
+            time_unit=int(self.metric_config["time_unit"]),
+            risk_free_rate=float(self.metric_config["risk_free_rate"]),
+            backtest_id=validate_canonical_candidate_id(candidate_id),
         )
+        annualization = row.get("Annualization")
+        if not isinstance(annualization, dict):
+            raise ValueError("WFA Rust metrics did not return annualization evidence")
+        if self._metrics_annualization and self._metrics_annualization != annualization:
+            raise ValueError("WFA Rust metrics annualization contract changed within one run")
+        self._metrics_annualization = copy.deepcopy(annualization)
 
         def required_finite(metric_name: str) -> float:
             parsed = UnifiedPortfolioWFARunner._finite_float(row.get(metric_name))
@@ -1231,16 +1605,7 @@ class UnifiedPortfolioWFARunner:
 
     @staticmethod
     def _semantic_combo_suffix(params: Dict[str, Any]) -> str:
-        combo = params or {"policy": "fixed"}
-        return "_".join(
-            f"{key}_{UnifiedPortfolioWFARunner._slug_value(value)}"
-            for key, value in sorted(combo.items())
-        )
-
-    @staticmethod
-    def _slug_value(value: Any) -> str:
-        text = str(value).strip().lower()
-        return "".join(char if char.isalnum() else "_" for char in text).strip("_")
+        return canonical_parameter_suffix(params)
 
     @staticmethod
     def _candidate_cache_key(candidate: Dict[str, Any]) -> str:
@@ -1275,11 +1640,16 @@ class UnifiedPortfolioWFARunner:
     ) -> None:
         if result is None:
             return
-        result.strategy_id = backtest_id
+        candidate_id = validate_canonical_candidate_id(
+            getattr(result, "strategy_id", "")
+        )
         config = getattr(result, "config", None)
         if not isinstance(config, dict):
-            return
-        config["strategy_id"] = backtest_id
+            raise ValueError("WFA window result config is required")
+        if str(config.get("strategy_id") or "") != candidate_id:
+            raise ValueError(
+                "WFA window Python strategy_id does not match Rust candidate_id"
+            )
         config["resolved_params"] = dict(params or {})
         metadata = config.get("metadata")
         if not isinstance(metadata, dict):
@@ -1287,6 +1657,8 @@ class UnifiedPortfolioWFARunner:
         metadata.update(
             {
                 "source_workflow": str(workflow or "walk_forward_analysis"),
+                "candidate_id": candidate_id,
+                "backtest_id": str(backtest_id),
                 "wfa_window_id": int(window_id),
                 "wfa_objective": str(objective),
                 "train_start": str(window.get("train_start")),

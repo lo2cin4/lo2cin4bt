@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lo2cin4bt.local/contracts/runtime/run-failure-v1.schema.json",
+  "title": "Run Failure v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "error_code",
+    "stage",
+    "provider",
+    "message",
+    "details",
+    "action"
+  ],
+  "properties": {
+    "schema_version": {"const": "run_failure.v1"},
+    "error_code": {"type": "string", "minLength": 1},
+    "stage": {"type": "string", "minLength": 1},
+    "provider": {"type": "string", "minLength": 1},
+    "message": {"type": "string", "minLength": 1},
+    "details": {"type": "object"},
+    "action": {"const": "fix_data_or_config"}
+  }
+}

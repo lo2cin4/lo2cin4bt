@@ -46,7 +46,7 @@
     {
       "name": "metrics_overview_payload.json",
       "path": "outputs/app/chart_payloads/20260414_b7c3d8129f4a/metrics_overview_payload.json",
-      "schema_version": "1.27",
+      "schema_version": "1.28",
       "contract_id": "lo2cin4bt-app-portfolio-metrics-overview-payload-v1",
       "top_level_keys": ["rows", "strategy_summary"]
     }
@@ -54,7 +54,7 @@
   "snapshot_index": [],
   "source_payloads": {
     "metrics_overview_payload": {
-      "schema_version": "1.27",
+      "schema_version": "1.28",
       "rows": [{"total_return": 0.12, "new_future_score": 1.7}]
     }
   },

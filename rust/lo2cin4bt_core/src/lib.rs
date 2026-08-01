@@ -4,8 +4,12 @@
 //! keep orchestrating data loading and UI payloads while this crate owns typed
 //! contracts and the sequential accounting state machine.
 
+#![recursion_limit = "256"]
+
 pub mod accounting;
 mod artifact_tables;
+pub mod bar_aggregation;
+pub mod candidate_identity;
 pub mod computed_fields;
 pub mod config;
 pub mod daily_rank;
@@ -19,6 +23,7 @@ pub mod plot;
 pub mod result_validator;
 pub mod risk;
 pub mod selection;
+mod session_progress;
 pub mod signal_timeline;
 pub mod simulation;
 pub mod timeline;
@@ -26,6 +31,15 @@ pub mod timeline;
 pub use accounting::{
     run_accounting, AccountingConfig, AccountingEvent, AccountingInput, AccountingRiskGateConfig,
     AccountingSummary, CheckpointInput,
+};
+pub use bar_aggregation::{
+    aggregate_time_bars, next_eligible_execution_bar, AggregationRequest, BarAggregationError,
+    BarAlignment, BarSpec, BarUnit, DerivedBar, DerivedBarLineage, EventOrderingKey,
+    ExecutionBarIndex, LifecycleStage, PartialBarPolicy, SessionWindow, SourceBar,
+};
+pub use candidate_identity::{
+    canonical_parameter_suffix, parse_candidate_id, validate_base_strategy_id,
+    FIXED_PARAMETER_SUFFIX,
 };
 pub use computed_fields::returns::{
     period_return_series, session_return_series, PeriodReturnSeries, ReturnSeriesError,
@@ -45,13 +59,22 @@ pub use detail::{
     BacktestDetailProjectionInput, BACKTEST_DETAIL_SCHEMA_VERSION,
 };
 pub use engine_request::{
-    AccountRequestV1, AccountType, BalanceMode, BookType, ClockMode, ClockRequestV1,
-    DataRequirementsV1, DecisionPlanV1, DuplicateTimePolicy, EngineRequestV1, EventOrdering,
-    EventTieBreaker, MarketDataBundleV1, MarketDataIndexKind, MarketDataLineageV1,
-    MarketDataOrdering, MarketDataQualityV1, MarketDataRole, MarketDataTableV1,
-    MarketDataTimeSemanticsV1, MarketDataTransport, MissingValuePolicy, OperationId,
-    OutOfOrderPolicy, OutputRequestV1, PositionMode, RequestLineageV1, RequestWindowV1,
-    RoutingMode, RunScopeId, SimulationRequestV1, StaleValuePolicy, StrategyRequestV1,
+    AccountRequestV1, AccountType, AggregationEngineV1, BalanceMode, BarAggregationKindV1,
+    BarAvailabilityPolicyV1, BarClockV1, BarIntervalBoundaryV1, BarOrderingV1, BarPriceBasisV1,
+    BarPriceModelV1, BarPriceTypeV1, BarSessionModelV1, BarSessionScopeV1, BarStreamRoleV1,
+    BarStreamSourceV1, BarStreamV1, BarTimeContractV1, BarTimeStandardV1, BarTimestampConventionV1,
+    BarTimestampModelV1, BarTimestampPrecisionV1, BarTimestampSemanticsV1, BookType, ClockMode,
+    ClockRequestV1, ContractBarAlignmentV1, ContractBarSpecV1, ContractBarUnitV1,
+    CorporateActionPolicyV1, DataRequirementsV2, DecisionPlanV1, DuplicateTimePolicy,
+    EmptyBarPolicyV1, EngineRequestV2, EventOrdering, EventTieBreaker, FinalPartialBarPolicyV1,
+    MarketDataBundleV2, MarketDataExecutionRoleV2, MarketDataExecutionStreamV2,
+    MarketDataExternalSourceKindV2, MarketDataExternalSourceV2, MarketDataIndexKind,
+    MarketDataLineageV2, MarketDataMissingValuePolicyV2, MarketDataOhlcvBindingsV2,
+    MarketDataOutOfOrderPolicyV2, MarketDataQualityV2, MarketDataRoleV2, MarketDataSessionWindowV2,
+    MarketDataTableV2, MarketDataTimestampSemanticsV2, MarketDataTransportV2,
+    NonSessionBarPolicyV1, OperationId, OutputRequestV1, PartialBarPolicyV1, PositionMode,
+    RequestLineageV1, RequestWindowV1, RoutingMode, RunScopeId, SessionLabelPolicy,
+    SimulationRequestV2, StaleValuePolicy, StrategyRequestV2, StrategyStreamBindingV1,
     TimelineActionId, VenueRequestV1, WorkflowRequestV1,
 };
 pub use engine_runtime::{
@@ -70,8 +93,10 @@ pub use plot::{
     PlotProjectionInput, PlotSeries, PLOT_BUNDLE_SCHEMA_VERSION,
 };
 pub use result_validator::{
-    validate_result_tables, ResultCheckStatus, ResultTableView, ResultValidationCheck,
-    ResultValidationError, ResultValidationReport, RESULT_VALIDATION_SCHEMA_VERSION,
+    validate_bar_time_audit, validate_result_tables, BarTimeExpectedAggregationLineage,
+    BarTimeExpectedDecisionEvidence, BarTimeTrustedActionEvidence, BarTimeValidationContext,
+    ResultCheckStatus, ResultTableView, ResultValidationCheck, ResultValidationError,
+    ResultValidationReport, RESULT_VALIDATION_SCHEMA_VERSION,
 };
 pub use risk::{
     canonical_stateful_action, RiskControlError, RiskControlState, RiskRunMode, FLATTEN_ACTION,

@@ -25,7 +25,8 @@ def test_metrics_parquet_uses_explicit_external_benchmark(tmp_path: Path) -> Non
     pd.DataFrame(
         {
             "Time": ["2024-01-01", "2024-01-02", "2024-01-03"],
-            "Backtest_id": ["candidate-a"] * 3,
+            "Session_label": ["2024-01-01", "2024-01-02", "2024-01-03"],
+            "Backtest_id": ["benchmark_probe:single_backtest:fixed"] * 3,
             "Equity_value": [100.0, 120.0, 110.0],
         }
     ).to_parquet(source_path, index=False)
@@ -77,7 +78,7 @@ def _portfolio_contract_run(
     matrix_rows = []
     trade_rows = []
     for index in range(6):
-        backtest_id = f"candidate-{index}"
+        backtest_id = f"result_contract:parameter_matrix:index_{index}"
         series.append(
             {
                 "series_id": backtest_id,
@@ -93,11 +94,21 @@ def _portfolio_contract_run(
                 "Sharpe": float(index),
                 "Max_drawdown": -0.1,
                 "BAH_Total_return": 0.02,
+                "Annualization": {
+                    "schema_version": "metrics_annualization.v1",
+                    "basis": "session_close_projection",
+                    "projection_policy": "last_accepted_equity_per_session",
+                    "periods_per_year": 252,
+                    "risk_free_rate_annual": 0.0,
+                },
+                "Projected_session_count": 2,
+                "Projected_return_interval_count": 1,
             }
         )
         matrix_rows.append(
             {
                 "backtest_id": backtest_id,
+                "strategy_id": backtest_id,
                 "label": backtest_id,
                 "result_type": "portfolio",
                 "result_materialization": "full",
@@ -232,11 +243,17 @@ def test_rust_detail_contract_projects_rich_portfolio_fields() -> None:
     payload = bridge.run_backtest_detail_bundle_via_cli(
         {
             "run_id": "run-portfolio",
-            "backtest_id": "candidate-a",
+            "backtest_id": "result_contract:parameter_matrix:detail",
             "label": "Candidate A",
             "asset": "PORTFOLIO_NAV",
             "result_type": "portfolio",
             "time": ["2024-01-02", "2024-01-31", "2024-02-01", "2024-02-29"],
+            "session_labels": [
+                "2024-01-02",
+                "2024-01-31",
+                "2024-02-01",
+                "2024-02-29",
+            ],
             "open": [100.0, 110.0, 105.0, 120.0],
             "high": [100.0, 110.0, 105.0, 120.0],
             "low": [100.0, 110.0, 105.0, 120.0],
@@ -276,7 +293,18 @@ def test_rust_detail_contract_projects_rich_portfolio_fields() -> None:
             "risk_gate_summary": {"event_count": 0, "enabled": False},
             "ohlc_by_asset": {},
             "benchmark_label": "SPY Buy & Hold",
-            "metrics_matrix": {"Sharpe": 1.0},
+            "metrics_matrix": {
+                "total_return": 0.2,
+                "cagr": 0.2,
+                "sharpe": 1.0,
+                "max_drawdown": -0.045454545,
+                "trade_count": 2,
+                "avg_holdings": 1.0,
+                "avg_gross_exposure": 1.0,
+                "avg_turnover": 0.75,
+                "annualized_std": 0.25,
+                "sortino": 1.5,
+            },
             "source_hashes": ["a" * 64],
             "artifact_source_refs": ["canonical.json"],
             "generated_at": "2026-07-12T00:00:00Z",

@@ -77,8 +77,20 @@ fn validate_prices(prices: &[f64], field: &'static str) -> Result<(), ReturnSeri
     Ok(())
 }
 
-fn simple_return(current: f64, previous: f64) -> f64 {
+pub fn simple_return(current: f64, previous: f64) -> f64 {
     current / previous - 1.0
+}
+
+pub fn annualized_return(total_return: f64, years: f64) -> f64 {
+    if years <= 0.0 || !years.is_finite() {
+        f64::NAN
+    } else {
+        (1.0 + total_return).powf(1.0 / years) - 1.0
+    }
+}
+
+pub fn excess_return(strategy_return: f64, benchmark_return: f64) -> f64 {
+    strategy_return - benchmark_return
 }
 
 fn logarithmic_return(current: f64, previous: f64) -> f64 {
@@ -141,5 +153,17 @@ mod tests {
                 row: 1
             })
         );
+    }
+
+    #[test]
+    fn annualized_return_is_centralized_and_fails_closed_for_invalid_years() {
+        assert_abs_diff_eq!(
+            annualized_return(0.21, 2.0),
+            1.21_f64.sqrt() - 1.0,
+            epsilon = 1e-12
+        );
+        assert!(annualized_return(0.21, 0.0).is_nan());
+        assert!(annualized_return(0.21, f64::NAN).is_nan());
+        assert_abs_diff_eq!(excess_return(0.12, 0.05), 0.07, epsilon = 1e-12);
     }
 }

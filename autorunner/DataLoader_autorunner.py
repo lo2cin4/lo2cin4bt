@@ -9,8 +9,8 @@ from typing import Any, Dict, Optional, Tuple
 import pandas as pd
 
 from autorunner.utils import get_console
-from backtester.timeframe_utils import is_subdaily_timeframe
-from dataloader.market_data_bundle import MarketDataBundle, build_market_data_bundle
+from backtester.timeframe_contracts import validate_bar_time_contract
+from dataloader.market_data_bundle import MarketDataBundle
 from dataloader.market_data_loader import (
     MultiAssetMarketDataLoader,
     market_data_spec_from_requirements,
@@ -29,7 +29,8 @@ class DataLoaderAutorunner:
     def __init__(self, logger: Optional[logging.Logger] = None):
         self.logger = logger or logging.getLogger("DataLoaderAutorunner")
         self.data: Optional[pd.DataFrame] = None
-        self.frequency: Optional[str] = None
+        self.execution_stream_id: Optional[str] = None
+        self.bar_spec: Optional[Dict[str, Any]] = None
         self.source: Optional[str] = None
         self.loading_summary: Dict[str, Any] = {}
         self.project_root = Path(__file__).resolve().parent.parent
@@ -49,27 +50,23 @@ class DataLoaderAutorunner:
         requirements = engine_request.get("data_requirements")
         if not isinstance(requirements, dict):
             raise ValueError("EngineRequest data_requirements must be an object")
-        spec = market_data_spec_from_requirements(requirements)
+        strategy = engine_request.get("strategy")
+        if not isinstance(strategy, dict):
+            raise ValueError("EngineRequest strategy must be an object")
+        stream_binding = strategy.get("stream_binding")
+        if not isinstance(stream_binding, dict):
+            raise ValueError("EngineRequest strategy.stream_binding must be an object")
+        spec = market_data_spec_from_requirements(requirements, stream_binding)
         bundle = MultiAssetMarketDataLoader(repo_root=self.project_root).load_bundle(
             spec,
             output_root=output_root,
             config_file_path=config_file_path,
         )
-        factor_pipeline = (
-            engine_request.get("strategy", {})
-            .get("decision_plan", {})
-            .get("factor_pipeline", {})
-        )
-        if factor_pipeline:
-            bundle = self._materialize_factor_bundle(
-                bundle,
-                factor_pipeline=factor_pipeline,
-                spec=spec,
-                output_root=output_root,
-            )
         bundle.validate_against_engine_request(engine_request)
         manifest = bundle.read_manifest()
-        self.frequency = str(manifest["frequency"])
+        execution_stream = manifest["execution_stream"]
+        self.execution_stream_id = str(execution_stream["stream_id"])
+        self.bar_spec = dict(execution_stream["bar_spec"])
         self.source = str(manifest["lineage"]["provider"])
         self.loading_summary = {
             "schema_version": manifest["schema_version"],
@@ -78,40 +75,11 @@ class DataLoaderAutorunner:
             "symbols": list(manifest["symbols"]),
             "row_count": int(manifest["row_count"]),
             "time_range": dict(manifest["time_range"]),
+            "execution_stream_id": self.execution_stream_id,
+            "bar_spec": dict(self.bar_spec),
             "manifest_path": str(bundle.manifest_path),
         }
         return bundle
-
-    @staticmethod
-    def _materialize_factor_bundle(
-        bundle: MarketDataBundle,
-        *,
-        factor_pipeline: Dict[str, Any],
-        spec: Dict[str, Any],
-        output_root: Path,
-    ) -> MarketDataBundle:
-        from factorhandler import FactorHandler
-
-        frames = bundle.load_frames()
-        result = FactorHandler(frames, factor_pipeline).run()
-        produced: Dict[str, pd.DataFrame] = {}
-        for collection in (
-            result.factor_frame,
-            result.clean_factor_frame,
-            result.factor_score_frame,
-        ):
-            for raw_name, frame in collection.items():
-                name = str(raw_name).strip().lower()
-                if name in frames:
-                    raise ValueError(f"Factor pipeline produced duplicate market field: {name}")
-                produced[name] = frame
-        if not produced:
-            raise ValueError("Factor pipeline did not produce any market fields")
-        return build_market_data_bundle(
-            {**frames, **produced},
-            spec={**spec, "point_in_time": True},
-            output_root=output_root,
-        )
 
     def load_data(self, config: Dict[str, Any]) -> Optional[pd.DataFrame]:
         """Prepare the unified runner boundary; market frames come from MarketDataBundle."""
@@ -121,24 +89,48 @@ class DataLoaderAutorunner:
                 "Legacy single-asset dataloader configs are no longer supported. "
                 "Use a strategy_run config with data/universe sections."
             )
-        for field_name in ("frequency", "interval"):
-            value = config.get(field_name)
-            if is_subdaily_timeframe(value):
-                raise ValueError(
-                    "multi_asset/session-level portfolio runtime only supports daily-or-slower bars; "
-                    f"{field_name}={value!r} is not supported"
-                )
+        legacy_fields = sorted(
+            {"frequency", "interval", "calendar", "timezone"} & set(config)
+        )
+        if legacy_fields:
+            raise ValueError(
+                "DataLoaderAutorunner rejects legacy time fields: "
+                + ", ".join(legacy_fields)
+            )
+        execution_stream = self._execution_stream_contract(config)
         self.data = pd.DataFrame()
-        self.frequency = str(config.get("frequency") or config.get("interval") or "1D")
+        self.execution_stream_id = str(execution_stream["stream_id"])
+        self.bar_spec = dict(execution_stream["bar_spec"])
         self.source = source
         self._update_loading_summary(config)
         return self.data
+
+    @staticmethod
+    def _execution_stream_contract(config: Dict[str, Any]) -> Dict[str, Any]:
+        bar_time = config.get("bar_time")
+        if not isinstance(bar_time, dict):
+            raise ValueError("DataLoaderAutorunner requires typed bar_time")
+        validate_bar_time_contract(bar_time)
+        binding = config.get("stream_binding")
+        if not isinstance(binding, dict):
+            raise ValueError("DataLoaderAutorunner requires stream_binding")
+        execution_stream_id = str(binding.get("execution_stream_id") or "")
+        for stream in bar_time["streams"]:
+            if (
+                stream.get("stream_id") == execution_stream_id
+                and stream.get("role") == "execution"
+            ):
+                return dict(stream)
+        raise ValueError(
+            "stream_binding.execution_stream_id must reference the execution stream"
+        )
 
     def _update_loading_summary(self, config: Dict[str, Any]) -> None:
         data = self.data
         self.loading_summary = {
             "source": self.source,
-            "frequency": self.frequency,
+            "execution_stream_id": self.execution_stream_id,
+            "bar_spec": dict(self.bar_spec or {}),
             "data_shape": data.shape if data is not None else (0, 0),
             "columns": list(data.columns) if data is not None else [],
             "date_range": self._get_date_range(),
@@ -170,7 +162,8 @@ class DataLoaderAutorunner:
             "DATALOADER",
             "Data loading summary:\n"
             f"   source: {self.loading_summary.get('source', 'N/A')}\n"
-            f"   frequency: {self.loading_summary.get('frequency', 'N/A')}\n"
+            f"   execution stream: {self.loading_summary.get('execution_stream_id', 'N/A')}\n"
+            f"   bar spec: {self.loading_summary.get('bar_spec', {})}\n"
             f"   rows x columns: {shape}\n"
             f"   date range: {self.loading_summary.get('date_range', ('N/A', 'N/A'))}\n"
             f"   predictor: {self.loading_summary.get('predictor_column', 'N/A')}",

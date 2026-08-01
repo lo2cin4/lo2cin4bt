@@ -307,6 +307,7 @@ class AppBatchScheduler:
                 payload_module = "statanalyser"
             run_id = result.get("run_id")
             status = str(result.get("status", "completed"))
+            failure = result.get("failure")
             with self._lock:
                 live_job = self._locate_job(batch_id, job_id)
                 if live_job is not None and live_job.get("cancel_requested"):
@@ -333,6 +334,12 @@ class AppBatchScheduler:
                         "run_id": run_id,
                         "semantic_label": registry_entry.get("semantic_label"),
                     }
+                    if isinstance(failure, dict):
+                        live_job["failure"] = failure
+                        live_job["error"] = (
+                            f"{failure.get('error_code', 'run_failure')}: "
+                            f"{failure.get('message', 'run failed')}"
+                        )
                     self._append_event(
                         batch_id,
                         "job_finished",

@@ -64,7 +64,7 @@ def test_every_workspace_strategy_config_compiles_to_engine_request() -> None:
         raw = json.loads(path.read_text(encoding="utf-8-sig"))
         normalized = normalize_strategy_run_config(raw, source_path=path)
         request = build_engine_request(normalized)
-        assert request["schema_version"] == "engine_request.v1", path.name
+        assert request["schema_version"] == "engine_request.v2", path.name
         assert request["outputs"]["result_contract"] == (
             "canonical_result_bundle.v1"
         ), path.name
@@ -95,6 +95,31 @@ def test_frontend_api_paths_have_backend_routes() -> None:
         if normalized not in backend_routes:
             missing.append(normalized)
     assert missing == []
+
+
+def test_frontend_requested_artifacts_are_never_silently_substituted() -> None:
+    pages_root = REPO_ROOT / "plotter" / "web" / "src" / "pages"
+    page_sources = {
+        name: (pages_root / name).read_text(encoding="utf-8")
+        for name in (
+            "BacktestsPage.tsx",
+            "MetricsOverviewPage.tsx",
+            "ParameterMatrixPage.tsx",
+            "WFAPage.tsx",
+        )
+    }
+
+    for source in page_sources.values():
+        assert "(!hasResolvedRun &&" not in source
+
+    assert "fallbackRunId" not in page_sources["MetricsOverviewPage.tsx"]
+    assert "fallbackRunId" not in page_sources["WFAPage.tsx"]
+    for name in (
+        "BacktestsPage.tsx",
+        "MetricsOverviewPage.tsx",
+        "ParameterMatrixPage.tsx",
+    ):
+        assert "system will not substitute another" in page_sources[name]
 
 
 def test_payload_contract_docs_name_the_generated_parameter_payload() -> None:

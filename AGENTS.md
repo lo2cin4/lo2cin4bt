@@ -25,7 +25,7 @@ is helping with this repository.
 
 ## Useful Entry Points
 
-- App launcher: `python main.py`
+- App launcher: `uv run --locked --exact python main.py`
 - User configs: `workspace/runs/`, `workspace/wfa/`, `workspace/strategies/`
 - Repo-local Codex skill: `skills/lo2cin4bt/SKILL.md`
 - AI operation manual: `docs/ai/AI_MANUAL_SKILL.md`
@@ -33,7 +33,7 @@ is helping with this repository.
 - Install guide: `docs/INSTALL.md`
 - Runtime flow map: `docs/runtime-flow.md`
 - Naming notes: `docs/NAMING.md`
-- Runtime smoke check: `python scripts/doctor.py`
+- Runtime smoke check: `uv run --locked --exact python scripts/doctor.py`
 
 ## Public Repo Boundary
 

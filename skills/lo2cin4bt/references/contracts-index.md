@@ -18,14 +18,16 @@ Use this to find schemas and contract docs before creating or interpreting confi
 - `backtester/contracts/strategy_authoring/strategy-authoring-layers-v1.json`
 - `backtester/contracts/strategy_authoring/templates/`
 - `backtester/contracts/strategy/strategy-run.schema.json`
-- `backtester/contracts/strategy/factor-pipeline-v1.schema.json`
+- `backtester/contracts/strategy/factor-pipeline-v1.schema.json`: retired
+  fail-closed tombstone; use Rust-backed `computed_fields[]`.
 - `backtester/contracts/strategy/examples/`
 - `backtester/contracts/ops/op-spec-v1.schema.json`
 - `app/contracts/generated/op-registry-v1.json`
 - `backtester/contracts/ops/`: reviewed Rust strategy building-block registry.
-- `backtester/contracts/runtime/engine-request-v1.schema.json`
-- `backtester/contracts/runtime/market-data-bundle-v1.schema.json`
-- `backtester/contracts/runtime/examples/engine-request-profile-fixtures-v1.json`
+- `backtester/contracts/runtime/engine-request-v2.schema.json`
+- `backtester/contracts/runtime/market-data-bundle-v2.schema.json`
+- `backtester/contracts/runtime/examples/market-data-bundle-v2.example.json`
+- `backtester/contracts/runtime/examples/engine-request-profile-fixtures-v2.json`
 - `app/contracts/`
 
 ## Source Code Authorities

@@ -1,4 +1,4 @@
-# Troubleshooting lo2cin4bt 2.1.0
+# Troubleshooting lo2cin4bt 2.2.0
 
 This is the current browser-first troubleshooting guide. The app runs through
 FastAPI + React at `http://127.0.0.1:2424/`.
@@ -12,7 +12,7 @@ skills/lo2cin4bt/references/troubleshooting.md
 ## First Health Check
 
 ```bash
-python scripts/doctor.py
+uv run --locked --exact python scripts/doctor.py
 ```
 
 Expected:
@@ -33,16 +33,18 @@ cd plotter/web
 npm ci
 npm run build
 cd ../..
-python main.py
+uv run --locked --exact python main.py
 ```
 
-Why this happens: `python main.py` serves the React production build from
+Why this happens: `uv run --locked --exact python main.py` serves the React
+production build from
 `plotter/web/dist/`. A clean GitHub checkout does not include `dist/`, because it
 is a generated build artifact. The normal `scripts/setup.ps1` / `scripts/setup.sh`
 path creates it automatically unless you use the frontend-skip option.
 
-If you built `dist/` while `python main.py` was already running, stop and restart
-`python main.py`. The app only mounts `/assets` at startup, so a server that was
+If you built `dist/` while the app was already running, stop and restart
+`uv run --locked --exact python main.py`. The app only mounts `/assets` at
+startup, so a server that was
 started before `plotter/web/dist/assets/` existed can show a blank white page.
 
 Open:

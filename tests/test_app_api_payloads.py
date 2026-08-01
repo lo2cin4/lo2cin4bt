@@ -5,13 +5,79 @@ import pandas as pd
 import pytest
 
 from backtester.BacktestResult_backtester import MultiAssetBacktestResult
-from backtester.MultiAssetPortfolioExporter_backtester import MultiAssetPortfolioExporterBacktester
+from backtester.MultiAssetPortfolioExporter_backtester import (
+    MultiAssetPortfolioExporterBacktester,
+)
 from app.api.payloads import AppPayloadService
 from app.api.service import AppAPIService
 from app.runtime.module_identity import VALIDATION_WORKFLOW_CANONICAL
+from tests.support.app_api_contract_fixtures import (
+    build_portfolio_contract_run,
+    build_stat_contract_run,
+    build_wfa_contract_run,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _typed_daily_data(provider: str, **extra: object) -> dict[str, object]:
+    stream_id = "execution_daily"
+    return {
+        "provider": provider,
+        "bar_time": {
+            "schema_version": "bar_time_contract.v1",
+            "contract_id": "lo2cin4bt.bar_time_contract.v1",
+            "session_model": {
+                "calendar_id": "XNYS",
+                "timezone": "America/New_York",
+                "session_scope": "regular",
+                "session_label_policy": "exchange_local_date",
+                "non_session_bar_policy": "reject",
+            },
+            "timestamp_model": {
+                "time_standard": "UTC",
+                "precision": "nanosecond",
+                "clock": "historical_available_time",
+                "ordering": (
+                    "available_time_then_event_time_then_external_execution_sequence"
+                    "_then_lifecycle_stage_then_stream_id_then_source_sequence"
+                ),
+            },
+            "price_model": {
+                "price_basis": "split_dividend_adjusted",
+                "corporate_action_policy": "provider_applied",
+            },
+            "streams": [
+                {
+                    "stream_id": stream_id,
+                    "role": "execution",
+                    "source": {"kind": "external", "provider_id": provider},
+                    "bar_spec": {
+                        "aggregation": "time",
+                        "step": 1,
+                        "unit": "day",
+                        "price_type": "last",
+                        "alignment": "session_open",
+                    },
+                    "timestamp_semantics": {
+                        "timestamp_convention": "bar_close",
+                        "interval_boundary": "left_open_right_closed",
+                        "bar_open_time_column": "bar_open_timestamp",
+                        "bar_close_time_column": "bar_close_timestamp",
+                        "available_time_column": "available_timestamp",
+                        "session_label_column": "session_label",
+                        "availability_policy": "bar_close",
+                    },
+                }
+            ],
+        },
+        "stream_binding": {
+            "execution_stream_id": stream_id,
+            "decision_stream_id": stream_id,
+        },
+        **extra,
+    }
 
 
 def test_wfa_payload_parsers_reject_legacy_or_corrupt_objects() -> None:
@@ -23,6 +89,45 @@ def test_wfa_payload_parsers_reject_legacy_or_corrupt_objects() -> None:
         AppPayloadService._parse_json_object("{bad json")
     with pytest.raises(ValueError, match="JSON object"):
         AppPayloadService._parse_json_object("[1, 2]")
+
+
+def test_event_display_preserves_intraday_instants_and_only_synthesizes_session_events() -> (
+    None
+):
+    intraday = pd.DataFrame(
+        {
+            "Time": [
+                "2024-07-03T13:31:00Z",
+                "2024-07-03T13:35:00Z",
+            ],
+            "Action": ["buy", "sell"],
+        }
+    )
+
+    rendered_intraday = AppPayloadService._annotate_rebalance_event_display(
+        intraday,
+        pd.DataFrame(),
+        timezone_label="America/New_York",
+        row_key_kind="event_timestamp",
+    )
+
+    assert rendered_intraday["Time"].tolist() == [
+        "2024-07-03T13:31:00Z",
+        "2024-07-03T13:35:00Z",
+    ]
+    assert rendered_intraday["Event_timestamp_local"].tolist() == [
+        "2024-07-03T09:31:00-04:00",
+        "2024-07-03T09:35:00-04:00",
+    ]
+
+    rendered_session = AppPayloadService._annotate_rebalance_event_display(
+        pd.DataFrame({"Time": ["2024-07-03"], "Action": ["buy"]}),
+        pd.DataFrame(),
+        timezone_label="America/New_York",
+        row_key_kind="session_label",
+    )
+
+    assert rendered_session["Event_timestamp_local"].tolist() == ["2024-07-03 09:30 ET"]
 
 
 def test_render_rule_node_supports_strategy_run_field_aliases():
@@ -44,7 +149,11 @@ def test_strategy_rule_display_overrides_render_dict_rules():
     rules = AppPayloadService._strategy_rule_display_overrides(
         {
             "strategy_rules": {
-                "entry": {"field": "short_ma", "op": "crosses_above", "right_field": "long_ma"},
+                "entry": {
+                    "field": "short_ma",
+                    "op": "crosses_above",
+                    "right_field": "long_ma",
+                },
                 "exit": '{"field": "short_ma", "op": "crosses_below", "right_field": "long_ma"}',
             }
         }
@@ -54,38 +163,12 @@ def test_strategy_rule_display_overrides_render_dict_rules():
     assert rules["exit_rule"] == "short_ma crosses below long_ma"
 
 
-def _latest_run(service: AppAPIService, module: str) -> str:
-    if module == "autorunner":
-        rows = service.metrics_runs()
-    elif module == VALIDATION_WORKFLOW_CANONICAL:
-        rows = service.wfa_runs()
-    elif module == "statanalyser":
-        rows = service.stat_runs()
-    else:
-        rows = service.registry.list_runs(module=module)
-    for row in rows:
-        if row.get("status") in {"completed", "partial"}:
-            return str(row["run_id"])
-    pytest.skip(f"No completed run found for module={module}")
-
-
-def _latest_classic_metrics_run(service: AppAPIService) -> str:
-    for row in service.metrics_runs():
-        if row.get("status") not in {"completed", "partial"}:
-            continue
-        run_id = str(row["run_id"])
-        try:
-            overview = service.metrics_overview(run_id)
-        except Exception:
-            continue
-        if overview.get("result_type") != "portfolio":
-            return run_id
-    pytest.skip("No completed classic metricstracker run found")
-
-
-def test_app_api_metrics_payloads() -> None:
-    service = AppAPIService(REPO_ROOT)
-    run_id = _latest_classic_metrics_run(service)
+def test_app_api_metrics_payloads(tmp_path: Path) -> None:
+    metrics_service, _payloads, _registry, run_id = build_portfolio_contract_run(
+        tmp_path
+    )
+    metrics_service.ensure(run_id)
+    service = AppAPIService(tmp_path)
     overview = service.metrics_overview(run_id)
     assert overview["rows"]
     first_row = overview["rows"][0]
@@ -93,11 +176,6 @@ def test_app_api_metrics_payloads() -> None:
     assert first_row["date_range_end"] is not None
     assert first_row["label"]
     assert first_row["label_source"] != "internal_id_fallback"
-
-    backtest_id = str(first_row["backtest_id"])
-    detail = service.backtest_detail(run_id, backtest_id)
-    assert detail["ohlc"]
-    assert "metrics_matrix" in detail
 
     heatmap = service.parameter_matrix(run_id)
     assert heatmap["rows"]
@@ -108,13 +186,12 @@ def test_app_api_metrics_payloads() -> None:
     assert heatmap["strategy_summary"]["asset_label"]
 
 
-def test_app_api_wfa_and_statanalyser_payloads() -> None:
-    service = AppAPIService(REPO_ROOT)
-    wfa_run_id = _latest_run(service, VALIDATION_WORKFLOW_CANONICAL)
-    stat_run_id = _latest_run(service, "statanalyser")
+def test_app_api_wfa_and_statanalyser_payloads(tmp_path: Path) -> None:
+    wfa_service, wfa_run_id = build_wfa_contract_run(tmp_path / "wfa")
+    stat_service, stat_run_id = build_stat_contract_run(tmp_path / "stat")
 
-    wfa = service.wfa_dashboard(wfa_run_id)
-    stat = service.statanalyser_summary(stat_run_id)
+    wfa = wfa_service.wfa_dashboard(wfa_run_id)
+    stat = stat_service.statanalyser_summary(stat_run_id)
 
     assert wfa["rows"]
     assert len(wfa["rows"]) == len({row["window_id"] for row in wfa["rows"]})
@@ -131,7 +208,9 @@ def test_app_api_rejects_legacy_grid_wfa_artifact() -> None:
         service.wfa_dashboard("20260415_d1c3219130cc")
 
 
-def test_wfa_dashboard_preserves_unified_dates_and_rolling_workflow(tmp_path: Path) -> None:
+def test_wfa_dashboard_preserves_unified_dates_and_rolling_workflow(
+    tmp_path: Path,
+) -> None:
     service = AppAPIService(tmp_path)
     run_id = "20260503_unified_roll"
     artifact_dir = (
@@ -165,12 +244,30 @@ def test_wfa_dashboard_preserves_unified_dates_and_rolling_workflow(tmp_path: Pa
                     {
                         "asset_count": 2,
                         "allocation": [
-                            {"asset": "AAA", "avg_weight": 0.6, "last_weight": 0.5, "active_days": 8},
-                            {"asset": "BBB", "avg_weight": 0.4, "last_weight": 0.5, "active_days": 8},
+                            {
+                                "asset": "AAA",
+                                "avg_weight": 0.6,
+                                "last_weight": 0.5,
+                                "active_days": 8,
+                            },
+                            {
+                                "asset": "BBB",
+                                "avg_weight": 0.4,
+                                "last_weight": 0.5,
+                                "active_days": 8,
+                            },
                         ],
                         "contribution": [
-                            {"asset": "AAA", "return_contribution": 0.03, "avg_weight": 0.6},
-                            {"asset": "BBB", "return_contribution": 0.02, "avg_weight": 0.4},
+                            {
+                                "asset": "AAA",
+                                "return_contribution": 0.03,
+                                "avg_weight": 0.6,
+                            },
+                            {
+                                "asset": "BBB",
+                                "return_contribution": 0.02,
+                                "avg_weight": 0.4,
+                            },
                         ],
                         "active_rebalance_count": 2,
                         "avg_exposure": 1.0,
@@ -185,6 +282,33 @@ def test_wfa_dashboard_preserves_unified_dates_and_rolling_workflow(tmp_path: Pa
             "wfa_row_type": ["selected_optimum"],
         }
     ).to_parquet(wfa_path, index=False)
+    wfa_path.with_name("wfa_unified_roll_metadata.json").write_text(
+        json.dumps(
+            {
+                "row_contract": "selected_optimum_per_window",
+                "annualization": {
+                    "schema_version": "metrics_annualization.v1",
+                    "basis": "session_close_projection",
+                    "projection_policy": "last_accepted_equity_per_session",
+                    "periods_per_year": 252.0,
+                    "risk_free_rate_annual": 0.02,
+                },
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    (
+        service.registry.build_run_paths(run_id)["snapshot_dir"] / "wfa_run.json"
+    ).write_text(
+        json.dumps(
+            {
+                "schema_version": "wfa_run",
+                "optimizer": {"primary_objective": "calmar"},
+            }
+        ),
+        encoding="utf-8",
+    )
 
     service.registry.write_registry_entry(
         {
@@ -204,7 +328,11 @@ def test_wfa_dashboard_preserves_unified_dates_and_rolling_workflow(tmp_path: Pa
         {
             "schema_version": "1.0",
             "artifacts": [
-                {"artifact_type": "wfa_parquet", "path": str(wfa_path), "status": "ready"},
+                {
+                    "artifact_type": "wfa_parquet",
+                    "path": str(wfa_path),
+                    "status": "ready",
+                },
             ],
         },
     )
@@ -220,14 +348,195 @@ def test_wfa_dashboard_preserves_unified_dates_and_rolling_workflow(tmp_path: Pa
     assert payload["timeline"][0]["train_start_date"].startswith("2020-01-02")
     assert payload["timeline"][0]["test_end_date"].startswith("2023-12-29")
     assert payload["portfolio_window_summary"]["is_portfolio_wfa"] is True
-    assert payload["portfolio_window_summary"]["allocation_by_window"][0]["weights"][0]["asset"] == "AAA"
+    assert (
+        payload["portfolio_window_summary"]["allocation_by_window"][0]["weights"][0][
+            "asset"
+        ]
+        == "AAA"
+    )
     assert payload["portfolio_window_summary"]["asset_summary"][0]["asset"] == "AAA"
+    assert payload["strategy_summary"]["annualization"] == {
+        "schema_version": "metrics_annualization.v1",
+        "basis": "session_close_projection",
+        "projection_policy": "last_accepted_equity_per_session",
+        "periods_per_year": 252.0,
+        "risk_free_rate_annual": 0.02,
+    }
+
+
+def test_wfa_dashboard_prefers_configured_primary_objective_artifact(
+    tmp_path: Path,
+) -> None:
+    service = AppAPIService(tmp_path)
+    run_id = "20260730_primary_objective"
+    paths = service.registry.build_run_paths(run_id)
+    artifact_dir = (
+        paths["snapshot_dir"] / "managed_artifacts" / VALIDATION_WORKFLOW_CANONICAL
+    )
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+
+    def selected_frame(objective: str, short_ma: int) -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                "window_id": [1],
+                "objective": [objective],
+                "semantic_combo": [
+                    json.dumps({"short_ma": short_ma, "long_ma": 200}, sort_keys=True)
+                ],
+                "train_start": [pd.Timestamp("2026-06-01")],
+                "train_end": [pd.Timestamp("2026-06-18")],
+                "test_start": [pd.Timestamp("2026-06-19")],
+                "test_end": [pd.Timestamp("2026-06-24")],
+                "is_sharpe": [-1.0],
+                "is_calmar": [-2.0],
+                "oos_sharpe": [-3.0],
+                "oos_calmar": [-4.0],
+                "oos_total_return": [-0.1],
+                "selection_source": ["unified_portfolio_wfa"],
+                "selection_rank": [1],
+                "selection_metric": [objective],
+                "selection_evidence": [f"rank=1 by IS {objective}"],
+                "candidate_count": [2],
+                "total_candidate_count": [2],
+                "workflow": ["walk_forward_analysis"],
+                "wfa_row_type": ["selected_optimum"],
+            }
+        )
+
+    calmar_path = artifact_dir / "wfa_calmar.parquet"
+    sharpe_path = artifact_dir / "wfa_sharpe.parquet"
+    selected_frame("calmar", 10).to_parquet(calmar_path, index=False)
+    selected_frame("sharpe", 90).to_parquet(sharpe_path, index=False)
+    paths["snapshot_dir"].mkdir(parents=True, exist_ok=True)
+    (paths["snapshot_dir"] / "wfa_run.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "wfa_run",
+                "optimizer": {"primary_objective": "sharpe"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    service.registry.write_registry_entry(
+        {
+            "run_id": run_id,
+            "module": VALIDATION_WORKFLOW_CANONICAL,
+            "entrypoint": "test",
+            "status": "completed",
+            "created_at": "2026-07-30T00:00:00",
+            "completed_at": "2026-07-30T00:00:01",
+            "config_filename": "wfa-primary.json",
+            "strategy_mode": "multi_asset_portfolio",
+            "run_type": "test",
+        }
+    )
+    service.registry.write_artifact_manifest(
+        run_id,
+        {
+            "schema_version": "1.0",
+            "artifacts": [
+                {
+                    "artifact_type": "wfa_parquet",
+                    "path": str(calmar_path),
+                    "status": "ready",
+                },
+                {
+                    "artifact_type": "wfa_parquet",
+                    "path": str(sharpe_path),
+                    "status": "ready",
+                },
+            ],
+        },
+    )
+
+    payload = service.wfa_dashboard(run_id)
+
+    assert payload["rows"][0]["objective"] == "sharpe"
+    assert payload["rows"][0]["semantic_combo"]["short_ma"] == 90
+    assert payload["artifact_source_refs"] == [str(sharpe_path)]
+
+
+def test_wfa_dashboard_rejects_missing_primary_objective(tmp_path: Path) -> None:
+    service = AppAPIService(tmp_path)
+    run_id = "20260730_missing_primary_objective"
+    paths = service.registry.build_run_paths(run_id)
+    paths["snapshot_dir"].mkdir(parents=True, exist_ok=True)
+    artifact = paths["snapshot_dir"] / "wfa_selected.parquet"
+    pd.DataFrame(
+        {
+            "wfa_row_type": ["selected_optimum"],
+            "objective": ["sharpe"],
+        }
+    ).to_parquet(artifact, index=False)
+    (paths["snapshot_dir"] / "wfa_run.json").write_text(
+        json.dumps({"schema_version": "wfa_run", "optimizer": {}}),
+        encoding="utf-8",
+    )
+    service.registry.write_artifact_manifest(
+        run_id,
+        {
+            "schema_version": "1.0",
+            "artifacts": [
+                {
+                    "artifact_type": "wfa_parquet",
+                    "path": str(artifact),
+                    "status": "ready",
+                }
+            ],
+        },
+    )
+
+    with pytest.raises(ValueError, match="optimizer.primary_objective"):
+        service.payloads._wfa_dashboard_artifact_path(run_id)
+
+
+def test_wfa_dashboard_rejects_objective_artifact_mismatch(tmp_path: Path) -> None:
+    service = AppAPIService(tmp_path)
+    run_id = "20260730_objective_mismatch"
+    paths = service.registry.build_run_paths(run_id)
+    artifact_dir = (
+        paths["snapshot_dir"] / "managed_artifacts" / VALIDATION_WORKFLOW_CANONICAL
+    )
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    artifact = artifact_dir / "wfa_calmar.parquet"
+    pd.DataFrame(
+        {
+            "wfa_row_type": ["selected_optimum"],
+            "objective": ["calmar"],
+        }
+    ).to_parquet(artifact, index=False)
+    (paths["snapshot_dir"] / "wfa_run.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "wfa_run",
+                "optimizer": {"primary_objective": "sharpe"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    service.registry.write_artifact_manifest(
+        run_id,
+        {
+            "schema_version": "1.0",
+            "artifacts": [
+                {
+                    "artifact_type": "wfa_parquet",
+                    "path": str(artifact),
+                    "status": "ready",
+                }
+            ],
+        },
+    )
+
+    with pytest.raises(ValueError, match="matching.*sharpe"):
+        service.payloads._wfa_dashboard_artifact_path(run_id)
 
 
 def test_wfa_dashboard_links_selected_window_backtests(tmp_path: Path) -> None:
     service = AppAPIService(tmp_path)
     run_id = "20260514_wfa_window_links"
     backtest_id = "wfa_window_001_sharpe_lookback_20"
+    candidate_id = "wfa_summary_probe:walk_forward_analysis:lookback_20"
     artifact_dir = (
         service.registry.build_run_paths(run_id)["snapshot_dir"]
         / "managed_artifacts"
@@ -269,8 +578,21 @@ def test_wfa_dashboard_links_selected_window_backtests(tmp_path: Path) -> None:
                 json.dumps(
                     {
                         "asset_count": 1,
-                        "allocation": [{"asset": "QQQ", "avg_weight": 1.0, "last_weight": 1.0, "active_days": 6}],
-                        "contribution": [{"asset": "QQQ", "return_contribution": 0.04, "avg_weight": 1.0}],
+                        "allocation": [
+                            {
+                                "asset": "QQQ",
+                                "avg_weight": 1.0,
+                                "last_weight": 1.0,
+                                "active_days": 6,
+                            }
+                        ],
+                        "contribution": [
+                            {
+                                "asset": "QQQ",
+                                "return_contribution": 0.04,
+                                "avg_weight": 1.0,
+                            }
+                        ],
                         "active_rebalance_count": 1,
                         "avg_exposure": 1.0,
                         "avg_holdings": 1.0,
@@ -289,6 +611,7 @@ def test_wfa_dashboard_links_selected_window_backtests(tmp_path: Path) -> None:
     equity = pd.DataFrame(
         {
             "Time": dates,
+            "Session_label": [value.strftime("%Y-%m-%d") for value in dates],
             "Equity_value": [100.0, 101.0, 102.0, 101.5, 103.0, 104.0],
             "Portfolio_return": [0.0, 0.01, 0.0099, -0.0049, 0.0148, 0.0097],
             "Weight_QQQ": [1.0] * 6,
@@ -299,7 +622,7 @@ def test_wfa_dashboard_links_selected_window_backtests(tmp_path: Path) -> None:
         }
     )
     result = MultiAssetBacktestResult(
-        strategy_id=backtest_id,
+        strategy_id=candidate_id,
         equity_curve=equity,
         holdings=pd.DataFrame(
             {
@@ -321,8 +644,19 @@ def test_wfa_dashboard_links_selected_window_backtests(tmp_path: Path) -> None:
         ),
         rebalance_trades=pd.DataFrame(),
         feature_cache={},
-        config={"strategy_id": backtest_id, "resolved_params": {"lookback": 20}},
-        validation_report={"risk_gate_summary": {"schema_version": "risk_gate_summary.v1", "event_count": 0, "gates_triggered": []}},
+        config={"strategy_id": candidate_id, "resolved_params": {"lookback": 20}},
+        validation_report={
+            "rust_timeline_accounting_summary": {
+                "schema_version": "rust_timeline_accounting_summary.v1",
+                "status": "executed",
+                "total_return": 0.04,
+            },
+            "risk_gate_summary": {
+                "schema_version": "risk_gate_summary.v1",
+                "event_count": 0,
+                "gates_triggered": [],
+            },
+        },
     )
     exported_paths = [
         Path(path)
@@ -346,7 +680,20 @@ def test_wfa_dashboard_links_selected_window_backtests(tmp_path: Path) -> None:
             "run_type": "test",
         }
     )
-    artifact_rows = [{"artifact_type": "wfa_parquet", "path": str(wfa_path), "status": "ready"}]
+    (
+        service.registry.build_run_paths(run_id)["snapshot_dir"] / "wfa_run.json"
+    ).write_text(
+        json.dumps(
+            {
+                "schema_version": "wfa_run",
+                "optimizer": {"primary_objective": "sharpe"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    artifact_rows = [
+        {"artifact_type": "wfa_parquet", "path": str(wfa_path), "status": "ready"}
+    ]
     for path in exported_paths:
         name = path.name
         if name.endswith("_equity_curve.parquet"):
@@ -363,7 +710,9 @@ def test_wfa_dashboard_links_selected_window_backtests(tmp_path: Path) -> None:
             artifact_type = "portfolio_run_validation_json"
         else:
             continue
-        artifact_rows.append({"artifact_type": artifact_type, "path": str(path), "status": "ready"})
+        artifact_rows.append(
+            {"artifact_type": artifact_type, "path": str(path), "status": "ready"}
+        )
     service.registry.write_artifact_manifest(
         run_id,
         {
@@ -373,14 +722,22 @@ def test_wfa_dashboard_links_selected_window_backtests(tmp_path: Path) -> None:
     )
 
     wfa_payload = service.wfa_dashboard(run_id)
-    assert wfa_payload["rows"][0]["linked_backtest"] == {"run_id": run_id, "backtest_id": backtest_id}
+    assert wfa_payload["rows"][0]["linked_backtest"] == {
+        "run_id": run_id,
+        "backtest_id": backtest_id,
+    }
     assert wfa_payload["rows"][0]["candidate_budget_policy"] == "seeded_random_sample"
     assert wfa_payload["rows"][0]["candidate_budget_method"] == "seeded_random_sample"
     assert wfa_payload["rows"][0]["candidate_budget_seed"] == 17
     assert wfa_payload["rows"][0]["accepted"] is False
     assert wfa_payload["rows"][0]["review_status"] == "Review"
-    assert wfa_payload["batch_metadata"]["candidate_budget"]["candidate_budget_policy"] == "seeded_random_sample"
-    assert wfa_payload["batch_metadata"]["candidate_budget"]["total_candidate_count"] == 12
+    assert (
+        wfa_payload["batch_metadata"]["candidate_budget"]["candidate_budget_policy"]
+        == "seeded_random_sample"
+    )
+    assert (
+        wfa_payload["batch_metadata"]["candidate_budget"]["total_candidate_count"] == 12
+    )
     assert wfa_payload["combo_groups"][0]["accepted"] is False
     assert wfa_payload["combo_groups"][0]["review_status"] == "Review"
     assert "candidate did not pass acceptance gates" in ";".join(
@@ -389,7 +746,9 @@ def test_wfa_dashboard_links_selected_window_backtests(tmp_path: Path) -> None:
     assert run_id not in {row["run_id"] for row in service.metrics_runs()}
     with pytest.raises(FileNotFoundError, match="PlotBundle index not found"):
         service.metrics_overview(run_id)
-    with pytest.raises(FileNotFoundError, match="backtest detail contract is unavailable"):
+    with pytest.raises(
+        FileNotFoundError, match="backtest detail contract is unavailable"
+    ):
         service.backtest_detail(run_id, backtest_id)
 
 
@@ -422,14 +781,22 @@ def test_future_live_search_config_uses_canonical_wfa_filenames(tmp_path: Path) 
     assert payload["acceptance"] == {"min_windows": 3}
 
 
-def test_future_live_search_config_ignores_legacy_v2_wfa_filenames(tmp_path: Path) -> None:
+def test_future_live_search_config_ignores_legacy_v2_wfa_filenames(
+    tmp_path: Path,
+) -> None:
     service = AppAPIService(tmp_path).payloads
     wfa_dir = tmp_path / "workspace" / "wfa"
     wfa_dir.mkdir(parents=True, exist_ok=True)
     run_id = "20260708_legacy_probe"
     legacy = wfa_dir / f"wfa-v2-shortlist-{run_id}.user.json"
     legacy.write_text(
-        json.dumps({"wfa_config": {"optimizer": {"mode": "optuna", "sampler": "tpe", "n_trials": 10}}}),
+        json.dumps(
+            {
+                "wfa_config": {
+                    "optimizer": {"mode": "optuna", "sampler": "tpe", "n_trials": 10}
+                }
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -457,14 +824,11 @@ def test_wfa_strategy_summary_uses_embedded_strategy_run(tmp_path: Path) -> None
             "strategy_preset_id": "single_asset_signal",
             "workflow_id": "parameter_matrix",
         },
-        "data": {
-            "provider": "yfinance",
-            "frequency": "1D",
-            "calendar": "XNYS",
-            "timezone": "America/New_York",
-            "start_date": "2009-01-01",
-            "benchmark": {"symbol": "QQQ", "label": "QQQ Buy & Hold"},
-        },
+        "data": _typed_daily_data(
+            "yfinance",
+            start_date="2009-01-01",
+            benchmark={"symbol": "QQQ", "label": "QQQ Buy & Hold"},
+        ),
         "universe": {"symbols": ["QQQ"]},
         "signals": {"target_weight": 1.0},
         "selection": {"rank_by": "close", "top_n": 1},
@@ -484,7 +848,7 @@ def test_wfa_strategy_summary_uses_embedded_strategy_run(tmp_path: Path) -> None
                 "mode_label": "Single-asset signal strategy",
                 "entry_rule": "Buy QQQ when close crosses above entry SMA",
                 "exit_rule": "Exit when close crosses below exit SMA",
-            }
+            },
         },
     }
     service.registry.write_snapshot_file(
@@ -495,9 +859,11 @@ def test_wfa_strategy_summary_uses_embedded_strategy_run(tmp_path: Path) -> None
                 "run_config": {"config_path": str(wfa_config_path)},
                 "dataloader_config": {
                     "source": "yfinance",
+                    "provider": "yfinance",
                     "start_date": "2009-01-01",
-                    "frequency": "1D",
-                    "yfinance_config": {"symbol": "QQQ", "interval": "1d"},
+                    "asset_symbols": ["QQQ"],
+                    "bar_time": strategy_config["data"]["bar_time"],
+                    "stream_binding": strategy_config["data"]["stream_binding"],
                 },
                 "backtester_config": {"strategy_run_config": strategy_config},
                 "wfa_config": {"mode": "standard"},
@@ -512,9 +878,15 @@ def test_wfa_strategy_summary_uses_embedded_strategy_run(tmp_path: Path) -> None
     assert summary["entry_rule"] == "Buy QQQ when close crosses above entry SMA"
     assert summary["exit_rule"] == "Exit when close crosses below exit SMA"
     assert summary["parameter_domains"]["entry_ma"]["start"] == 10
+    assert summary["time_context"]["execution"]["stream_id"] == "execution_daily"
+    assert summary["time_context"]["decision"]["stream_id"] == "execution_daily"
+    assert summary["time_context"]["session"]["calendar_id"] == "XNYS"
+    assert summary["time_context"]["timestamp"]["time_standard"] == "UTC"
 
 
-def test_apply_normalized_strategy_summary_prefers_profile_label_over_legacy_mode_label(tmp_path: Path) -> None:
+def test_apply_normalized_strategy_summary_prefers_profile_label_over_legacy_mode_label(
+    tmp_path: Path,
+) -> None:
     service = AppAPIService(tmp_path)
 
     normalized = service.payloads._normalized_strategy_config(
@@ -526,11 +898,7 @@ def test_apply_normalized_strategy_summary_prefers_profile_label_over_legacy_mod
                 "strategy_preset_id": "single_asset_signal",
                 "workflow_id": "single_backtest",
             },
-            "data": {
-                "provider": "fixture",
-                "frequency": "1D",
-                "calendar": "XNYS",
-            },
+            "data": _typed_daily_data("fixture"),
             "universe": {"symbols": ["QQQ"]},
             "signals": {"target_weight": 1.0},
             "selection": {"rank_by": "close", "top_n": 1},
@@ -558,37 +926,70 @@ def test_apply_normalized_strategy_summary_prefers_profile_label_over_legacy_mod
     assert summary["mode_label"] == "Selection Timing Portfolio"
 
 
-def test_trade_style_portfolio_detection_accepts_unified_selection_profile(tmp_path: Path) -> None:
+def test_trade_style_portfolio_detection_accepts_unified_selection_profile(
+    tmp_path: Path,
+) -> None:
     service = AppAPIService(tmp_path)
 
-    assert service.payloads._is_trade_style_portfolio(  # pylint: disable=protected-access
-        {
-            "strategy_mode_id": "multi_asset_portfolio",
-            "strategy_profile_id": "selection_timing_portfolio",
-            "strategy_preset_id": "single_asset_signal",
-        }
-    ) is True
+    assert (
+        service.payloads._is_trade_style_portfolio(  # pylint: disable=protected-access
+            {
+                "strategy_mode_id": "multi_asset_portfolio",
+                "strategy_profile_id": "selection_timing_portfolio",
+                "strategy_preset_id": "single_asset_signal",
+            }
+        )
+        is True
+    )
 
-    assert service.payloads._is_trade_style_portfolio(  # pylint: disable=protected-access
-        {
-            "strategy_mode_id": "multi_asset_portfolio",
-            "strategy_profile_id": "calendar_event_portfolio",
-        }
-    ) is True
+    assert (
+        service.payloads._is_trade_style_portfolio(  # pylint: disable=protected-access
+            {
+                "strategy_mode_id": "multi_asset_portfolio",
+                "strategy_profile_id": "calendar_event_portfolio",
+            }
+        )
+        is True
+    )
 
 
 def test_workflow_label_uses_validation_workflow_wording(tmp_path: Path) -> None:
     service = AppAPIService(tmp_path)
 
-    assert service.payloads._workflow_label("walk_forward_analysis") == "Validation workflow (WFA)"  # pylint: disable=protected-access
-    assert service.payloads._workflow_label("rolling_validation") == "Validation workflow (rolling)"  # pylint: disable=protected-access
+    assert (
+        service.payloads._workflow_label("walk_forward_analysis")
+        == "Validation workflow (WFA)"
+    )  # pylint: disable=protected-access
+    assert (
+        service.payloads._workflow_label("rolling_validation")
+        == "Validation workflow (rolling)"
+    )  # pylint: disable=protected-access
 
 
-def test_trade_row_price_uses_explicit_execution_contract_fields(tmp_path: Path) -> None:
+def test_allocation_change_display_does_not_synthesize_trade_returns(
+    tmp_path: Path,
+) -> None:
     service = AppAPIService(tmp_path).payloads
+    frame = service._annotate_allocation_change_trade_side(  # noqa: SLF001
+        pd.DataFrame(
+            [
+                {
+                    "Asset": "QQQ",
+                    "Action": "buy",
+                    "Before_weight": 0.0,
+                    "Target_weight": 1.0,
+                    "Execution_price": 100.0,
+                },
+                {
+                    "Asset": "QQQ",
+                    "Action": "exit",
+                    "Before_weight": 1.0,
+                    "Target_weight": 0.0,
+                    "Execution_price": 110.0,
+                },
+            ]
+        )
+    )
 
-    assert service._row_price({"Execution_price": 101.5}) == 101.5  # noqa: SLF001
-    assert service._row_price(  # noqa: SLF001
-        {"Entry_price": 100.0, "Exit_price": 109.0}, prefer_exit=True
-    ) == 109.0
-    assert service._row_price({"Close": 999.0}) is None  # noqa: SLF001
+    assert "Trade_pnl_pct" not in frame.columns
+    assert frame["Trade_side"].tolist() == ["long", "long"]

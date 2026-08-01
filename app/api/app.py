@@ -56,7 +56,7 @@ def create_app(repo_root: Path) -> FastAPI:
     mimetypes.add_type("font/ttf", ".ttf")
     mimetypes.add_type("font/woff2", ".woff2")
     service = AppAPIService(repo_root)
-    app = FastAPI(title="lo2cin4bt App API", version="2.1.0")
+    app = FastAPI(title="lo2cin4bt App API", version="2.2.0")
     app.state.app_service = service
     app.add_middleware(
         CORSMiddleware,
@@ -302,7 +302,7 @@ def create_app(repo_root: Path) -> FastAPI:
                     "npm ci",
                     "npm run build",
                     "cd ../..",
-                    "python main.py",
+                    "uv run --locked --exact python main.py",
                 ],
                 "note": "This is expected after a fresh GitHub clone or source checkout because dist/ is a generated build artifact.",
             },

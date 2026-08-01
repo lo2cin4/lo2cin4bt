@@ -1,3 +1,4 @@
+use super::returns::simple_return;
 use super::{field, quantile, ComputedFieldError, ComputedFieldSpec};
 use std::collections::BTreeMap;
 
@@ -201,7 +202,7 @@ fn momentum(source: &[f64], rows: usize, cols: usize, period: usize) -> Vec<f64>
             let previous = source[(row - period) * cols + col];
             let current = source[row * cols + col];
             if previous.is_finite() && previous != 0.0 && current.is_finite() {
-                output[row * cols + col] = current / previous - 1.0;
+                output[row * cols + col] = simple_return(current, previous);
             }
         }
     }
@@ -242,7 +243,7 @@ fn calendar_return(
             let denominator = source[denominator_row * cols + col];
             let numerator = source[numerator_row * cols + col];
             if denominator.is_finite() && denominator != 0.0 && numerator.is_finite() {
-                output[row * cols + col] = numerator / denominator - 1.0;
+                output[row * cols + col] = simple_return(numerator, denominator);
             }
         }
     }
@@ -384,7 +385,7 @@ fn rolling_volatility(
             let previous = source[(row - 1) * cols + col];
             let current = source[row * cols + col];
             if previous.is_finite() && previous != 0.0 && current.is_finite() {
-                returns[row * cols + col] = current / previous - 1.0;
+                returns[row * cols + col] = simple_return(current, previous);
             }
         }
     }

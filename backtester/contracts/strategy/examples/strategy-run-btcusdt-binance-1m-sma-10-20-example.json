@@ -1,0 +1,172 @@
+{
+  "schema_version": "strategy_run",
+  "platform": {
+    "strategy_mode_id": "multi_asset_portfolio",
+    "strategy_profile_id": "selection_timing_portfolio",
+    "strategy_preset_id": "single_asset_signal",
+    "workflow_id": "single_backtest",
+    "created_at": "2026-07-29",
+    "run_type": "example",
+    "is_default": true,
+    "display_label": "BTCUSDT | 1m SMA 10/20 Cross | Binance"
+  },
+  "data": {
+    "provider": "binance",
+    "bar_time": {
+      "schema_version": "bar_time_contract.v1",
+      "contract_id": "lo2cin4bt.bar_time_contract.v1",
+      "session_model": {
+        "calendar_id": "CRYPTO_24_7",
+        "timezone": "UTC",
+        "session_scope": "24x7",
+        "session_label_policy": "utc_date",
+        "non_session_bar_policy": "reject"
+      },
+      "timestamp_model": {
+        "time_standard": "UTC",
+        "precision": "nanosecond",
+        "clock": "historical_available_time",
+        "ordering": "available_time_then_event_time_then_external_execution_sequence_then_lifecycle_stage_then_stream_id_then_source_sequence"
+      },
+      "price_model": {
+        "price_basis": "raw",
+        "corporate_action_policy": "not_available"
+      },
+      "streams": [
+        {
+          "stream_id": "execution_1m",
+          "role": "execution",
+          "source": {
+            "kind": "external",
+            "provider_id": "binance"
+          },
+          "bar_spec": {
+            "aggregation": "time",
+            "step": 1,
+            "unit": "minute",
+            "price_type": "last",
+            "alignment": "session_open"
+          },
+          "timestamp_semantics": {
+            "timestamp_convention": "bar_close",
+            "interval_boundary": "left_open_right_closed",
+            "bar_open_time_column": "bar_open_timestamp",
+            "bar_close_time_column": "bar_close_timestamp",
+            "available_time_column": "available_timestamp",
+            "session_label_column": "session_label",
+            "availability_policy": "bar_close"
+          }
+        }
+      ]
+    },
+    "stream_binding": {
+      "execution_stream_id": "execution_1m",
+      "decision_stream_id": "execution_1m"
+    },
+    "start_date": "2026-06-01T00:00:00Z",
+    "end_date": "2026-07-01T00:00:00Z",
+    "start_policy": "common_available",
+    "benchmark": {
+      "provider": "binance",
+      "symbol": "BTCUSDT",
+      "label": "BTCUSDT buy and hold"
+    }
+  },
+  "universe": {
+    "symbols": [
+      "BTCUSDT"
+    ],
+    "universe_policy": "single_crypto_pair"
+  },
+  "computed_fields": [
+    {
+      "name": "short_ma",
+      "op": "indicator.sma",
+      "source": "close",
+      "period": 10
+    },
+    {
+      "name": "long_ma",
+      "op": "indicator.sma",
+      "source": "close",
+      "period": 20
+    }
+  ],
+  "signals": {
+    "entry": {
+      "field": "short_ma",
+      "op": "crosses_above",
+      "right_field": "long_ma"
+    },
+    "exit": {
+      "field": "short_ma",
+      "op": "crosses_below",
+      "right_field": "long_ma"
+    }
+  },
+  "selection": {},
+  "allocation": {
+    "method": "position_state",
+    "target_weight": 1.0,
+    "cash_policy": "keep_unallocated_cash"
+  },
+  "rebalance": {},
+  "fill_model": {
+    "timing": "timeline",
+    "position_policy": {
+      "on_entry_signal_while_holding": "ignore_new_signal"
+    },
+    "actions": [
+      {
+        "signal": "entry",
+        "offset_bars": 1,
+        "price": "open",
+        "action": "enter"
+      },
+      {
+        "signal": "exit",
+        "offset_bars": 1,
+        "price": "open",
+        "action": "exit"
+      }
+    ],
+    "cost": {
+      "transaction_cost": 0.001,
+      "slippage": 0.0005
+    }
+  },
+  "risk": {
+    "max_positions": 1,
+    "max_gross_exposure": 1,
+    "long_short": "long_only",
+    "allow_short": false
+  },
+  "parameter_domains": {},
+  "metricstracker": {
+    "enable_metrics_analysis": true,
+    "time_unit": 365,
+    "risk_free_rate": 0.04
+  },
+  "outputs": {
+    "equity_curve": true,
+    "trade_summary": true,
+    "entry_exit_markers": true,
+    "rebalance_audit": true,
+    "holdings": true,
+    "asset_contribution": true
+  },
+  "metadata": {
+    "example": true,
+    "public_example": true,
+    "local_research_only": true,
+    "strategy_id": "btcusdt_binance_1m_sma_10_20_example",
+    "notes": [
+      "Public default example using native Binance BTCUSDT one-minute candles from 2026-06-01 inclusive to 2026-07-01 exclusive.",
+      "The complete UTC month contains 43,200 expected one-minute bars and is rejected if the provider data is incomplete, duplicated, or out of order.",
+      "The 10-bar and 20-bar SMAs are evaluated on completed one-minute bars; cross signals fill at the next eligible one-minute open.",
+      "The matching Golden Test uses a content-hashed local capture of the same provider window and never calls the live API.",
+      "This public example is for local research and contract testing only.",
+      "It is not a profitability claim, WFA pass, live-trading signal, broker instruction, or investment advice."
+    ]
+  }
+}

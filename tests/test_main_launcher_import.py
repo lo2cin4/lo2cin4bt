@@ -48,10 +48,25 @@ def test_main_launcher_uses_browser_first_app_entry() -> None:
     assert "uvicorn.run" in server_source
 
 
-def test_start_launcher_uses_direct_python_process() -> None:
+def test_start_launcher_uses_locked_uv_process() -> None:
     script_path = Path(__file__).resolve().parents[1] / "scripts" / "start_lo2cin4bt.ps1"
     source = script_path.read_text(encoding="utf-8")
 
     assert "Start-Process" in source
-    assert "-FilePath $PythonPath" in source
+    assert "-FilePath $UvPath" in source
+    assert '$UvRunContract = "uv run --locked --exact"' in source
     assert "cmd.exe /d /c" not in source
+
+
+def test_start_launcher_requires_exact_uv_without_python_fallback() -> None:
+    script_path = Path(__file__).resolve().parents[1] / "scripts" / "start_lo2cin4bt.ps1"
+    source = script_path.read_text(encoding="utf-8")
+    resolver = source.split("function Resolve-Lo2cin4btUv", 1)[1].split(
+        "function Start-Lo2cin4btDetachedServer",
+        1,
+    )[0]
+
+    assert "Get-Command uv" in resolver
+    assert "$RequiredUvVersion" in resolver
+    assert "SystemPython" not in source
+    assert "PreferredPython" not in source

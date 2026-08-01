@@ -7,8 +7,8 @@ Backtest contract canonical root has moved to:
 
 ## New Canonical Structure
 - `backtester/contracts/strategy/`
-  - `strategy-contract-v2.schema.json`
-  - `examples/strategy-vix-regime-ma-cross.json`
+  - `strategy-run.schema.json`
+  - `examples/strategy-run-qqq-yfinance-daily-sma-cross-matrix-example.json`
 - `backtester/contracts/feature/`
   - `feature-contract-v1.schema.json`
   - `examples/feature-contract-vix-price-v1.json`
@@ -16,7 +16,7 @@ Backtest contract canonical root has moved to:
   - reviewed Rust strategy building-block contracts
 
 ## Migration Mapping
-- `docs/contracts/strategy-contract-v2.schema.json` -> `backtester/contracts/strategy/strategy-contract-v2.schema.json`
+- retired strategy-contract-v2 authoring -> `backtester/contracts/strategy/strategy-run.schema.json`
 - `docs/contracts/feature-contract-v1.schema.json` -> `backtester/contracts/feature/feature-contract-v1.schema.json`
 - `docs/contracts/examples/*` -> corresponding `backtester/contracts/*/examples/*`
 

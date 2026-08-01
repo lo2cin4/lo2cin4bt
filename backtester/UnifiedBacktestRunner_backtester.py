@@ -20,8 +20,13 @@ import numpy as np
 import pandas as pd
 
 from backtester.EngineRequest_backtester import (
+    CANDIDATE_ID_FIXED_SUFFIX,
+    canonical_candidate_id,
+    canonical_parameter_suffix,
     engine_request_hash,
     strategy_run_from_engine_request,
+    validate_base_strategy_id,
+    validate_canonical_candidate_id,
     validate_engine_request,
 )
 from backtester.BacktestResult_backtester import MultiAssetBacktestResult
@@ -121,7 +126,7 @@ class UnifiedBacktestRunnerBacktester:
         strategy = _dict_or_empty(engine_request.get("strategy"))
         workflow = _dict_or_empty(engine_request.get("workflow"))
         data_requirements = _dict_or_empty(engine_request.get("data_requirements"))
-        strategy_id = str(strategy.get("strategy_id") or engine_request.get("request_id") or "strategy_run")
+        strategy_id = validate_canonical_candidate_id(strategy.get("strategy_id"))
         execution_plan = self._execution_plan(strategy_config)
         portfolio_config = self._portfolio_config_from_normalized(strategy_config)
         portfolio_config["execution_plan"] = copy.deepcopy(execution_plan)
@@ -164,7 +169,9 @@ class UnifiedBacktestRunnerBacktester:
             "predictor_column": None,
             "symbol": "PORTFOLIO",
             "predictor_file_name": None,
-            "frequency": data_requirements.get("frequency", "1D"),
+            "execution_stream_id": _dict_or_empty(
+                engine_request.get("strategy")
+            ).get("stream_binding", {}).get("execution_stream_id"),
             "export_config": export_config,
             "Backtest_id": strategy_id,
             "requested_engine_mode": str(engine_request.get("schema_version") or ""),
@@ -235,16 +242,47 @@ class UnifiedBacktestRunnerBacktester:
         if retention_limit is not None and retention_limit < len(variants):
             rust_export_config.pop("output_dir", None)
 
-        rust_full_batch = self._try_run_portfolio_rust_batch(
+        chunk_size = self._matrix_rust_batch_chunk_size(
             variants=variants,
-            market_data=market_data,
-            market_data_bundle=market_data_bundle,
-            engine_request=engine_request,
             portfolio_config=portfolio_config,
-            cache_dir=cache_dir,
-            export_config=rust_export_config,
-            run_id_base=run_id_base,
         )
+        rust_full_batch: (
+            tuple[List[MultiAssetBacktestResult], List[Dict[str, Any]]]
+            | tuple[
+                List[MultiAssetBacktestResult],
+                List[Dict[str, Any]],
+                List[str],
+            ]
+            | None
+        )
+        if (
+            retention_limit is not None
+            and retention_limit < len(variants)
+            and chunk_size < len(variants)
+        ):
+            rust_full_batch = self._try_run_retained_portfolio_rust_batches(
+                variants=variants,
+                market_data=market_data,
+                market_data_bundle=market_data_bundle,
+                engine_request=engine_request,
+                portfolio_config=portfolio_config,
+                cache_dir=cache_dir,
+                export_config=rust_export_config,
+                run_id_base=run_id_base,
+                retention_limit=retention_limit,
+                chunk_size=chunk_size,
+            )
+        else:
+            rust_full_batch = self._try_run_portfolio_rust_batch(
+                variants=variants,
+                market_data=market_data,
+                market_data_bundle=market_data_bundle,
+                engine_request=engine_request,
+                portfolio_config=portfolio_config,
+                cache_dir=cache_dir,
+                export_config=rust_export_config,
+                run_id_base=run_id_base,
+            )
         if rust_full_batch is not None:
             rust_portfolio_results, rust_matrix_rows, direct_exported_files = self._normalize_rust_batch_result(
                 rust_full_batch
@@ -287,6 +325,86 @@ class UnifiedBacktestRunnerBacktester:
             f"Rust did not return an artifact bundle for {mode}. "
             "The production runner has no Python engine fallback."
         )
+
+    def _try_run_retained_portfolio_rust_batches(
+        self,
+        *,
+        variants: List[Dict[str, Any]],
+        market_data: Dict[str, pd.DataFrame],
+        market_data_bundle: Optional[MarketDataBundle],
+        engine_request: Optional[Dict[str, Any]],
+        portfolio_config: Dict[str, Any],
+        cache_dir: Optional[Path],
+        export_config: Dict[str, Any],
+        run_id_base: str,
+        retention_limit: int,
+        chunk_size: int,
+    ) -> Optional[
+        tuple[List[MultiAssetBacktestResult], List[Dict[str, Any]], List[str]]
+    ]:
+        """Evaluate every candidate in bounded Rust batches, then replay retained winners.
+
+        The first pass keeps compact rows for the complete matrix and releases each
+        chunk's full timelines before the next chunk.  The second pass materializes
+        only the globally retained candidates.  Both passes use the same mandatory
+        Rust EngineRequest route.
+        """
+
+        rows: List[Dict[str, Any]] = []
+        for chunk_index, start in enumerate(range(0, len(variants), chunk_size)):
+            chunk = variants[start : start + chunk_size]
+            batch = self._try_run_portfolio_rust_batch(
+                variants=chunk,
+                market_data=market_data,
+                market_data_bundle=market_data_bundle,
+                engine_request=engine_request,
+                portfolio_config=portfolio_config,
+                cache_dir=cache_dir,
+                export_config=export_config,
+                run_id_base=f"{run_id_base}_summary_{chunk_index + 1:03d}",
+            )
+            if batch is None:
+                return None
+            chunk_results, chunk_rows, _ = self._normalize_rust_batch_result(batch)
+            if len(chunk_results) != len(chunk) or len(chunk_rows) != len(chunk):
+                raise RuntimeError(
+                    "Rust retained matrix summary batch returned incomplete candidate coverage"
+                )
+            rows.extend(chunk_rows)
+            del chunk_results
+
+        retained_ids = self._retained_matrix_strategy_ids(
+            rows=rows,
+            retention_limit=retention_limit,
+        )
+        retained_variants = [
+            variant
+            for variant in variants
+            if self._required_config_candidate_id(
+                _dict_or_empty(variant.get("config"))
+            )
+            in retained_ids
+        ]
+        if not retained_variants:
+            return [], rows, []
+        retained_batch = self._try_run_portfolio_rust_batch(
+            variants=retained_variants,
+            market_data=market_data,
+            market_data_bundle=market_data_bundle,
+            engine_request=engine_request,
+            portfolio_config=portfolio_config,
+            cache_dir=cache_dir,
+            export_config=export_config,
+            run_id_base=f"{run_id_base}_retained",
+        )
+        if retained_batch is None:
+            return None
+        retained_results, _, _ = self._normalize_rust_batch_result(retained_batch)
+        if len(retained_results) != len(retained_variants):
+            raise RuntimeError(
+                "Rust retained matrix replay returned incomplete candidate coverage"
+            )
+        return retained_results, rows, []
 
     @staticmethod
     def _normalize_rust_batch_result(batch: Any) -> tuple[
@@ -383,12 +501,16 @@ class UnifiedBacktestRunnerBacktester:
             return None
         variant = variants[0]
         variant_config = _dict_or_empty(variant.get("config"))
+        resolved_engine_request = self._resolved_engine_requests_for_variants(
+            engine_request=engine_request,
+            variants=variants,
+        )[0]
         direct_artifacts_enabled, output_dir_raw = self._direct_artifacts_request(export_config)
         temporary_output = ""
         if not direct_artifacts_enabled:
             temporary_output = tempfile.mkdtemp(prefix="lo2cin4bt-engine-request-")
             output_dir_raw = temporary_output
-        simulation = _dict_or_empty(engine_request.get("simulation"))
+        simulation = _dict_or_empty(resolved_engine_request.get("simulation"))
         fill_model = _dict_or_empty(simulation.get("fill_model"))
         cost_cfg = _dict_or_empty(fill_model.get("cost"))
         cost_rate = (
@@ -406,20 +528,18 @@ class UnifiedBacktestRunnerBacktester:
         symbols = [
             str(item)
             for item in _list_or_empty(
-                _dict_or_empty(engine_request.get("data_requirements")).get("symbols")
+                _dict_or_empty(resolved_engine_request.get("data_requirements")).get("symbols")
             )
         ]
         from backtester.RustCoreBridge_backtester import _ENGINE_SERVICE_CLIENT
 
         try:
             summary = _ENGINE_SERVICE_CLIENT.execute_engine_request(
-                engine_request,
+                resolved_engine_request,
                 market_data_bundle.read_manifest(),
                 timeout=self._positive_int(fill_model.get("rust_timeout_seconds")) or 180,
                 artifact_output_dir=str(output_dir_raw),
-                artifact_run_id=str(
-                    variant_config.get("strategy_id") or run_id_base or "engine_request"
-                ),
+                artifact_run_id=self._required_config_candidate_id(variant_config),
             )
             artifact_bundle = _dict_or_empty(summary.get("artifact_bundle"))
             if not artifact_bundle:
@@ -430,11 +550,7 @@ class UnifiedBacktestRunnerBacktester:
             else:
                 items = [
                     {
-                        "candidate_id": str(
-                            variant_config.get("strategy_id")
-                            or variant.get("suffix")
-                            or "engine_request"
-                        ),
+                        "candidate_id": self._required_config_candidate_id(variant_config),
                         "resolved_params": _dict_or_empty(variant_config.get("resolved_params")),
                         "final_equity": summary.get("final_equity"),
                         "total_return": summary.get("total_return"),
@@ -447,7 +563,7 @@ class UnifiedBacktestRunnerBacktester:
                 ]
             if len(items) != 1:
                 return None
-            strategy = _dict_or_empty(engine_request.get("strategy"))
+            strategy = _dict_or_empty(resolved_engine_request.get("strategy"))
             decision = _dict_or_empty(strategy.get("decision_plan"))
             allocation_method = str(
                 _dict_or_empty(decision.get("allocation")).get("method") or ""
@@ -486,7 +602,12 @@ class UnifiedBacktestRunnerBacktester:
                 producer_fields.update(
                     {
                         "signal_producer": "rust_engine_request_reset_timer_v1",
-                        "feature_producer": "rust_engine_request_external_feature_v1",
+                        "feature_producer": (
+                            "rust_engine_request_calendar_signal_v1"
+                            if _dict_or_empty(signals.get("entry")).get("op")
+                            == "calendar.session_offset_from_month_end"
+                            else "rust_engine_request_external_feature_v1"
+                        ),
                     }
                 )
             elif is_signal_timing:
@@ -550,8 +671,14 @@ class UnifiedBacktestRunnerBacktester:
             and isinstance(signals.get("entry"), dict)
             and isinstance(signals.get("exit"), dict)
         )
+        entry_signal = _dict_or_empty(signals.get("entry"))
         simulation = _dict_or_empty(engine_request.get("simulation"))
         fill_model = _dict_or_empty(simulation.get("fill_model"))
+        actions = [
+            item
+            for item in _list_or_empty(fill_model.get("actions"))
+            if isinstance(item, dict)
+        ]
         position_policy = _dict_or_empty(fill_model.get("position_policy"))
         is_reset_timer = position_policy.get("on_entry_signal_while_holding") == "reset_timer"
         symbols = [
@@ -560,8 +687,21 @@ class UnifiedBacktestRunnerBacktester:
                 _dict_or_empty(engine_request.get("data_requirements")).get("symbols")
             )
         ]
+        is_calendar_overlay = (
+            len(symbols) >= 2
+            and str(entry_signal.get("op") or "").startswith("calendar.")
+            and any(
+                str(action.get("signal") or "") == "entry"
+                and (
+                    isinstance(action.get("weights"), dict)
+                    or str(action.get("action") or "") == "flatten"
+                )
+                for action in actions
+            )
+        )
         groupable = (
             is_reset_timer
+            or is_calendar_overlay
             or allocation_method == "equal_weight"
             or (len(symbols) == 1 and is_signal_timing)
             or (len(symbols) == 1 and "session.same_session_close" in operations)
@@ -615,6 +755,7 @@ class UnifiedBacktestRunnerBacktester:
             artifact_bundle = _dict_or_empty(summary.get("artifact_bundle"))
             if len(items) != len(variants) or not artifact_bundle:
                 return None
+            producer_fields: Dict[str, Any]
             if shape == "daily_rank":
                 fast_path = "daily_rank_rust_engine_request_batch"
                 backend = "rust_daily_rank"
@@ -627,9 +768,49 @@ class UnifiedBacktestRunnerBacktester:
                 fast_path = "signal_rust_engine_request_batch"
                 backend = "rust_timeline"
                 kernel = "rust_timeline_v1"
+                derived_bar_cache = _dict_or_empty(batch.get("derived_bar_cache"))
+                required_cache = {
+                    "schema_version",
+                    "enabled",
+                    "build_count",
+                    "candidate_count",
+                    "market_data_bundle_hash",
+                    "stream_graph_hash",
+                }
+                if (
+                    not required_cache.issubset(derived_bar_cache)
+                    or derived_bar_cache.get("schema_version")
+                    != "derived_bar_cache.v1"
+                    or int(derived_bar_cache.get("build_count") or 0) != 1
+                    or int(derived_bar_cache.get("candidate_count") or 0)
+                    != len(variants)
+                    or str(derived_bar_cache.get("market_data_bundle_hash") or "")
+                    != str(market_data_bundle.content_hash or "")
+                    or len(str(derived_bar_cache.get("stream_graph_hash") or "")) != 64
+                ):
+                    raise RuntimeError(
+                        "Rust grouped signal batch returned invalid derived-bar cache evidence"
+                    )
+                expects_derived = (
+                    _dict_or_empty(
+                        _dict_or_empty(engine_request.get("strategy")).get(
+                            "stream_binding"
+                        )
+                    ).get("decision_stream_id")
+                    != _dict_or_empty(
+                        _dict_or_empty(engine_request.get("strategy")).get(
+                            "stream_binding"
+                        )
+                    ).get("execution_stream_id")
+                )
+                if bool(derived_bar_cache.get("enabled")) != expects_derived:
+                    raise RuntimeError(
+                        "Rust grouped signal cache evidence disagrees with stream binding"
+                    )
                 producer_fields = {
                     "signal_producer": "rust_engine_request_signal_batch_v1",
                     "feature_producer": "rust_engine_request_decision_fields_v1",
+                    "derived_bar_cache": copy.deepcopy(derived_bar_cache),
                 }
             elif shape == "calendar_same_session":
                 fast_path = "calendar_rust_engine_request_batch"
@@ -638,13 +819,25 @@ class UnifiedBacktestRunnerBacktester:
                 producer_fields = {
                     "timeline_producer": "rust_engine_request_calendar_batch_v1",
                 }
+            elif shape == "calendar_overlay":
+                fast_path = "calendar_overlay_rust_engine_request_batch"
+                backend = "rust_timeline"
+                kernel = "rust_timeline_v1"
+                producer_fields = {
+                    "timeline_producer": "rust_engine_request_calendar_overlay_batch_v1",
+                }
             elif shape == "reset_timer":
                 fast_path = "reset_timer_rust_engine_request_batch"
                 backend = "rust_timeline"
                 kernel = "rust_timeline_v1"
                 producer_fields = {
                     "signal_producer": "rust_engine_request_reset_timer_batch_v1",
-                    "feature_producer": "rust_engine_request_external_feature_v1",
+                    "feature_producer": (
+                        "rust_engine_request_calendar_signal_batch_v1"
+                        if str(entry_signal.get("op") or "")
+                        == "calendar.session_offset_from_month_end"
+                        else "rust_engine_request_external_feature_v1"
+                    ),
                 }
             else:
                 return None
@@ -677,16 +870,39 @@ class UnifiedBacktestRunnerBacktester:
         variants: List[Dict[str, Any]],
     ) -> List[Dict[str, Any]]:
         requests: List[Dict[str, Any]] = []
-        base_request_id = str(engine_request.get("request_id") or "engine-request")
-        for index, variant in enumerate(variants):
+        base_strategy = _dict_or_empty(engine_request.get("strategy"))
+        base_workflow = _dict_or_empty(engine_request.get("workflow"))
+        base_strategy_id = str(base_strategy.get("base_strategy_id") or "").strip()
+        workflow_id = str(base_workflow.get("workflow_id") or "").strip()
+        for variant in variants:
             variant_config = _dict_or_empty(variant.get("config"))
             resolved = _dict_or_empty(variant_config.get("resolved_params"))
             request = copy.deepcopy(engine_request)
             workflow = _dict_or_empty(request.get("workflow"))
             workflow["resolved_parameters"] = copy.deepcopy(resolved)
             request["workflow"] = workflow
-            suffix = str(variant.get("suffix") or index)
-            request["request_id"] = f"{base_request_id}:{suffix}"
+            suffix = canonical_parameter_suffix(resolved)
+            candidate_id = str(variant.get("candidate_id") or "").strip()
+            if candidate_id:
+                validate_canonical_candidate_id(
+                    candidate_id,
+                    base_strategy_id=base_strategy_id,
+                    workflow_id=workflow_id,
+                    parameter_suffix=suffix,
+                )
+            else:
+                candidate_id = canonical_candidate_id(
+                    base_strategy_id,
+                    workflow_id,
+                    suffix,
+                )
+            variant_config["strategy_id"] = candidate_id
+            request_strategy = _dict_or_empty(request.get("strategy"))
+            request_strategy["strategy_id"] = candidate_id
+            request["strategy"] = request_strategy
+            request["request_id"] = str(
+                variant_config.get("engine_request_id") or candidate_id
+            )
             request["request_hash"] = engine_request_hash(request)
             validate_engine_request(request)
             requests.append(request)
@@ -756,14 +972,17 @@ class UnifiedBacktestRunnerBacktester:
             variant_config = dict(variant.get("config") or {})
             result = result_builder(item, variant_config)
             result.validation_report.update(extra_validation_fields)
-            results.append(result)
-            rows.append(
-                self._portfolio_matrix_row_from_rust_compact(
-                    item=item,
-                    config=variant_config,
-                    metric_source=metric_source,
-                )
+            row = self._portfolio_matrix_row_from_rust_compact(
+                item=item,
+                config=variant_config,
+                metric_source=metric_source,
             )
+            canonical_strategy_id = self._row_strategy_id(row)
+            result.strategy_id = canonical_strategy_id
+            if isinstance(result.config, dict):
+                result.config["strategy_id"] = canonical_strategy_id
+            results.append(result)
+            rows.append(row)
         exported_files = self._export_rust_direct_signal_bundle_metadata(
             artifact_bundle=artifact_bundle,
             items=items,
@@ -804,7 +1023,7 @@ class UnifiedBacktestRunnerBacktester:
             config=config,
         )
         return MultiAssetBacktestResult(
-            strategy_id=str(config.get("strategy_id") or "multi_asset_portfolio"),
+            strategy_id=self._required_config_candidate_id(config),
             equity_curve=tables["equity_curve"],
             holdings=tables["holdings"],
             rebalance_audit=tables["rebalance_audit"],
@@ -813,6 +1032,7 @@ class UnifiedBacktestRunnerBacktester:
             config=config,
             validation_report=validation_report,
             risk_gate_events=tables["risk_gate_events"],
+            execution_equity_curve=tables["execution_equity_curve"],
         )
 
     def _multi_asset_result_from_rust_timeline(
@@ -841,7 +1061,7 @@ class UnifiedBacktestRunnerBacktester:
         validation_report["expected_symbols"] = list(assets)
         validation_report["loaded_symbols"] = list(assets)
         return MultiAssetBacktestResult(
-            strategy_id=str(config.get("strategy_id") or "multi_asset_portfolio"),
+            strategy_id=self._required_config_candidate_id(config),
             equity_curve=tables["equity_curve"],
             holdings=tables["holdings"],
             rebalance_audit=tables["rebalance_audit"],
@@ -850,6 +1070,7 @@ class UnifiedBacktestRunnerBacktester:
             config=config,
             validation_report=validation_report,
             risk_gate_events=tables["risk_gate_events"],
+            execution_equity_curve=tables["execution_equity_curve"],
         )
 
     def _rust_timeline_tables(
@@ -863,11 +1084,16 @@ class UnifiedBacktestRunnerBacktester:
         if result_tables.get("schema_version") != "rust_timeline_result_tables.v1":
             raise ValueError("Rust timeline summary missing rust_timeline_result_tables.v1")
         equity_curve = self._rust_result_table_frame(result_tables.get("equity_curve"))
+        execution_equity_curve = self._rust_result_table_frame(
+            result_tables.get("execution_equity_curve")
+        )
         holdings = self._rust_result_table_frame(result_tables.get("holdings"))
         rebalance_audit = self._rust_result_table_frame(result_tables.get("rebalance_audit"))
         rebalance_trades = self._rust_result_table_frame(result_tables.get("rebalance_trades"))
         risk_gate_events = self._rust_result_table_frame(result_tables.get("risk_gate_events"))
         self._ensure_equity_columns(equity_curve=equity_curve, assets=assets)
+        if execution_equity_curve.empty:
+            raise ValueError("Rust timeline result is missing execution_equity_curve")
         if "Cost_rate" in rebalance_audit.columns:
             cost_rates = pd.to_numeric(
                 rebalance_audit["Cost_rate"], errors="coerce"
@@ -879,6 +1105,7 @@ class UnifiedBacktestRunnerBacktester:
             raise ValueError("Rust rebalance_audit is missing required Cost_rate column")
         return {
             "equity_curve": equity_curve,
+            "execution_equity_curve": execution_equity_curve,
             "holdings": holdings,
             "rebalance_audit": rebalance_audit,
             "rebalance_trades": rebalance_trades,
@@ -891,6 +1118,7 @@ class UnifiedBacktestRunnerBacktester:
             raise ValueError("Rust result table requires a non-empty equity_curve")
         required_base = {
             "Time",
+            "Session_label",
             "Equity_value",
             "Portfolio_return",
             "Turnover",
@@ -912,7 +1140,7 @@ class UnifiedBacktestRunnerBacktester:
                 "Rust equity_curve is missing required columns: " + ", ".join(missing)
             )
 
-        numeric_columns = sorted((required_base - {"Time"}) | required_asset)
+        numeric_columns = sorted((required_base - {"Time", "Session_label"}) | required_asset)
         for column in numeric_columns:
             values = pd.to_numeric(equity_curve[column], errors="coerce")
             if values.isna().any() or not np.isfinite(values.to_numpy()).all():
@@ -951,11 +1179,7 @@ class UnifiedBacktestRunnerBacktester:
         accounting_kernel: str = "rust_timeline_v1",
         result_table_kernel: str = "rust_arrow_parquet_bundle.v1",
     ) -> MultiAssetBacktestResult:
-        strategy_id = str(
-            item.get("candidate_id")
-            or config.get("strategy_id")
-            or "multi_asset_portfolio"
-        )
+        strategy_id = self._required_matching_candidate_id(item=item, config=config)
         validation_report = self._single_asset_rust_direct_validation_report(
             item=item,
             cost_rate=cost_rate,
@@ -989,6 +1213,11 @@ class UnifiedBacktestRunnerBacktester:
             config=result_config,
             validation_report=validation_report,
             risk_gate_events=self._artifact_bundle_frame(artifact_bundle, "risk_gate_events", candidate_id=strategy_id),
+            execution_equity_curve=self._artifact_bundle_frame(
+                artifact_bundle,
+                "execution_equity_curve",
+                candidate_id=strategy_id,
+            ),
         )
 
     def _multi_asset_result_from_rust_compact(
@@ -1004,11 +1233,7 @@ class UnifiedBacktestRunnerBacktester:
         accounting_kernel: str = "rust_timeline_v1",
         result_table_kernel: str = "rust_arrow_parquet_bundle.v1",
     ) -> MultiAssetBacktestResult:
-        strategy_id = str(
-            item.get("candidate_id")
-            or config.get("strategy_id")
-            or "multi_asset_portfolio"
-        )
+        strategy_id = self._required_matching_candidate_id(item=item, config=config)
         validation_report = self._single_asset_rust_direct_validation_report(
             item=item,
             cost_rate=cost_rate,
@@ -1042,6 +1267,11 @@ class UnifiedBacktestRunnerBacktester:
             config=result_config,
             validation_report=validation_report,
             risk_gate_events=self._artifact_bundle_frame(artifact_bundle, "risk_gate_events", candidate_id=strategy_id),
+            execution_equity_curve=self._artifact_bundle_frame(
+                artifact_bundle,
+                "execution_equity_curve",
+                candidate_id=strategy_id,
+            ),
         )
 
     def _single_asset_rust_direct_validation_report(
@@ -1100,8 +1330,10 @@ class UnifiedBacktestRunnerBacktester:
                 "schema_version": "rust_timeline_accounting_summary.v1",
                 "status": "executed",
                 "final_equity": item.get("final_equity"),
+                "total_return": item.get("total_return"),
                 "active_rebalances": item.get("active_rebalances"),
                 "average_turnover": item.get("average_turnover"),
+                "intraday_max_drawdown": item.get("intraday_max_drawdown"),
                 "result_table_kernel": result_table_kernel,
             },
             "cost_accounting": {
@@ -1144,13 +1376,7 @@ class UnifiedBacktestRunnerBacktester:
         params = _dict_or_empty(config.get("resolved_params"))
         if not params:
             params = _dict_or_empty(item.get("resolved_params"))
-        strategy_id = str(
-            item.get("candidate_id")
-            or config.get("strategy_id")
-            or ""
-        ).strip()
-        if not strategy_id:
-            raise ValueError("Rust compact result candidate_id is required")
+        strategy_id = self._required_matching_candidate_id(item=item, config=config)
         active_rebalances = self._required_nonnegative_int(
             item.get("active_rebalances"),
             field="Rust compact result active_rebalances",
@@ -1178,6 +1404,9 @@ class UnifiedBacktestRunnerBacktester:
             "cagr": self._finite_or_none(item.get("cagr")),
             "sharpe": self._finite_or_none(item.get("sharpe")),
             "max_drawdown": self._finite_or_none(item.get("max_drawdown")),
+            "intraday_max_drawdown": self._finite_or_none(
+                item.get("intraday_max_drawdown")
+            ),
             "rebalance_count": active_rebalances,
             "trade_count": active_rebalances,
             "avg_turnover": self._required_finite_float(
@@ -1225,7 +1454,7 @@ class UnifiedBacktestRunnerBacktester:
             if not isinstance(item, dict):
                 continue
             config = dict(variant.get("config") or {})
-            candidate_id = str(item.get("candidate_id") or config.get("strategy_id") or "")
+            candidate_id = self._required_matching_candidate_id(item=item, config=config)
             validation_report = self._single_asset_rust_direct_validation_report(
                 item=item,
                 cost_rate=cost_rate,
@@ -1266,6 +1495,7 @@ class UnifiedBacktestRunnerBacktester:
             if key
             in {
                 "equity_curve",
+                "execution_equity_curve",
                 "holdings",
                 "rebalance_audit",
                 "rebalance_trades",
@@ -1299,7 +1529,9 @@ class UnifiedBacktestRunnerBacktester:
             "result_table_kernel": "rust_arrow_parquet_bundle.v1",
             "candidates": [
                 {
-                    "strategy_id": str(candidate.get("strategy_id") or ""),
+                    "strategy_id": validate_canonical_candidate_id(
+                        candidate.get("strategy_id")
+                    ),
                     "run_validation": candidate.get("run_validation"),
                     "artifact_consistency": {},
                 }
@@ -1374,6 +1606,7 @@ class UnifiedBacktestRunnerBacktester:
                 "schema_version": "rust_timeline_accounting_summary.v1",
                 "status": "executed",
                 "final_equity": rust_summary.get("final_equity"),
+                "total_return": rust_summary.get("total_return"),
                 "active_rebalances": rust_summary.get("active_rebalances"),
                 "average_turnover": rust_summary.get("average_turnover"),
                 "result_table_kernel": "rust_timeline_result_tables.v1",
@@ -1452,7 +1685,7 @@ class UnifiedBacktestRunnerBacktester:
         timing = str(execution_shape.get("timing") or execution_cfg.get("timing") or "").strip().lower()
         contract_kind = str(profile_contract.get("contract_kind") or "").strip().lower() or self._infer_profile_contract_kind(
             config=config
-        )
+            )
 
         if contract_kind in {"pair_spread", "multi_leg_event"}:
             return "explicit_actions"
@@ -1467,6 +1700,30 @@ class UnifiedBacktestRunnerBacktester:
         if actions:
             return "explicit_actions"
         return "rebalance_default"
+
+    @staticmethod
+    def _required_matching_candidate_id(
+        *,
+        item: Dict[str, Any],
+        config: Dict[str, Any],
+    ) -> str:
+        candidate_id = str(item.get("candidate_id") or "").strip()
+        if not candidate_id:
+            raise ValueError("Rust compact result candidate_id is required")
+        validate_canonical_candidate_id(candidate_id)
+        strategy_id = str(config.get("strategy_id") or "").strip()
+        if strategy_id != candidate_id:
+            raise ValueError(
+                "Rust compact result candidate_id does not match Python strategy_id"
+            )
+        return candidate_id
+
+    @staticmethod
+    def _required_config_candidate_id(config: Dict[str, Any]) -> str:
+        candidate_id = str(config.get("strategy_id") or "").strip()
+        if not candidate_id:
+            raise ValueError("Python config strategy_id is required")
+        return validate_canonical_candidate_id(candidate_id)
 
     def _infer_profile_contract_kind(self, *, config: Dict[str, Any]) -> str:
         execution_cfg = _dict_or_empty(config.get("fill_model"))
@@ -1530,7 +1787,11 @@ class UnifiedBacktestRunnerBacktester:
     ) -> Dict[str, Any]:
         config = result.config if isinstance(result.config, dict) else {}
         params = _dict_or_empty(config.get("resolved_params"))
-        strategy_id = str(result.strategy_id or config.get("strategy_id") or "")
+        strategy_id = validate_canonical_candidate_id(result.strategy_id)
+        if self._required_config_candidate_id(config) != strategy_id:
+            raise ValueError(
+                "Portfolio result Python strategy_id does not match result config"
+            )
         metrics = self._portfolio_matrix_metrics_from_equity(
             result.equity_curve,
             config=config,
@@ -1607,6 +1868,27 @@ class UnifiedBacktestRunnerBacktester:
             return None
         return max(0, limit)
 
+    def _matrix_rust_batch_chunk_size(
+        self,
+        *,
+        variants: List[Dict[str, Any]],
+        portfolio_config: Dict[str, Any],
+    ) -> int:
+        if len(variants) <= 1:
+            return len(variants)
+        first_config = dict((variants[0] or {}).get("config") or {})
+        execution_cfg = _dict_or_empty(first_config.get("execution"))
+        if not execution_cfg:
+            execution_cfg = _dict_or_empty(portfolio_config.get("execution"))
+        raw_size = execution_cfg.get("rust_batch_chunk_size")
+        if raw_size is None:
+            return min(len(variants), 16)
+        try:
+            size = int(raw_size)
+        except (TypeError, ValueError):
+            return min(len(variants), 16)
+        return min(len(variants), max(1, size))
+
     def _apply_matrix_result_retention(
         self,
         *,
@@ -1614,18 +1896,20 @@ class UnifiedBacktestRunnerBacktester:
         rows: List[Dict[str, Any]],
         retention_limit: Optional[int],
     ) -> tuple[List[MultiAssetBacktestResult], List[Dict[str, Any]]]:
-        if retention_limit is None or retention_limit >= len(results):
+        if retention_limit is None or (
+            retention_limit >= len(results) and len(rows) <= len(results)
+        ):
             return results, rows
         retained_ids = self._retained_matrix_strategy_ids(rows=rows, retention_limit=retention_limit)
         retained_results = [
             result
             for result in results
-            if str(result.strategy_id or _dict_or_empty(getattr(result, "config", {})).get("strategy_id") or "")
+            if self._required_result_candidate_id(result)
             in retained_ids
         ]
         retained_results.sort(
             key=lambda result: self._matrix_row_sort_key(
-                self._row_by_strategy_id(rows, str(result.strategy_id or ""))
+                self._row_by_strategy_id(rows, self._required_result_candidate_id(result))
             )
         )
         updated_rows: List[Dict[str, Any]] = []
@@ -1635,6 +1919,19 @@ class UnifiedBacktestRunnerBacktester:
             updated["result_materialization"] = "full" if strategy_id in retained_ids else "summary_only"
             updated_rows.append(updated)
         return retained_results, updated_rows
+
+    @classmethod
+    def _required_result_candidate_id(
+        cls,
+        result: MultiAssetBacktestResult,
+    ) -> str:
+        candidate_id = validate_canonical_candidate_id(result.strategy_id)
+        config = result.config if isinstance(result.config, dict) else {}
+        if cls._required_config_candidate_id(config) != candidate_id:
+            raise ValueError(
+                "Portfolio result Python strategy_id does not match result config"
+            )
+        return candidate_id
 
     def _retained_matrix_strategy_ids(
         self,
@@ -1657,7 +1954,7 @@ class UnifiedBacktestRunnerBacktester:
     @staticmethod
     def _row_by_strategy_id(rows: List[Dict[str, Any]], strategy_id: str) -> Dict[str, Any]:
         for row in rows:
-            if str(row.get("strategy_id") or row.get("backtest_id") or "") == strategy_id:
+            if UnifiedBacktestRunnerBacktester._row_strategy_id(row) == strategy_id:
                 return dict(row)
         return {}
 
@@ -1681,7 +1978,13 @@ class UnifiedBacktestRunnerBacktester:
 
     @staticmethod
     def _row_strategy_id(row: Dict[str, Any]) -> str:
-        return str(row.get("strategy_id") or row.get("backtest_id") or "").strip()
+        strategy_id = validate_canonical_candidate_id(row.get("strategy_id"))
+        backtest_id = validate_canonical_candidate_id(row.get("backtest_id"))
+        if strategy_id != backtest_id:
+            raise ValueError(
+                "Portfolio Matrix strategy_id does not match backtest_id"
+            )
+        return strategy_id
 
     def _portfolio_matrix_metrics_from_equity(
         self,
@@ -1706,6 +2009,9 @@ class UnifiedBacktestRunnerBacktester:
         turnover = self._required_numeric_series(equity_curve, "Turnover")
         gross = self._required_numeric_series(equity_curve, "Gross_exposure")
         trade_count = self._finite_or_none(rust_metrics.get("Trade_count"))
+        annualization = rust_metrics.get("Annualization")
+        if not isinstance(annualization, dict):
+            raise ValueError("Portfolio metrics require Rust annualization evidence")
         return {
             "final_equity": float(equity_series.iloc[-1]),
             "total_return": self._finite_or_none(rust_metrics.get("Total_return")),
@@ -1718,6 +2024,13 @@ class UnifiedBacktestRunnerBacktester:
             ),
             "rebalance_count": int((turnover > 0.0).sum()),
             "trade_count": int(trade_count) if trade_count is not None else None,
+            "projected_session_count": int(
+                rust_metrics["Projected_session_count"]
+            ),
+            "projected_return_interval_count": int(
+                rust_metrics["Projected_return_interval_count"]
+            ),
+            "annualization": copy.deepcopy(annualization),
             "avg_turnover": self._finite_or_none(turnover[turnover > 0.0].mean() if (turnover > 0.0).any() else 0.0),
             "avg_gross_exposure": self._finite_or_none(gross.mean()),
             "days": int(len(equity_series)),
@@ -1850,7 +2163,14 @@ class UnifiedBacktestRunnerBacktester:
                 raise ValueError(
                     f"Rust artifact table has unsupported format: {path.suffix}"
                 )
-            if candidate_id and "Backtest_id" in frame.columns:
+            if candidate_id:
+                validate_canonical_candidate_id(candidate_id)
+                if "Backtest_id" not in frame.columns:
+                    raise ValueError(
+                        f"Rust artifact table {table_name} is missing Backtest_id"
+                    )
+                for artifact_candidate_id in frame["Backtest_id"].dropna().astype(str).unique():
+                    validate_canonical_candidate_id(artifact_candidate_id)
                 frame = frame.loc[
                     frame["Backtest_id"].astype(str) == str(candidate_id)
                 ].copy()
@@ -2004,14 +2324,16 @@ class UnifiedBacktestRunnerBacktester:
             params = dict(resolved_params)
             variant_config = self._replace_param_refs(copy.deepcopy(portfolio_config), params)
             variant_config["resolved_params"] = params
-            base_strategy_id = str(portfolio_config.get("strategy_id") or "portfolio")
-            suffix = "_".join(f"{key}_{self._slug_value(value)}" for key, value in params.items())
-            if suffix and suffix not in base_strategy_id:
-                variant_config["strategy_id"] = f"{base_strategy_id}_{suffix}"
+            suffix = canonical_parameter_suffix(params)
             return [{"config": variant_config, "suffix": suffix}]
 
         if workflow_id != "parameter_matrix":
-            return [{"config": dict(portfolio_config), "suffix": ""}]
+            return [
+                {
+                    "config": dict(portfolio_config),
+                    "suffix": CANDIDATE_ID_FIXED_SUFFIX,
+                }
+            ]
 
         return self.portfolio_variant_expander(portfolio_config)
 
@@ -2026,10 +2348,6 @@ class UnifiedBacktestRunnerBacktester:
         return value
 
     @staticmethod
-    def _slug_value(value: Any) -> str:
-        return str(value).replace(".", "p").replace("-", "m").replace(" ", "_")
-
-    @staticmethod
     def _execution_plan(strategy_config: Dict[str, Any]) -> Dict[str, Any]:
         return plan_strategy_execution(normalize_strategy_run_config(strategy_config))
 
@@ -2037,20 +2355,18 @@ class UnifiedBacktestRunnerBacktester:
     def _portfolio_config_from_normalized(config: Dict[str, Any]) -> Dict[str, Any]:
         config = normalize_strategy_run_config(config)
         metadata = _dict_or_empty(config.get("metadata"))
-        platform = _dict_or_empty(config.get("platform"))
         data = _dict_or_empty(config.get("data"))
         fill_model = _dict_or_empty(config.get("fill_model"))
         execution = dict(fill_model)
         computed_fields = list(config.get("computed_fields") or [])
         return {
             "schema_version": "multi_asset_portfolio.v1",
-            "strategy_id": str(metadata.get("strategy_id") or platform.get("display_label") or "strategy_run"),
+            "strategy_id": validate_base_strategy_id(metadata.get("strategy_id")),
             "universe": dict(config.get("universe") or {}),
             "benchmark": data.get("benchmark"),
             "data_context": {
-                "frequency": data.get("frequency"),
-                "calendar": data.get("calendar"),
-                "timezone": data.get("timezone"),
+                "bar_time": copy.deepcopy(data["bar_time"]),
+                "stream_binding": copy.deepcopy(data["stream_binding"]),
             },
             "indicator_cache": dict(
                 config.get("indicator_cache")
@@ -2079,7 +2395,7 @@ class UnifiedBacktestRunnerBacktester:
             "explicit_target_weight_frame": True,
             "position_state": True,
             "top_n_selection": True,
-            "factorhandler_rank_by": True,
+            "computed_field_rank_by": True,
             "portfolio_accounting": True,
             "vector_hybrid": True,
         }
@@ -2088,18 +2404,20 @@ class UnifiedBacktestRunnerBacktester:
         domains = _dict_or_empty(portfolio_config.get("parameter_domains"))
         combinations = expand_parameter_combinations(domains)
         if not combinations:
-            return [{"config": dict(portfolio_config), "suffix": ""}]
+            return [
+                {
+                    "config": dict(portfolio_config),
+                    "suffix": CANDIDATE_ID_FIXED_SUFFIX,
+                }
+            ]
 
         variants: List[Dict[str, Any]] = []
-        base_strategy_id = str(portfolio_config.get("strategy_id") or "multi_asset_portfolio")
+        base_strategy_id = validate_base_strategy_id(portfolio_config.get("strategy_id"))
         for params in combinations:
             variant = self._replace_param_refs(copy.deepcopy(portfolio_config), params)
             variant["resolved_params"] = dict(params)
-            suffix = "_".join(
-                f"{key}_{self._slug_value(value)}"
-                for key, value in params.items()
-            )
-            variant["strategy_id"] = f"{base_strategy_id}_{suffix}"
+            suffix = canonical_parameter_suffix(params)
+            variant["strategy_id"] = base_strategy_id
             variants.append({"config": variant, "suffix": suffix})
         return variants
 

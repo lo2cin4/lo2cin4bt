@@ -1,3 +1,6 @@
+use crate::bar_aggregation::parse_canonical_date;
+use crate::candidate_identity::parse_candidate_id;
+use crate::computed_fields::returns::{excess_return, period_return_series, simple_return};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
@@ -13,6 +16,7 @@ pub struct BacktestDetailProjectionInput {
     pub label: String,
     pub asset: String,
     pub time: Vec<String>,
+    pub session_labels: Vec<String>,
     pub open: Vec<f64>,
     pub high: Vec<f64>,
     pub low: Vec<f64>,
@@ -173,6 +177,10 @@ pub enum BacktestDetailProjectionError {
     InvalidValue,
     #[error("detail projection requires valid source hashes and artifact refs")]
     InvalidSource,
+    #[error("detail projection requires canonical YYYY-MM-DD session labels")]
+    InvalidSessionLabel,
+    #[error("detail projection requires a canonical Backtest_id: {0}")]
+    InvalidBacktestId(String),
 }
 
 pub fn project_backtest_detail_bundle(
@@ -180,19 +188,21 @@ pub fn project_backtest_detail_bundle(
 ) -> Result<BacktestDetailBundle, BacktestDetailProjectionError> {
     let row_count = input.time.len();
     if input.run_id.trim().is_empty()
-        || input.backtest_id.trim().is_empty()
         || input.label.trim().is_empty()
         || input.asset.trim().is_empty()
         || row_count == 0
     {
         return Err(BacktestDetailProjectionError::MissingInput);
     }
+    parse_candidate_id(&input.backtest_id)
+        .map_err(BacktestDetailProjectionError::InvalidBacktestId)?;
     let required_lengths = [
         input.open.len(),
         input.high.len(),
         input.low.len(),
         input.close.len(),
         input.equity.len(),
+        input.session_labels.len(),
     ];
     if required_lengths.iter().any(|length| *length != row_count)
         || (!input.benchmark_equity.is_empty() && input.benchmark_equity.len() != row_count)
@@ -219,6 +229,7 @@ pub fn project_backtest_detail_bundle(
         .chain(input.contribution_series.values().flatten())
         .chain(input.weight_series.values().flatten())
         .any(|value| !value.is_finite())
+        || input.equity.iter().any(|value| *value <= 0.0)
         || (0..row_count).any(|index| {
             input.high[index] < input.open[index].max(input.close[index])
                 || input.low[index] > input.open[index].min(input.close[index])
@@ -266,7 +277,7 @@ pub fn project_backtest_detail_bundle(
                         exit_time: input.time[index].clone(),
                         entry_price,
                         exit_price: input.close[index],
-                        trade_return: input.close[index] / entry_price - 1.0,
+                        trade_return: simple_return(input.close[index], entry_price),
                     });
                 }
             }
@@ -324,8 +335,10 @@ pub fn project_backtest_detail_bundle(
         .zip(input.benchmark_equity.iter().copied())
         .map(|(time, value)| DetailPoint { time, value })
         .collect();
-    let monthly_return_rows = period_return_rows(&input.time, &input.equity, 7);
-    let yearly_return_rows = period_return_rows(&input.time, &input.equity, 4);
+    let monthly_return_rows =
+        period_return_rows(&input.session_labels, &input.equity, ReturnPeriod::Month)?;
+    let yearly_return_rows =
+        period_return_rows(&input.session_labels, &input.equity, ReturnPeriod::Year)?;
     let drawdown_series = drawdown_series(&input.time, &input.equity);
     let turnover_distribution = turnover_distribution(&input.time, &input.turnover);
     let turnover_summary = turnover_summary(
@@ -468,37 +481,58 @@ fn portfolio_episode_rows(input: &BacktestDetailProjectionInput) -> Vec<ClosedTr
                 exit_time,
                 entry_price,
                 exit_price,
-                trade_return: exit_price / entry_price - 1.0,
+                trade_return: simple_return(exit_price, entry_price),
             })
         })
         .collect()
 }
 
-fn period_return_rows(time: &[String], equity: &[f64], prefix_len: usize) -> Vec<Value> {
-    let mut closes: BTreeMap<String, (String, f64)> = BTreeMap::new();
-    for (date, value) in time.iter().zip(equity.iter()) {
-        let key = date.chars().take(prefix_len).collect::<String>();
-        closes.insert(key, (date.clone(), *value));
+#[derive(Clone, Copy)]
+enum ReturnPeriod {
+    Month,
+    Year,
+}
+
+fn period_return_rows(
+    session_labels: &[String],
+    equity: &[f64],
+    period_kind: ReturnPeriod,
+) -> Result<Vec<Value>, BacktestDetailProjectionError> {
+    let mut closes: BTreeMap<String, (i64, Option<i64>, f64)> = BTreeMap::new();
+    for (session_label, value) in session_labels.iter().zip(equity.iter()) {
+        let (year, month, _) = parse_canonical_date(session_label)
+            .map_err(|_| BacktestDetailProjectionError::InvalidSessionLabel)?;
+        let (key, row_month) = match period_kind {
+            ReturnPeriod::Month => (format!("{year:04}-{month:02}"), Some(month)),
+            ReturnPeriod::Year => (format!("{year:04}"), None),
+        };
+        closes.insert(key, (year, row_month, *value));
     }
-    let mut previous: Option<f64> = equity.first().copied();
-    closes
+    let mut anchors = Vec::with_capacity(closes.len() + 1);
+    anchors.push(equity[0]);
+    anchors.extend(closes.values().map(|(_, _, end_equity)| *end_equity));
+    let returns =
+        period_return_series(&anchors).map_err(|_| BacktestDetailProjectionError::InvalidValue)?;
+
+    Ok(closes
         .into_iter()
-        .map(|(period, (_, end_equity))| {
-            let start_equity = previous.unwrap_or(end_equity);
-            let period_return = if start_equity == 0.0 {
-                0.0
-            } else {
-                end_equity / start_equity - 1.0
-            };
-            previous = Some(end_equity);
-            serde_json::json!({
-                "period": period,
-                "return": period_return,
-                "start_equity": start_equity,
-                "end_equity": end_equity
-            })
-        })
-        .collect()
+        .zip(returns.simple.into_iter().skip(1))
+        .scan(
+            equity[0],
+            |start_equity, ((period, (year, month, end_equity)), period_return)| {
+                let row = serde_json::json!({
+                    "period": period,
+                    "year": year,
+                    "month": month,
+                    "return": period_return,
+                    "start_equity": *start_equity,
+                    "end_equity": end_equity
+                });
+                *start_equity = end_equity;
+                Some(row)
+            },
+        )
+        .collect())
 }
 
 fn drawdown_series(time: &[String], equity: &[f64]) -> Vec<DrawdownPoint> {
@@ -510,7 +544,11 @@ fn drawdown_series(time: &[String], equity: &[f64]) -> Vec<DrawdownPoint> {
             peak = peak.max(value);
             DrawdownPoint {
                 time,
-                drawdown: if peak > 0.0 { value / peak - 1.0 } else { 0.0 },
+                drawdown: if peak > 0.0 {
+                    simple_return(value, peak)
+                } else {
+                    0.0
+                },
             }
         })
         .collect()
@@ -596,7 +634,7 @@ fn asset_contribution_summary(rows: &mut [Value], equity: &[f64]) -> BTreeMap<St
     let portfolio_total_return = equity
         .first()
         .zip(equity.last())
-        .and_then(|(first, last)| (*first > 0.0).then_some(last / first - 1.0));
+        .and_then(|(first, last)| (*first > 0.0).then_some(simple_return(*last, *first)));
     BTreeMap::from([
         ("asset_count".to_string(), serde_json::json!(rows.len())),
         (
@@ -802,19 +840,6 @@ fn enriched_metrics_matrix(
             .sum::<f64>()
             / finite.len() as f64;
         let std = variance.sqrt();
-        insert_metric(&mut metrics, "annualized_std", std * 252.0_f64.sqrt());
-        let downside = (finite
-            .iter()
-            .filter(|value| **value < 0.0)
-            .map(|value| value.powi(2))
-            .sum::<f64>()
-            / finite.len() as f64)
-            .sqrt()
-            * 252.0_f64.sqrt();
-        insert_metric(&mut metrics, "annualized_downside_risk", downside);
-        if downside > 0.0 {
-            insert_metric(&mut metrics, "sortino", average * 252.0 / downside);
-        }
         if std > 0.0 {
             insert_metric(
                 &mut metrics,
@@ -1045,7 +1070,7 @@ fn enrich_benchmark(
         metric_value(metrics, "total_return"),
         metric_value(metrics, "bah_total_return"),
     ) {
-        insert_metric(metrics, "excess_return", total - benchmark);
+        insert_metric(metrics, "excess_return", excess_return(total, benchmark));
     }
     if returns.len() < 2 || benchmark_equity.len() != returns.len() {
         return;
@@ -1056,7 +1081,7 @@ fn enrich_benchmark(
             if pair[0] == 0.0 {
                 0.0
             } else {
-                pair[1] / pair[0] - 1.0
+                simple_return(pair[1], pair[0])
             }
         })
         .collect();
@@ -1142,10 +1167,11 @@ mod tests {
     fn detail_projector_pairs_closed_trade_without_recomputing_equity() {
         let bundle = project_backtest_detail_bundle(BacktestDetailProjectionInput {
             run_id: "run-1".to_string(),
-            backtest_id: "candidate-a".to_string(),
+            backtest_id: "candidate-a:single_backtest:fixed".to_string(),
             label: "Candidate A".to_string(),
             asset: "AAA".to_string(),
             time: vec!["2024-01-01".to_string(), "2024-01-02".to_string()],
+            session_labels: vec!["2024-01-01".to_string(), "2024-01-02".to_string()],
             open: vec![100.0, 110.0],
             high: vec![101.0, 112.0],
             low: vec![99.0, 109.0],
@@ -1181,6 +1207,43 @@ mod tests {
         assert_eq!(bundle.equity_series[1].value, 111.0);
         assert_eq!(bundle.trade_rows.len(), 1);
         assert!((bundle.trade_rows[0].trade_return - 0.11).abs() < 1e-12);
+    }
+
+    #[test]
+    fn period_rows_use_session_labels_and_central_return_series_for_intraday_equity() {
+        let monthly = period_return_rows(
+            &[
+                "2024-01-02".to_string(),
+                "2024-01-02".to_string(),
+                "2024-01-31".to_string(),
+                "2024-02-01".to_string(),
+            ],
+            &[100.0, 101.0, 110.0, 121.0],
+            ReturnPeriod::Month,
+        )
+        .expect("canonical session labels");
+
+        assert_eq!(monthly.len(), 2);
+        assert_eq!(monthly[0]["period"], "2024-01");
+        assert_eq!(monthly[0]["start_equity"], 100.0);
+        assert_eq!(monthly[0]["end_equity"], 110.0);
+        assert!((monthly[0]["return"].as_f64().unwrap() - 0.1).abs() < 1e-12);
+        assert_eq!(monthly[1]["period"], "2024-02");
+        assert_eq!(monthly[1]["start_equity"], 110.0);
+        assert_eq!(monthly[1]["end_equity"], 121.0);
+        assert!((monthly[1]["return"].as_f64().unwrap() - 0.1).abs() < 1e-12);
+    }
+
+    #[test]
+    fn period_rows_reject_noncanonical_session_labels() {
+        assert_eq!(
+            period_return_rows(
+                &["2024-01-02T16:00:00Z".to_string()],
+                &[100.0],
+                ReturnPeriod::Month,
+            ),
+            Err(BacktestDetailProjectionError::InvalidSessionLabel)
+        );
     }
 
     #[test]

@@ -1,19 +1,85 @@
 {
   "schema_version": "canonical_pipeline_golden.v1",
   "dataloader": {
-    "schema_version": "market_data_bundle.v1",
-    "contract_id": "lo2cin4bt.market_data_bundle.v1",
-    "bundle_id": "mdb-3cd3f6ff4a55bdb8",
-    "content_hash": "3cd3f6ff4a55bdb8ad3b2b19a247db378fc688310568b945cba25d585a37ca93",
-    "table_hash": "d6d4ce48de3b507849e87c01cb3e3fa75ce65d4384d8cf3b7c96c080b1caf4be",
-    "symbols": ["AAA", "BBB"],
-    "frequency": "1D",
+    "schema_version": "market_data_bundle.v2",
+    "contract_id": "lo2cin4bt.market_data_bundle.v2",
+    "bundle_id": "mdb-9478d061ba32821a",
+    "content_hash": "9478d061ba32821a111349b1598c8f190e00b875555160aba47b8221e58666c8",
+    "table_hash": "3c9cf7a4a03e1db1eccceb8e68b1fd1583ba9eb5a2b318049c5399bfff25b584",
+    "symbols": [
+      "AAA",
+      "BBB"
+    ],
     "calendar": "XNYS",
     "timezone": "America/New_York",
+    "execution_stream": {
+      "stream_id": "execution_daily",
+      "role": "execution",
+      "source": {
+        "kind": "external",
+        "provider_id": "fixture"
+      },
+      "session_scope": "regular",
+      "row_key_kind": "session_label",
+      "bar_spec": {
+        "aggregation": "time",
+        "step": 1,
+        "unit": "day",
+        "price_type": "last",
+        "alignment": "session_open"
+      },
+      "timestamp_semantics": {
+        "timestamp_convention": "bar_close",
+        "interval_boundary": "left_open_right_closed",
+        "external_execution_sequence_column": "external_execution_sequence",
+        "bar_open_time_column": "bar_open_timestamp",
+        "bar_close_time_column": "bar_close_timestamp",
+        "available_time_column": "available_timestamp",
+        "session_label_column": "session_label",
+        "availability_policy": "bar_close"
+      },
+      "timeline_table": "execution_timeline",
+      "ohlcv_tables": {
+        "open": "open",
+        "high": "high",
+        "low": "low",
+        "close": "close",
+        "volume": "volume"
+      }
+    },
+    "session_windows": [
+      {
+        "session_label": "2024-01-02",
+        "open_timestamp": "2024-01-02T14:30:00Z",
+        "close_timestamp": "2024-01-02T21:00:00Z"
+      },
+      {
+        "session_label": "2024-01-03",
+        "open_timestamp": "2024-01-03T14:30:00Z",
+        "close_timestamp": "2024-01-03T21:00:00Z"
+      },
+      {
+        "session_label": "2024-01-04",
+        "open_timestamp": "2024-01-04T14:30:00Z",
+        "close_timestamp": "2024-01-04T21:00:00Z"
+      }
+    ],
     "rows": [
-      {"Time": "2024-01-02", "AAA": 100, "BBB": 200},
-      {"Time": "2024-01-03", "AAA": 101, "BBB": 199},
-      {"Time": "2024-01-04", "AAA": 102, "BBB": 198}
+      {
+        "Time": "2024-01-02",
+        "AAA": 100,
+        "BBB": 200
+      },
+      {
+        "Time": "2024-01-03",
+        "AAA": 101,
+        "BBB": 199
+      },
+      {
+        "Time": "2024-01-04",
+        "AAA": 102,
+        "BBB": 198
+      }
     ]
   },
   "public_strategies": {
@@ -22,48 +88,60 @@
       "bounded_matrix": true,
       "rows": [
         {
-          "strategy_id": "qqq_daily_sma_cross_yfinance_example:parameter_matrix:short_ma_20_long_ma_120",
-          "resolved_params": {"long_ma": 120, "short_ma": 20},
+          "strategy_id": "qqq_daily_sma_cross_yfinance_example:parameter_matrix:long_ma_120_short_ma_20",
+          "resolved_params": {
+            "long_ma": 120,
+            "short_ma": 20
+          },
           "equity_rows": 420,
           "trade_rows": 13,
           "active_rebalances": 13,
           "final_equity": 57.97118658312607,
           "accounting_kernel": "rust_timeline_v1",
           "accounting_fast_path": "signal_rust_engine_request_batch",
-          "result_hash": "418383c2813b0a44b54925dbe38c52b454ef26141a50dafff496e482fd4a837b"
+          "result_hash": "f4eecca0cd4823320cbc55d78e8f43aad158d114db5d38e29c19ce4fa19e5146"
         },
         {
-          "strategy_id": "qqq_daily_sma_cross_yfinance_example:parameter_matrix:short_ma_20_long_ma_130",
-          "resolved_params": {"long_ma": 130, "short_ma": 20},
+          "strategy_id": "qqq_daily_sma_cross_yfinance_example:parameter_matrix:long_ma_130_short_ma_20",
+          "resolved_params": {
+            "long_ma": 130,
+            "short_ma": 20
+          },
           "equity_rows": 420,
           "trade_rows": 13,
           "active_rebalances": 13,
           "final_equity": 58.941025827217146,
           "accounting_kernel": "rust_timeline_v1",
           "accounting_fast_path": "signal_rust_engine_request_batch",
-          "result_hash": "0aac789704f1d779bee22e3d5f7deb0fa07e7fec5234ced63e8596a53b629b60"
+          "result_hash": "50472bf3af14724897a6874adf92addb60694d0241d44937622fa9cf22e00df1"
         },
         {
-          "strategy_id": "qqq_daily_sma_cross_yfinance_example:parameter_matrix:short_ma_30_long_ma_120",
-          "resolved_params": {"long_ma": 120, "short_ma": 30},
+          "strategy_id": "qqq_daily_sma_cross_yfinance_example:parameter_matrix:long_ma_120_short_ma_30",
+          "resolved_params": {
+            "long_ma": 120,
+            "short_ma": 30
+          },
           "equity_rows": 420,
           "trade_rows": 13,
           "active_rebalances": 13,
           "final_equity": 62.192394068035476,
           "accounting_kernel": "rust_timeline_v1",
           "accounting_fast_path": "signal_rust_engine_request_batch",
-          "result_hash": "3a2b57fd88d16405c969c0f55c04bfd672e72516c91625672e1d4a7053ec9bd9"
+          "result_hash": "a7e0b750257931392e42a313a99e432c2657e046776fb5d32f0cf7694210c726"
         },
         {
-          "strategy_id": "qqq_daily_sma_cross_yfinance_example:parameter_matrix:short_ma_30_long_ma_130",
-          "resolved_params": {"long_ma": 130, "short_ma": 30},
+          "strategy_id": "qqq_daily_sma_cross_yfinance_example:parameter_matrix:long_ma_130_short_ma_30",
+          "resolved_params": {
+            "long_ma": 130,
+            "short_ma": 30
+          },
           "equity_rows": 420,
           "trade_rows": 13,
           "active_rebalances": 13,
           "final_equity": 64.41991595618933,
           "accounting_kernel": "rust_timeline_v1",
           "accounting_fast_path": "signal_rust_engine_request_batch",
-          "result_hash": "ac02450af17908f572799ec10b3a995f2137574d8c4be3f55589805d6ad30b1c"
+          "result_hash": "91d1ea9cc5930f766833e8e882cb7a357fc8e45751448961440c5dff9e556fc5"
         }
       ]
     },
@@ -73,47 +151,59 @@
       "rows": [
         {
           "strategy_id": "btcusd_monthly_nth_weekday_same_session_coinbase_example:parameter_matrix:month_week_1_weekday_monday",
-          "resolved_params": {"month_week": 1, "weekday": "monday"},
+          "resolved_params": {
+            "month_week": 1,
+            "weekday": "monday"
+          },
           "equity_rows": 420,
           "trade_rows": 40,
           "active_rebalances": 40,
           "final_equity": 104.10249861605078,
           "accounting_kernel": "rust_timeline_v1",
           "accounting_fast_path": "calendar_rust_engine_request_batch",
-          "result_hash": "a906dc0af4c795c1ebdde10e0e97ee9e7a89f49e416696f7f4c9d334e5f96381"
+          "result_hash": "f445cc6d28303b9595e5f78bf0411fe9c149b84df6a23743bb53ae6676177994"
         },
         {
           "strategy_id": "btcusd_monthly_nth_weekday_same_session_coinbase_example:parameter_matrix:month_week_1_weekday_tuesday",
-          "resolved_params": {"month_week": 1, "weekday": "tuesday"},
+          "resolved_params": {
+            "month_week": 1,
+            "weekday": "tuesday"
+          },
           "equity_rows": 420,
           "trade_rows": 40,
           "active_rebalances": 40,
           "final_equity": 104.10249861605071,
           "accounting_kernel": "rust_timeline_v1",
           "accounting_fast_path": "calendar_rust_engine_request_batch",
-          "result_hash": "a6ae549b972010747f49e2e72a2b25d24df12577f7b737403f6470b6ed5341c1"
+          "result_hash": "e2873c03b39124c24900b065eb6e4961e649b8e29d5e62dcef1d90f83879d24b"
         },
         {
           "strategy_id": "btcusd_monthly_nth_weekday_same_session_coinbase_example:parameter_matrix:month_week_2_weekday_monday",
-          "resolved_params": {"month_week": 2, "weekday": "monday"},
+          "resolved_params": {
+            "month_week": 2,
+            "weekday": "monday"
+          },
           "equity_rows": 420,
           "trade_rows": 40,
           "active_rebalances": 40,
           "final_equity": 104.10249861605074,
           "accounting_kernel": "rust_timeline_v1",
           "accounting_fast_path": "calendar_rust_engine_request_batch",
-          "result_hash": "3cf5a8ed44d3e798392e111f345b43ce88fd4e84d885620ce8889dbd1e446d62"
+          "result_hash": "49141fa0303b67b9df6fc7a643cb1215a21877fb2b83b5f06bbf9e331cc1d3a1"
         },
         {
           "strategy_id": "btcusd_monthly_nth_weekday_same_session_coinbase_example:parameter_matrix:month_week_2_weekday_tuesday",
-          "resolved_params": {"month_week": 2, "weekday": "tuesday"},
+          "resolved_params": {
+            "month_week": 2,
+            "weekday": "tuesday"
+          },
           "equity_rows": 420,
           "trade_rows": 40,
           "active_rebalances": 40,
           "final_equity": 104.10249861605081,
           "accounting_kernel": "rust_timeline_v1",
           "accounting_fast_path": "calendar_rust_engine_request_batch",
-          "result_hash": "878dde78f07ce215b175d84e149515c6ba2c5460d2f2c97448619857f47f9562"
+          "result_hash": "df8e7abf7b99419e9915a902762999e8d607acb7711ffb9a861c3ed74e326d04"
         }
       ]
     },
@@ -122,7 +212,7 @@
       "bounded_matrix": false,
       "rows": [
         {
-          "strategy_id": "vti_avuv_vxus_sgol_dbmf_fixed_weights_yearly_rebalance_yfinance_example",
+          "strategy_id": "vti_avuv_vxus_sgol_dbmf_fixed_weights_yearly_rebalance_yfinance_example:single_backtest:fixed",
           "resolved_params": {},
           "equity_rows": 420,
           "trade_rows": 10,
@@ -130,7 +220,7 @@
           "final_equity": 119.16711037341543,
           "accounting_kernel": "rust_accounting_v1",
           "accounting_fast_path": "fixed_allocation_rust_engine_request_bundle",
-          "result_hash": "ea35a638f51aad24de99e8fc14d6ea3924753d7a309f3f1bbf47e78939f7b4bd"
+          "result_hash": "11497c8b1bcc4c4e81f722dd659cd847c60f259a946d9481ae6fe30afc65291f"
         }
       ]
     },
@@ -139,7 +229,7 @@
       "bounded_matrix": false,
       "rows": [
         {
-          "strategy_id": "voo_gld_momentum90_sma250_rotation_yfinance_example",
+          "strategy_id": "voo_gld_momentum90_sma250_rotation_yfinance_example:single_backtest:fixed",
           "resolved_params": {},
           "equity_rows": 420,
           "trade_rows": 181,
@@ -147,7 +237,7 @@
           "final_equity": 90.33248848400262,
           "accounting_kernel": "rust_daily_rank_v1",
           "accounting_fast_path": "daily_rank_rust_engine_request_bundle",
-          "result_hash": "38a68857864bd24526074bd2f22fd93483057e1bc17c54b62db4077014cb697d"
+          "result_hash": "0f18393c49d8ffd91cb51065f350441ca93aca191d3b355654f298f35a1190d3"
         }
       ]
     },
@@ -156,7 +246,7 @@
       "bounded_matrix": false,
       "rows": [
         {
-          "strategy_id": "us_etf_selection_timing_momentum_sma_yfinance_example",
+          "strategy_id": "us_etf_selection_timing_momentum_sma_yfinance_example:single_backtest:fixed",
           "resolved_params": {},
           "equity_rows": 420,
           "trade_rows": 470,
@@ -164,7 +254,7 @@
           "final_equity": 87.87124975057723,
           "accounting_kernel": "rust_daily_rank_v1",
           "accounting_fast_path": "daily_rank_rust_engine_request_bundle",
-          "result_hash": "ed4b83369028af81a16c85928b71318b8cb7a4afd94152d354e6387a569e7c9b"
+          "result_hash": "a1cface473589a7bab62e6a63be6bc0010158fb291d690dd1ed3182a29dd2aa6"
         }
       ]
     },
@@ -173,7 +263,7 @@
       "bounded_matrix": false,
       "rows": [
         {
-          "strategy_id": "spy_qqq_monthly_pair_spread_yfinance_example",
+          "strategy_id": "spy_qqq_monthly_pair_spread_yfinance_example:single_backtest:fixed",
           "resolved_params": {},
           "equity_rows": 420,
           "trade_rows": 80,
@@ -181,7 +271,7 @@
           "final_equity": 88.64923544912874,
           "accounting_kernel": "rust_timeline_v1",
           "accounting_fast_path": "timeline_rust_engine_request_bundle",
-          "result_hash": "32691680bcb456e70cd6fd9f8ec8dcdc0b764add8cd135a59c1542dd11482398"
+          "result_hash": "5a1367654acc9b7778e176921d8f433fb42497f2a34f780b97ce1a1fdf8e3bd2"
         }
       ]
     },
@@ -190,7 +280,7 @@
       "bounded_matrix": false,
       "rows": [
         {
-          "strategy_id": "qqq_tlt_gld_monthly_hedge_overlay_yfinance_example",
+          "strategy_id": "qqq_tlt_gld_monthly_hedge_overlay_yfinance_example:single_backtest:fixed",
           "resolved_params": {},
           "equity_rows": 420,
           "trade_rows": 115,
@@ -198,7 +288,7 @@
           "final_equity": 106.18478944308826,
           "accounting_kernel": "rust_timeline_v1",
           "accounting_fast_path": "timeline_rust_engine_request_bundle",
-          "result_hash": "c5ea5e7b6f081d2e8d8c8463f1e4ce1de327173c8255b712962d90e19974a38d"
+          "result_hash": "2f775fdaa348bfa6096e2d5b49e62d59a94f6f6cc42a6f00ae7dad09763badab"
         }
       ]
     },
@@ -207,7 +297,7 @@
       "bounded_matrix": false,
       "rows": [
         {
-          "strategy_id": "us_sector_etf_monthly_12_1_long_short_rotation_example",
+          "strategy_id": "us_sector_etf_monthly_12_1_long_short_rotation_example:single_backtest:fixed",
           "resolved_params": {},
           "equity_rows": 420,
           "trade_rows": 307,
@@ -215,41 +305,59 @@
           "final_equity": 96.72045364198885,
           "accounting_kernel": "rust_timeline_v1",
           "accounting_fast_path": "timeline_rust_engine_request_bundle",
-          "result_hash": "2c23c605a984cf592ba80198aa115e26f67c21d28844446c185f49d30004f8da"
+          "result_hash": "823bbc5e9353074ebce1cd7f4b725e5254d52c3a1cbae8df947bc8a8e3023a95"
         }
       ]
     }
   },
   "metrics": {
-    "winner": {
+    "winner:parameter_matrix:fixed": {
       "Total_return": 0.2649999999999999,
-      "Annualized_return (CAGR)": 0.2649999999999999,
+      "Annualized_return (CAGR)": 2702109.5135335666,
       "Max_drawdown": -0.049586776859504134,
-      "Sharpe": 11.24893558386397,
-      "Calmar": 4.940833333333331,
+      "Sharpe": 13.270381372055843,
+      "Calmar": 54492541.856260255,
       "Trade_count": 1.0,
       "Win_rate": 1.0,
       "Avg_trade_return": 0.125,
       "Profit_factor": null,
       "Max_consecutive_losses": 0.0,
       "BAH_Total_return": 0.15999999999999992,
-      "Beta": 1.7407336406630651,
-      "Alpha": -0.0025028298705497554
+      "Beta": 11.22538356195981,
+      "Alpha": -0.36094074749088356
     },
-    "loser": {
+    "loser:parameter_matrix:fixed": {
       "Total_return": -0.1090000000000001,
-      "Annualized_return (CAGR)": -0.1090000000000001,
+      "Annualized_return (CAGR)": -0.9993045028505794,
       "Max_drawdown": -0.10900000000000006,
-      "Sharpe": -4.298488357572695,
-      "Calmar": -1.1834862385321103,
+      "Sharpe": -4.703443679432948,
+      "Calmar": -9.167931218812651,
       "Trade_count": 1.0,
       "Win_rate": 0.0,
       "Avg_trade_return": -0.07500000000000001,
       "Profit_factor": -0.0,
       "Max_consecutive_losses": 2.0,
       "BAH_Total_return": 0.040000000000000036,
-      "Beta": -2.6064355326102335,
-      "Alpha": -0.000266713509882624
+      "Beta": -6.685547427990246,
+      "Alpha": 0.03960759699518787
+    }
+  },
+  "subdaily_session_projected_metrics": {
+    "annualization": {
+      "schema_version": "metrics_annualization.v1",
+      "basis": "session_close_projection",
+      "projection_policy": "last_accepted_equity_per_session",
+      "periods_per_year": 252,
+      "risk_free_rate_annual": 0.0
+    },
+    "metric": {
+      "Backtest_id": "intraday:single_backtest:fixed",
+      "Total_return": 0.04761904761904767,
+      "Annualized_return (CAGR)": 350.2583420577373,
+      "Max_drawdown": 0.0,
+      "Sharpe": 18.34655570614526,
+      "Projected_session_count": 3,
+      "Projected_return_interval_count": 2
     }
   },
   "plot_bundle": {
@@ -258,21 +366,43 @@
     "run_id": "golden-run",
     "chart_type": "equity_curve",
     "title": "Golden Equity",
-    "axes": {"x": "time", "y": "equity"},
-    "legend": ["Strategy", "Benchmark"],
+    "axes": {
+      "x": "time",
+      "y": "equity"
+    },
+    "legend": [
+      "Strategy",
+      "Benchmark"
+    ],
     "series": [
       {
         "series_id": "strategy",
         "label": "Strategy",
-        "x": ["2024-01-02", "2024-01-03", "2024-01-04"],
-        "y": [100.0, 110.0, 105.0],
+        "x": [
+          "2024-01-02",
+          "2024-01-03",
+          "2024-01-04"
+        ],
+        "y": [
+          100.0,
+          110.0,
+          105.0
+        ],
         "annotations": []
       },
       {
         "series_id": "benchmark",
         "label": "Benchmark",
-        "x": ["2024-01-02", "2024-01-03", "2024-01-04"],
-        "y": [100.0, 104.0, 108.0],
+        "x": [
+          "2024-01-02",
+          "2024-01-03",
+          "2024-01-04"
+        ],
+        "y": [
+          100.0,
+          104.0,
+          108.0
+        ],
         "annotations": []
       }
     ],
@@ -307,43 +437,43 @@
         "train_end": "2023-02-17 00:00:00",
         "test_start": "2023-02-20 00:00:00",
         "test_end": "2023-03-03 00:00:00",
-        "is_sharpe": 50.74744007438406,
+        "is_sharpe": 59.140827444214196,
         "is_calmar": null,
         "is_total_return": 0.1269841269841263,
-        "oos_sharpe": 23.002523865956,
+        "oos_sharpe": 1598.2153001905565,
         "oos_calmar": null,
-        "oos_total_return": 0.024390243902439046,
-        "oos_is_ratio": 0.4532745658153317,
+        "oos_total_return": 0.03157894736842115,
+        "oos_is_ratio": 27.0238914343582,
         "selection_source": "unified_portfolio_wfa",
         "selection_rank": 1,
         "selection_metric": "sharpe",
         "candidate_count": 2,
-        "accepted": false,
-        "review_status": "Review",
+        "accepted": true,
+        "review_status": "Pass",
         "is_risk_gate_event_count": 0,
         "oos_risk_gate_event_count": 0
       },
       {
         "window_id": 2,
         "objective": "sharpe",
-        "params_json": "{\"lookback\": 2}",
+        "params_json": "{\"lookback\": 4}",
         "train_start": "2023-01-30 00:00:00",
         "train_end": "2023-03-17 00:00:00",
         "test_start": "2023-03-20 00:00:00",
         "test_end": "2023-03-31 00:00:00",
-        "is_sharpe": 43.95456587519098,
+        "is_sharpe": 92.85036155454243,
         "is_calmar": null,
-        "is_total_return": 0.13180095402271674,
-        "oos_sharpe": 23.00068445906006,
+        "is_total_return": 0.13808425038456962,
+        "oos_sharpe": 1141.914778395347,
         "oos_calmar": null,
-        "oos_total_return": 0.03471957268218229,
-        "oos_is_ratio": 0.5232831675410131,
+        "oos_total_return": 0.04508670520231228,
+        "oos_is_ratio": 12.298441915323723,
         "selection_source": "unified_portfolio_wfa",
         "selection_rank": 1,
         "selection_metric": "sharpe",
         "candidate_count": 2,
-        "accepted": false,
-        "review_status": "Review",
+        "accepted": true,
+        "review_status": "Pass",
         "is_risk_gate_event_count": 0,
         "oos_risk_gate_event_count": 0
       },
@@ -355,29 +485,97 @@
         "train_end": "2023-04-14 00:00:00",
         "test_start": "2023-04-17 00:00:00",
         "test_end": "2023-04-28 00:00:00",
-        "is_sharpe": 47.16961222772364,
+        "is_sharpe": 111.46227874533362,
         "is_calmar": null,
-        "is_total_return": 0.16044334948279593,
-        "oos_sharpe": 23.001307712898214,
+        "is_total_return": 0.1684464070654359,
+        "oos_sharpe": 1250.0036108572822,
         "oos_calmar": null,
-        "oos_total_return": 0.031586254772648426,
-        "oos_is_ratio": 0.4876297816876973,
+        "oos_total_return": 0.04098073555166448,
+        "oos_is_ratio": 11.214588692496237,
         "selection_source": "unified_portfolio_wfa",
         "selection_rank": 1,
         "selection_metric": "sharpe",
         "candidate_count": 2,
-        "accepted": false,
-        "review_status": "Review",
+        "accepted": true,
+        "review_status": "Pass",
         "is_risk_gate_event_count": 0,
         "oos_risk_gate_event_count": 0
       }
     ]
   },
+  "phase2_multitimeframe": {
+    "graph": "execution_1m->derived_5m->derived_1h->decision_session",
+    "partial_final_policy_1h": "emit",
+    "decisions": [
+      {
+        "session_label": "2024-07-02",
+        "open": 100.0,
+        "high": 103.91,
+        "low": 99.98,
+        "close": 103.9,
+        "volume": 114855.0,
+        "event_timestamp": "2024-07-02T20:00:00Z",
+        "available_timestamp": "2024-07-02T20:00:00Z",
+        "source_count": 390,
+        "lineage_parent_bar_counts": [
+          390,
+          78,
+          7
+        ],
+        "lineage_external_source_bar_counts": [
+          390,
+          390,
+          390
+        ]
+      },
+      {
+        "session_label": "2024-07-03",
+        "open": 103.9,
+        "high": 106.01,
+        "low": 103.88,
+        "close": 106.0,
+        "volume": 42945.0,
+        "event_timestamp": "2024-07-03T17:00:00Z",
+        "available_timestamp": "2024-07-03T17:00:00Z",
+        "source_count": 210,
+        "lineage_parent_bar_counts": [
+          210,
+          42,
+          4
+        ],
+        "lineage_external_source_bar_counts": [
+          210,
+          210,
+          210
+        ]
+      }
+    ],
+    "next_execution": {
+      "index": 390,
+      "open_timestamp": "2024-07-03T13:30:00Z",
+      "external_execution_sequence": 391,
+      "open_price": 103.9,
+      "session_label": "2024-07-03"
+    },
+    "result": {
+      "active_rebalances": 1,
+      "cost_event_count": 1,
+      "cost_event_timestamp": "2024-07-03T13:31:00Z",
+      "turnover": 1.0,
+      "trade_cost": 0.15,
+      "cost_rate": 0.0015,
+      "eligible_fill_id": "2024-07-03T13:31:00Z:open:0:0",
+      "settlement_status": "settled",
+      "terminal_status": "no_signal",
+      "terminal_signal_action": null,
+      "bar_time_check_status": "passed"
+    }
+  },
   "end_to_end": {
     "strategy_key": "fixed_allocation",
     "result_schema_version": "result_validation_report.v1",
     "result_status": "valid",
-    "result_hash": "ea35a638f51aad24de99e8fc14d6ea3924753d7a309f3f1bbf47e78939f7b4bd",
+    "result_hash": "11497c8b1bcc4c4e81f722dd659cd847c60f259a946d9481ae6fe30afc65291f",
     "table_row_counts": {
       "equity_curve": 420,
       "holdings": 10,
@@ -390,10 +588,10 @@
     "last_equity": 119.16711037341543,
     "metrics": {
       "Total_return": 0.1934612956776709,
-      "Annualized_return (CAGR)": 0.11194934552597324,
+      "Annualized_return (CAGR)": 0.11223099003581694,
       "Max_drawdown": -0.010846221475964198,
-      "Sharpe": 2.5451804296359626,
-      "Calmar": 8.477546372230906,
+      "Sharpe": 2.5497265970046343,
+      "Calmar": 10.347473568055637,
       "Beta": 1.0,
       "Alpha": 0.0
     }

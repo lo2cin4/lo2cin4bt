@@ -1,13 +1,76 @@
 [project]
 name = "lo2cin4bt"
-version = "2.1.0"
+version = "2.2.0"
 description = "Browser-first quantitative research, backtesting, parameter-matrix, and WFA workspace."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }
+dependencies = [
+    "aiohttp>=3.8.0",
+    "beautifulsoup4>=4.11.0",
+    "certifi>=2023.7.22",
+    "curl_cffi>=0.5.0",
+    "dateparser>=1.1.0",
+    "exchange-calendars==4.13.2",
+    "fastapi>=0.115.0",
+    "frozendict>=2.3.8",
+    "importlib_metadata>=6.7.0",
+    "jsonschema>=4.23.0",
+    "kaleido>=0.2.1",
+    "lxml>=4.9.0",
+    "multitasking>=0.0.11",
+    "narwhals>=0.7.0",
+    "numpy>=1.23.0",
+    "openpyxl>=3.1.0",
+    "orjson>=3.10.0",
+    "optuna>=4.0.0",
+    "pandas>=2.0.0",
+    "peewee>=3.16.0",
+    "Pillow>=10.0.0",
+    "platformdirs>=3.10.0",
+    "plotly>=6.3.0",
+    "protobuf>=4.23.0",
+    "psutil>=6.3.0",
+    "pyarrow>=10.0.0",
+    "pycryptodome>=3.17",
+    "pydantic>=2.8.0",
+    "python-binance>=1.0.0",
+    "python-dateutil>=2.8.2",
+    "pytz>=2023.3",
+    "requests>=2.28.0",
+    "rich>=13.0.0",
+    "scipy>=1.10.0",
+    "scikit-learn>=1.4.0",
+    "statsmodels>=0.14.0",
+    "tqdm>=4.66.2",
+    "urllib3>=1.26.0",
+    "uvicorn[standard]>=0.30.0",
+    "websockets>=11.0.0",
+    "yfinance>=0.2.0",
+]
+
+[dependency-groups]
+dev = [
+    "black>=24.3.0",
+    "mypy>=1.18.0",
+    "pre-commit>=3.5.0",
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff==0.13.3",
+    "httpx2>=1.0.0",
+    "pandas-stubs==2.3.0.250703",
+    "types-pytz==2025.2.0.20250809",
+    "types-requests==2.32.4.20250809",
+]
+brokers = [
+    "futu-api>=8.0.0",
+    "ib-insync>=0.9.86",
+]
 
 [tool.uv]
 package = false
+default-groups = []
+required-version = "==0.11.32"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

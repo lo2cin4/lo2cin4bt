@@ -12,6 +12,7 @@ from backtester.ops.registry import (
     EVENT_DRIVEN_FEATURE_DAG,
     MULTI_ASSET_INDICATORS,
     MULTI_ASSET_INLINE_CONDITION_FEATURE,
+    _canonical_source_bytes,
     build_registry,
 )
 
@@ -19,14 +20,17 @@ from backtester.ops.registry import (
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_PATH = REPO_ROOT / "backtester" / "contracts" / "ops" / "op-spec-v1.schema.json"
 EXPORT_PATH = REPO_ROOT / "app" / "contracts" / "generated" / "op-registry-v1.json"
-STRATEGY_SCHEMA_PATH = REPO_ROOT / "backtester" / "contracts" / "strategy" / "strategy-contract-v2.schema.json"
-ENGINE_REQUEST_SCHEMA_PATH = REPO_ROOT / "backtester" / "contracts" / "runtime" / "engine-request-v1.schema.json"
+STRATEGY_SCHEMA_PATH = REPO_ROOT / "backtester" / "contracts" / "strategy" / "strategy-run.schema.json"
+ENGINE_REQUEST_SCHEMA_PATH = (
+    REPO_ROOT / "backtester" / "contracts" / "runtime" / "engine-request-v2.schema.json"
+)
 RUST_ENGINE_REQUEST_PATH = REPO_ROOT / "rust" / "lo2cin4bt_core" / "src" / "engine_request.rs"
 
 
 EXPECTED_CORE_OPS = {
     "and",
     "calendar.event_date",
+    "calendar.session_offset_from_month_end",
     "calendar.every_session",
     "calendar.first_session",
     "calendar.last_weekday_of_month",
@@ -120,6 +124,7 @@ REQUIRED_OP_FIELDS = {
 EXPECTED_BLOCK_KINDS = {
     "and": "condition_logic",
     "calendar.event_date": "calendar",
+    "calendar.session_offset_from_month_end": "calendar",
     "calendar.every_session": "calendar",
     "calendar.first_session": "calendar",
     "calendar.last_weekday_of_month": "calendar",
@@ -468,7 +473,7 @@ def test_export_registry_path_is_contained() -> None:
         raise AssertionError("export_registry accepted an output path outside app/contracts/generated")
 
 
-def test_calendar_param_refs_and_year_boundaries_match_strategy_schema() -> None:
+def test_calendar_param_refs_and_year_boundaries_match_canonical_registry() -> None:
     nth_weekday = build_registry().resolve("calendar.nth_weekday_of_month")
     assert nth_weekday is not None
     params = stable_json(nth_weekday["params_schema"])
@@ -477,9 +482,9 @@ def test_calendar_param_refs_and_year_boundaries_match_strategy_schema() -> None
     assert year_start is not None
     assert "months" in year_start["params_schema"]["properties"]
 
-    strategy_schema = stable_json(_load_json(STRATEGY_SCHEMA_PATH))
-    assert '"calendar.year_start"' in strategy_schema
-    assert '"calendar.year_end"' in strategy_schema
+    strategy_schema = _load_json(STRATEGY_SCHEMA_PATH)
+    assert strategy_schema["properties"]["schema_version"]["const"] == "strategy_run"
+    assert build_registry().resolve("calendar.year_end") is not None
 
 
 def test_source_hashes_cover_secondary_implementation_files() -> None:
@@ -492,6 +497,10 @@ def test_source_hashes_cover_secondary_implementation_files() -> None:
     assert "rust/lo2cin4bt_core/src/engine_runtime.rs" in same_session["implementation"]["source_hashes"]
     assert not any("NodeIR" in path for path in sma["implementation"]["source_hashes"])
     assert not any("NodeIR" in path for path in same_session["implementation"]["source_hashes"])
+
+
+def test_source_hashes_ignore_platform_line_ending_changes() -> None:
+    assert _canonical_source_bytes(b"first\r\nsecond\rthird\n") == b"first\nsecond\nthird\n"
 
 
 def test_strategy_templates_are_authoring_blocks_not_runtime_claims() -> None:
@@ -510,9 +519,8 @@ def test_strategy_templates_are_authoring_blocks_not_runtime_claims() -> None:
         assert "not a profitability claim" in " ".join(spec["safety_warnings"])
         for required_key in [
             "provider",
-            "frequency",
-            "calendar",
-            "timezone",
+            "bar_time",
+            "stream_binding",
             "universe",
             "universe_provenance",
             "benchmark",
@@ -521,6 +529,9 @@ def test_strategy_templates_are_authoring_blocks_not_runtime_claims() -> None:
             "slippage_model",
         ]:
             assert required_key in spec["params_schema"]["required"]
+        assert "frequency" not in spec["params_schema"]["properties"]
+        assert "calendar" not in spec["params_schema"]["properties"]
+        assert "timezone" not in spec["params_schema"]["properties"]
 
     assert not registry.is_supported("template.vcp_ascending_triangle", "ai.strategy_authoring")
 

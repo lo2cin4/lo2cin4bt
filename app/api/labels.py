@@ -327,6 +327,14 @@ def canonical_artifact_filename(
         return f"{prefix}_report_{short_id}{ext}"
     if artifact_type == "portfolio_equity_curve_parquet":
         return _portfolio_artifact_name(prefix, source_name, "portfolio-equity", short_id, ext)
+    if artifact_type == "portfolio_execution_equity_curve_parquet":
+        return _portfolio_artifact_name(
+            prefix,
+            source_name,
+            "portfolio-execution-equity",
+            short_id,
+            ext,
+        )
     if artifact_type == "portfolio_holdings_parquet":
         return _portfolio_artifact_name(prefix, source_name, "portfolio-holdings", short_id, ext)
     if artifact_type == "portfolio_rebalance_audit_parquet":

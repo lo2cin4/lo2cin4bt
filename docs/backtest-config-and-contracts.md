@@ -76,17 +76,16 @@ outputs; they are not user-editable config sections.
 
 ## Legacy Semantic Contract v2
 
-`strategy-contract-v2.schema.json` and feature-contract documents are legacy
-semantic contract surfaces kept for compatibility and migration. They are not
-the recommended starting point for new user-authored strategy configs.
+The retired strategy-contract-v2 semantic surface is not present in the active
+contract tree. Canonical strategy authoring uses `strategy-run.schema.json`.
 
 Feature contract v1 remains useful for external, non-price inputs. Each item in
-the legacy external feature-contract `features[]` declares:
+the typed external feature-contract `features[]` declares:
 
 - a semantic field name, for example `feature.vix.close`
 - a source type and URI
 - a source column
-- frequency / timezone / fill policy / lag
+- typed `bar_spec` / timezone / fill policy / lag
 - optional `source.source_id` for multi-source auditability
 - optional `calendar` / `staleness_max_bars` for contract-safe alignment metadata
 

@@ -12,27 +12,39 @@ from fastapi.testclient import TestClient
 from app.api import create_app
 from app.api.scheduler import JOB_WEIGHTS
 from app.api.service import AppAPIService
+from tests.support.app_api_contract_fixtures import (
+    build_portfolio_contract_run,
+    build_wfa_contract_run,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_missing_metrics_run_returns_not_found(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(AppAPIService, "_prewarm_rust_batch_services", lambda self: None)
+def test_missing_metrics_run_returns_not_found(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        AppAPIService, "_prewarm_rust_batch_services", lambda self: None
+    )
     client = TestClient(create_app(tmp_path))
 
     response = client.get("/api/app/metrics/missing-run/overview")
 
     assert response.status_code == 404
     assert "PlotBundle index not found" in response.json()["detail"]
-    assert not (tmp_path / "outputs" / "app" / "chart_payloads" / "missing-run").exists()
+    assert not (
+        tmp_path / "outputs" / "app" / "chart_payloads" / "missing-run"
+    ).exists()
     assert not (tmp_path / "outputs" / "app" / "run_snapshots" / "missing-run").exists()
 
 
 def test_decorate_run_loads_canonical_strategy_snapshot_for_selector_identity(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(AppAPIService, "_prewarm_rust_batch_services", lambda self: None)
+    monkeypatch.setattr(
+        AppAPIService, "_prewarm_rust_batch_services", lambda self: None
+    )
     service = AppAPIService(tmp_path)
     run_id = "20260713_622d003ff9ee"
     snapshot_dir = service.registry.build_run_paths(run_id)["snapshot_dir"]
@@ -67,7 +79,9 @@ def test_decorate_run_loads_canonical_strategy_snapshot_for_selector_identity(
 def test_decorate_run_rejects_corrupt_strategy_snapshot(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(AppAPIService, "_prewarm_rust_batch_services", lambda self: None)
+    monkeypatch.setattr(
+        AppAPIService, "_prewarm_rust_batch_services", lambda self: None
+    )
     service = AppAPIService(tmp_path)
     run_id = "corrupt_strategy_snapshot"
     snapshot_dir = service.registry.build_run_paths(run_id)["snapshot_dir"]
@@ -87,7 +101,9 @@ def test_decorate_run_rejects_corrupt_strategy_snapshot(
 def test_decorate_run_rejects_noncanonical_strategy_snapshot(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(AppAPIService, "_prewarm_rust_batch_services", lambda self: None)
+    monkeypatch.setattr(
+        AppAPIService, "_prewarm_rust_batch_services", lambda self: None
+    )
     service = AppAPIService(tmp_path)
     run_id = "invalid_strategy_snapshot"
     snapshot_dir = service.registry.build_run_paths(run_id)["snapshot_dir"]
@@ -110,7 +126,9 @@ def test_decorate_run_rejects_noncanonical_strategy_snapshot(
 def test_scheduler_rejects_unreadable_config_before_queueing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(AppAPIService, "_prewarm_rust_batch_services", lambda self: None)
+    monkeypatch.setattr(
+        AppAPIService, "_prewarm_rust_batch_services", lambda self: None
+    )
     service = AppAPIService(tmp_path)
     config = tmp_path / "workspace" / "runs" / "broken.json"
     config.parent.mkdir(parents=True, exist_ok=True)
@@ -123,7 +141,9 @@ def test_scheduler_rejects_unreadable_config_before_queueing(
 def test_scheduler_rejects_non_object_config_before_queueing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(AppAPIService, "_prewarm_rust_batch_services", lambda self: None)
+    monkeypatch.setattr(
+        AppAPIService, "_prewarm_rust_batch_services", lambda self: None
+    )
     service = AppAPIService(tmp_path)
     config = tmp_path / "workspace" / "runs" / "array.json"
     config.parent.mkdir(parents=True, exist_ok=True)
@@ -142,7 +162,9 @@ def test_app_api_routes_smoke() -> None:
     command_center = client.get("/api/app/command-center")
     assert command_center.status_code == 200
     assert "recent_runs" in command_center.json()
-    assert command_center.json()["server_session_id"] == health.json()["server_session_id"]
+    assert (
+        command_center.json()["server_session_id"] == health.json()["server_session_id"]
+    )
 
     wfa_runs = client.get("/api/app/wfa/runs")
     assert wfa_runs.status_code == 200
@@ -209,14 +231,31 @@ def test_command_center_is_no_store_and_restarted_app_has_no_stale_active_batche
             "status": "running",
             "current_stage": "backtester",
             "stages": [
-                {"stage": "config_validation", "status": "completed", "optional": False, "message": "ok"},
-                {"stage": "dataloader", "status": "completed", "optional": False, "message": "ok"},
-                {"stage": "backtester", "status": "running", "optional": False, "message": "still computing"},
+                {
+                    "stage": "config_validation",
+                    "status": "completed",
+                    "optional": False,
+                    "message": "ok",
+                },
+                {
+                    "stage": "dataloader",
+                    "status": "completed",
+                    "optional": False,
+                    "message": "ok",
+                },
+                {
+                    "stage": "backtester",
+                    "status": "running",
+                    "optional": False,
+                    "message": "still computing",
+                },
             ],
         },
     )
     with first_service.scheduler._lock:  # noqa: SLF001 - regression harness inspects in-memory scheduler state.
-        live_job = first_service.scheduler._locate_job(batch["batch_id"], running_job["job_id"])  # noqa: SLF001
+        live_job = first_service.scheduler._locate_job(
+            batch["batch_id"], running_job["job_id"]
+        )  # noqa: SLF001
         assert live_job is not None
         live_job["status"] = "running"
         live_job["stage"] = "backtester"
@@ -231,7 +270,9 @@ def test_command_center_is_no_store_and_restarted_app_has_no_stale_active_batche
         assert response.headers["Pragma"] == "no-cache"
         assert response.json()["active_batches"] == []
         assert response.json()["server_session_id"].startswith("app-")
-        failed_entry = restarted_client.app.state.app_service.registry.load_registry_entry(run_id)
+        failed_entry = (
+            restarted_client.app.state.app_service.registry.load_registry_entry(run_id)
+        )
         assert failed_entry["status"] == "failed"
         assert failed_entry["errors"] == [
             "Interrupted because the app process stopped before this run completed."
@@ -266,7 +307,9 @@ def test_registry_list_runs_prunes_missing_registry_entries(tmp_path: Path) -> N
     assert latest_runs_path.read_text(encoding="utf-8").strip() == "[]"
 
 
-def test_registry_parallel_writes_rebuild_complete_latest_runs_cache(tmp_path: Path) -> None:
+def test_registry_parallel_writes_rebuild_complete_latest_runs_cache(
+    tmp_path: Path,
+) -> None:
     service = AppAPIService(tmp_path)
 
     def write_run(index: int) -> None:
@@ -313,10 +356,21 @@ def test_parameter_matrix_cannot_submit_shortlist_to_wfa() -> None:
 def test_workspace_target_path_maps_run_center_config_folders(tmp_path: Path) -> None:
     service = AppAPIService(tmp_path)
 
-    assert service.workspace_target_path("autorunner") == tmp_path.resolve() / "workspace" / "runs"
-    assert service.workspace_target_path("wfa") == tmp_path.resolve() / "workspace" / "wfa"
-    assert service.local_folder_target_path("autorunner-output") == tmp_path.resolve() / "outputs" / "app" / "run_snapshots"
-    assert service.local_folder_target_path("wfa-output") == tmp_path.resolve() / "outputs" / "app" / "run_snapshots"
+    assert (
+        service.workspace_target_path("autorunner")
+        == tmp_path.resolve() / "workspace" / "runs"
+    )
+    assert (
+        service.workspace_target_path("wfa") == tmp_path.resolve() / "workspace" / "wfa"
+    )
+    assert (
+        service.local_folder_target_path("autorunner-output")
+        == tmp_path.resolve() / "outputs" / "app" / "run_snapshots"
+    )
+    assert (
+        service.local_folder_target_path("wfa-output")
+        == tmp_path.resolve() / "outputs" / "app" / "run_snapshots"
+    )
 
 
 def test_app_service_prewarms_rust_batch_helpers(monkeypatch, tmp_path: Path) -> None:
@@ -332,14 +386,16 @@ def test_app_service_prewarms_rust_batch_helpers(monkeypatch, tmp_path: Path) ->
 
     service = AppAPIService(tmp_path)
 
-    assert calls == [[
-        "signal_timeline_batch",
-        "calendar_same_session_batch",
-        "calendar_overlay_batch",
-        "reset_timer_batch",
-        "daily_rank_batch",
-        "metrics_parquet",
-    ]]
+    assert calls == [
+        [
+            "signal_timeline_batch",
+            "calendar_same_session_batch",
+            "calendar_overlay_batch",
+            "reset_timer_batch",
+            "daily_rank_batch",
+            "metrics_parquet",
+        ]
+    ]
     expected_status = {
         "status": "ready",
         "error": "",
@@ -410,7 +466,9 @@ def test_output_target_path_opens_latest_artifact_folder(tmp_path: Path) -> None
 def test_preferred_artifact_folder_rejects_corrupt_manifest(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(AppAPIService, "_prewarm_rust_batch_services", lambda self: None)
+    monkeypatch.setattr(
+        AppAPIService, "_prewarm_rust_batch_services", lambda self: None
+    )
     service = AppAPIService(tmp_path)
     run_id = "corrupt_manifest"
     manifest_path = service.registry.build_run_paths(run_id)["artifact_manifest"]
@@ -423,7 +481,9 @@ def test_preferred_artifact_folder_rejects_corrupt_manifest(
 def test_renderable_wfa_requires_canonical_parquet_artifact(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(AppAPIService, "_prewarm_rust_batch_services", lambda self: None)
+    monkeypatch.setattr(
+        AppAPIService, "_prewarm_rust_batch_services", lambda self: None
+    )
     service = AppAPIService(tmp_path)
     run_id = "stale_wfa_cache"
     payload_dir = service.registry.build_run_paths(run_id)["chart_payload_dir"]
@@ -435,7 +495,9 @@ def test_renderable_wfa_requires_canonical_parquet_artifact(
 def test_heatmap_axes_require_canonical_execution_plan(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(AppAPIService, "_prewarm_rust_batch_services", lambda self: None)
+    monkeypatch.setattr(
+        AppAPIService, "_prewarm_rust_batch_services", lambda self: None
+    )
     service = AppAPIService(tmp_path)
     run_id = "legacy_heatmap_inference"
     snapshot_dir = service.registry.build_run_paths(run_id)["snapshot_dir"]
@@ -456,7 +518,9 @@ def test_heatmap_axes_require_canonical_execution_plan(
 def test_heatmap_axes_reject_corrupt_execution_plan(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(AppAPIService, "_prewarm_rust_batch_services", lambda self: None)
+    monkeypatch.setattr(
+        AppAPIService, "_prewarm_rust_batch_services", lambda self: None
+    )
     service = AppAPIService(tmp_path)
     run_id = "corrupt_execution_plan"
     snapshot_dir = service.registry.build_run_paths(run_id)["snapshot_dir"]
@@ -469,7 +533,9 @@ def test_heatmap_axes_reject_corrupt_execution_plan(
 def test_parameter_review_store_rejects_non_object_json(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(AppAPIService, "_prewarm_rust_batch_services", lambda self: None)
+    monkeypatch.setattr(
+        AppAPIService, "_prewarm_rust_batch_services", lambda self: None
+    )
     service = AppAPIService(tmp_path)
     path = service._parameter_review_templates_path()  # noqa: SLF001
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -479,7 +545,9 @@ def test_parameter_review_store_rejects_non_object_json(
         service._load_parameter_review_template_store()  # noqa: SLF001
 
 
-def test_workspace_open_route_uses_service(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_workspace_open_route_uses_service(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     called: dict[str, str] = {}
 
     def fake_open(self: AppAPIService, target: str) -> dict[str, str]:
@@ -501,7 +569,9 @@ def test_workspace_open_route_uses_service(monkeypatch: pytest.MonkeyPatch, tmp_
     assert called["target"] == "autorunner"
 
 
-def test_folder_open_route_accepts_output_targets(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_folder_open_route_accepts_output_targets(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     called: dict[str, str] = {}
 
     def fake_open(self: AppAPIService, target: str) -> dict[str, str]:
@@ -569,7 +639,10 @@ def test_batch_route_rejects_legacy_config_alias_filename(tmp_path: Path) -> Non
     )
 
     assert response.status_code == 400
-    assert "Legacy config alias strategy-run-v2-* is no longer accepted" in response.json()["detail"]
+    assert (
+        "Legacy config alias strategy-run-v2-* is no longer accepted"
+        in response.json()["detail"]
+    )
 
 
 def test_batch_route_rejects_non_json_config(tmp_path: Path) -> None:
@@ -604,7 +677,9 @@ def test_mixed_batch_module_uses_repo_relative_config_root(tmp_path: Path) -> No
     assert response.json()["jobs"][0]["module"] == "autorunner"
 
 
-def test_batch_cancel_route_stops_running_job(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_batch_cancel_route_stops_running_job(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     repo = tmp_path / "repo"
     config = repo / "workspace" / "runs" / "case.json"
     config.parent.mkdir(parents=True)
@@ -627,7 +702,9 @@ def test_batch_cancel_route_stops_running_job(monkeypatch: pytest.MonkeyPatch, t
                 "created_at": "2026-06-27T00:00:00+08:00",
             }
         )
-        service.registry.write_snapshot_file(run_id, "partial.json", {"status": "partial"})
+        service.registry.write_snapshot_file(
+            run_id, "partial.json", {"status": "partial"}
+        )
         return {"run_id": run_id, "status": "completed"}
 
     monkeypatch.setattr(service.runtime, "run_autorunner_config", slow_run)
@@ -673,7 +750,9 @@ def test_batch_cancel_route_stops_running_job(monkeypatch: pytest.MonkeyPatch, t
     assert not cleanup_paths["snapshot_dir"].exists()
 
 
-def test_stale_cancel_requested_job_is_force_finalized(tmp_path: Path, monkeypatch) -> None:
+def test_stale_cancel_requested_job_is_force_finalized(
+    tmp_path: Path, monkeypatch
+) -> None:
     repo = tmp_path / "repo"
     config = repo / "workspace" / "runs" / "case.json"
     config.parent.mkdir(parents=True)
@@ -730,23 +809,13 @@ def test_stale_cancel_requested_job_is_force_finalized(tmp_path: Path, monkeypat
     assert not run_paths["snapshot_dir"].exists()
 
 
-def test_existing_metrics_overview_payload_contract_smoke() -> None:
-    service = AppAPIService(REPO_ROOT)
-    runs = service.metrics_runs()
-    if not runs:
-        pytest.skip("no completed metrics runs available in repo sample outputs")
-
-    payload = None
-    selected_run_id = ""
-    for run in runs:
-        selected_run_id = str(run["run_id"])
-        try:
-            payload = service.metrics_overview(selected_run_id)
-            break
-        except (FileNotFoundError, ValueError):
-            continue
-    if payload is None:
-        pytest.skip("repo sample outputs do not contain a current PlotBundle.v1 metrics run")
+def test_existing_metrics_overview_payload_contract_smoke(tmp_path: Path) -> None:
+    metrics_service, _payloads, _registry, selected_run_id = (
+        build_portfolio_contract_run(tmp_path)
+    )
+    metrics_service.ensure(selected_run_id)
+    service = AppAPIService(tmp_path)
+    payload = service.metrics_overview(selected_run_id)
 
     assert payload["run_id"] == selected_run_id
     assert isinstance(payload.get("rows"), list)
@@ -757,7 +826,9 @@ def test_existing_metrics_overview_payload_contract_smoke() -> None:
     assert "benchmark_series" in payload
 
 
-def test_metrics_run_discovery_rejects_legacy_parquet_without_plot_bundle_contract(tmp_path: Path) -> None:
+def test_metrics_run_discovery_rejects_legacy_parquet_without_plot_bundle_contract(
+    tmp_path: Path,
+) -> None:
     service = AppAPIService(tmp_path)
     run_id = "legacy-metrics-run"
     paths = service.registry.build_run_paths(run_id)
@@ -770,7 +841,9 @@ def test_metrics_run_discovery_rejects_legacy_parquet_without_plot_bundle_contra
     assert service._has_metrics_renderable_output(run_id) is False
 
 
-def test_metrics_run_discovery_accepts_current_projected_contract(tmp_path: Path) -> None:
+def test_metrics_run_discovery_accepts_current_projected_contract(
+    tmp_path: Path,
+) -> None:
     service = AppAPIService(tmp_path)
     run_id = "current-metrics-run"
     payload_path = (
@@ -787,21 +860,13 @@ def test_metrics_run_discovery_accepts_current_projected_contract(tmp_path: Path
     assert service._has_metrics_renderable_output(run_id) is True
 
 
-def test_existing_parameter_matrix_payload_contract_smoke() -> None:
-    service = AppAPIService(REPO_ROOT)
-    payload = None
-    for run in service.metrics_runs():
-        run_id = str(run["run_id"])
-        try:
-            candidate = service.parameter_matrix(run_id)
-        except (FileNotFoundError, ValueError):
-            # Local ignored outputs may predate the current strict metric contract.
-            continue
-        if isinstance(candidate, dict) and candidate.get("param_axes"):
-            payload = candidate
-            break
-    if payload is None:
-        pytest.skip("no parameter-matrix payload available in repo sample outputs")
+def test_existing_parameter_matrix_payload_contract_smoke(tmp_path: Path) -> None:
+    metrics_service, _payloads, _registry, run_id = build_portfolio_contract_run(
+        tmp_path
+    )
+    metrics_service.ensure(run_id)
+    service = AppAPIService(tmp_path)
+    payload = service.parameter_matrix(run_id)
 
     assert isinstance(payload.get("rows"), list)
     assert isinstance(payload.get("shortlist_rows"), list)
@@ -817,7 +882,9 @@ def test_existing_parameter_matrix_payload_contract_smoke() -> None:
     assert isinstance(payload.get("aggregation_modes"), list)
 
 
-def test_large_parameter_matrix_scheduler_weight_leaves_one_lane(tmp_path: Path) -> None:
+def test_large_parameter_matrix_scheduler_weight_leaves_one_lane(
+    tmp_path: Path,
+) -> None:
     repo = tmp_path / "repo"
     config = repo / "workspace" / "runs" / "matrix.json"
     config.parent.mkdir(parents=True, exist_ok=True)
@@ -856,7 +923,9 @@ def test_scheduler_capacity_keeps_one_lane_on_two_core_hosts(
     assert "leaving one lane available" in message
 
 
-def test_large_wfa_scheduler_weight_uses_sampled_candidate_budget_and_leaves_one_lane(tmp_path: Path) -> None:
+def test_large_wfa_scheduler_weight_uses_sampled_candidate_budget_and_leaves_one_lane(
+    tmp_path: Path,
+) -> None:
     repo = tmp_path / "repo"
     strategy = repo / "workspace" / "runs" / "strategy.json"
     wfa = repo / "workspace" / "wfa" / "case.json"
@@ -901,7 +970,9 @@ def test_large_wfa_scheduler_weight_uses_sampled_candidate_budget_and_leaves_one
     assert "leaving one lane available" in message
 
 
-def test_wfa_scheduler_weight_strategy_run_path_routes_through_single_bridge(tmp_path: Path) -> None:
+def test_wfa_scheduler_weight_strategy_run_path_routes_through_single_bridge(
+    tmp_path: Path,
+) -> None:
     repo = tmp_path / "repo"
     strategy = repo / "workspace" / "runs" / "strategy.json"
     wfa = repo / "workspace" / "wfa" / "case.json"
@@ -942,7 +1013,9 @@ def test_wfa_scheduler_weight_strategy_run_path_routes_through_single_bridge(tmp
     assert weight == max(2, service.scheduler.capacity - 1)
 
 
-def test_scheduler_dispatch_prioritizes_light_job_that_fits_capacity(tmp_path: Path) -> None:
+def test_scheduler_dispatch_prioritizes_light_job_that_fits_capacity(
+    tmp_path: Path,
+) -> None:
     repo = tmp_path / "repo"
     light = repo / "workspace" / "runs" / "light.json"
     heavy_strategy = repo / "workspace" / "runs" / "strategy.json"
@@ -1046,15 +1119,11 @@ def test_scheduler_reserves_capacity_for_aged_heavy_job(tmp_path: Path) -> None:
     assert next_ref["job_id"] == "heavy"
 
 
-def test_existing_wfa_dashboard_payload_contract_smoke() -> None:
-    service = AppAPIService(REPO_ROOT)
-    runs = service.wfa_runs()
-    if not runs:
-        pytest.skip("no completed wfa runs available in repo sample outputs")
+def test_existing_wfa_dashboard_payload_contract_smoke(tmp_path: Path) -> None:
+    service, run_id = build_wfa_contract_run(tmp_path)
+    payload = service.wfa_dashboard(run_id)
 
-    payload = service.wfa_dashboard(str(runs[0]["run_id"]))
-
-    assert payload["run_id"] == str(runs[0]["run_id"])
+    assert payload["run_id"] == run_id
     assert isinstance(payload.get("rows"), list)
     assert isinstance(payload.get("combo_groups"), list)
     assert "batch_metadata" in payload
@@ -1091,7 +1160,9 @@ def test_frontend_static_assets_can_appear_after_app_start(tmp_path: Path) -> No
 def test_screenshot_bundle_uses_run_scoped_output_and_requires_all_pngs(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(AppAPIService, "_prewarm_rust_batch_services", lambda self: None)
+    monkeypatch.setattr(
+        AppAPIService, "_prewarm_rust_batch_services", lambda self: None
+    )
     service = AppAPIService(tmp_path)
     run_id = "20260714_capture123"
     service.registry.write_registry_entry(
@@ -1105,7 +1176,9 @@ def test_screenshot_bundle_uses_run_scoped_output_and_requires_all_pngs(
     contract_dir = tmp_path / "app" / "contracts"
     contract_dir.mkdir(parents=True, exist_ok=True)
     contract_dir.joinpath("screenshot-bundle-v1.contract.json").write_text(
-        REPO_ROOT.joinpath("app", "contracts", "screenshot-bundle-v1.contract.json").read_text(encoding="utf-8"),
+        REPO_ROOT.joinpath(
+            "app", "contracts", "screenshot-bundle-v1.contract.json"
+        ).read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     runner = tmp_path / "scripts" / "capture_screenshot_bundle.mjs"
@@ -1145,15 +1218,21 @@ def test_screenshot_bundle_uses_run_scoped_output_and_requires_all_pngs(
     assert output_dir.parent.parent.name == "screenshots"
     assert output_dir.parent.name == run_id
     assert {Path(path).name for path in result["files"]} == expected_names
-    manifest = json.loads(output_dir.joinpath("manifest.json").read_text(encoding="utf-8"))
+    manifest = json.loads(
+        output_dir.joinpath("manifest.json").read_text(encoding="utf-8")
+    )
     assert manifest["run_id"] == run_id
     assert manifest["backtest_id"] == "candidate:one"
     assert manifest["mosaic"] is True
     assert len(manifest["files"]) == 10
 
 
-def test_screenshot_bundle_rejects_unsafe_run_id(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(AppAPIService, "_prewarm_rust_batch_services", lambda self: None)
+def test_screenshot_bundle_rejects_unsafe_run_id(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        AppAPIService, "_prewarm_rust_batch_services", lambda self: None
+    )
     service = AppAPIService(tmp_path)
 
     with pytest.raises(ValueError, match="run_id"):

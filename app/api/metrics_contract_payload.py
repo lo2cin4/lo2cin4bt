@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import copy
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -11,11 +12,13 @@ import pandas as pd
 
 from app.runtime.registry import AppRegistry
 from .shared_chart_series import SharedChartSeriesStore
+from .time_context import strategy_time_summary
+from backtester.EngineRequest_backtester import validate_canonical_candidate_id
 from backtester.StrategyRunConfig_backtester import normalize_strategy_run_config
 from backtester.ops.support_checker import timeline_action_is_pre_session_known
 
 
-METRICS_OVERVIEW_SCHEMA_VERSION = "1.27"
+METRICS_OVERVIEW_SCHEMA_VERSION = "1.28"
 METRIC_KEYS = {
     "total_return": "Total_return",
     "cagr": "Annualized_return (CAGR)",
@@ -23,6 +26,7 @@ METRIC_KEYS = {
     "sortino": "Sortino",
     "calmar": "Calmar",
     "max_drawdown": "Max_drawdown",
+    "intraday_max_drawdown": "Intraday_max_drawdown",
     "average_drawdown": "Average_drawdown",
     "recovery_factor": "Recovery_factor",
     "std": "Std",
@@ -40,6 +44,7 @@ METRIC_KEYS = {
     "exposure_time": "Exposure_time",
     "max_holding_period_ratio": "Max_holding_period_ratio",
     "bah_total_return": "BAH_Total_return",
+    "excess_return": "Excess_return",
     "bah_cagr": "BAH_Annualized_return (CAGR)",
     "bah_sharpe": "BAH_Sharpe",
     "bah_calmar": "BAH_Calmar",
@@ -74,8 +79,19 @@ class MetricsContractPayloadService:
                 and cached.get("contract_id") == "lo2cin4bt.metrics_overview_index.v1"
                 and cached.get("run_id") == run_id
             ):
-                self.shared_series.materialize_metrics_overview(run_id, cached)
-                return output_path
+                materialized = self.shared_series.materialize_metrics_overview(
+                    run_id, cached
+                )
+                if (
+                    materialized.get("schema_version")
+                    == METRICS_OVERVIEW_SCHEMA_VERSION
+                    and isinstance(materialized.get("annualization"), dict)
+                    and isinstance(materialized.get("strategy_summary"), dict)
+                    and isinstance(
+                        materialized["strategy_summary"].get("time_context"), dict
+                    )
+                ):
+                    return output_path
 
         plot_path = self.registry.resolve_run_paths(run_id)["chart_payload_dir"] / "asset_curve_compare.json"
         if not plot_path.is_file():
@@ -92,6 +108,7 @@ class MetricsContractPayloadService:
         metadata_rows = self._read_json(metadata_path, [])
         if not isinstance(metadata_rows, list) or not metadata_rows:
             raise FileNotFoundError("metrics contract metadata JSON is missing or empty")
+        annualization = self._annualization_contract(metadata_rows)
 
         matrix_path = self._artifact_path(run_id, "portfolio_matrix_summary_json")
         matrix_summary = self._read_json(matrix_path, {}) if matrix_path is not None else {}
@@ -114,9 +131,14 @@ class MetricsContractPayloadService:
                 continue
             row["label"] = str(matrix_row.get("label") or row["label"])
             row["label_source"] = "canonical_matrix_summary"
-            row["strategy_id"] = str(
-                matrix_row.get("strategy_id") or row.get("strategy_id") or ""
+            matrix_strategy_id = validate_canonical_candidate_id(
+                matrix_row.get("strategy_id")
             )
+            if matrix_strategy_id != row["backtest_id"]:
+                raise ValueError(
+                    "Parameter Matrix strategy_id does not match Rust metrics Backtest_id"
+                )
+            row["strategy_id"] = matrix_strategy_id
             for key in (
                 "semantic_combo",
                 "semantic_fields",
@@ -132,7 +154,13 @@ class MetricsContractPayloadService:
             # metricstracker is the canonical metrics authority. The matrix
             # summary is generated earlier and may contain null placeholders,
             # so it can only fill values that metricstracker did not produce.
-            for key in ("total_return", "cagr", "sharpe", "max_drawdown"):
+            for key in (
+                "total_return",
+                "cagr",
+                "sharpe",
+                "max_drawdown",
+                "intraday_max_drawdown",
+            ):
                 if row.get(key) is None and matrix_row.get(key) is not None:
                     row[key] = matrix_row[key]
         series = []
@@ -178,6 +206,7 @@ class MetricsContractPayloadService:
         registry_entry = self.registry.load_registry_entry(run_id)
         result_type = "portfolio" if matrix_rows else "single_asset"
         strategy_summary = self._strategy_summary(run_id, registry_entry)
+        strategy_summary["annualization"] = copy.deepcopy(annualization)
         portfolio_runs = (
             self._portfolio_runs(run_id, rows, strategy_summary)
             if result_type == "portfolio"
@@ -195,6 +224,10 @@ class MetricsContractPayloadService:
                 else "single_asset_backtest"
             ),
             "strategy_summary": strategy_summary,
+            "time_context": copy.deepcopy(
+                strategy_summary.get("time_context")
+            ),
+            "annualization": annualization,
             "default_category": "top_3_sharpe",
             "available_categories": [
                 {"id": category_id, "label": label}
@@ -298,6 +331,7 @@ class MetricsContractPayloadService:
         benchmark = data.get("benchmark", {}) if isinstance(data, dict) else {}
         signals = config.get("signals", {}) if isinstance(config, dict) else {}
         fill_model = config.get("fill_model", {}) if isinstance(config, dict) else {}
+        time_summary = strategy_time_summary(data)
         return {
             "strategy_id": (
                 config.get("metadata", {}).get("strategy_id")
@@ -306,7 +340,7 @@ class MetricsContractPayloadService:
             ),
             "display_label": registry_entry.get("display_label"),
             "symbol": registry_entry.get("symbol"),
-            "frequency": data.get("frequency") or registry_entry.get("frequency"),
+            **time_summary,
             "strategy_mode_id": platform.get("strategy_mode_id"),
             "strategy_profile_id": platform.get("strategy_profile_id"),
             "workflow_id": platform.get("workflow_id"),
@@ -550,30 +584,80 @@ class MetricsContractPayloadService:
 
     @staticmethod
     def _metric_row(metric_row: Dict[str, Any]) -> Dict[str, Any]:
+        candidate_id = validate_canonical_candidate_id(
+            metric_row.get("Backtest_id")
+        )
         row: Dict[str, Any] = {
-            "backtest_id": str(metric_row.get("Backtest_id") or ""),
-            "label": str(metric_row.get("Backtest_id") or ""),
+            "backtest_id": candidate_id,
+            "label": candidate_id,
             "label_source": "rust_metrics_contract",
-            "strategy_id": str(metric_row.get("Backtest_id") or ""),
+            "strategy_id": candidate_id,
             "semantic_combo": {},
             "semantic_fields": [],
             "date_range_start": metric_row.get("Date_start"),
             "date_range_end": metric_row.get("Date_end"),
             "last_trade_time": None,
+            "annualization": copy.deepcopy(metric_row.get("Annualization")),
         }
         for public_key, rust_key in METRIC_KEYS.items():
             row[public_key] = MetricsContractPayloadService._finite(metric_row.get(rust_key))
-        total_return = row.get("total_return")
-        bah_total_return = row.get("bah_total_return")
-        row["excess_return"] = (
-            total_return - bah_total_return
-            if isinstance(total_return, (int, float))
-            and isinstance(bah_total_return, (int, float))
-            else None
-        )
         if row["trade_count"] is not None:
             row["trade_count"] = int(row["trade_count"])
+        for public_key, rust_key in (
+            ("projected_session_count", "Projected_session_count"),
+            (
+                "projected_return_interval_count",
+                "Projected_return_interval_count",
+            ),
+        ):
+            value = MetricsContractPayloadService._finite(metric_row.get(rust_key))
+            row[public_key] = int(value) if value is not None else None
         return row
+
+    @staticmethod
+    def _annualization_contract(metadata_rows: list[Any]) -> Dict[str, Any]:
+        contracts = [
+            row.get("Annualization")
+            for row in metadata_rows
+            if isinstance(row, dict)
+        ]
+        if (
+            len(contracts) != len(metadata_rows)
+            or not contracts
+            or any(not isinstance(contract, dict) for contract in contracts)
+        ):
+            raise ValueError(
+                "metrics overview requires canonical Rust Annualization metadata"
+            )
+        expected = contracts[0]
+        if not isinstance(expected, dict):
+            raise ValueError(
+                "metrics overview requires canonical Rust Annualization metadata"
+            )
+        if any(contract != expected for contract in contracts):
+            raise ValueError(
+                "metrics overview requires one consistent Annualization contract"
+            )
+        if (
+            expected.get("schema_version") != "metrics_annualization.v1"
+            or expected.get("basis") != "session_close_projection"
+            or expected.get("projection_policy")
+            != "last_accepted_equity_per_session"
+        ):
+            raise ValueError("metrics overview Annualization contract is invalid")
+        periods_per_year = MetricsContractPayloadService._finite(
+            expected.get("periods_per_year")
+        )
+        risk_free_rate = MetricsContractPayloadService._finite(
+            expected.get("risk_free_rate_annual")
+        )
+        if (
+            periods_per_year is None
+            or periods_per_year <= 0
+            or risk_free_rate is None
+        ):
+            raise ValueError("metrics overview Annualization values are invalid")
+        return copy.deepcopy(expected)
 
     def _artifact_path(self, run_id: str, artifact_type: str) -> Optional[Path]:
         manifest = self.registry.load_artifact_manifest(run_id)

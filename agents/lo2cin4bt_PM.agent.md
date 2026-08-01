@@ -1,6 +1,6 @@
 # lo2cin4bt ProjectManager
 
-Date: 2026-07-15
+Date: 2026-07-31
 Status: active
 Direct-call: yes
 
@@ -53,8 +53,21 @@ guardrails selected by the host ProjectManager.
 
 - New configs use canonical `strategy_run` or `wfa_run`; do not create legacy
   config mappings.
+- Market-data timing is expressed by typed `data.bar_time` and stream bindings.
+  Provider capability, timestamp semantics, session rules, availability, and
+  data-quality policy must be validated before a run. Missing, duplicated, or
+  out-of-order rows are blocking failures; do not repair, invent, or silently
+  replace market data.
+- Use provider capabilities exactly as implemented. `yfinance` is daily-only;
+  Binance, Coinbase, FUTU, and IBKR intraday requests must match their declared
+  intervals. FUTU and IBKR also require the user's gateway and data permission;
+  adapter support is not proof that a live environment is ready.
 - All strategies compile into the shared Rust execution contract. Profiles are
   authoring shapes, not separate engines.
+- Direct daily data remains direct. When a declared decision stream needs a
+  higher timeframe, the shared Rust runtime derives it from the execution
+  stream and preserves timestamp, session, partial-bar, and no-look-ahead
+  rules.
 - Strategy capability decisions must read the generated operation registry and
   the computed-field catalog. PM must not approve an operation remembered from
   an older config or document.
@@ -62,30 +75,45 @@ guardrails selected by the host ProjectManager.
   become a second result-changing backtester or metric calculator.
 - Every candidate must produce a canonical result, pass the mandatory Rust
   validator, and feed the Rust metrics/plot contract before frontend success.
+- Candidate identity is
+  `base_strategy_id:workflow_id:parameter_suffix` (`fixed` when no parameter
+  suffix exists). Ranking, objective rows, retained artifacts, WFA windows, and
+  dashboards must match this identity exactly. A missing or mismatched artifact
+  is a contract error, never a reason to select another result.
+- Intraday result pages retain intraday equity and trade timestamps. Headline
+  annualized metrics use one validated equity close per market session, while
+  `intraday_max_drawdown` measures the largest decline inside sessions.
 - WFA and rolling validation are explicit workflows. Parameter Matrix is
   optional parameter expansion, not mandatory validation.
+- Large Parameter Matrix and WFA jobs run in bounded batches. Every candidate
+  keeps its summary and rank; only the configured retained top candidates need
+  heavyweight full artifacts.
+- Python dependencies and commands use the locked `uv` route:
+  `uv sync --locked` and `uv run --locked --exact`. Do not introduce a pip,
+  requirements-file, Poetry, or unlocked fallback.
 - The only supported app frontend is served on port `2424`.
 
 ## Result Deletion
 
 Resolve a user-visible selector to its full `run_id`, then use
-`python scripts/cleanup_app_run.py <run_id>` for a dry run. Execute with `--yes`
+`uv run --locked --exact python scripts/cleanup_app_run.py <run_id>` for a dry
+run. Execute with `--yes`
 only after explicit approval. Cleanup must remove all registry, stage, snapshot,
 manifest, chart payload, AI-review, screenshot references, and
 `latest_runs.json` entries owned by that run.
 
 ## Product GitHub Boundary
 
-- Publish only files tracked by the source Git repository below the resolved
-  `<project-root>/Repo` product boundary.
-- The destination GitHub repository is an explicit input for each release; do
-  not encode a permanent product remote in the PM contract.
-- Never add or use a product remote on the parent Company repository and never
-  push from its Git root.
-- Sync into a clean clone outside Company, verify `origin`, scan the source and
-  staged clone, and push from that clone only.
-- Missing proof for source scope, tracked state, clone root, remote identity, or
-  release guards is a blocking failure, not a waivable warning.
+- Resolve this `Repo` directory as the independent product Git root and the
+  only product push source.
+- The approved GitHub repository is an explicit input for each release; verify
+  both product `origin` URLs against it.
+- When nested in Company, the parent tracks only the product commit as a Git
+  submodule and has no product remote.
+- Require a clean product `main`, fetched non-diverged history, matching
+  submodule pointer, and passing candidate/tracked release guards.
+- Missing proof for product root, tracked state, parent relationship, remote
+  identity, or release guards is a blocking failure, not a waivable warning.
 
 ## Output Packet
 

@@ -6,6 +6,12 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from dataloader.market_data_bundle import (
+    ExternalMarketData,
+    ExecutionStreamSpec,
+    SessionWindow,
+)
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXED_ALLOCATION_CONFIG = (
@@ -72,6 +78,154 @@ SIGNAL_CONFIG = (
 )
 
 
+def _bind_fixture_provider(
+    config: dict,
+    *,
+    start_date: str,
+    end_date: str,
+) -> None:
+    data = config["data"]
+    data.update(
+        {
+            "provider": "fixture",
+            "start_date": start_date,
+            "end_date": end_date,
+        }
+    )
+    execution_streams = [
+        stream
+        for stream in data["bar_time"]["streams"]
+        if stream["role"] == "execution"
+    ]
+    assert len(execution_streams) == 1
+    execution_streams[0]["source"] = {
+        "kind": "external",
+        "provider_id": "fixture",
+    }
+    assert data["stream_binding"]["execution_stream_id"] == (
+        execution_streams[0]["stream_id"]
+    )
+
+
+def _build_direct_daily_bundle(
+    bundle_mod,
+    *,
+    frames: dict[str, pd.DataFrame],
+    engine_request: dict,
+    output_root: Path,
+):
+    assert engine_request["schema_version"] == "engine_request.v2"
+    requirements = engine_request["data_requirements"]
+    assert requirements["bundle_schema_version"] == "market_data_bundle.v2"
+    bar_time = requirements["bar_time"]
+    binding = engine_request["strategy"]["stream_binding"]
+    execution = next(
+        stream
+        for stream in bar_time["streams"]
+        if stream["stream_id"] == binding["execution_stream_id"]
+    )
+    assert execution["role"] == "execution"
+    assert execution["source"]["kind"] == "external"
+    assert execution["bar_spec"]["unit"] == "day"
+
+    close = frames["close"]
+    index = pd.DatetimeIndex(pd.to_datetime(close.index), name="Time")
+    if index.tz is not None:
+        raise ValueError("direct daily test fixtures require session-label row keys")
+    normalized_frames = {
+        name: frame.set_axis(index, axis=0)
+        for name, frame in frames.items()
+    }
+    open_frame = normalized_frames.get("open", close.set_axis(index, axis=0))
+    normalized_close = close.set_axis(index, axis=0)
+    normalized_frames.update(
+        {
+            "open": open_frame,
+            "high": pd.DataFrame(
+                {
+                    symbol: pd.concat(
+                        [open_frame[symbol], normalized_close[symbol]], axis=1
+                    ).max(axis=1)
+                    for symbol in normalized_close.columns
+                },
+                index=index,
+            ),
+            "low": pd.DataFrame(
+                {
+                    symbol: pd.concat(
+                        [open_frame[symbol], normalized_close[symbol]], axis=1
+                    ).min(axis=1)
+                    for symbol in normalized_close.columns
+                },
+                index=index,
+            ),
+            "close": normalized_close,
+            "volume": pd.DataFrame(
+                1_000_000.0,
+                index=index,
+                columns=normalized_close.columns,
+            ),
+        }
+    )
+    labels = index.strftime("%Y-%m-%d")
+    opens = pd.to_datetime(labels + "T00:00:00Z", utc=True)
+    closes = pd.to_datetime(labels + "T23:59:59Z", utc=True)
+    timeline = pd.DataFrame(
+        {
+            "external_execution_sequence": range(len(index)),
+            "bar_open_timestamp": opens,
+            "bar_close_timestamp": closes,
+            "available_timestamp": closes,
+            "session_label": labels,
+        },
+        index=index,
+    )
+    session_model = bar_time["session_model"]
+    physical_execution = {
+        **execution,
+        "session_scope": session_model["session_scope"],
+        "row_key_kind": "session_label",
+        "timestamp_semantics": {
+            **execution["timestamp_semantics"],
+            "external_execution_sequence_column": "external_execution_sequence",
+        },
+        "timeline_table": "execution_timeline",
+        "ohlcv_tables": {
+            "open": "open",
+            "high": "high",
+            "low": "low",
+            "close": "close",
+            "volume": "volume",
+        },
+    }
+    return bundle_mod.build_market_data_bundle(
+        ExternalMarketData(
+            frames=normalized_frames,
+            execution_stream=ExecutionStreamSpec.from_mapping(physical_execution),
+            execution_timeline=timeline,
+            session_windows=[
+                SessionWindow.from_mapping(
+                    {
+                        "session_label": label,
+                        "open_timestamp": open_time,
+                        "close_timestamp": close_time,
+                    }
+                )
+                for label, open_time, close_time in zip(labels, opens, closes)
+            ],
+        ),
+        spec={
+            "provider": execution["source"]["provider_id"],
+            "symbols": list(requirements["symbols"]),
+            "calendar_id": session_model["calendar_id"],
+            "timezone": session_model["timezone"],
+            "point_in_time": True,
+            "adjustment_policy": bar_time["price_model"]["price_basis"],
+        },
+        output_root=output_root,
+    )
+
+
 def test_fixed_allocation_engine_request_executes_directly_in_rust(tmp_path: Path) -> None:
     bundle_mod = __import__("dataloader.market_data_bundle", fromlist=["dummy"])
     request_mod = __import__("backtester.EngineRequest_backtester", fromlist=["dummy"])
@@ -80,12 +234,10 @@ def test_fixed_allocation_engine_request_executes_directly_in_rust(tmp_path: Pat
         pytest.skip("Rust core is unavailable")
 
     config = json.loads(FIXED_ALLOCATION_CONFIG.read_text(encoding="utf-8"))
-    config["data"].update(
-        {
-            "provider": "fixture",
-            "start_date": "2023-12-29",
-            "end_date": "2025-01-02",
-        }
+    _bind_fixture_provider(
+        config,
+        start_date="2023-12-29",
+        end_date="2025-01-02",
     )
     config["universe"]["symbols"] = ["AAA", "BBB"]
     config["allocation"]["weights"] = {"AAA": 0.6, "BBB": 0.4}
@@ -97,16 +249,10 @@ def test_fixed_allocation_engine_request_executes_directly_in_rust(tmp_path: Pat
         {"AAA": [100.0, 110.0, 121.0, 133.1], "BBB": [100.0, 100.0, 100.0, 100.0]},
         index=dates,
     )
-    bundle = bundle_mod.build_market_data_bundle(
-        {"close": close},
-        spec={
-            "provider": "fixture",
-            "symbols": ["AAA", "BBB"],
-            "frequency": "1D",
-            "calendar": "XNYS",
-            "timezone": "America/New_York",
-            "point_in_time": True,
-        },
+    bundle = _build_direct_daily_bundle(
+        bundle_mod,
+        frames={"close": close},
+        engine_request=request,
         output_root=tmp_path / "bundles",
     )
     artifact_root = tmp_path / "rust-result"
@@ -195,12 +341,10 @@ def test_rotation_engine_request_executes_selection_directly_in_rust(tmp_path: P
         pytest.skip("Rust core is unavailable")
 
     config = json.loads(ROTATION_CONFIG.read_text(encoding="utf-8"))
-    config["data"].update(
-        {
-            "provider": "fixture",
-            "start_date": "2024-01-01",
-            "end_date": "2024-01-04",
-        }
+    _bind_fixture_provider(
+        config,
+        start_date="2024-01-01",
+        end_date="2024-01-04",
     )
     config["universe"]["symbols"] = ["AAA", "BBB"]
     config["computed_fields"][0]["period"] = 1
@@ -212,16 +356,10 @@ def test_rotation_engine_request_executes_selection_directly_in_rust(tmp_path: P
         {"AAA": [10.0, 11.0, 12.0, 13.0], "BBB": [10.0, 9.0, 8.0, 7.0]},
         index=dates,
     )
-    bundle = bundle_mod.build_market_data_bundle(
-        {"close": close},
-        spec={
-            "provider": "fixture",
-            "symbols": ["AAA", "BBB"],
-            "frequency": "1D",
-            "calendar": "XNYS",
-            "timezone": "America/New_York",
-            "point_in_time": True,
-        },
+    bundle = _build_direct_daily_bundle(
+        bundle_mod,
+        frames={"close": close},
+        engine_request=request,
         output_root=tmp_path / "bundles",
     )
 
@@ -236,7 +374,10 @@ def test_rotation_engine_request_executes_selection_directly_in_rust(tmp_path: P
     assert direct["candidate_count"] == 1
     assert len(direct["results"]) == 1
     result = direct["results"][0]
-    assert result["candidate_id"] == "rotation_rust_engine_request_test"
+    assert (
+        result["candidate_id"]
+        == "rotation_rust_engine_request_test:single_backtest:fixed"
+    )
     assert result["days"] == 4
     assert result["active_rebalances"] == 1
     assert result["final_equity"] > 100.0
@@ -266,8 +407,10 @@ def test_long_short_rotation_executes_next_open_and_borrow_cost_in_rust(
 
     config = json.loads(LONG_SHORT_ROTATION_CONFIG.read_text(encoding="utf-8"))
     symbols = ["AAA", "BBB", "CCC", "DDD"]
-    config["data"].update(
-        {"provider": "fixture", "start_date": "2024-01-31", "end_date": "2024-06-28"}
+    _bind_fixture_provider(
+        config,
+        start_date="2024-01-31",
+        end_date="2024-06-28",
     )
     config["universe"]["symbols"] = symbols
     config["computed_fields"][0]["start_lag"] = 3
@@ -290,21 +433,16 @@ def test_long_short_rotation_executes_next_open_and_borrow_cost_in_rust(
         dtype=float,
     )
     open_prices = close.shift(1).fillna(close.iloc[0])
-    bundle = bundle_mod.build_market_data_bundle(
-        {"open": open_prices, "close": close},
-        spec={
-            "provider": "fixture",
-            "symbols": symbols,
-            "frequency": "1D",
-            "calendar": "XNYS",
-            "timezone": "America/New_York",
-            "point_in_time": True,
-        },
+    request = request_mod.build_engine_request(config)
+    bundle = _build_direct_daily_bundle(
+        bundle_mod,
+        frames={"open": open_prices, "close": close},
+        engine_request=request,
         output_root=tmp_path / "long-short-bundle",
     )
 
     direct = bridge._ENGINE_SERVICE_CLIENT.execute_engine_request(
-        request_mod.build_engine_request(config),
+        request,
         bundle.read_manifest(),
         timeout=60,
     )
@@ -333,8 +471,10 @@ def test_generic_computed_field_chain_executes_adjusted_momentum_in_rust(
 
     config = json.loads(ADJUSTED_LONG_SHORT_CONFIG.read_text(encoding="utf-8"))
     symbols = ["AAA", "BBB", "CCC", "DDD"]
-    config["data"].update(
-        {"provider": "fixture", "start_date": "2024-01-31", "end_date": "2024-06-28"}
+    _bind_fixture_provider(
+        config,
+        start_date="2024-01-31",
+        end_date="2024-06-28",
     )
     config["universe"]["symbols"] = symbols
     config["computed_fields"][1]["start_lag"] = 3
@@ -356,21 +496,16 @@ def test_generic_computed_field_chain_executes_adjusted_momentum_in_rust(
         dtype=float,
     )
     open_prices = close.shift(1).fillna(close.iloc[0])
-    bundle = bundle_mod.build_market_data_bundle(
-        {"open": open_prices, "close": close},
-        spec={
-            "provider": "fixture",
-            "symbols": symbols,
-            "frequency": "1D",
-            "calendar": "XNYS",
-            "timezone": "America/New_York",
-            "point_in_time": True,
-        },
+    request = request_mod.build_engine_request(config)
+    bundle = _build_direct_daily_bundle(
+        bundle_mod,
+        frames={"open": open_prices, "close": close},
+        engine_request=request,
         output_root=tmp_path / "adjusted-momentum-bundle",
     )
 
     direct = bridge._ENGINE_SERVICE_CLIENT.execute_engine_request(
-        request_mod.build_engine_request(config),
+        request,
         bundle.read_manifest(),
         timeout=60,
     )
@@ -396,8 +531,10 @@ def test_daily_rank_reads_factor_score_from_market_data_bundle(tmp_path: Path) -
         pytest.skip("Rust core is unavailable")
 
     config = json.loads(ROTATION_CONFIG.read_text(encoding="utf-8"))
-    config["data"].update(
-        {"provider": "fixture", "start_date": "2024-01-01", "end_date": "2024-01-03"}
+    _bind_fixture_provider(
+        config,
+        start_date="2024-01-01",
+        end_date="2024-01-03",
     )
     config["universe"]["symbols"] = ["AAA", "BBB"]
     config["computed_fields"] = []
@@ -415,16 +552,10 @@ def test_daily_rank_reads_factor_score_from_market_data_bundle(tmp_path: Path) -
         {"AAA": [2.0, 1.0, 3.0], "BBB": [1.0, 2.0, 1.0]},
         index=dates,
     )
-    bundle = bundle_mod.build_market_data_bundle(
-        {"close": close, "composite_factor_score": factor_score},
-        spec={
-            "provider": "fixture",
-            "symbols": ["AAA", "BBB"],
-            "frequency": "1D",
-            "calendar": "XNYS",
-            "timezone": "America/New_York",
-            "point_in_time": True,
-        },
+    bundle = _build_direct_daily_bundle(
+        bundle_mod,
+        frames={"close": close, "composite_factor_score": factor_score},
+        engine_request=request,
         output_root=tmp_path / "factor-bundle",
     )
 
@@ -446,8 +577,10 @@ def test_daily_rank_engine_request_supports_month_start_rebalance(tmp_path: Path
         pytest.skip("Rust core is unavailable")
 
     config = json.loads(ROTATION_CONFIG.read_text(encoding="utf-8"))
-    config["data"].update(
-        {"provider": "fixture", "start_date": "2024-01-30", "end_date": "2024-02-02"}
+    _bind_fixture_provider(
+        config,
+        start_date="2024-01-30",
+        end_date="2024-02-02",
     )
     config["universe"]["symbols"] = ["AAA", "BBB"]
     config["computed_fields"][0]["period"] = 1
@@ -456,16 +589,10 @@ def test_daily_rank_engine_request_supports_month_start_rebalance(tmp_path: Path
     request = request_mod.build_engine_request(config)
     dates = pd.date_range("2024-01-30", periods=4, freq="D")
     close = pd.DataFrame({"AAA": [10, 11, 12, 13], "BBB": [10, 9, 8, 7]}, index=dates)
-    bundle = bundle_mod.build_market_data_bundle(
-        {"close": close},
-        spec={
-            "provider": "fixture",
-            "symbols": ["AAA", "BBB"],
-            "frequency": "1D",
-            "calendar": "XNYS",
-            "timezone": "America/New_York",
-            "point_in_time": True,
-        },
+    bundle = _build_direct_daily_bundle(
+        bundle_mod,
+        frames={"close": close},
+        engine_request=request,
         output_root=tmp_path / "bundles",
     )
 
@@ -488,16 +615,20 @@ def test_engine_request_batch_accepts_complete_mixed_decision_requests(tmp_path:
         pytest.skip("Rust core is unavailable")
 
     fixed = json.loads(FIXED_ALLOCATION_CONFIG.read_text(encoding="utf-8"))
-    fixed["data"].update(
-        {"provider": "fixture", "start_date": "2024-01-01", "end_date": "2024-01-04"}
+    _bind_fixture_provider(
+        fixed,
+        start_date="2024-01-01",
+        end_date="2024-01-04",
     )
     fixed["universe"]["symbols"] = ["AAA", "BBB"]
     fixed["allocation"]["weights"] = {"AAA": 0.5, "BBB": 0.5}
     fixed["risk"]["max_positions"] = 2
     fixed["metadata"]["strategy_id"] = "batch_fixed"
     rotation = json.loads(ROTATION_CONFIG.read_text(encoding="utf-8"))
-    rotation["data"].update(
-        {"provider": "fixture", "start_date": "2024-01-01", "end_date": "2024-01-04"}
+    _bind_fixture_provider(
+        rotation,
+        start_date="2024-01-01",
+        end_date="2024-01-04",
     )
     rotation["universe"]["symbols"] = ["AAA", "BBB"]
     rotation["computed_fields"][0]["period"] = 1
@@ -509,16 +640,10 @@ def test_engine_request_batch_accepts_complete_mixed_decision_requests(tmp_path:
     ]
     dates = pd.date_range("2024-01-01", periods=4, freq="D")
     close = pd.DataFrame({"AAA": [10, 11, 12, 13], "BBB": [10, 9, 8, 7]}, index=dates)
-    bundle = bundle_mod.build_market_data_bundle(
-        {"close": close},
-        spec={
-            "provider": "fixture",
-            "symbols": ["AAA", "BBB"],
-            "frequency": "1D",
-            "calendar": "XNYS",
-            "timezone": "America/New_York",
-            "point_in_time": True,
-        },
+    bundle = _build_direct_daily_bundle(
+        bundle_mod,
+        frames={"close": close},
+        engine_request=requests[0],
         output_root=tmp_path / "bundles",
     )
 
@@ -530,14 +655,16 @@ def test_engine_request_batch_accepts_complete_mixed_decision_requests(tmp_path:
 
     assert batch["request_count"] == 2
     assert [item["strategy_id"] for item in batch["results"]] == [
-        "batch_fixed",
-        "batch_rotation",
+        "batch_fixed:single_backtest:fixed",
+        "batch_rotation:single_backtest:fixed",
     ]
     assert all(item["result"] for item in batch["results"])
 
     rotation_b = json.loads(ROTATION_CONFIG.read_text(encoding="utf-8"))
-    rotation_b["data"].update(
-        {"provider": "fixture", "start_date": "2024-01-01", "end_date": "2024-01-04"}
+    _bind_fixture_provider(
+        rotation_b,
+        start_date="2024-01-01",
+        end_date="2024-01-04",
     )
     rotation_b["universe"]["symbols"] = ["AAA", "BBB"]
     rotation_b["computed_fields"][0]["period"] = 2
@@ -578,12 +705,10 @@ def test_calendar_timeline_shapes_execute_directly_from_engine_request(
     config = json.loads(config_path.read_text(encoding="utf-8"))
     config["platform"]["workflow_id"] = "single_backtest"
     config["parameter_domains"] = {}
-    config["data"].update(
-        {
-            "provider": "fixture",
-            "start_date": "2024-01-01",
-            "end_date": "2024-01-12",
-        }
+    _bind_fixture_provider(
+        config,
+        start_date="2024-01-01",
+        end_date="2024-01-12",
     )
     config["universe"]["symbols"] = symbols
     config["metadata"]["strategy_id"] = strategy_id
@@ -608,16 +733,10 @@ def test_calendar_timeline_shapes_execute_directly_from_engine_request(
         index=dates,
     )
     open_ = close * 0.995
-    bundle = bundle_mod.build_market_data_bundle(
-        {"open": open_, "close": close},
-        spec={
-            "provider": "fixture",
-            "symbols": symbols,
-            "frequency": "1D",
-            "calendar": "XNYS",
-            "timezone": "America/New_York",
-            "point_in_time": True,
-        },
+    bundle = _build_direct_daily_bundle(
+        bundle_mod,
+        frames={"open": open_, "close": close},
+        engine_request=request,
         output_root=tmp_path / strategy_id / "bundles",
     )
 
@@ -630,7 +749,10 @@ def test_calendar_timeline_shapes_execute_directly_from_engine_request(
     )
 
     assert direct["candidate_count"] == 1
-    assert direct["results"][0]["candidate_id"] == strategy_id
+    assert (
+        direct["results"][0]["candidate_id"]
+        == f"{strategy_id}:single_backtest:fixed"
+    )
     assert direct["results"][0]["days"] == 10
     assert direct["artifact_bundle"]["schema_version"] == "rust_portfolio_result_bundle.v1"
 
@@ -663,8 +785,10 @@ def test_single_asset_cross_signal_executes_directly_from_engine_request(tmp_pat
     config["parameter_domains"] = {}
     config["computed_fields"][0]["period"] = 2
     config["computed_fields"][1]["period"] = 3
-    config["data"].update(
-        {"provider": "fixture", "start_date": "2024-01-01", "end_date": "2024-01-12"}
+    _bind_fixture_provider(
+        config,
+        start_date="2024-01-01",
+        end_date="2024-01-12",
     )
     config["universe"]["symbols"] = ["AAA"]
     config["metadata"]["strategy_id"] = "single_asset_cross_engine_request_test"
@@ -672,16 +796,10 @@ def test_single_asset_cross_signal_executes_directly_from_engine_request(tmp_pat
     dates = pd.date_range("2024-01-01", periods=9, freq="B")
     close = pd.DataFrame({"AAA": [10, 9, 8, 9, 10, 9, 8, 9, 10]}, index=dates)
     open_ = close * 0.995
-    bundle = bundle_mod.build_market_data_bundle(
-        {"open": open_, "close": close},
-        spec={
-            "provider": "fixture",
-            "symbols": ["AAA"],
-            "frequency": "1D",
-            "calendar": "XNYS",
-            "timezone": "America/New_York",
-            "point_in_time": True,
-        },
+    bundle = _build_direct_daily_bundle(
+        bundle_mod,
+        frames={"open": open_, "close": close},
+        engine_request=request,
         output_root=tmp_path / "bundles",
     )
 
@@ -695,7 +813,10 @@ def test_single_asset_cross_signal_executes_directly_from_engine_request(tmp_pat
 
     assert direct["candidate_count"] == 1
     result = direct["results"][0]
-    assert result["candidate_id"] == "single_asset_cross_engine_request_test"
+    assert (
+        result["candidate_id"]
+        == "single_asset_cross_engine_request_test:single_backtest:fixed"
+    )
     assert result["days"] == 9
     assert result["active_rebalances"] >= 2
     assert direct["artifact_bundle"]["schema_version"] == "rust_portfolio_result_bundle.v1"
@@ -729,6 +850,159 @@ def test_single_asset_cross_signal_executes_directly_from_engine_request(tmp_pat
     assert validation["feature_producer"] == "rust_engine_request_decision_fields_v1"
 
 
+def test_one_minute_execution_to_five_minute_decision_runs_in_rust(
+    tmp_path: Path,
+) -> None:
+    bundle_mod = __import__("dataloader.market_data_bundle", fromlist=["dummy"])
+    request_mod = __import__("backtester.EngineRequest_backtester", fromlist=["dummy"])
+    bridge = __import__("backtester.RustCoreBridge_backtester", fromlist=["dummy"])
+    if not bridge.rust_core_available():
+        pytest.skip("Rust core is unavailable")
+
+    config = json.loads(SIGNAL_CONFIG.read_text(encoding="utf-8"))
+    config["platform"]["workflow_id"] = "single_backtest"
+    config["parameter_domains"] = {}
+    config["computed_fields"][0]["period"] = 1
+    config["computed_fields"][1]["period"] = 2
+    _bind_fixture_provider(
+        config,
+        start_date="2024-07-03",
+        end_date="2024-07-04",
+    )
+    execution = next(
+        stream
+        for stream in config["data"]["bar_time"]["streams"]
+        if stream["role"] == "execution"
+    )
+    execution["stream_id"] = "execution_1m"
+    execution["bar_spec"]["unit"] = "minute"
+    decision = json.loads(json.dumps(execution))
+    decision.update(
+        {
+            "stream_id": "decision_5m",
+            "role": "decision",
+            "source": {
+                "kind": "derived",
+                "parent_stream_id": "execution_1m",
+                "aggregation_engine": "shared_rust",
+                "empty_bar_policy": "omit",
+                "partial_first_bar_policy": "omit",
+                "partial_final_bar_policy": "omit",
+            },
+        }
+    )
+    decision["bar_spec"]["step"] = 5
+    config["data"]["bar_time"]["streams"].append(decision)
+    config["data"]["stream_binding"] = {
+        "execution_stream_id": "execution_1m",
+        "decision_stream_id": "decision_5m",
+    }
+    config["universe"]["symbols"] = ["AAA"]
+    config["metadata"]["strategy_id"] = "one_minute_to_five_minute_rust_test"
+    request = request_mod.build_engine_request(config)
+
+    row_keys = pd.DatetimeIndex(
+        pd.date_range("2024-07-03T13:31:00Z", periods=6, freq="min"),
+        name="Time",
+    )
+    opens = pd.Series(
+        [100.0, 101.0, 102.0, 103.0, 104.0, 105.0],
+        index=row_keys,
+    )
+    closes = opens + 0.5
+    frames = {
+        "open": opens.to_frame("AAA"),
+        "high": (opens + 1.0).to_frame("AAA"),
+        "low": (opens - 1.0).to_frame("AAA"),
+        "close": closes.to_frame("AAA"),
+        "volume": pd.Series(
+            [10.0, 11.0, 12.0, 13.0, 14.0, 15.0],
+            index=row_keys,
+        ).to_frame("AAA"),
+    }
+    execution_timeline = pd.DataFrame(
+        {
+            "external_execution_sequence": [1, 2, 3, 4, 5, 6],
+            "bar_open_timestamp": row_keys - pd.Timedelta(minutes=1),
+            "bar_close_timestamp": row_keys,
+            "available_timestamp": row_keys,
+            "session_label": ["2024-07-03"] * 6,
+        },
+        index=row_keys,
+    )
+    physical_execution = {
+        **execution,
+        "session_scope": "regular",
+        "row_key_kind": "event_timestamp",
+        "timestamp_semantics": {
+            **execution["timestamp_semantics"],
+            "external_execution_sequence_column": "external_execution_sequence",
+        },
+        "timeline_table": "execution_timeline",
+        "ohlcv_tables": {
+            "open": "open",
+            "high": "high",
+            "low": "low",
+            "close": "close",
+            "volume": "volume",
+        },
+    }
+    bundle = bundle_mod.build_market_data_bundle(
+        ExternalMarketData(
+            frames=frames,
+            execution_stream=ExecutionStreamSpec.from_mapping(physical_execution),
+            execution_timeline=execution_timeline,
+            session_windows=[
+                SessionWindow.from_mapping(
+                    {
+                        "session_label": "2024-07-03",
+                        "open_timestamp": "2024-07-03T13:30:00Z",
+                        "close_timestamp": "2024-07-03T13:36:00Z",
+                    }
+                )
+            ],
+        ),
+        spec={
+            "provider": "fixture",
+            "symbols": ["AAA"],
+            "calendar_id": "XNYS",
+            "timezone": "America/New_York",
+            "point_in_time": True,
+            "adjustment_policy": "split_dividend_adjusted",
+        },
+        output_root=tmp_path / "intraday-bundle",
+    )
+
+    direct = bridge._ENGINE_SERVICE_CLIENT.execute_engine_request(
+        request,
+        bundle.read_manifest(),
+        timeout=60,
+    )
+
+    audit = direct["bar_time_audit"]
+    assert audit["aggregated"] is True
+    assert audit["mapping_count"] == 1
+    assert audit["mappings"][0]["source_count"] == 5
+    assert (
+        audit["mappings"][0]["source_first_external_execution_sequence"]
+        == 1
+    )
+    assert audit["mappings"][0]["decision_source_sequence"] == 5
+    assert (
+        audit["mappings"][0]["execution_bar_open_time"]
+        == "2024-07-03T13:35:00Z"
+    )
+    assert audit["mappings"][0]["external_execution_sequence"] == 6
+    assert audit["mappings"][0]["execution_open_price"] == 105.0
+    bar_time_checks = [
+        check
+        for check in direct["results"][0]["result_validation"]["checks"]
+        if check["check_id"] == "bar_time_no_look_ahead"
+    ]
+    assert len(bar_time_checks) == 1
+    assert bar_time_checks[0]["status"] == "passed"
+
+
 def test_shared_rust_matrix_bundle_is_filtered_per_candidate(tmp_path: Path) -> None:
     from backtester.UnifiedBacktestRunner_backtester import (
         UnifiedBacktestRunnerBacktester,
@@ -737,7 +1011,11 @@ def test_shared_rust_matrix_bundle_is_filtered_per_candidate(tmp_path: Path) -> 
     path = tmp_path / "equity.parquet"
     pd.DataFrame(
         {
-            "Backtest_id": ["candidate-a", "candidate-a", "candidate-b"],
+            "Backtest_id": [
+                "candidate_a:parameter_matrix:short_10",
+                "candidate_a:parameter_matrix:short_10",
+                "candidate_b:parameter_matrix:short_20",
+            ],
             "Time": ["2026-01-01", "2026-01-02", "2026-01-01"],
             "Equity_value": [100.0, 101.0, 100.0],
         }
@@ -746,11 +1024,13 @@ def test_shared_rust_matrix_bundle_is_filtered_per_candidate(tmp_path: Path) -> 
     frame = UnifiedBacktestRunnerBacktester._artifact_bundle_frame(  # noqa: SLF001
         {"bundle_paths": {"equity_curve": str(path)}},
         "equity_curve",
-        candidate_id="candidate-a",
+        candidate_id="candidate_a:parameter_matrix:short_10",
     )
 
     assert len(frame) == 2
-    assert frame["Backtest_id"].unique().tolist() == ["candidate-a"]
+    assert frame["Backtest_id"].unique().tolist() == [
+        "candidate_a:parameter_matrix:short_10"
+    ]
 
 
 def test_rust_artifact_bundle_reader_fails_when_table_is_missing() -> None:
@@ -762,7 +1042,7 @@ def test_rust_artifact_bundle_reader_fails_when_table_is_missing() -> None:
         UnifiedBacktestRunnerBacktester._artifact_bundle_frame(  # noqa: SLF001
             {"bundle_paths": {}},
             "equity_curve",
-            candidate_id="candidate-a",
+            candidate_id="candidate_a:parameter_matrix:short_10",
         )
 
 
@@ -772,7 +1052,7 @@ def test_rust_compact_result_rejects_missing_required_accounting_values() -> Non
     )
 
     item = {
-        "candidate_id": "candidate-a",
+        "candidate_id": "candidate_a:parameter_matrix:short_10",
         "final_equity": 101.0,
         "total_return": 0.01,
         "days": 2,
@@ -788,7 +1068,7 @@ def test_rust_compact_result_rejects_missing_required_accounting_values() -> Non
     with pytest.raises(ValueError, match="active_rebalances"):
         UnifiedBacktestRunnerBacktester()._portfolio_matrix_row_from_rust_compact(  # noqa: SLF001
             item=item,
-            config={"strategy_id": "candidate-a"},
+            config={"strategy_id": "candidate_a:parameter_matrix:short_10"},
         )
 
 
@@ -798,7 +1078,7 @@ def test_rust_compact_result_preserves_valid_zero_counts() -> None:
     )
 
     item = {
-        "candidate_id": "candidate-a",
+        "candidate_id": "candidate_a:parameter_matrix:short_10",
         "final_equity": 100.0,
         "total_return": 0.0,
         "days": 2,
@@ -814,7 +1094,7 @@ def test_rust_compact_result_preserves_valid_zero_counts() -> None:
 
     row = UnifiedBacktestRunnerBacktester()._portfolio_matrix_row_from_rust_compact(  # noqa: SLF001
         item=item,
-        config={"strategy_id": "candidate-a"},
+        config={"strategy_id": "candidate_a:parameter_matrix:short_10"},
     )
 
     assert row["rebalance_count"] == 0

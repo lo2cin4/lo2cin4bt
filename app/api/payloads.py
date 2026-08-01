@@ -13,11 +13,13 @@ import pandas as pd
 
 from app.api.metrics_contract_payload import METRICS_OVERVIEW_SCHEMA_VERSION
 from app.api.shared_chart_series import SharedChartSeriesStore
+from app.api.time_context import strategy_time_summary
 from app.runtime.module_identity import (
     VALIDATION_WORKFLOW_CANONICAL,
     canonical_module_id,
 )
 from app.runtime.registry import AppRegistry
+from backtester.EngineRequest_backtester import validate_canonical_candidate_id
 from backtester.StrategyRunConfig_backtester import (
     is_wfa_run_schema_version,
     normalize_strategy_run_config,
@@ -58,9 +60,9 @@ CATEGORY_MAP: Dict[str, Dict[str, Any]] = {
 }
 
 METRICS_OVERVIEW_MAX_POINTS = 240
-PARAMETER_HEATMAP_SCHEMA_VERSION = "3.7"
-WFA_DASHBOARD_SCHEMA_VERSION = "3.7"
-BACKTEST_DETAIL_SCHEMA_VERSION = "1.19"
+PARAMETER_HEATMAP_SCHEMA_VERSION = "3.8"
+WFA_DASHBOARD_SCHEMA_VERSION = "3.8"
+BACKTEST_DETAIL_SCHEMA_VERSION = "1.20"
 AI_READABLE_OUTPUT_SCHEMA_VERSION = "1.0"
 AI_REVIEW_NUMERIC_FIELD_LIMIT = 5000
 AI_REVIEW_LIST_SAMPLE_LIMIT = 5
@@ -73,6 +75,7 @@ METRIC_KEY_MAP: Dict[str, str] = {
     "sortino": "Sortino",
     "calmar": "Calmar",
     "max_drawdown": "Max_drawdown",
+    "intraday_max_drawdown": "Intraday_max_drawdown",
     "average_drawdown": "Average_drawdown",
     "recovery_factor": "Recovery_factor",
     "std": "Std",
@@ -263,46 +266,6 @@ class AppPayloadService:
         frame["Time"] = time_series
         frame["Equity_value"] = pd.to_numeric(frame["Equity_value"], errors="coerce")
         return frame.dropna(subset=["Time", "Equity_value"]).sort_values("Time").reset_index(drop=True)
-
-    def _period_return_rows(self, equity_df: pd.DataFrame, freq: str) -> List[Dict[str, Any]]:
-        frame = self._coerce_equity_frame(equity_df)
-        if frame.empty:
-            return []
-        indexed = frame.set_index("Time")["Equity_value"].sort_index()
-        indexed = indexed[~indexed.index.duplicated(keep="last")]
-        if indexed.empty:
-            return []
-        grouped = {period: values.dropna() for period, values in indexed.resample(freq)}
-        period_close = indexed.resample(freq).last().ffill().dropna()
-        rows: List[Dict[str, Any]] = []
-        previous_close: Optional[float] = None
-        for period, end_value in period_close.items():
-            values = grouped.get(period, pd.Series(dtype=float))
-            end_equity = self._finite_or_none(end_value)
-            if end_equity is None:
-                continue
-            start_equity = previous_close
-            if start_equity is None:
-                if len(values) < 2:
-                    previous_close = end_equity
-                    continue
-                start_equity = self._finite_or_none(values.iloc[0])
-            period_return = None
-            if start_equity not in (None, 0.0):
-                period_return = float(end_equity / cast(float, start_equity) - 1.0)
-            is_monthly = freq.upper().startswith("M")
-            rows.append(
-                {
-                    "period": period.strftime("%Y-%m") if is_monthly else period.strftime("%Y"),
-                    "year": int(period.year),
-                    "month": int(period.month) if is_monthly else None,
-                    "return": self._finite_or_none(period_return),
-                    "start_equity": self._finite_or_none(start_equity),
-                    "end_equity": end_equity,
-                }
-            )
-            previous_close = end_equity
-        return rows
 
     def _portfolio_strategy_summary(self, run_id: str, metadata: Dict[str, Any]) -> Dict[str, Any]:
         base = self._strategy_summary(run_id)
@@ -616,6 +579,7 @@ class AppPayloadService:
         except (FileNotFoundError, ValueError):
             if not has_portfolio_matrix_rows:
                 raise
+            assert matrix_summary_path is not None
             overview_path = matrix_summary_path
             overview = {
                 "schema_version": METRICS_OVERVIEW_SCHEMA_VERSION,
@@ -676,12 +640,25 @@ class AppPayloadService:
             reverse=True,
         )
         for rank, row in enumerate(sorted_rows, start=1):
-            backtest_id = str(row.get("backtest_id", ""))
-            combo = index_map.get(backtest_id, {})
+            backtest_id = validate_canonical_candidate_id(
+                row.get("backtest_id")
+            )
+            combo = index_map.get(backtest_id)
+            if not isinstance(combo, dict):
+                raise ValueError(
+                    f"Parameter Matrix result index is missing candidate {backtest_id}"
+                )
+            strategy_id = validate_canonical_candidate_id(
+                combo.get("strategy_id")
+            )
+            if strategy_id != backtest_id:
+                raise ValueError(
+                    "Parameter Matrix result index strategy_id does not match backtest_id"
+                )
             payload_row: Dict[str, Any] = dict(row)
             payload_row["rank"] = rank
-            payload_row["semantic_combo"] = combo.get("semantic_combo", {}) or row.get("semantic_combo", {})
-            payload_row["strategy_id"] = combo.get("strategy_id") or row.get("strategy_id")
+            payload_row["semantic_combo"] = combo.get("semantic_combo", {})
+            payload_row["strategy_id"] = strategy_id
             payload_row["strategy_display_label"] = combo.get("strategy_display_label") or row.get("label")
             matrix_rows.append(payload_row)
 
@@ -1077,31 +1054,6 @@ class AppPayloadService:
             return self._finite_or_none(frame.iloc[frame.index.get_loc(date_key), 0])
         return None
 
-    def _row_price(
-        self,
-        row: Dict[str, Any],
-        *,
-        prefer_exit: bool = False,
-    ) -> Optional[float]:
-        specific_keys = (
-            ("Exit_price", "exit_price", "Close_price", "close_price")
-            if prefer_exit
-            else ("Entry_price", "entry_price", "Open_price", "open_price")
-        )
-        for key in (
-            *specific_keys,
-            "Execution_price",
-            "execution_price",
-            "Fill_price",
-            "fill_price",
-            "Price",
-            "price",
-        ):
-            value = self._finite_or_none(row.get(key))
-            if value is not None:
-                return value
-        return None
-
     def _portfolio_allocation_change_events(self, trades_df: pd.DataFrame) -> pd.DataFrame:
         if trades_df.empty:
             return trades_df
@@ -1119,13 +1071,15 @@ class AppPayloadService:
         filtered = trades_df.loc[mask].copy()
         if filtered.empty:
             return filtered
-        return self._annotate_allocation_change_trade_pnl(filtered)
+        return self._annotate_allocation_change_trade_side(filtered)
 
-    def _annotate_allocation_change_trade_pnl(self, trades_df: pd.DataFrame) -> pd.DataFrame:
+    def _annotate_allocation_change_trade_side(
+        self,
+        trades_df: pd.DataFrame,
+    ) -> pd.DataFrame:
         if trades_df.empty:
             return trades_df
         frame = trades_df.copy()
-        frame["Trade_pnl_pct"] = None
         frame["Trade_side"] = None
         open_by_asset: Dict[str, Dict[str, Any]] = {}
         for index, row in frame.iterrows():
@@ -1160,8 +1114,6 @@ class AppPayloadService:
             entry = open_by_asset.pop(asset, None)
             if not isinstance(entry, dict):
                 continue
-            entry_price = self._row_price(entry)
-            exit_price = self._row_price(record, prefer_exit=True)
             entry_target_weight = self._required_record_number(
                 entry,
                 "Target_weight",
@@ -1172,11 +1124,6 @@ class AppPayloadService:
                 or str(entry.get("Action") or entry.get("action") or "").strip().lower() in {"short", "new_short", "sell_short"}
             ) else "long"
             frame.at[index, "Trade_side"] = trade_side
-            if entry_price is None or exit_price is None or abs(entry_price) <= 1e-12:
-                continue
-            raw_return = (exit_price - entry_price) / entry_price
-            trade_return = -raw_return if trade_side == "short" else raw_return
-            frame.at[index, "Trade_pnl_pct"] = self._finite_or_none(trade_return)
         return frame
 
     @classmethod
@@ -1186,19 +1133,42 @@ class AppPayloadService:
         rebalance_trades_df: pd.DataFrame,
         *,
         timezone_label: str,
+        row_key_kind: str,
     ) -> pd.DataFrame:
         if rebalance_df.empty or "Time" not in rebalance_df.columns:
             return rebalance_df
+        if row_key_kind not in {"event_timestamp", "session_label"}:
+            raise ValueError(
+                "event display requires explicit event_timestamp or session_label row_key_kind"
+            )
+        if not str(timezone_label).strip():
+            raise ValueError("event display requires an explicit timezone")
         frame = rebalance_df.copy()
-        frame["_event_date"] = pd.to_datetime(frame["Time"], errors="coerce").dt.normalize()
-        frame["_event_order"] = frame.groupby("_event_date", dropna=False).cumcount()
+        if row_key_kind == "session_label":
+            frame["_event_key"] = pd.to_datetime(
+                frame["Time"], errors="coerce"
+            ).dt.normalize()
+        else:
+            frame["_event_key"] = pd.to_datetime(
+                frame["Time"], errors="raise", utc=True
+            )
+        frame["_event_order"] = frame.groupby("_event_key", dropna=False).cumcount()
         if not rebalance_trades_df.empty and "Time" in rebalance_trades_df.columns:
             trades = rebalance_trades_df.copy()
-            trades["_event_date"] = pd.to_datetime(trades["Time"], errors="coerce").dt.normalize()
-            trades["_event_order"] = trades.groupby("_event_date", dropna=False).cumcount()
+            if row_key_kind == "session_label":
+                trades["_event_key"] = pd.to_datetime(
+                    trades["Time"], errors="coerce"
+                ).dt.normalize()
+            else:
+                trades["_event_key"] = pd.to_datetime(
+                    trades["Time"], errors="raise", utc=True
+                )
+            trades["_event_order"] = trades.groupby(
+                "_event_key", dropna=False
+            ).cumcount()
             merge_cols = [
                 col
-                for col in ["_event_date", "_event_order", "Asset", "Action", "Reason"]
+                for col in ["_event_key", "_event_order", "Asset", "Action", "Reason"]
                 if col in trades.columns
             ]
             frame = frame.merge(
@@ -1209,20 +1179,31 @@ class AppPayloadService:
                         "Reason": "Display_reason",
                     }
                 ),
-                on=["_event_date", "_event_order"],
+                on=["_event_key", "_event_order"],
                 how="left",
             )
         phases = frame.apply(cls._event_phase_from_row, axis=1)
         frame["Event_phase"] = phases
-        frame["Event_time_local"] = [
-            cls._event_local_time_for_phase(phase) for phase in phases
-        ]
-        frame["Event_timezone"] = timezone_label or "America/New_York"
-        frame["Event_timestamp_local"] = [
-            cls._event_timestamp_label(date_value, phase, timezone_label)
-            for date_value, phase in zip(frame["_event_date"], phases)
-        ]
-        return frame.drop(columns=["_event_date", "_event_order"], errors="ignore")
+        if row_key_kind == "session_label":
+            frame["Event_time_local"] = [
+                cls._event_local_time_for_phase(phase) for phase in phases
+            ]
+            frame["Event_timestamp_local"] = [
+                cls._event_timestamp_label(date_value, phase, timezone_label)
+                for date_value, phase in zip(frame["_event_key"], phases)
+            ]
+        else:
+            local_timestamps = [
+                cls._exact_local_timestamp_label(value, timezone_label)
+                for value in frame["Time"]
+            ]
+            frame["Event_timestamp_local"] = local_timestamps
+            frame["Event_time_local"] = [
+                value[11:19] if len(value) >= 19 else ""
+                for value in local_timestamps
+            ]
+        frame["Event_timezone"] = timezone_label
+        return frame.drop(columns=["_event_key", "_event_order"], errors="ignore")
 
     @staticmethod
     def _event_phase_from_row(row: pd.Series) -> str:
@@ -1259,6 +1240,13 @@ class AppPayloadService:
             return timestamp.date().isoformat()
         suffix = "ET" if str(timezone_label).strip() == "America/New_York" else str(timezone_label).strip()
         return f"{timestamp.date().isoformat()} {local_time} {suffix}".strip()
+
+    @staticmethod
+    def _exact_local_timestamp_label(value: Any, timezone_label: str) -> str:
+        timestamp = pd.Timestamp(value)
+        if timestamp.tzinfo is None:
+            raise ValueError("event_timestamp display requires timezone-aware timestamps")
+        return timestamp.tz_convert(timezone_label).isoformat()
 
     def _portfolio_asset_contribution_rows(self, equity_df: pd.DataFrame) -> List[Dict[str, Any]]:
         contribution_cols = [str(col) for col in equity_df.columns if str(col).startswith("Contribution_")]
@@ -1682,12 +1670,29 @@ class AppPayloadService:
                 }
             )
         portfolio_window_summary = self._wfa_portfolio_window_summary(rows)
+        strategy_summary = self._strategy_summary(run_id)
+        annualization = wfa_metadata.get("annualization")
+        if isinstance(annualization, dict):
+            if (
+                annualization.get("schema_version") != "metrics_annualization.v1"
+                or annualization.get("basis") != "session_close_projection"
+                or annualization.get("projection_policy")
+                != "last_accepted_equity_per_session"
+            ):
+                raise ValueError("WFA annualization metadata is invalid")
+            strategy_summary["annualization"] = copy.deepcopy(annualization)
+        else:
+            strategy_summary["annualization"] = {
+                "schema_version": "metrics_annualization.unavailable",
+                "status": "unavailable",
+                "reason": "canonical_wfa_metadata_missing",
+            }
         payload = {
             "schema_version": WFA_DASHBOARD_SCHEMA_VERSION,
             "contract_id": "lo2cin4bt-app-wfa-dashboard-payload-v1",
             "run_id": run_id,
             "objective": objective,
-            "strategy_summary": self._strategy_summary(run_id),
+            "strategy_summary": strategy_summary,
             "rows": rows,
             "combo_groups": enriched_grouped_rows,
             "cluster_summary": cluster_summary,
@@ -3001,6 +3006,21 @@ class AppPayloadService:
         if not candidates:
             return None
 
+        wfa_config = self._load_json(
+            self._snapshot_path(run_id, "wfa_run.json"),
+            {},
+        )
+        optimizer = (
+            wfa_config.get("optimizer")
+            if isinstance(wfa_config.get("optimizer"), dict)
+            else {}
+        )
+        primary_objective = str(optimizer.get("primary_objective") or "").strip()
+        if not primary_objective:
+            raise ValueError(
+                f"WFA run {run_id} is missing optimizer.primary_objective; "
+                "the Dashboard artifact contract is incomplete"
+            )
         for path in candidates:
             try:
                 df = pd.read_parquet(path)
@@ -3013,10 +3033,20 @@ class AppPayloadService:
             if "wfa_row_type" in df.columns:
                 row_type = df["wfa_row_type"].fillna("").astype(str)
                 if (row_type == "selected_optimum").any():
-                    return path
+                    if "objective" in df.columns:
+                        objectives = {
+                            str(value).strip()
+                            for value in df.loc[
+                                row_type == "selected_optimum", "objective"
+                            ].dropna()
+                            if str(value).strip()
+                        }
+                        if objectives == {primary_objective}:
+                            return path
                 continue
         raise ValueError(
-            f"WFA run {run_id} has no canonical selected_optimum artifact"
+            f"WFA run {run_id} has no selected_optimum artifact matching "
+            f"optimizer.primary_objective={primary_objective!r}"
         )
 
     @staticmethod
@@ -3153,14 +3183,8 @@ class AppPayloadService:
             )
             or ("Dataset" if source and source.lower() != "yfinance" else "")
         )
-        frequency_label = (
-            str(data_context.get("frequency") or "").strip()
-            or (
-                str(yfinance_config.get("interval") or "").strip()
-                if isinstance(yfinance_config, dict)
-                else ""
-            )
-        )
+        time_display = strategy_time_summary(data_context)
+        frequency_label = time_display["frequency_label"]
         period_label = self._render_period_label(dataloader_config)
         transaction_cost = trading_params.get("transaction_cost")
         slippage = trading_params.get("slippage")
@@ -3210,8 +3234,8 @@ class AppPayloadService:
             "asset_label": asset_label,
             "period_label": period_label,
             "frequency_label": frequency_label,
-            "calendar_label": data_context.get("calendar") or data_context.get("market_calendar"),
-            "timezone_label": data_context.get("timezone"),
+            "calendar_label": time_display["calendar_id"],
+            "timezone_label": time_display["timezone"],
             "strategy_mode_id": strategy_mode_id,
             "mode_label": mode_label,
             "workflow_id": workflow_id,
@@ -3311,14 +3335,23 @@ class AppPayloadService:
             benchmark_label = benchmark.get("label") or benchmark.get("symbol") or ""
         else:
             benchmark_label = str(benchmark or "")
+        time_display = strategy_time_summary(data)
 
         out.update(
             {
                 "strategy_id": metadata.get("strategy_id") or out.get("strategy_id"),
                 "asset_label": ", ".join(symbols) if symbols else out.get("asset_label", ""),
-                "frequency_label": data.get("frequency") or out.get("frequency_label", ""),
-                "calendar_label": data.get("calendar") or out.get("calendar_label"),
-                "timezone_label": data.get("timezone") or out.get("timezone_label"),
+                "frequency_label": time_display["frequency_label"],
+                "decision_frequency_label": time_display[
+                    "decision_frequency_label"
+                ],
+                "calendar_label": time_display["calendar_id"],
+                "timezone_label": time_display["timezone"],
+                "execution_stream_id": time_display.get("execution_stream_id"),
+                "execution_bar_spec": time_display.get("execution_bar_spec"),
+                "decision_stream_id": time_display.get("decision_stream_id"),
+                "decision_bar_spec": time_display.get("decision_bar_spec"),
+                "time_context": time_display["time_context"],
                 "strategy_mode_id": strategy_mode_id,
                 "strategy_profile_id": strategy_profile_id,
                 "strategy_preset_id": strategy_preset_id,

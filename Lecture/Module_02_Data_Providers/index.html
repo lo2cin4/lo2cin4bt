@@ -46,6 +46,7 @@ flowchart LR
               <th>資料來源（provider）</th>
               <th>用途</th>
               <th>資產代號例子</th>
+              <th>可用行情週期</th>
               <th>需要什麼</th>
               <th>常見錯誤</th>
             </tr>
@@ -53,13 +54,15 @@ flowchart LR
               <td>雅虎財經（yfinance）</td>
               <td>公開每日指數股票型基金（ETF）及股票資料。</td>
               <td><code>QQQ</code>、<code>SPY</code>、<code>VOO</code></td>
-              <td><code>requirements.txt</code> 內的 <code>yfinance</code> / <code>curl_cffi</code>。</td>
+              <td>只接受日線。分鐘或小時要求會停止，不會改用其他週期。</td>
+              <td><code>pyproject.toml</code> 及 <code>uv.lock</code> 鎖定的 <code>yfinance</code> / <code>curl_cffi</code>。</td>
               <td>資產代號不存在、雅虎財經（Yahoo Finance）缺資料、比較基準與策略市場不一致。</td>
             </tr>
             <tr>
               <td>幣安（binance）</td>
               <td>加密資產現貨 K 線（crypto spot kline）。</td>
               <td><code>BTCUSDT</code>、<code>ETHUSDT</code></td>
+              <td>1、3、5、15、30 分鐘；1、2、4、6、8、12 小時；1 日。</td>
               <td><code>python-binance</code>、網絡與時間週期。</td>
               <td>不會在未說明下改用雅虎財經（Yahoo Finance）比較基準；幣安（Binance）資產代號（symbol）不使用連字號。</td>
             </tr>
@@ -67,6 +70,7 @@ flowchart LR
               <td>Coinbase 交易所（coinbase）</td>
               <td>Coinbase 交易所（Coinbase Exchange）公開 K 線資料。</td>
               <td><code>BTC-USD</code>、<code>ETH-USD</code></td>
+              <td>1、5、15 分鐘；1、6 小時；1 日。</td>
               <td><code>dataloader/market_data_loader.py</code>、網絡、Coinbase 產品代號（product）格式。</td>
               <td>Coinbase 交易所使用 <code>BASE-QUOTE</code> 格式，不使用幣安（Binance）的 <code>BTCUSDT</code> 寫法。</td>
             </tr>
@@ -74,13 +78,15 @@ flowchart LR
               <td>本地檔案（file）</td>
               <td>本地逗號分隔檔（CSV）或 Parquet 檔案。</td>
               <td>本地路徑與資產代號對應</td>
-              <td>日期欄、開高低收量（OHLCV）欄位、時區（timezone）及交易日曆（calendar）定義。</td>
+              <td>依檔案聲明的行情週期契約（bar_time）。</td>
+              <td>事件時間、開高低收量（OHLCV）、交易時段、可用時間與品質規則。</td>
               <td>欄位名不一致、日期不是交易日、缺少比較基準（benchmark）或未說明價格調整（adjustment）。</td>
             </tr>
             <tr>
               <td>富途（futu）</td>
               <td>富途開放閘道（Futu OpenD）轉接器框架。</td>
               <td>依富途市場前綴（Futu market prefix）</td>
+              <td>1、5、15、30 分鐘；1 小時；1 日。</td>
               <td><code>futu-api</code>、富途開放閘道（Futu OpenD）、主機位址與連接埠（host / port）、行情權限。</td>
               <td>套件裝好不等於開放閘道（OpenD）已開，也不等於有行情權限。</td>
             </tr>
@@ -88,25 +94,73 @@ flowchart LR
               <td>盈透證券（IBKR）</td>
               <td>盈透證券交易工作站或閘道（TWS / IB Gateway）轉接器框架。</td>
               <td>依盈透證券合約（IBKR contract）及資產代號對應</td>
+              <td>1、5、15、30 分鐘；1 小時；1 日。</td>
               <td><code>ib-insync</code>、交易工作站或閘道（TWS / Gateway）、已啟用應用程式介面（API enabled）、連接埠（port）及行情權限（market-data entitlements）。</td>
               <td>閘道（Gateway）未開、應用程式介面連接埠（API port）錯誤或行情權限（market-data entitlement）不足。</td>
             </tr>
           </table>
         </div>
 
+        <p class="note">富途與盈透證券的轉接器及週期契約已有測試；用戶電腦上的閘道、登入狀態與行情權限仍要在執行前核對，不能由程式庫測試代替。</p>
+
         <h2>資料設定檔（data config）要寫什麼</h2>
         <pre><code>{
   "data": {
     "provider": "binance",
-    "frequency": "1D",
-    "calendar": "CRYPTO_24_7",
-    "timezone": "UTC",
-    "benchmark": "BTCUSDT"
+    "bar_time": {
+      "schema_version": "bar_time_contract.v1",
+      "contract_id": "lo2cin4bt.bar_time_contract.v1",
+      "session_model": {
+        "calendar_id": "CRYPTO_24_7",
+        "timezone": "UTC",
+        "session_scope": "24x7",
+        "session_label_policy": "utc_date",
+        "non_session_bar_policy": "reject"
+      },
+      "timestamp_model": {
+        "time_standard": "UTC",
+        "precision": "nanosecond",
+        "clock": "historical_available_time",
+        "ordering": "available_time_then_event_time_then_external_execution_sequence_then_lifecycle_stage_then_stream_id_then_source_sequence"
+      },
+      "price_model": {
+        "price_basis": "raw",
+        "corporate_action_policy": "not_available"
+      },
+      "streams": [{
+        "stream_id": "execution_1m",
+        "role": "execution",
+        "source": {"kind": "external", "provider_id": "binance"},
+        "bar_spec": {
+          "aggregation": "time", "step": 1, "unit": "minute",
+          "price_type": "last", "alignment": "session_open"
+        },
+        "timestamp_semantics": {
+          "timestamp_convention": "bar_close",
+          "interval_boundary": "left_open_right_closed",
+          "bar_open_time_column": "bar_open_timestamp",
+          "bar_close_time_column": "bar_close_timestamp",
+          "available_time_column": "available_timestamp",
+          "session_label_column": "session_label",
+          "availability_policy": "bar_close"
+        }
+      }]
+    },
+    "stream_binding": {
+      "execution_stream_id": "execution_1m",
+      "decision_stream_id": "execution_1m"
+    },
+    "benchmark": {
+      "provider": "binance",
+      "symbol": "BTCUSDT",
+      "label": "BTCUSDT buy and hold"
+    }
   },
   "universe": {
-    "symbols": ["BTCUSDT", "ETHUSDT"]
+    "symbols": ["BTCUSDT"]
   }
 }</code></pre>
+        <p>這是資料區段節錄，不是完整可執行策略。它表示一分鐘資料同時用作決策與成交；若另有共享 Rust 引擎衍生的五分鐘決策資料流，<code>decision_stream_id</code> 會指向該資料流。</p>
 
         <h2>比較基準（benchmark）原則</h2>
         <ul>
@@ -117,6 +171,7 @@ flowchart LR
         </ul>
 
         <h2>資料健康（Data Health）解讀</h2>
+        <p>缺資料、重複時間或時間次序錯亂會令執行停止。執行中心會顯示結構化失敗資料（<code>run_failure.v1</code>），人工智能也應據此指出供應者、資產、週期與失敗規則；系統不會補造資料或改用另一來源。</p>
         <div class="grid">
           <section class="card">
             <h3>有效起始日（Effective Start）</h3>

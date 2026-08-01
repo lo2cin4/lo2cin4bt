@@ -13,7 +13,7 @@ Windows:
 git clone <repository-url> lo2cin4bt
 cd lo2cin4bt
 .\scripts\setup.ps1
-.\.venv\Scripts\python.exe main.py
+uv run --locked --exact python main.py
 ```
 
 macOS / Linux:
@@ -22,7 +22,7 @@ macOS / Linux:
 git clone <repository-url> lo2cin4bt
 cd lo2cin4bt
 bash scripts/setup.sh
-.venv/bin/python main.py
+uv run --locked --exact python main.py
 ```
 
 Open:
@@ -34,7 +34,7 @@ http://127.0.0.1:2424/
 If setup fails, run:
 
 ```bash
-python scripts/doctor.py
+uv run --locked --exact python scripts/doctor.py
 ```
 
 ## 2. Understand The Workspace
@@ -199,7 +199,7 @@ Start with a supported family:
 Then define:
 
 1. universe;
-2. provider and frequency;
+2. provider and typed execution/decision `BarSpec`;
 3. indicators or signals;
 4. allocation;
 5. rebalance trigger;
@@ -236,7 +236,7 @@ The contract test automatically scans `workspace/runs/`, strategy contract
 examples, and every WFA strategy reference:
 
 ```powershell
-python -m pytest tests/test_metrics_contract_payload.py -q
+uv run --locked --exact --group dev python -m pytest tests/test_metrics_contract_payload.py -q
 ```
 
 Adding a strategy config that cannot produce the same summary contract must

@@ -11,6 +11,7 @@ import { Plot, preloadPlotly } from '../components/LazyPlot'
 import { MissingState } from '../components/MissingState'
 import { SectionCard } from '../components/SectionCard'
 import { localizeStrategyRuleValue } from '../components/StrategyRulesPanel'
+import { TimeContextPanel } from '../components/TimeContextPanel'
 import { TradeMarkerInfoPanel } from '../components/TradeMarkerInfoPanel'
 import { TradeMarkersToggleButton } from '../components/TradeMarkersToggleButton'
 import { useAppStore } from '../store'
@@ -74,6 +75,7 @@ const PERCENT_METRIC_KEYS = new Set([
   'total_return',
   'cagr',
   'max_drawdown',
+  'intraday_max_drawdown',
   'mdd',
   'average_drawdown',
   'annualized_std',
@@ -146,6 +148,7 @@ const zhLabelMap: Record<string, string> = {
   Calmar: '卡瑪比率',
   MDD: '最大回撤',
   'Max Drawdown': '最大回撤',
+  'Intraday Max Drawdown': '日內最大回撤',
   'Win Rate': '勝率',
   Trades: '交易次數',
   Exposure: '曝險',
@@ -308,6 +311,10 @@ const metricHelp: Record<string, Record<Language, string>> = {
   'Max Drawdown': {
     en: 'Maximum drawdown: the worst peak-to-trough equity decline in the selected period.',
     'zh-Hant': '最大回撤：選定期間內資金曲線由高位跌至低位的最大跌幅。',
+  },
+  'Intraday Max Drawdown': {
+    en: 'Worst peak-to-trough decline across the full execution-bar equity path. Headline annualized metrics still use session-close returns.',
+    'zh-Hant': '按完整 execution-bar 資金路徑計算的最差高位至低位跌幅；主年化指標仍以每個 session 的日結回報計算。',
   },
   'Win Rate': {
     en: 'Share of closed trades that ended profitable when closed-trade records are available.',
@@ -503,9 +510,7 @@ export function MetricsOverviewPage() {
     [runsQuery.data],
   )
   const requestedRunId = search.runId || selectedMetricsRunId || ''
-  const runId = availableRunIds.includes(String(requestedRunId))
-    ? String(requestedRunId)
-    : runsQuery.data?.[0]?.run_id || ''
+  const runId = requestedRunId || runsQuery.data?.[0]?.run_id || ''
   const hasResolvedRun = Boolean(runId && availableRunIds.includes(String(runId)))
   const overviewQuery = useQuery({
     queryKey: ['metrics-overview', runId],
@@ -515,32 +520,18 @@ export function MetricsOverviewPage() {
   })
 
   useEffect(() => {
-    if (!runsQuery.data?.length) return
-    if (!runId || !availableRunIds.includes(runId)) {
-      const fallbackRunId = runsQuery.data[0].run_id
-      setSelectedMetricsRunId(fallbackRunId)
-      setSelectedBacktestId('')
-      navigate({ to: '/metrics', search: { runId: fallbackRunId }, replace: true })
-    }
-  }, [availableRunIds, navigate, runId, runsQuery.data, setSelectedBacktestId, setSelectedMetricsRunId])
+    if (!runsQuery.data?.length || requestedRunId) return
+    const initialRunId = runsQuery.data[0].run_id
+    setSelectedMetricsRunId(initialRunId)
+    setSelectedBacktestId('')
+    navigate({ to: '/metrics', search: { runId: initialRunId }, replace: true })
+  }, [navigate, requestedRunId, runsQuery.data, setSelectedBacktestId, setSelectedMetricsRunId])
 
   useEffect(() => {
     if (runId && runId !== selectedMetricsRunId) {
       setSelectedMetricsRunId(runId)
     }
   }, [runId, selectedMetricsRunId, setSelectedMetricsRunId])
-
-  useEffect(() => {
-    if (!overviewQuery.error) {
-      return
-    }
-    const fallbackRunId = runsQuery.data?.[0]?.run_id || ''
-    if (fallbackRunId && fallbackRunId !== runId) {
-      setSelectedMetricsRunId(fallbackRunId)
-      setSelectedBacktestId('')
-      navigate({ to: '/metrics', search: { runId: fallbackRunId }, replace: true })
-    }
-  }, [navigate, overviewQuery.error, runId, runsQuery.data, setSelectedBacktestId, setSelectedMetricsRunId])
 
   useEffect(() => {
     if (overviewQuery.data) {
@@ -619,7 +610,10 @@ export function MetricsOverviewPage() {
 
   const formatCell = formatFixedCell
 
-  if (runsQuery.isLoading || (!hasResolvedRun && runsQuery.data?.length) || overviewQuery.isLoading) return <div className="page-loading">{t('common.loading.metricsOverview')}</div>
+  if (runsQuery.isLoading || overviewQuery.isLoading) return <div className="page-loading">{t('common.loading.metricsOverview')}</div>
+  if (runId && runsQuery.data?.length && !hasResolvedRun) {
+    return <MissingState message={language === 'zh-Hant' ? '指定的回測批次不存在；系統不會改用其他結果。' : 'The requested run does not exist; the system will not substitute another result.'} />
+  }
   if (!runId) return <MissingState message={language === 'zh-Hant' ? '目前尚未有可用的指標回測結果。' : 'No metrics backtest results are available yet.'} />
   if (overviewQuery.error || !overviewQuery.data) return <div className="page-error">{language === 'zh-Hant' ? '無法載入本次回測的指標總覽。' : 'Unable to load the metrics overview for this run.'}</div>
   if (overviewQuery.data.result_type === 'portfolio') {
@@ -628,6 +622,7 @@ export function MetricsOverviewPage() {
 
   return (
     <div className="page-stack">
+      <TimeContextPanel summary={overviewQuery.data.strategy_summary} />
       <SectionCard
         captureId="equity_curve"
         title={t('metricsOverview.title')}
@@ -648,7 +643,7 @@ export function MetricsOverviewPage() {
         <Plot
           data={plotData}
           layout={makeChartLayout({
-            xTitle: 'Date',
+            xTitle: 'Time',
             yTitle: 'Normalized Equity',
             legend: { orientation: 'h' },
           })}
@@ -733,10 +728,10 @@ export function MetricsOverviewPage() {
                   <td>{row.trade_count}</td>
                   <td>{formatMetricValue('exposure_time', row.exposure_time)}</td>
                   <td>{formatCell(row.profit_factor)}</td>
-                  <td>{row.last_trade_time ? String(row.last_trade_time).slice(0, 10) : '-'}</td>
+                  <td>{row.last_trade_time ? String(row.last_trade_time) : '-'}</td>
                   <td>
                     {row.date_range_start && row.date_range_end
-                      ? `${row.date_range_start.slice(0, 10)} - ${row.date_range_end.slice(0, 10)}`
+                      ? `${row.date_range_start} - ${row.date_range_end}`
                       : '-'}
                   </td>
                   <td className="action-column-cell" onClick={(event) => event.stopPropagation()}>
@@ -765,6 +760,10 @@ export function MetricsOverviewPage() {
           ['CAGR', 'cagr'],
           ['Sharpe', 'sharpe'],
           ['Max Drawdown', 'max_drawdown'],
+          ...(selectedRow.intraday_max_drawdown !== null
+            && selectedRow.intraday_max_drawdown !== undefined
+            ? [['Intraday Max Drawdown', 'intraday_max_drawdown'] as const]
+            : []),
         ] as const
         const tradeQuality = [
           ['Win Rate', 'win_rate'],
@@ -789,7 +788,7 @@ export function MetricsOverviewPage() {
           ['BAH Max Drawdown', 'bah_max_drawdown'],
         ] as const
         const selectionWindow = selectedRow.date_range_start && selectedRow.date_range_end
-          ? `${String(selectedRow.date_range_start).slice(0, 10)} -> ${String(selectedRow.date_range_end).slice(0, 10)}`
+          ? `${String(selectedRow.date_range_start)} -> ${String(selectedRow.date_range_end)}`
           : language === 'zh-Hant' ? '日期範圍未提供' : 'Date range unavailable'
 
         return (
@@ -1059,11 +1058,14 @@ function PortfolioMetricsOverview({
     ['CAGR', 'cagr'],
     ['Sharpe', 'sharpe'],
     ['Max Drawdown', 'max_drawdown'],
+    ...(summary.intraday_max_drawdown !== null && summary.intraday_max_drawdown !== undefined
+      ? [['Intraday Max Drawdown', 'intraday_max_drawdown'] as const]
+      : []),
     ['Calmar', 'calmar'],
     ['Excess Return', 'excess_return'],
   ] as const
   const headlineToneClass = (key: string, value: any) => {
-    if (key === 'max_drawdown') return 'tone-negative'
+    if (key === 'max_drawdown' || key === 'intraday_max_drawdown') return 'tone-negative'
     const numeric = Number(value)
     if (!Number.isFinite(numeric)) return 'tone-neutral'
     if (numeric > 0) return 'tone-positive'
@@ -1135,6 +1137,7 @@ function PortfolioMetricsOverview({
 
   return (
     <div className="page-stack">
+      <TimeContextPanel summary={strategySummary} />
       <SectionCard
         captureId="equity_curve"
         title={t('metricsOverview.portfolioEquity')}
@@ -1270,7 +1273,7 @@ function PortfolioMetricsOverview({
                   <td>{formatMetricValue('max_drawdown', row.max_drawdown)}</td>
                   <td>
                     {row.date_range_start && row.date_range_end
-                      ? `${String(row.date_range_start).slice(0, 10)} - ${String(row.date_range_end).slice(0, 10)}`
+                      ? `${String(row.date_range_start)} - ${String(row.date_range_end)}`
                       : '-'}
                   </td>
                   <td className="action-column-cell" onClick={(event) => event.stopPropagation()}>

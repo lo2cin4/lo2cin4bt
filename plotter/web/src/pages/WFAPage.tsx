@@ -11,6 +11,7 @@ import { Plot, preloadPlotly } from '../components/LazyPlot'
 import { MissingState } from '../components/MissingState'
 import { SectionCard } from '../components/SectionCard'
 import { StrategyRulesPanel } from '../components/StrategyRulesPanel'
+import { TimeContextPanel } from '../components/TimeContextPanel'
 import { useAppStore } from '../store'
 import {
   candidateFilterLabel,
@@ -291,7 +292,8 @@ export function WFAPage() {
     preloadPlotly()
   }, [])
 
-  const runId = search.runId || selectedWfaRunId || runsQuery.data?.[0]?.run_id || ''
+  const requestedRunId = search.runId || selectedWfaRunId || ''
+  const runId = requestedRunId || runsQuery.data?.[0]?.run_id || ''
   const availableRunIds = useMemo(
     () => (runsQuery.data || []).map((run: any) => run.run_id),
     [runsQuery.data],
@@ -598,15 +600,12 @@ export function WFAPage() {
   ).sort()
 
   useEffect(() => {
-    if (!runsQuery.data?.length) return
-    const availableRunIds = runsQuery.data.map((run: any) => run.run_id)
-    if (!runId || !availableRunIds.includes(runId)) {
-      const fallbackRunId = runsQuery.data[0].run_id
-      setSelectedWfaRunId(fallbackRunId)
-      if (search.runId === fallbackRunId) return
-      navigate({ to: '/wfa', search: { runId: fallbackRunId }, replace: true })
-    }
-  }, [navigate, runId, runsQuery.data, search.runId, setSelectedWfaRunId])
+    if (!runsQuery.data?.length || requestedRunId) return
+    const initialRunId = runsQuery.data[0].run_id
+    setSelectedWfaRunId(initialRunId)
+    if (search.runId === initialRunId) return
+    navigate({ to: '/wfa', search: { runId: initialRunId }, replace: true })
+  }, [navigate, requestedRunId, runsQuery.data, search.runId, setSelectedWfaRunId])
 
   useEffect(() => {
     if (runId && runId !== selectedWfaRunId) {
@@ -614,17 +613,7 @@ export function WFAPage() {
     }
   }, [runId, selectedWfaRunId, setSelectedWfaRunId])
 
-  useEffect(() => {
-    if (!query.error) return
-    const fallbackRunId = runsQuery.data?.[0]?.run_id || ''
-    if (fallbackRunId && fallbackRunId !== runId) {
-      setSelectedWfaRunId(fallbackRunId)
-      if (search.runId === fallbackRunId) return
-      navigate({ to: '/wfa', search: { runId: fallbackRunId }, replace: true })
-    }
-  }, [navigate, query.error, runId, runsQuery.data, search.runId, setSelectedWfaRunId])
-
-  if (runsQuery.isLoading || (!hasResolvedRun && runsQuery.data?.length) || query.isLoading) {
+  if (runsQuery.isLoading || query.isLoading) {
     return <div className="page-loading">{t('common.loading.wfa')}</div>
   }
   if (runsQuery.data && runsQuery.data.length === 0) {
@@ -650,6 +639,7 @@ export function WFAPage() {
 
   return (
     <div className="page-stack">
+      <TimeContextPanel summary={strategySummary} />
       <SectionCard
         title={isRollingValidation ? t('wfa.rollingValidationTitle') : t('wfa.title')}
         subtitle={

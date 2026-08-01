@@ -9,7 +9,7 @@
   <h2>必要資訊</h2>
   <table><tr><th>部分</th><th>所需內容</th></tr>
     <tr><td><code>platform</code></td><td>id、<code>display_label</code>、建立日期與用途。</td></tr>
-    <tr><td><code>data</code> / <code>universe</code></td><td>資料供應者（provider）、資產代號（symbols）、頻率（frequency）、交易日曆（calendar）、時區（timezone）及比較基準（benchmark）。</td></tr>
+    <tr><td><code>data</code> / <code>universe</code></td><td>資料供應者（provider）、資產代號（symbols）、正式時間契約（bar_time）、執行／決策資料流綁定（stream_binding）及比較基準（benchmark）。</td></tr>
     <tr><td><code>computed_fields</code> / <code>signals</code></td><td>指標如何計算、何時形成訊號、不能偷看未來。</td></tr>
     <tr><td><code>selection</code> / <code>allocation</code></td><td>如何選資產、目標權重、現金及持倉上限。</td></tr>
     <tr><td><code>rebalance</code> / <code>fill_model</code></td><td>何時檢查、何時成交、價格基準、成本與滑價。</td></tr>
@@ -31,9 +31,54 @@
   },
   "data": {
     "provider": "yfinance",
-    "frequency": "1D",
-    "calendar": "XNYS",
-    "timezone": "America/New_York",
+    "bar_time": {
+      "schema_version": "bar_time_contract.v1",
+      "contract_id": "lo2cin4bt.bar_time_contract.v1",
+      "session_model": {
+        "calendar_id": "XNYS",
+        "timezone": "America/New_York",
+        "session_scope": "regular",
+        "session_label_policy": "exchange_local_date",
+        "non_session_bar_policy": "reject"
+      },
+      "timestamp_model": {
+        "time_standard": "UTC",
+        "precision": "nanosecond",
+        "clock": "historical_available_time",
+        "ordering": "available_time_then_event_time_then_external_execution_sequence_then_lifecycle_stage_then_stream_id_then_source_sequence"
+      },
+      "price_model": {
+        "price_basis": "split_dividend_adjusted",
+        "corporate_action_policy": "provider_applied"
+      },
+      "streams": [
+        {
+          "stream_id": "execution_daily",
+          "role": "execution",
+          "source": {"kind": "external", "provider_id": "yfinance"},
+          "bar_spec": {
+            "aggregation": "time",
+            "step": 1,
+            "unit": "day",
+            "price_type": "last",
+            "alignment": "session_open"
+          },
+          "timestamp_semantics": {
+            "timestamp_convention": "bar_close",
+            "interval_boundary": "left_open_right_closed",
+            "bar_open_time_column": "bar_open_timestamp",
+            "bar_close_time_column": "bar_close_timestamp",
+            "available_time_column": "available_timestamp",
+            "session_label_column": "session_label",
+            "availability_policy": "bar_close"
+          }
+        }
+      ]
+    },
+    "stream_binding": {
+      "execution_stream_id": "execution_daily",
+      "decision_stream_id": "execution_daily"
+    },
     "benchmark": {"provider": "yfinance", "symbol": "QQQ"}
   },
   "universe": {"symbols": ["QQQ"], "universe_policy": "single_asset"},
@@ -75,6 +120,15 @@
   }
 }</code></pre>
   <p>這個例子保留所有必填契約（contract）。建立策略時要以結構綱要（schema）、操作登錄表（op registry）及現有範例（examples）為準。人工智能（AI）不可自創設定檔（config）欄位。</p>
+
+  <h2>行情週期如何決定訊號與成交</h2>
+  <ul>
+    <li>執行資料流（execution stream）提供可成交的時間與價格；決策資料流（decision stream）提供策略判斷所用的行情棒。</li>
+    <li>兩者可以相同，例如 Binance 一分鐘雙均線以一分鐘資料判斷及成交。</li>
+    <li>兩者也可以不同，例如由一分鐘資料衍生五分鐘決策棒；五分鐘棒完成後才可形成訊號，並在下一個合資格的一分鐘價格成交。</li>
+    <li>資料來源已有日線、週線或月線時，可以把該資料聲明為外部執行資料流；系統不要求所有週期都由一分鐘資料合成。</li>
+    <li>交易時段、時區、夏令時間、半日市、未完成棒及資料可用時間均由行情週期契約（bar_time）聲明。任何未完成或尚未可用的資料都不能參與當下決策。</li>
+  </ul>
 
   <h2>常用計算積木</h2>
   <p>計算欄位（<code>computed_fields</code>）會由上至下執行。每一列先產生一個名字，後面的列、訊號、選股與配置規則便可使用這個名字。</p>

@@ -1,39 +1,72 @@
 <!doctype html>
-<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>11 可選因子診斷</title><link rel="stylesheet" href="../assets/lecture.css"></head>
-<body><div class="layout"><aside class="sidebar"><div class="brand"><strong>lo2cin4bt 教學</strong><span>模組 11</span></div><input class="search" data-search placeholder="搜尋課程"><nav class="nav-list" data-nav></nav></aside>
-<main class="content"><article class="module">
-  <p class="kicker">模組 11</p><h1>可選因子診斷（factor diagnostics）</h1>
-  <div class="phase"><strong>定位：</strong><code>factorhandler/</code> 與 <code>statanalyser/</code> 是可選研究工具，不是正式回測、指標（metrics）或前端的必經步驟。</div>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>11 因子分析預覽</title>
+  <link rel="stylesheet" href="../assets/lecture.css">
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="brand"><strong>lo2cin4bt 教學</strong><span>模組 11</span></div>
+    <input class="search" data-search placeholder="搜尋內容">
+    <nav class="nav-list" data-nav></nav>
+  </aside>
+  <main class="content">
+    <article class="module">
+      <p class="kicker">模組 11</p>
+      <h1>因子分析預覽（Factor diagnostics）</h1>
+      <div class="phase">
+        <strong>目前定位：</strong>
+        舊有 <code>strategy_run.factor_pipeline</code> 及 Python
+        <code>factorhandler/</code> 已正式退休並 fail closed。
+      </div>
 
-  <h2>目前可以做甚麼</h2>
-  <ul>
-    <li><code>strategy_run.factor_pipeline</code> 可描述因子資料處理。</li>
-    <li><code>factorhandler/</code> 可產生及匯出獨立因子研究產物。</li>
-    <li><code>statanalyser/</code> 可按用戶要求，對已生成資料做統計診斷。</li>
-  </ul>
+      <h2>正式計算路線</h2>
+      <ul>
+        <li>支援的動能、波動率及橫截面運算使用 <code>computed_fields[]</code> 描述。</li>
+        <li>所有會改變回測結果的因子計算由 shared Rust engine 執行。</li>
+        <li>不會自動映射舊 factor pipeline，也沒有 Python 或靜默後備路線。</li>
+        <li>未支援的因子運算必須先新增經覆核的 Rust Strategy Building Block 及測試。</li>
+      </ul>
 
-  <h2>它不代表甚麼</h2>
-  <ul>
-    <li>目前沒有專屬 React 頁面；沒有診斷資料（diagnostic payload）時，應用程式介面（API）或教學回覆應標示「不適用（<code>not applicable</code>）」，不應令普通回測失敗。</li>
-    <li>不能在沒有產物及測試證據時宣稱已支援 IC、Rank IC、Fama-MacBeth、VIF 或完整風險模型。</li>
-    <li>影響持倉、成交及回報的因子計算，必須經共享 Rust 引擎（engine）與強制結果驗證器（mandatory result validator）。</li>
-    <li>不可把這兩個 Python 研究模組重新插入所有策略的正式主線。</li>
-  </ul>
+      <h2>診斷層邊界</h2>
+      <ul>
+        <li><code>statanalyser/</code> 只可處理已驗證結果的可選診斷，不是回測或績效計算路線。</li>
+        <li>正式輸出仍經 mandatory Rust result validator、Rust metrics 及 PlotBundle。</li>
+        <li>舊 <code>factor_pipeline.v1</code> schema 是拒絕所有實例的退休 tombstone。</li>
+      </ul>
 
-  <section class="mermaid-panel"><h2>正確邊界</h2><pre class="mermaid">
+      <section class="mermaid-panel">
+        <h2>唯一正式路線</h2>
+        <pre class="mermaid">
 flowchart LR
-  Result["已驗證標準結果包<br/>CanonicalResultBundle"] --> Metrics["Rust 指標 + 繪圖資料包<br/>PlotBundle"]
-  Metrics --> UI["正式 React 結果頁"]
-  Result -. "用戶選擇診斷" .-> Diagnostics["可選因子／統計診斷"]
-  Diagnostics -.-> OptionalAPI["可選應用程式介面資料<br/>目前無專屬 React 路由"]
-  </pre></section>
+  Config["strategy_run<br/>computed_fields[]"] --> Loader["DataLoader<br/>MarketDataBundle"]
+  Loader --> Rust["Shared Rust engine<br/>factor / signal / accounting"]
+  Rust --> Validator["Mandatory Rust validator"]
+  Validator --> Metrics["Rust metrics + PlotBundle"]
+  Metrics --> UI["React frontend"]
+        </pre>
+      </section>
 
-  <section class="evidence"><h2>專案證據</h2><ul>
-    <li><code>skills/lo2cin4bt/references/runtime-architecture.md</code></li>
-    <li><code>backtester/contracts/strategy/factor-pipeline-v1.schema.json</code></li>
-    <li><code>factorhandler/</code></li>
-    <li><code>statanalyser/</code></li>
-    <li><code>rust/lo2cin4bt_core/src/result_validator.rs</code></li>
-  </ul></section>
-  <div class="pager"><a href="../Module_10_Data_Provider_Extension/index.html">上一章</a><a href="../Lab_01_Run_A_Backtest/index.html">下一章：實驗 01</a></div>
-</article></main></div><script src="../assets/lecture.js"></script></body></html>
+      <section class="evidence">
+        <h2>證據來源</h2>
+        <ul>
+          <li><code>skills/lo2cin4bt/references/runtime-architecture.md</code></li>
+          <li><code>backtester/contracts/strategy/strategy-run.schema.json</code></li>
+          <li><code>backtester/contracts/strategy/factor-pipeline-v1.schema.json</code></li>
+          <li><code>rust/lo2cin4bt_core/src/computed_fields/returns.rs</code></li>
+          <li><code>rust/lo2cin4bt_core/src/result_validator.rs</code></li>
+        </ul>
+      </section>
+      <div class="pager">
+        <a href="../Module_10_Data_Provider_Extension/index.html">上一個模組</a>
+        <a href="../Lab_01_Run_A_Backtest/index.html">下一個模組：實驗 01</a>
+      </div>
+    </article>
+  </main>
+</div>
+<script src="../assets/lecture.js"></script>
+</body>
+</html>

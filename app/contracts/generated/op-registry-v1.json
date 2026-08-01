@@ -19,6 +19,7 @@
     "calendar.nth_weekday_of_month": "calendar.nth_weekday_of_month",
     "calendar.quarter_end": "calendar.quarter_end",
     "calendar.quarter_start": "calendar.quarter_start",
+    "calendar.session_offset_from_month_end": "calendar.session_offset_from_month_end",
     "calendar.weekday_eq": "calendar.weekday_eq",
     "calendar.year_end": "calendar.year_end",
     "calendar.year_start": "calendar.year_start",
@@ -123,9 +124,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/daily_rank.rs",
-        "source_hash": "d3a055b3ab726d69094f2a732379e7a09764844666548730ac9e378ae0828c6b",
+        "source_hash": "daff83df5f1b6803b5628bcdd1fd494b21992eb85c033356eca7c36f4658c73e",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/daily_rank.rs": "b8398408df4e92b14e511a69d8432c85564485a5b43eb417da0a51194beb8ffb"
+          "rust/lo2cin4bt_core/src/daily_rank.rs": "ff0b93a80eb6074951752ba29b3ec046cdc68bc93d79aa1ae6587d84a70f445f"
         },
         "symbols": [
           "evaluate_condition"
@@ -249,9 +250,9 @@
       ],
       "implementation": {
         "path": "utils/calendar_events.py",
-        "source_hash": "32cb5abb95e04867d121a58182915bfdc6897605885a696b093be8b10ce8d069",
+        "source_hash": "b567c729c66e246be056c1cc5874991e909f7e67453a2f8524452af1fac737f0",
         "source_hashes": {
-          "utils/calendar_events.py": "65980c5449efd8f18e4b262fc27e66669a781747b3032e70d6e90690451adea3"
+          "utils/calendar_events.py": "8f5b719d657c26a0ca809a15c1a5f8ba9b3af8970bb839f226e0f215905b81ab"
         },
         "symbols": [
           "CalendarEventResolver.materialize",
@@ -398,9 +399,9 @@
       ],
       "implementation": {
         "path": "utils/calendar_events.py",
-        "source_hash": "32cb5abb95e04867d121a58182915bfdc6897605885a696b093be8b10ce8d069",
+        "source_hash": "b567c729c66e246be056c1cc5874991e909f7e67453a2f8524452af1fac737f0",
         "source_hashes": {
-          "utils/calendar_events.py": "65980c5449efd8f18e4b262fc27e66669a781747b3032e70d6e90690451adea3"
+          "utils/calendar_events.py": "8f5b719d657c26a0ca809a15c1a5f8ba9b3af8970bb839f226e0f215905b81ab"
         },
         "symbols": [
           "CalendarEventResolver.materialize",
@@ -524,9 +525,9 @@
       ],
       "implementation": {
         "path": "utils/calendar_events.py",
-        "source_hash": "32cb5abb95e04867d121a58182915bfdc6897605885a696b093be8b10ce8d069",
+        "source_hash": "b567c729c66e246be056c1cc5874991e909f7e67453a2f8524452af1fac737f0",
         "source_hashes": {
-          "utils/calendar_events.py": "65980c5449efd8f18e4b262fc27e66669a781747b3032e70d6e90690451adea3"
+          "utils/calendar_events.py": "8f5b719d657c26a0ca809a15c1a5f8ba9b3af8970bb839f226e0f215905b81ab"
         },
         "symbols": [
           "CalendarEventResolver.materialize",
@@ -649,9 +650,9 @@
       ],
       "implementation": {
         "path": "utils/calendar_events.py",
-        "source_hash": "32cb5abb95e04867d121a58182915bfdc6897605885a696b093be8b10ce8d069",
+        "source_hash": "b567c729c66e246be056c1cc5874991e909f7e67453a2f8524452af1fac737f0",
         "source_hashes": {
-          "utils/calendar_events.py": "65980c5449efd8f18e4b262fc27e66669a781747b3032e70d6e90690451adea3"
+          "utils/calendar_events.py": "8f5b719d657c26a0ca809a15c1a5f8ba9b3af8970bb839f226e0f215905b81ab"
         },
         "symbols": [
           "CalendarEventResolver.materialize",
@@ -829,9 +830,9 @@
       ],
       "implementation": {
         "path": "utils/calendar_events.py",
-        "source_hash": "32cb5abb95e04867d121a58182915bfdc6897605885a696b093be8b10ce8d069",
+        "source_hash": "b567c729c66e246be056c1cc5874991e909f7e67453a2f8524452af1fac737f0",
         "source_hashes": {
-          "utils/calendar_events.py": "65980c5449efd8f18e4b262fc27e66669a781747b3032e70d6e90690451adea3"
+          "utils/calendar_events.py": "8f5b719d657c26a0ca809a15c1a5f8ba9b3af8970bb839f226e0f215905b81ab"
         },
         "symbols": [
           "CalendarEventResolver.materialize",
@@ -982,9 +983,9 @@
       ],
       "implementation": {
         "path": "utils/calendar_events.py",
-        "source_hash": "32cb5abb95e04867d121a58182915bfdc6897605885a696b093be8b10ce8d069",
+        "source_hash": "b567c729c66e246be056c1cc5874991e909f7e67453a2f8524452af1fac737f0",
         "source_hashes": {
-          "utils/calendar_events.py": "65980c5449efd8f18e4b262fc27e66669a781747b3032e70d6e90690451adea3"
+          "utils/calendar_events.py": "8f5b719d657c26a0ca809a15c1a5f8ba9b3af8970bb839f226e0f215905b81ab"
         },
         "symbols": [
           "CalendarEventResolver.materialize",
@@ -1135,9 +1136,9 @@
       ],
       "implementation": {
         "path": "utils/calendar_events.py",
-        "source_hash": "32cb5abb95e04867d121a58182915bfdc6897605885a696b093be8b10ce8d069",
+        "source_hash": "b567c729c66e246be056c1cc5874991e909f7e67453a2f8524452af1fac737f0",
         "source_hashes": {
-          "utils/calendar_events.py": "65980c5449efd8f18e4b262fc27e66669a781747b3032e70d6e90690451adea3"
+          "utils/calendar_events.py": "8f5b719d657c26a0ca809a15c1a5f8ba9b3af8970bb839f226e0f215905b81ab"
         },
         "symbols": [
           "CalendarEventResolver.materialize",
@@ -1288,9 +1289,9 @@
       ],
       "implementation": {
         "path": "utils/calendar_events.py",
-        "source_hash": "32cb5abb95e04867d121a58182915bfdc6897605885a696b093be8b10ce8d069",
+        "source_hash": "b567c729c66e246be056c1cc5874991e909f7e67453a2f8524452af1fac737f0",
         "source_hashes": {
-          "utils/calendar_events.py": "65980c5449efd8f18e4b262fc27e66669a781747b3032e70d6e90690451adea3"
+          "utils/calendar_events.py": "8f5b719d657c26a0ca809a15c1a5f8ba9b3af8970bb839f226e0f215905b81ab"
         },
         "symbols": [
           "CalendarEventResolver.materialize",
@@ -1491,9 +1492,9 @@
       ],
       "implementation": {
         "path": "utils/calendar_events.py",
-        "source_hash": "32cb5abb95e04867d121a58182915bfdc6897605885a696b093be8b10ce8d069",
+        "source_hash": "b567c729c66e246be056c1cc5874991e909f7e67453a2f8524452af1fac737f0",
         "source_hashes": {
-          "utils/calendar_events.py": "65980c5449efd8f18e4b262fc27e66669a781747b3032e70d6e90690451adea3"
+          "utils/calendar_events.py": "8f5b719d657c26a0ca809a15c1a5f8ba9b3af8970bb839f226e0f215905b81ab"
         },
         "symbols": [
           "CalendarEventResolver.materialize",
@@ -1644,9 +1645,9 @@
       ],
       "implementation": {
         "path": "utils/calendar_events.py",
-        "source_hash": "32cb5abb95e04867d121a58182915bfdc6897605885a696b093be8b10ce8d069",
+        "source_hash": "b567c729c66e246be056c1cc5874991e909f7e67453a2f8524452af1fac737f0",
         "source_hashes": {
-          "utils/calendar_events.py": "65980c5449efd8f18e4b262fc27e66669a781747b3032e70d6e90690451adea3"
+          "utils/calendar_events.py": "8f5b719d657c26a0ca809a15c1a5f8ba9b3af8970bb839f226e0f215905b81ab"
         },
         "symbols": [
           "CalendarEventResolver.materialize",
@@ -1774,6 +1775,156 @@
           "implementation source_hash"
         ]
       },
+      "canonical_id": "calendar.session_offset_from_month_end",
+      "category": "Strategy Building Blocks",
+      "data_alignment": {
+        "fill_policy": "no backfill for tradable signals",
+        "join_mode": "caller_runtime_defined",
+        "missing_data_policy": "runtime validation and data-health checks remain authoritative",
+        "source_calendar": "caller-provided trading/session index",
+        "source_timezone": "calendar dates are normalized after caller data timezone handling"
+      },
+      "deprecation": {
+        "replacement": null,
+        "status": "active"
+      },
+      "docs": {
+        "beginner_term": "Strategy Building Blocks",
+        "display_name": "Session Offset From Month End"
+      },
+      "evidence_paths": [
+        "tests/test_multi_asset_portfolio_engine.py",
+        "tests/test_strategy_run_examples_runtime.py"
+      ],
+      "implementation": {
+        "path": "utils/calendar_events.py",
+        "source_hash": "b567c729c66e246be056c1cc5874991e909f7e67453a2f8524452af1fac737f0",
+        "source_hashes": {
+          "utils/calendar_events.py": "8f5b719d657c26a0ca809a15c1a5f8ba9b3af8970bb839f226e0f215905b81ab"
+        },
+        "symbols": [
+          "CalendarEventResolver.materialize",
+          "CalendarEventResolver.trigger_sessions",
+          "CalendarEventResolver.event_frame"
+        ]
+      },
+      "input_shape": "depends_on_usage_site",
+      "leakage_flags": {
+        "allows_tradable_bfill": false,
+        "requires_point_in_time_source": true,
+        "uses_future": false
+      },
+      "optimizable_params": [
+        "offset_sessions"
+      ],
+      "output_shape": "boolean_mask_or_session_list",
+      "output_type": "boolean_mask_or_session_list",
+      "params_schema": {
+        "additionalProperties": true,
+        "properties": {
+          "offset_sessions": {
+            "oneOf": [
+              {
+                "maximum": 0,
+                "minimum": -23,
+                "type": "integer"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "param_ref": {
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "param_ref"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "type": "object"
+      },
+      "safety_warnings": [
+        "Calendar support is session-date support, not intraday fill proof."
+      ],
+      "spec_version": "1.0",
+      "stability": "core",
+      "status": "supported",
+      "temporal_metadata": {
+        "availability_time": "known from the configured calendar input before signal evaluation",
+        "calendar": "caller-provided trading/session index",
+        "earliest_trade_time": "runtime execution timing decides open/close/same-session use",
+        "lag_bars": 0,
+        "leakage_warnings": [
+          "External event-date files must be point-in-time safe before they are used as tradable events."
+        ],
+        "lookback_bars": {
+          "description": "no price lookback; event-date files may add external date provenance",
+          "kind": "calendar"
+        },
+        "observation_time": "calendar date/session on the caller-provided index",
+        "stateful": false,
+        "timezone": "calendar dates are normalized after caller data timezone handling"
+      },
+      "unsupported_message": "calendar.session_offset_from_month_end is not supported at the requested usage site. Ask for clarification or create a reviewed Strategy Building Block with code, tests, and quant safety metadata first.",
+      "usage_sites": [
+        {
+          "accepted_names": [
+            "calendar.session_offset_from_month_end"
+          ],
+          "notes": "Calendar condition mask over the multi-asset date index.",
+          "site": "multi_asset.condition",
+          "support": "supported"
+        },
+        {
+          "accepted_names": [
+            "calendar.session_offset_from_month_end"
+          ],
+          "notes": "Calendar trigger for multi-asset rebalance dates.",
+          "site": "multi_asset.rebalance_trigger",
+          "support": "supported"
+        },
+        {
+          "accepted_names": [
+            "calendar.session_offset_from_month_end"
+          ],
+          "notes": "Calendar event node for event overlay accounting.",
+          "site": "multi_asset.calendar_event_overlay",
+          "support": "supported"
+        },
+        {
+          "accepted_names": [
+            "calendar.session_offset_from_month_end"
+          ],
+          "notes": "Calendar condition mask over the event-driven date index.",
+          "site": "event_driven.condition",
+          "support": "supported"
+        }
+      ],
+      "wfa_safety": {
+        "oos_must_not_refit": true,
+        "train_only_selection_required": true,
+        "window_local_cache_required": true
+      }
+    },
+    {
+      "aliases": [],
+      "audit": {
+        "calendar_event_rows_required": true,
+        "source_time_required": true
+      },
+      "block_kind": "calendar",
+      "cache": {
+        "cache_key_must_include": [
+          "canonical_id",
+          "params",
+          "input identity",
+          "implementation source_hash"
+        ]
+      },
       "canonical_id": "calendar.weekday_eq",
       "category": "Strategy Building Blocks",
       "data_alignment": {
@@ -1797,9 +1948,9 @@
       ],
       "implementation": {
         "path": "utils/calendar_events.py",
-        "source_hash": "32cb5abb95e04867d121a58182915bfdc6897605885a696b093be8b10ce8d069",
+        "source_hash": "b567c729c66e246be056c1cc5874991e909f7e67453a2f8524452af1fac737f0",
         "source_hashes": {
-          "utils/calendar_events.py": "65980c5449efd8f18e4b262fc27e66669a781747b3032e70d6e90690451adea3"
+          "utils/calendar_events.py": "8f5b719d657c26a0ca809a15c1a5f8ba9b3af8970bb839f226e0f215905b81ab"
         },
         "symbols": [
           "CalendarEventResolver.materialize",
@@ -1951,9 +2102,9 @@
       ],
       "implementation": {
         "path": "utils/calendar_events.py",
-        "source_hash": "32cb5abb95e04867d121a58182915bfdc6897605885a696b093be8b10ce8d069",
+        "source_hash": "b567c729c66e246be056c1cc5874991e909f7e67453a2f8524452af1fac737f0",
         "source_hashes": {
-          "utils/calendar_events.py": "65980c5449efd8f18e4b262fc27e66669a781747b3032e70d6e90690451adea3"
+          "utils/calendar_events.py": "8f5b719d657c26a0ca809a15c1a5f8ba9b3af8970bb839f226e0f215905b81ab"
         },
         "symbols": [
           "CalendarEventResolver.materialize",
@@ -2104,9 +2255,9 @@
       ],
       "implementation": {
         "path": "utils/calendar_events.py",
-        "source_hash": "32cb5abb95e04867d121a58182915bfdc6897605885a696b093be8b10ce8d069",
+        "source_hash": "b567c729c66e246be056c1cc5874991e909f7e67453a2f8524452af1fac737f0",
         "source_hashes": {
-          "utils/calendar_events.py": "65980c5449efd8f18e4b262fc27e66669a781747b3032e70d6e90690451adea3"
+          "utils/calendar_events.py": "8f5b719d657c26a0ca809a15c1a5f8ba9b3af8970bb839f226e0f215905b81ab"
         },
         "symbols": [
           "CalendarEventResolver.materialize",
@@ -2259,9 +2410,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/daily_rank.rs",
-        "source_hash": "d3a055b3ab726d69094f2a732379e7a09764844666548730ac9e378ae0828c6b",
+        "source_hash": "daff83df5f1b6803b5628bcdd1fd494b21992eb85c033356eca7c36f4658c73e",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/daily_rank.rs": "b8398408df4e92b14e511a69d8432c85564485a5b43eb417da0a51194beb8ffb"
+          "rust/lo2cin4bt_core/src/daily_rank.rs": "ff0b93a80eb6074951752ba29b3ec046cdc68bc93d79aa1ae6587d84a70f445f"
         },
         "symbols": [
           "evaluate_condition"
@@ -2904,9 +3055,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/daily_rank.rs",
-        "source_hash": "d3a055b3ab726d69094f2a732379e7a09764844666548730ac9e378ae0828c6b",
+        "source_hash": "daff83df5f1b6803b5628bcdd1fd494b21992eb85c033356eca7c36f4658c73e",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/daily_rank.rs": "b8398408df4e92b14e511a69d8432c85564485a5b43eb417da0a51194beb8ffb"
+          "rust/lo2cin4bt_core/src/daily_rank.rs": "ff0b93a80eb6074951752ba29b3ec046cdc68bc93d79aa1ae6587d84a70f445f"
         },
         "symbols": [
           "evaluate_condition"
@@ -3024,9 +3175,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/daily_rank.rs",
-        "source_hash": "d3a055b3ab726d69094f2a732379e7a09764844666548730ac9e378ae0828c6b",
+        "source_hash": "daff83df5f1b6803b5628bcdd1fd494b21992eb85c033356eca7c36f4658c73e",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/daily_rank.rs": "b8398408df4e92b14e511a69d8432c85564485a5b43eb417da0a51194beb8ffb"
+          "rust/lo2cin4bt_core/src/daily_rank.rs": "ff0b93a80eb6074951752ba29b3ec046cdc68bc93d79aa1ae6587d84a70f445f"
         },
         "symbols": [
           "evaluate_condition"
@@ -3144,9 +3295,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/daily_rank.rs",
-        "source_hash": "d3a055b3ab726d69094f2a732379e7a09764844666548730ac9e378ae0828c6b",
+        "source_hash": "daff83df5f1b6803b5628bcdd1fd494b21992eb85c033356eca7c36f4658c73e",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/daily_rank.rs": "b8398408df4e92b14e511a69d8432c85564485a5b43eb417da0a51194beb8ffb"
+          "rust/lo2cin4bt_core/src/daily_rank.rs": "ff0b93a80eb6074951752ba29b3ec046cdc68bc93d79aa1ae6587d84a70f445f"
         },
         "symbols": [
           "evaluate_condition"
@@ -3264,9 +3415,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/daily_rank.rs",
-        "source_hash": "d3a055b3ab726d69094f2a732379e7a09764844666548730ac9e378ae0828c6b",
+        "source_hash": "daff83df5f1b6803b5628bcdd1fd494b21992eb85c033356eca7c36f4658c73e",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/daily_rank.rs": "b8398408df4e92b14e511a69d8432c85564485a5b43eb417da0a51194beb8ffb"
+          "rust/lo2cin4bt_core/src/daily_rank.rs": "ff0b93a80eb6074951752ba29b3ec046cdc68bc93d79aa1ae6587d84a70f445f"
         },
         "symbols": [
           "evaluate_condition"
@@ -3384,9 +3535,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/computed_fields/indicators.rs",
-        "source_hash": "30d71e74baa126c1a3e76a77fc260656928536f1dca5aeffd0b4dc8022bf4154",
+        "source_hash": "1c7db8a924ad22e592c99471975b70ee376f4289ab360a20225588cef50a1cb4",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "aa9fbe50799bd9237586fec8e9747fe48ed439454817b091b1222419bd101d20"
+          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "b8231fb32b0dbf8ea2d35b170222054cc52a67d823f9852c5c8e2055347656bd"
         },
         "symbols": [
           "compute_feature_fields_with_market_fields",
@@ -3536,9 +3687,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/computed_fields/indicators.rs",
-        "source_hash": "30d71e74baa126c1a3e76a77fc260656928536f1dca5aeffd0b4dc8022bf4154",
+        "source_hash": "1c7db8a924ad22e592c99471975b70ee376f4289ab360a20225588cef50a1cb4",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "aa9fbe50799bd9237586fec8e9747fe48ed439454817b091b1222419bd101d20"
+          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "b8231fb32b0dbf8ea2d35b170222054cc52a67d823f9852c5c8e2055347656bd"
         },
         "symbols": [
           "compute_feature_fields_with_market_fields"
@@ -3681,9 +3832,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/computed_fields/indicators.rs",
-        "source_hash": "30d71e74baa126c1a3e76a77fc260656928536f1dca5aeffd0b4dc8022bf4154",
+        "source_hash": "1c7db8a924ad22e592c99471975b70ee376f4289ab360a20225588cef50a1cb4",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "aa9fbe50799bd9237586fec8e9747fe48ed439454817b091b1222419bd101d20"
+          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "b8231fb32b0dbf8ea2d35b170222054cc52a67d823f9852c5c8e2055347656bd"
         },
         "symbols": [
           "compute_feature_fields_with_dates_and_market_fields"
@@ -3822,9 +3973,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/computed_fields/indicators.rs",
-        "source_hash": "30d71e74baa126c1a3e76a77fc260656928536f1dca5aeffd0b4dc8022bf4154",
+        "source_hash": "1c7db8a924ad22e592c99471975b70ee376f4289ab360a20225588cef50a1cb4",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "aa9fbe50799bd9237586fec8e9747fe48ed439454817b091b1222419bd101d20"
+          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "b8231fb32b0dbf8ea2d35b170222054cc52a67d823f9852c5c8e2055347656bd"
         },
         "symbols": [
           "compute_feature_fields_with_market_fields"
@@ -3966,9 +4117,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/computed_fields/indicators.rs",
-        "source_hash": "30d71e74baa126c1a3e76a77fc260656928536f1dca5aeffd0b4dc8022bf4154",
+        "source_hash": "1c7db8a924ad22e592c99471975b70ee376f4289ab360a20225588cef50a1cb4",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "aa9fbe50799bd9237586fec8e9747fe48ed439454817b091b1222419bd101d20"
+          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "b8231fb32b0dbf8ea2d35b170222054cc52a67d823f9852c5c8e2055347656bd"
         },
         "symbols": [
           "compute_feature_fields_with_market_fields"
@@ -4124,9 +4275,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/computed_fields/indicators.rs",
-        "source_hash": "30d71e74baa126c1a3e76a77fc260656928536f1dca5aeffd0b4dc8022bf4154",
+        "source_hash": "1c7db8a924ad22e592c99471975b70ee376f4289ab360a20225588cef50a1cb4",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "aa9fbe50799bd9237586fec8e9747fe48ed439454817b091b1222419bd101d20"
+          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "b8231fb32b0dbf8ea2d35b170222054cc52a67d823f9852c5c8e2055347656bd"
         },
         "symbols": [
           "compute_feature_fields_with_market_fields"
@@ -4268,9 +4419,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/computed_fields/indicators.rs",
-        "source_hash": "30d71e74baa126c1a3e76a77fc260656928536f1dca5aeffd0b4dc8022bf4154",
+        "source_hash": "1c7db8a924ad22e592c99471975b70ee376f4289ab360a20225588cef50a1cb4",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "aa9fbe50799bd9237586fec8e9747fe48ed439454817b091b1222419bd101d20"
+          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "b8231fb32b0dbf8ea2d35b170222054cc52a67d823f9852c5c8e2055347656bd"
         },
         "symbols": [
           "compute_feature_fields_with_market_fields"
@@ -4403,9 +4554,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/computed_fields/indicators.rs",
-        "source_hash": "30d71e74baa126c1a3e76a77fc260656928536f1dca5aeffd0b4dc8022bf4154",
+        "source_hash": "1c7db8a924ad22e592c99471975b70ee376f4289ab360a20225588cef50a1cb4",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "aa9fbe50799bd9237586fec8e9747fe48ed439454817b091b1222419bd101d20"
+          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "b8231fb32b0dbf8ea2d35b170222054cc52a67d823f9852c5c8e2055347656bd"
         },
         "symbols": [
           "compute_feature_fields_with_market_fields"
@@ -4547,9 +4698,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/computed_fields/indicators.rs",
-        "source_hash": "30d71e74baa126c1a3e76a77fc260656928536f1dca5aeffd0b4dc8022bf4154",
+        "source_hash": "1c7db8a924ad22e592c99471975b70ee376f4289ab360a20225588cef50a1cb4",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "aa9fbe50799bd9237586fec8e9747fe48ed439454817b091b1222419bd101d20"
+          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "b8231fb32b0dbf8ea2d35b170222054cc52a67d823f9852c5c8e2055347656bd"
         },
         "symbols": [
           "compute_feature_fields_with_market_fields"
@@ -4691,9 +4842,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/computed_fields/indicators.rs",
-        "source_hash": "30d71e74baa126c1a3e76a77fc260656928536f1dca5aeffd0b4dc8022bf4154",
+        "source_hash": "1c7db8a924ad22e592c99471975b70ee376f4289ab360a20225588cef50a1cb4",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "aa9fbe50799bd9237586fec8e9747fe48ed439454817b091b1222419bd101d20"
+          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "b8231fb32b0dbf8ea2d35b170222054cc52a67d823f9852c5c8e2055347656bd"
         },
         "symbols": [
           "compute_feature_fields_with_market_fields"
@@ -4839,9 +4990,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/computed_fields/indicators.rs",
-        "source_hash": "30d71e74baa126c1a3e76a77fc260656928536f1dca5aeffd0b4dc8022bf4154",
+        "source_hash": "1c7db8a924ad22e592c99471975b70ee376f4289ab360a20225588cef50a1cb4",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "aa9fbe50799bd9237586fec8e9747fe48ed439454817b091b1222419bd101d20"
+          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "b8231fb32b0dbf8ea2d35b170222054cc52a67d823f9852c5c8e2055347656bd"
         },
         "symbols": [
           "compute_feature_fields_with_market_fields"
@@ -4983,9 +5134,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/daily_rank.rs",
-        "source_hash": "d3a055b3ab726d69094f2a732379e7a09764844666548730ac9e378ae0828c6b",
+        "source_hash": "daff83df5f1b6803b5628bcdd1fd494b21992eb85c033356eca7c36f4658c73e",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/daily_rank.rs": "b8398408df4e92b14e511a69d8432c85564485a5b43eb417da0a51194beb8ffb"
+          "rust/lo2cin4bt_core/src/daily_rank.rs": "ff0b93a80eb6074951752ba29b3ec046cdc68bc93d79aa1ae6587d84a70f445f"
         },
         "symbols": [
           "evaluate_condition"
@@ -5103,9 +5254,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/daily_rank.rs",
-        "source_hash": "d3a055b3ab726d69094f2a732379e7a09764844666548730ac9e378ae0828c6b",
+        "source_hash": "daff83df5f1b6803b5628bcdd1fd494b21992eb85c033356eca7c36f4658c73e",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/daily_rank.rs": "b8398408df4e92b14e511a69d8432c85564485a5b43eb417da0a51194beb8ffb"
+          "rust/lo2cin4bt_core/src/daily_rank.rs": "ff0b93a80eb6074951752ba29b3ec046cdc68bc93d79aa1ae6587d84a70f445f"
         },
         "symbols": [
           "evaluate_condition"
@@ -6157,9 +6308,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/daily_rank.rs",
-        "source_hash": "d3a055b3ab726d69094f2a732379e7a09764844666548730ac9e378ae0828c6b",
+        "source_hash": "daff83df5f1b6803b5628bcdd1fd494b21992eb85c033356eca7c36f4658c73e",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/daily_rank.rs": "b8398408df4e92b14e511a69d8432c85564485a5b43eb417da0a51194beb8ffb"
+          "rust/lo2cin4bt_core/src/daily_rank.rs": "ff0b93a80eb6074951752ba29b3ec046cdc68bc93d79aa1ae6587d84a70f445f"
         },
         "symbols": [
           "evaluate_condition"
@@ -6275,9 +6426,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/daily_rank.rs",
-        "source_hash": "d3a055b3ab726d69094f2a732379e7a09764844666548730ac9e378ae0828c6b",
+        "source_hash": "daff83df5f1b6803b5628bcdd1fd494b21992eb85c033356eca7c36f4658c73e",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/daily_rank.rs": "b8398408df4e92b14e511a69d8432c85564485a5b43eb417da0a51194beb8ffb"
+          "rust/lo2cin4bt_core/src/daily_rank.rs": "ff0b93a80eb6074951752ba29b3ec046cdc68bc93d79aa1ae6587d84a70f445f"
         },
         "symbols": [
           "evaluate_condition"
@@ -6391,9 +6542,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/daily_rank.rs",
-        "source_hash": "d3a055b3ab726d69094f2a732379e7a09764844666548730ac9e378ae0828c6b",
+        "source_hash": "daff83df5f1b6803b5628bcdd1fd494b21992eb85c033356eca7c36f4658c73e",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/daily_rank.rs": "b8398408df4e92b14e511a69d8432c85564485a5b43eb417da0a51194beb8ffb"
+          "rust/lo2cin4bt_core/src/daily_rank.rs": "ff0b93a80eb6074951752ba29b3ec046cdc68bc93d79aa1ae6587d84a70f445f"
         },
         "symbols": [
           "evaluate_condition"
@@ -6518,9 +6669,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/computed_fields/indicators.rs",
-        "source_hash": "30d71e74baa126c1a3e76a77fc260656928536f1dca5aeffd0b4dc8022bf4154",
+        "source_hash": "1c7db8a924ad22e592c99471975b70ee376f4289ab360a20225588cef50a1cb4",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "aa9fbe50799bd9237586fec8e9747fe48ed439454817b091b1222419bd101d20"
+          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "b8231fb32b0dbf8ea2d35b170222054cc52a67d823f9852c5c8e2055347656bd"
         },
         "symbols": [
           "compute"
@@ -6668,9 +6819,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/computed_fields/indicators.rs",
-        "source_hash": "30d71e74baa126c1a3e76a77fc260656928536f1dca5aeffd0b4dc8022bf4154",
+        "source_hash": "1c7db8a924ad22e592c99471975b70ee376f4289ab360a20225588cef50a1cb4",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "aa9fbe50799bd9237586fec8e9747fe48ed439454817b091b1222419bd101d20"
+          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "b8231fb32b0dbf8ea2d35b170222054cc52a67d823f9852c5c8e2055347656bd"
         },
         "symbols": [
           "compute"
@@ -6817,9 +6968,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/computed_fields/indicators.rs",
-        "source_hash": "30d71e74baa126c1a3e76a77fc260656928536f1dca5aeffd0b4dc8022bf4154",
+        "source_hash": "1c7db8a924ad22e592c99471975b70ee376f4289ab360a20225588cef50a1cb4",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "aa9fbe50799bd9237586fec8e9747fe48ed439454817b091b1222419bd101d20"
+          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "b8231fb32b0dbf8ea2d35b170222054cc52a67d823f9852c5c8e2055347656bd"
         },
         "symbols": [
           "compute"
@@ -6966,9 +7117,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/computed_fields/indicators.rs",
-        "source_hash": "30d71e74baa126c1a3e76a77fc260656928536f1dca5aeffd0b4dc8022bf4154",
+        "source_hash": "1c7db8a924ad22e592c99471975b70ee376f4289ab360a20225588cef50a1cb4",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "aa9fbe50799bd9237586fec8e9747fe48ed439454817b091b1222419bd101d20"
+          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "b8231fb32b0dbf8ea2d35b170222054cc52a67d823f9852c5c8e2055347656bd"
         },
         "symbols": [
           "compute"
@@ -7115,9 +7266,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/computed_fields/indicators.rs",
-        "source_hash": "30d71e74baa126c1a3e76a77fc260656928536f1dca5aeffd0b4dc8022bf4154",
+        "source_hash": "1c7db8a924ad22e592c99471975b70ee376f4289ab360a20225588cef50a1cb4",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "aa9fbe50799bd9237586fec8e9747fe48ed439454817b091b1222419bd101d20"
+          "rust/lo2cin4bt_core/src/computed_fields/indicators.rs": "b8231fb32b0dbf8ea2d35b170222054cc52a67d823f9852c5c8e2055347656bd"
         },
         "symbols": [
           "compute"
@@ -7263,9 +7414,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/engine_runtime.rs",
-        "source_hash": "0caf8183fd5062698db22b71145894be4fa3856ec7edb07dd3e5e4a7e4ea7dfa",
+        "source_hash": "5ac3b65fab8ab5de608ac4c4e5693da79103b27d65582b4ccf0984d4385df10d",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/engine_runtime.rs": "7fbcff9b15b05e7481b799b9eb490c9590e745d54af26421779032699214fa9c"
+          "rust/lo2cin4bt_core/src/engine_runtime.rs": "9f80438d183fecc594dc55fd43b3d9e4d850f84abed0e9cf767c887d0c309e55"
         },
         "symbols": [
           "execute_calendar_same_session_request_batch",
@@ -7380,9 +7531,9 @@
       ],
       "implementation": {
         "path": "rust/lo2cin4bt_core/src/daily_rank.rs",
-        "source_hash": "d3a055b3ab726d69094f2a732379e7a09764844666548730ac9e378ae0828c6b",
+        "source_hash": "daff83df5f1b6803b5628bcdd1fd494b21992eb85c033356eca7c36f4658c73e",
         "source_hashes": {
-          "rust/lo2cin4bt_core/src/daily_rank.rs": "b8398408df4e92b14e511a69d8432c85564485a5b43eb417da0a51194beb8ffb"
+          "rust/lo2cin4bt_core/src/daily_rank.rs": "ff0b93a80eb6074951752ba29b3ec046cdc68bc93d79aa1ae6587d84a70f445f"
         },
         "symbols": [
           "materialize_rust_producer_fields",
@@ -7484,9 +7635,9 @@
       ],
       "implementation": {
         "path": "backtester/contracts/strategy/examples/strategy-run-vti-avuv-vxus-sgol-dbmf-yfinance-yearly-rebalance-example.json",
-        "source_hash": "077ecd0f071c0ff2f19ae3c0230ae78ddd20b079b0cb2677ef9245189c92a82d",
+        "source_hash": "e18f583696f7ab388978696a769497a0fb36efe528c2a66f11bbbaed5aa6529d",
         "source_hashes": {
-          "backtester/contracts/strategy/examples/strategy-run-vti-avuv-vxus-sgol-dbmf-yfinance-yearly-rebalance-example.json": "d14814ed2d26503f742394372135b46a469f39573db15159055c9437465dc2e1"
+          "backtester/contracts/strategy/examples/strategy-run-vti-avuv-vxus-sgol-dbmf-yfinance-yearly-rebalance-example.json": "21a432e6069a3b88593b0d4359ffe0e226740920170297654b362735f11b8661"
         },
         "symbols": [
           "strategy run example config"
@@ -7504,6 +7655,39 @@
       "params_schema": {
         "additionalProperties": true,
         "properties": {
+          "bar_time": {
+            "additionalProperties": false,
+            "properties": {
+              "contract_id": {
+                "const": "lo2cin4bt.bar_time_contract.v1"
+              },
+              "price_model": {
+                "type": "object"
+              },
+              "schema_version": {
+                "const": "bar_time_contract.v1"
+              },
+              "session_model": {
+                "type": "object"
+              },
+              "streams": {
+                "minItems": 1,
+                "type": "array"
+              },
+              "timestamp_model": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "schema_version",
+              "contract_id",
+              "session_model",
+              "timestamp_model",
+              "price_model",
+              "streams"
+            ],
+            "type": "object"
+          },
           "benchmark": {
             "oneOf": [
               {
@@ -7518,10 +7702,6 @@
               }
             ]
           },
-          "calendar": {
-            "minLength": 1,
-            "type": "string"
-          },
           "cost_model": {
             "additionalProperties": true,
             "type": "object"
@@ -7529,10 +7709,6 @@
           "execution_timing": {
             "additionalProperties": true,
             "type": "object"
-          },
-          "frequency": {
-            "minLength": 1,
-            "type": "string"
           },
           "provider": {
             "minLength": 1,
@@ -7545,9 +7721,23 @@
             "additionalProperties": true,
             "type": "object"
           },
-          "timezone": {
-            "minLength": 1,
-            "type": "string"
+          "stream_binding": {
+            "additionalProperties": false,
+            "properties": {
+              "decision_stream_id": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "execution_stream_id": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "execution_stream_id",
+              "decision_stream_id"
+            ],
+            "type": "object"
           },
           "universe": {
             "items": {
@@ -7567,9 +7757,8 @@
         },
         "required": [
           "provider",
-          "frequency",
-          "calendar",
-          "timezone",
+          "bar_time",
+          "stream_binding",
           "universe",
           "universe_provenance",
           "benchmark",
@@ -7664,9 +7853,9 @@
       ],
       "implementation": {
         "path": "backtester/contracts/strategy/examples/strategy-run-voo-gld-yfinance-daily-momentum90-sma250-rotation-example.json",
-        "source_hash": "8747cfea2ffac77d3847bae539da3be622e0763bf44d988007d9e17e1e0f4763",
+        "source_hash": "17f4e0017fe60c8a4a496db7b569aea58166cdec640789e169f081cd52e987d5",
         "source_hashes": {
-          "backtester/contracts/strategy/examples/strategy-run-voo-gld-yfinance-daily-momentum90-sma250-rotation-example.json": "f062e860a58d86565b2ac28cfc714fc76a0afc33d491509406ff2e01bca192fd"
+          "backtester/contracts/strategy/examples/strategy-run-voo-gld-yfinance-daily-momentum90-sma250-rotation-example.json": "4bb0bf45f5cb7cebf670b96989891ec79208f2ff9f715a0df4ca30e1ef24ced7"
         },
         "symbols": [
           "strategy run example config"
@@ -7687,6 +7876,39 @@
       "params_schema": {
         "additionalProperties": true,
         "properties": {
+          "bar_time": {
+            "additionalProperties": false,
+            "properties": {
+              "contract_id": {
+                "const": "lo2cin4bt.bar_time_contract.v1"
+              },
+              "price_model": {
+                "type": "object"
+              },
+              "schema_version": {
+                "const": "bar_time_contract.v1"
+              },
+              "session_model": {
+                "type": "object"
+              },
+              "streams": {
+                "minItems": 1,
+                "type": "array"
+              },
+              "timestamp_model": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "schema_version",
+              "contract_id",
+              "session_model",
+              "timestamp_model",
+              "price_model",
+              "streams"
+            ],
+            "type": "object"
+          },
           "benchmark": {
             "oneOf": [
               {
@@ -7701,10 +7923,6 @@
               }
             ]
           },
-          "calendar": {
-            "minLength": 1,
-            "type": "string"
-          },
           "cost_model": {
             "additionalProperties": true,
             "type": "object"
@@ -7715,10 +7933,6 @@
           "execution_timing": {
             "additionalProperties": true,
             "type": "object"
-          },
-          "frequency": {
-            "minLength": 1,
-            "type": "string"
           },
           "provider": {
             "minLength": 1,
@@ -7731,9 +7945,23 @@
             "additionalProperties": true,
             "type": "object"
           },
-          "timezone": {
-            "minLength": 1,
-            "type": "string"
+          "stream_binding": {
+            "additionalProperties": false,
+            "properties": {
+              "decision_stream_id": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "execution_stream_id": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "execution_stream_id",
+              "decision_stream_id"
+            ],
+            "type": "object"
           },
           "top_n": {
             "oneOf": [
@@ -7771,9 +7999,8 @@
         },
         "required": [
           "provider",
-          "frequency",
-          "calendar",
-          "timezone",
+          "bar_time",
+          "stream_binding",
           "universe",
           "universe_provenance",
           "benchmark",
@@ -7868,9 +8095,9 @@
       ],
       "implementation": {
         "path": "backtester/contracts/strategy/examples/strategy-run-btcusdt-binance-monthly-nth-weekday-same-session-matrix-example.json",
-        "source_hash": "52deb7886f845b75a602e4febea1094929e848529c66e2cb2810865ddaba732b",
+        "source_hash": "fedcbf79d3c4d999ff01b7b235f58535449033a01cd79973041644e01dddda33",
         "source_hashes": {
-          "backtester/contracts/strategy/examples/strategy-run-btcusdt-binance-monthly-nth-weekday-same-session-matrix-example.json": "752dafad0b1913f1212d09afd5e089d3d175e28f57d4161060d0d6a191f8662c"
+          "backtester/contracts/strategy/examples/strategy-run-btcusdt-binance-monthly-nth-weekday-same-session-matrix-example.json": "6ec9f02fd944c2959113caedd3700fce36140d224335b331be4d385cf4028edd"
         },
         "symbols": [
           "strategy run example config"
@@ -7892,6 +8119,39 @@
       "params_schema": {
         "additionalProperties": true,
         "properties": {
+          "bar_time": {
+            "additionalProperties": false,
+            "properties": {
+              "contract_id": {
+                "const": "lo2cin4bt.bar_time_contract.v1"
+              },
+              "price_model": {
+                "type": "object"
+              },
+              "schema_version": {
+                "const": "bar_time_contract.v1"
+              },
+              "session_model": {
+                "type": "object"
+              },
+              "streams": {
+                "minItems": 1,
+                "type": "array"
+              },
+              "timestamp_model": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "schema_version",
+              "contract_id",
+              "session_model",
+              "timestamp_model",
+              "price_model",
+              "streams"
+            ],
+            "type": "object"
+          },
           "benchmark": {
             "oneOf": [
               {
@@ -7906,10 +8166,6 @@
               }
             ]
           },
-          "calendar": {
-            "minLength": 1,
-            "type": "string"
-          },
           "cost_model": {
             "additionalProperties": true,
             "type": "object"
@@ -7917,10 +8173,6 @@
           "execution_timing": {
             "additionalProperties": true,
             "type": "object"
-          },
-          "frequency": {
-            "minLength": 1,
-            "type": "string"
           },
           "months": {
             "oneOf": [
@@ -7977,9 +8229,23 @@
             "additionalProperties": true,
             "type": "object"
           },
-          "timezone": {
-            "minLength": 1,
-            "type": "string"
+          "stream_binding": {
+            "additionalProperties": false,
+            "properties": {
+              "decision_stream_id": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "execution_stream_id": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "execution_stream_id",
+              "decision_stream_id"
+            ],
+            "type": "object"
           },
           "universe": {
             "items": {
@@ -8022,9 +8288,8 @@
         },
         "required": [
           "provider",
-          "frequency",
-          "calendar",
-          "timezone",
+          "bar_time",
+          "stream_binding",
           "universe",
           "universe_provenance",
           "benchmark",
@@ -8119,9 +8384,9 @@
       ],
       "implementation": {
         "path": "backtester/contracts/strategy/examples/strategy-run-qqq-yfinance-daily-sma-cross-matrix-example.json",
-        "source_hash": "3f548cb3c811ae942d09a367ee6a415a53836e58a44bb11f5413b2eb9a15ce2e",
+        "source_hash": "ec077eb927999349377bef550b47e1be694a1a79636b26f4ff0233fd1aeaa774",
         "source_hashes": {
-          "backtester/contracts/strategy/examples/strategy-run-qqq-yfinance-daily-sma-cross-matrix-example.json": "b1279e0c064679840663ac6e9733fe66bca9ece3f837098e522ba3ca65efa435"
+          "backtester/contracts/strategy/examples/strategy-run-qqq-yfinance-daily-sma-cross-matrix-example.json": "c57fdfd15b019e9dc4497da26259f8c9780c9e71a4d0544584d2e35ba70af5d3"
         },
         "symbols": [
           "strategy run example config"
@@ -8142,6 +8407,39 @@
       "params_schema": {
         "additionalProperties": true,
         "properties": {
+          "bar_time": {
+            "additionalProperties": false,
+            "properties": {
+              "contract_id": {
+                "const": "lo2cin4bt.bar_time_contract.v1"
+              },
+              "price_model": {
+                "type": "object"
+              },
+              "schema_version": {
+                "const": "bar_time_contract.v1"
+              },
+              "session_model": {
+                "type": "object"
+              },
+              "streams": {
+                "minItems": 1,
+                "type": "array"
+              },
+              "timestamp_model": {
+                "type": "object"
+              }
+            },
+            "required": [
+              "schema_version",
+              "contract_id",
+              "session_model",
+              "timestamp_model",
+              "price_model",
+              "streams"
+            ],
+            "type": "object"
+          },
           "benchmark": {
             "oneOf": [
               {
@@ -8156,10 +8454,6 @@
               }
             ]
           },
-          "calendar": {
-            "minLength": 1,
-            "type": "string"
-          },
           "cost_model": {
             "additionalProperties": true,
             "type": "object"
@@ -8167,10 +8461,6 @@
           "execution_timing": {
             "additionalProperties": true,
             "type": "object"
-          },
-          "frequency": {
-            "minLength": 1,
-            "type": "string"
           },
           "long_ma": {
             "oneOf": [
@@ -8222,11 +8512,25 @@
             "additionalProperties": true,
             "type": "object"
           },
-          "symbol": {
-            "type": "string"
+          "stream_binding": {
+            "additionalProperties": false,
+            "properties": {
+              "decision_stream_id": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "execution_stream_id": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "execution_stream_id",
+              "decision_stream_id"
+            ],
+            "type": "object"
           },
-          "timezone": {
-            "minLength": 1,
+          "symbol": {
             "type": "string"
           },
           "universe": {
@@ -8244,9 +8548,8 @@
         },
         "required": [
           "provider",
-          "frequency",
-          "calendar",
-          "timezone",
+          "bar_time",
+          "stream_binding",
           "universe",
           "universe_provenance",
           "benchmark",

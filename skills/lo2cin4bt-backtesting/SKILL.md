@@ -1,7 +1,7 @@
 ---
 name: lo2cin4bt-backtesting
 description: Repo-local backtesting skill for lo2cin4bt. Use when running or troubleshooting local strategy_run, Parameter Matrix, WFA, rolling validation, Run Center discovery, frontend startup, payload refresh, screenshots, or generated artifacts.
-version: 2.1.0
+version: 2.2.0
 status: active
 category: workflow
 use_when:
@@ -50,7 +50,7 @@ Backtests are local research artifacts only. They are not investment advice, tra
 ## Pre-Run Checklist
 1. Confirm config path exists.
 2. Confirm schema version and workflow.
-3. Confirm provider, symbol, frequency, calendar, and benchmark.
+3. Confirm provider, symbol, typed execution/decision `BarSpec`, session calendar, and benchmark.
 4. Confirm costs and slippage are explicit or intentionally defaulted.
 5. Confirm `metricstracker.time_unit` and `metricstracker.risk_free_rate`; defaults are 252 for traditional daily assets, 365 for crypto, and 0.04 risk-free rate.
 6. Confirm output path is local.
@@ -63,7 +63,8 @@ Backtests are local research artifacts only. They are not investment advice, tra
 3. Use repo commands from docs/tests; do not invent commands.
 4. If the user expects a result to appear in Run Center, Metrics Overview,
    Backtests, Parameter Matrix, or WFA pages, run through the app runtime
-   (`python main.py` + Run Center/API) so `outputs/app/latest_runs.json`,
+   (`uv run --locked --exact python main.py` + Run Center/API) so
+   `outputs/app/latest_runs.json`,
    run registry, artifact manifests, snapshots, and chart payloads are written.
 5. Write canonical artifacts into the app-managed run snapshot. Standalone
    tools must receive an explicit caller-owned output directory and must not
@@ -126,7 +127,7 @@ not_trading_advice_notice:
 ## Validation
 
 ```powershell
-python -m pytest tests/test_engine_request_contract.py tests/test_rust_accounting_golden.py tests/test_app_runtime_smoke.py tests/test_agent_skill_lecture_alignment.py -q
+uv run --locked --exact --group dev python -m pytest tests/test_engine_request_contract.py tests/test_rust_accounting_golden.py tests/test_app_runtime_smoke.py tests/test_agent_skill_lecture_alignment.py -q
 ```
 
 Pass criteria: selected tests pass and a completed run can be traced from snapshot through accepted result, metrics/PlotBundle, registry, API, and frontend payload.

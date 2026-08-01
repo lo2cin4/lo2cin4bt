@@ -1,0 +1,53 @@
+{
+  "schema_version": "binance_1m_sma_golden.v1",
+  "config_fixture": "strategy-run-btcusdt-binance-1m-sma-10-20-golden.json",
+  "source": {
+    "fixture": "binance_btcusdt_1m_2026-06.csv",
+    "sha256": "4db6b3b4a4a5edb68d68307e8bed8bd7577ca00025e2e995bddba63b451007d5",
+    "start_inclusive": "2026-06-01T00:00:00Z",
+    "end_exclusive": "2026-07-01T00:00:00Z",
+    "row_count": 43200,
+    "session_count": 30
+  },
+  "strategy": {
+    "symbol": "BTCUSDT",
+    "execution_stream_id": "execution_1m",
+    "decision_stream_id": "execution_1m",
+    "short_sma": 10,
+    "long_sma": 20,
+    "fill_offset_bars": 1,
+    "fill_price": "open"
+  },
+  "result": {
+    "strategy_id": "btcusdt_binance_1m_sma_10_20_example:single_backtest:fixed",
+    "validation_status": "valid",
+    "accounting_kernel": "rust_timeline_v1",
+    "accounting_fast_path": "signal_rust_engine_request_bundle",
+    "equity_rows": 30,
+    "execution_equity_rows": 43200,
+    "trade_rows": 2409,
+    "rebalance_audit_rows": 2409,
+    "active_rebalances": 2409,
+    "final_equity": 2.5131258061598793,
+    "result_hash": "f7dc728061e76bc000c933388697e8174f4b523c4bd4fafa27a6b9bb5e38ece7",
+    "intraday_max_drawdown": -0.9748952468209963,
+    "first_equity_session": "2026-06-01",
+    "first_equity": 86.10167838612874,
+    "last_equity_session": "2026-06-30",
+    "last_equity": 2.5131258061598793,
+    "first_trade_time": "2026-06-01T00:25:00Z",
+    "first_trade_action": "buy",
+    "last_trade_time": "2026-06-30T23:51:00Z",
+    "last_trade_action": "buy"
+  },
+  "metrics": {
+    "basis": "session_close_projection",
+    "projection_policy": "last_accepted_equity_per_session",
+    "periods_per_year": 365,
+    "projected_session_count": 30,
+    "projected_return_interval_count": 29,
+    "total_return": -0.9708121159393711,
+    "annualized_return_cagr": -1.0,
+    "sharpe": -104.03753818479689
+  }
+}

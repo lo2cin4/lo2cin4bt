@@ -586,3 +586,25 @@ def test_portfolio_canonical_artifact_filename_bounds_long_components() -> None:
     assert filename.endswith("_abc123.parquet")
     assert "portfolio-equity" in filename
     assert len(filename) <= 170
+
+
+def test_execution_equity_canonical_artifact_filename_preserves_artifact_identity() -> None:
+    identity = {
+        "workflow": "backtest",
+        "date": "20260729",
+        "asset": "BTCUSDT",
+        "factor_slug": "SMA-10-20",
+        "strategy_slug": "cross",
+        "mode": "single",
+        "short_id": "abc123",
+    }
+
+    filename = canonical_artifact_filename(
+        identity=identity,
+        artifact_type="portfolio_execution_equity_curve_parquet",
+        source_name="btcusdt_execution_equity_curve.parquet",
+        suffix="equity-curve",
+    )
+
+    assert "portfolio-execution-equity" in filename
+    assert filename.endswith("_abc123.parquet")

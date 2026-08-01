@@ -1,5 +1,5 @@
 # Text defaults
-* text=auto
+* text=auto eol=lf
 .gitattributes text eol=lf
 .gitignore text eol=lf
 
@@ -32,6 +32,13 @@
 *.jpg binary
 *.jpeg binary
 *.gif binary
+*.ico binary
+*.webp binary
+*.ttf binary
+*.woff binary
+*.woff2 binary
+*.mp4 binary
+*.mov binary
 *.egg binary
 *.pyd binary
 *.so binary

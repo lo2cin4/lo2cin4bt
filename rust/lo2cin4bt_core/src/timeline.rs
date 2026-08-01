@@ -1,3 +1,4 @@
+use crate::computed_fields::returns::simple_return;
 use crate::result_validator::{
     validate_result_tables, ResultTableView, ResultValidationError, ResultValidationReport,
 };
@@ -5,6 +6,7 @@ use crate::risk::{
     RiskControlError, RiskControlState, RiskRunMode, PERMANENT_STOP_ACTION, SHADOW_ACTION,
     SHADOW_RECOVERY_ARMED_ACTION, SHADOW_RECOVERY_RESUMED_ACTION,
 };
+use crate::session_progress::SessionProgress;
 use crate::simulation::{
     execute_target_weight_orders, maintenance_margin_breached, SettlementEvent,
     SettlementInstruction, SettlementLedger, SimulatedAccountConfig, SimulatedOrderEvent,
@@ -49,6 +51,8 @@ pub enum TimelineAccountingError {
     MissingRiskGateAction,
     #[error("reduce_exposure requires reduce_exposure_factor in (0, 1]")]
     InvalidReduceExposureFactor,
+    #[error("invalid session progression: {0}")]
+    InvalidSessionProgress(String),
     #[error(transparent)]
     Simulation(#[from] SimulationError),
     #[error(transparent)]
@@ -68,6 +72,8 @@ pub struct TimelineAccountingConfig {
     #[serde(default = "default_borrow_day_count")]
     pub borrow_day_count: u32,
     #[serde(default)]
+    pub session_label_by_event_time: BTreeMap<String, String>,
+    #[serde(default)]
     pub position_policy: TimelinePositionPolicy,
     #[serde(default)]
     pub risk_gates: TimelineRiskGateConfig,
@@ -86,6 +92,7 @@ impl Default for TimelineAccountingConfig {
             allow_short: false,
             short_borrow_rate_annual: 0.0,
             borrow_day_count: default_borrow_day_count(),
+            session_label_by_event_time: BTreeMap::new(),
             position_policy: TimelinePositionPolicy::default(),
             risk_gates: TimelineRiskGateConfig::default(),
             simulated_venue: SimulatedVenueConfig::default(),
@@ -231,6 +238,7 @@ pub struct TimelineAccountingSummary {
     pub active_rebalances: usize,
     pub average_turnover: f64,
     pub average_gross_exposure: f64,
+    pub intraday_max_drawdown: Option<f64>,
     pub events: Vec<TimelineCheckpointEvent>,
     pub daily_events: Vec<TimelineDailyEvent>,
     pub risk_gate_events: Vec<TimelineRiskGateEvent>,
@@ -243,6 +251,7 @@ pub struct TimelineAccountingSummary {
 pub struct TimelineResultTables {
     pub schema_version: String,
     pub equity_curve: Vec<BTreeMap<String, Value>>,
+    pub execution_equity_curve: Vec<BTreeMap<String, Value>>,
     pub holdings: Vec<BTreeMap<String, Value>>,
     pub rebalance_audit: Vec<BTreeMap<String, Value>>,
     pub rebalance_trades: Vec<BTreeMap<String, Value>>,
@@ -291,13 +300,13 @@ pub fn run_timeline_accounting(
     let mut risk_gate_events: Vec<TimelineRiskGateEvent> = Vec::new();
     let mut drawdown_recovery = DrawdownRecoveryState::default();
     let mut settlement_ledger = SettlementLedger::default();
+    let mut session_progress = SessionProgress::default();
 
     for mut checkpoint in checkpoints {
-        let is_new_session = current_daily
-            .as_ref()
-            .map(|daily| daily.date != checkpoint.date)
-            .unwrap_or(false);
-        if is_new_session {
+        let session = session_progress
+            .observe(&checkpoint.date, &input.config.session_label_by_event_time)
+            .map_err(TimelineAccountingError::InvalidSessionProgress)?;
+        if session.advanced {
             settlement_ledger.advance_session();
             if let Some(daily) = current_daily.take() {
                 daily_events.push(daily.finish(&previous_weights, previous_cash_weight, equity));
@@ -305,7 +314,7 @@ pub fn run_timeline_accounting(
         }
         let charge_borrow = current_daily.is_none();
         if current_daily.is_none() {
-            current_daily = Some(DailyAccumulator::new(checkpoint.date.clone()));
+            current_daily = Some(DailyAccumulator::new(session.label));
         }
         validate_held_asset_returns(&checkpoint.returns, &previous_weights)?;
 
@@ -339,7 +348,7 @@ pub fn run_timeline_accounting(
         }
 
         let portfolio_return = if equity_before_return > 0.0 {
-            pre_trade_equity / equity_before_return - 1.0
+            simple_return(pre_trade_equity, equity_before_return)
         } else {
             0.0
         };
@@ -581,10 +590,12 @@ pub fn run_timeline_accounting(
         &daily_events,
         &risk_gate_events,
         &settlement_events,
+        &input.config.session_label_by_event_time,
     );
     let result_validation = validate_result_tables(ResultTableView {
         result_schema_version: &result_tables.schema_version,
         equity_curve: &result_tables.equity_curve,
+        execution_equity_curve: &result_tables.execution_equity_curve,
         holdings: &result_tables.holdings,
         rebalance_audit: &result_tables.rebalance_audit,
         rebalance_trades: &result_tables.rebalance_trades,
@@ -594,12 +605,13 @@ pub fn run_timeline_accounting(
     Ok(TimelineAccountingSummary {
         start_equity,
         final_equity: equity,
-        total_return: equity / start_equity - 1.0,
+        total_return: simple_return(equity, start_equity),
         checkpoints,
         days: daily_events.len(),
         active_rebalances,
         average_turnover: turnover_sum / checkpoints as f64,
         average_gross_exposure: gross_sum / checkpoints as f64,
+        intraday_max_drawdown: intraday_max_drawdown(&events, daily_events.len(), start_equity),
         events,
         daily_events,
         risk_gate_events,
@@ -614,16 +626,74 @@ fn build_result_tables(
     daily_events: &[TimelineDailyEvent],
     risk_gate_events: &[TimelineRiskGateEvent],
     settlement_events: &[SettlementEvent],
+    session_label_by_event_time: &BTreeMap<String, String>,
 ) -> TimelineResultTables {
     TimelineResultTables {
         schema_version: "rust_timeline_result_tables.v1".to_string(),
         equity_curve: build_equity_rows(daily_events),
+        execution_equity_curve: build_execution_equity_rows(events, session_label_by_event_time),
         holdings: build_holding_rows(events),
         rebalance_audit: build_rebalance_rows(events),
         rebalance_trades: build_trade_rows(events),
         risk_gate_events: build_risk_gate_rows(risk_gate_events),
         settlements: build_settlement_rows(settlement_events),
     }
+}
+
+fn build_execution_equity_rows(
+    events: &[TimelineCheckpointEvent],
+    session_label_by_event_time: &BTreeMap<String, String>,
+) -> Vec<BTreeMap<String, Value>> {
+    let mut rows: Vec<BTreeMap<String, Value>> = Vec::new();
+    for event in events {
+        let mut row = BTreeMap::new();
+        row.insert("Time".to_string(), json!(event.date));
+        row.insert(
+            "Session_label".to_string(),
+            json!(session_label_by_event_time
+                .get(&event.date)
+                .cloned()
+                .unwrap_or_else(|| event.date.clone())),
+        );
+        row.insert("Equity_value".to_string(), json!(event.equity_after_trade));
+        row.insert(
+            "Portfolio_return".to_string(),
+            json!(event.portfolio_return),
+        );
+        row.insert("Turnover".to_string(), json!(event.turnover));
+        row.insert("Trade_cost".to_string(), json!(event.trade_cost));
+        row.insert("Borrow_cost".to_string(), json!(event.borrow_cost));
+        row.insert("Cost_drag".to_string(), json!(event.cost_drag));
+        row.insert("Selected_count".to_string(), json!(event.active_positions));
+        row.insert("Gross_exposure".to_string(), json!(event.gross_exposure));
+        row.insert("Cash_weight".to_string(), json!(event.cash_weight));
+        if rows.last().and_then(|prior| prior.get("Time")) == row.get("Time") {
+            rows.pop();
+        }
+        rows.push(row);
+    }
+    rows
+}
+
+fn intraday_max_drawdown(
+    events: &[TimelineCheckpointEvent],
+    session_count: usize,
+    start_equity: f64,
+) -> Option<f64> {
+    let close_count = events.iter().filter(|event| event.phase == "close").count();
+    if close_count <= session_count {
+        return None;
+    }
+    let mut peak = start_equity;
+    let mut maximum: f64 = 0.0;
+    for event in events {
+        let equity = event.equity_after_trade;
+        peak = peak.max(equity);
+        if peak > 0.0 {
+            maximum = maximum.min(simple_return(equity, peak));
+        }
+    }
+    Some(maximum)
 }
 
 fn build_settlement_rows(events: &[SettlementEvent]) -> Vec<BTreeMap<String, Value>> {
@@ -660,6 +730,7 @@ fn build_equity_rows(daily_events: &[TimelineDailyEvent]) -> Vec<BTreeMap<String
         .map(|event| {
             let mut row = BTreeMap::new();
             row.insert("Time".to_string(), json!(event.date));
+            row.insert("Session_label".to_string(), json!(event.date));
             row.insert("Equity_value".to_string(), json!(event.equity_after_trade));
             row.insert(
                 "Portfolio_return".to_string(),
@@ -754,8 +825,17 @@ fn build_trade_rows(events: &[TimelineCheckpointEvent]) -> Vec<BTreeMap<String, 
                     "sell"
                 };
                 let selected = target.abs() > 1e-12;
+                let order_id = action
+                    .orders
+                    .iter()
+                    .find(|order| order.asset == asset && order.filled_delta.abs() > 1e-12)
+                    .map(|order| order.order_id.clone());
                 let mut row = BTreeMap::new();
                 row.insert("Time".to_string(), json!(event.date));
+                row.insert(
+                    "Order_id".to_string(),
+                    order_id.map(Value::String).unwrap_or(Value::Null),
+                );
                 row.insert("Asset".to_string(), json!(asset));
                 row.insert("Before_weight".to_string(), json!(before));
                 row.insert("Target_weight".to_string(), json!(target));
@@ -1228,7 +1308,7 @@ fn apply_risk_gates(
 
     if let Some(limit) = gates.max_drawdown {
         if equity.is_finite() && equity_peak.is_finite() && equity_peak > 0.0 {
-            let drawdown = equity / equity_peak - 1.0;
+            let drawdown = simple_return(equity, equity_peak);
             if drawdown <= -limit.abs() {
                 adjusted = apply_gate_action(gates, &adjusted, before_weights, symbols);
                 events.push(risk_gate_event(
@@ -1593,6 +1673,8 @@ mod tests {
             "rust_timeline_result_tables.v1"
         );
         assert_eq!(summary.result_tables.equity_curve.len(), 1);
+        assert_eq!(summary.result_tables.execution_equity_curve.len(), 1);
+        assert_eq!(summary.intraday_max_drawdown, None);
         assert_eq!(summary.result_tables.rebalance_audit.len(), 2);
         assert_eq!(summary.result_tables.rebalance_trades.len(), 2);
         assert_eq!(summary.result_tables.holdings.len(), 2);
@@ -1602,6 +1684,54 @@ mod tests {
                 .and_then(Value::as_f64)
                 .unwrap(),
             110.0,
+            epsilon = 1e-12
+        );
+    }
+
+    #[test]
+    fn repeated_execution_bars_keep_session_close_table_and_intraday_drawdown() {
+        let mut config = TimelineAccountingConfig::default();
+        for timestamp in ["2024-01-02T14:31:00Z", "2024-01-02T14:32:00Z"] {
+            config
+                .session_label_by_event_time
+                .insert(timestamp.to_string(), "2024-01-02".to_string());
+        }
+        let summary = run_timeline_accounting(TimelineAccountingInput {
+            config,
+            checkpoints: vec![
+                TimelineCheckpointInput {
+                    date: "2024-01-02T14:31:00Z".to_string(),
+                    phase: "open".to_string(),
+                    returns: BTreeMap::new(),
+                    actions: vec![action("enter", &[("AAA", 1.0)])],
+                },
+                TimelineCheckpointInput {
+                    date: "2024-01-02T14:31:00Z".to_string(),
+                    phase: "close".to_string(),
+                    returns: weights(&[("AAA", 0.10)]),
+                    actions: Vec::new(),
+                },
+                TimelineCheckpointInput {
+                    date: "2024-01-02T14:32:00Z".to_string(),
+                    phase: "open".to_string(),
+                    returns: weights(&[("AAA", 0.0)]),
+                    actions: Vec::new(),
+                },
+                TimelineCheckpointInput {
+                    date: "2024-01-02T14:32:00Z".to_string(),
+                    phase: "close".to_string(),
+                    returns: weights(&[("AAA", -0.20)]),
+                    actions: Vec::new(),
+                },
+            ],
+        })
+        .unwrap();
+
+        assert_eq!(summary.result_tables.equity_curve.len(), 1);
+        assert_eq!(summary.result_tables.execution_equity_curve.len(), 2);
+        assert_abs_diff_eq!(
+            summary.intraday_max_drawdown.expect("intraday drawdown"),
+            -0.20,
             epsilon = 1e-12
         );
     }

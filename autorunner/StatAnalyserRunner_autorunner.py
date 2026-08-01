@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from collections.abc import Mapping
 from typing import Any, Dict, List, Optional, Tuple
 
 import json
@@ -18,6 +19,7 @@ from statanalyser.Base_statanalyser import BaseStatAnalyser
 from statanalyser.ReportGenerator_statanalyser import ReportGenerator
 from statanalyser.SeasonalAnalysis_statanalyser import SeasonalAnalysis
 from statanalyser.StationarityTest_statanalyser import StationarityTest
+from backtester.timeframe_contracts import validate_bar_time_contract
 
 
 class StatAnalyserRunnerAutorunner:
@@ -81,6 +83,7 @@ class StatAnalyserRunnerAutorunner:
                     return_col=return_col,
                     test_config=test_config,
                     stage_config=stage_config,
+                    data_config=config.get("data", {}),
                     output_dir=report_output_dir,
                 )
                 result = analyzer.analyze()
@@ -142,6 +145,7 @@ class StatAnalyserRunnerAutorunner:
         return_col: str,
         test_config: Dict[str, Any],
         stage_config: Dict[str, Any],
+        data_config: Dict[str, Any],
         output_dir: Path,
     ):
         analyzer_cls = self.TEST_CLASS_MAP[test_name]
@@ -151,12 +155,12 @@ class StatAnalyserRunnerAutorunner:
             effective_test_config.get("include_plots", False)
         )
         if test_name == "autocorrelation":
-            freq = self._resolve_frequency(stage_config)
+            bar_spec = self._resolve_decision_bar_spec(stage_config, data_config)
             analyzer = analyzer_cls(
                 data,
                 predictor_col,
                 return_col,
-                freq=freq,
+                bar_spec=bar_spec,
                 analysis_config=effective_test_config,
             )
         else:
@@ -218,9 +222,43 @@ class StatAnalyserRunnerAutorunner:
         )
         return prepared_df, predictor_col, return_col
 
-    def _resolve_frequency(self, stage_config: Dict[str, Any]) -> str:
-        freq = stage_config.get("frequency") or stage_config.get("freq") or "D"
-        return str(freq).upper()
+    def _resolve_decision_bar_spec(
+        self,
+        stage_config: Dict[str, Any],
+        data_config: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        legacy_keys = sorted({"frequency", "freq"}.intersection(stage_config))
+        if legacy_keys:
+            raise ValueError(
+                "statanalyser cadence must come from the typed decision stream; "
+                f"legacy fields are not supported: {', '.join(legacy_keys)}"
+            )
+
+        bar_time = data_config.get("bar_time")
+        stream_binding = data_config.get("stream_binding")
+        if not isinstance(bar_time, Mapping) or not isinstance(stream_binding, Mapping):
+            raise ValueError(
+                "statanalyser autocorrelation requires bar_time and stream_binding"
+            )
+        validate_bar_time_contract(bar_time)
+        decision_stream_id = str(stream_binding.get("decision_stream_id") or "")
+        if not decision_stream_id:
+            raise ValueError(
+                "statanalyser stream_binding.decision_stream_id is required"
+            )
+        stream = next(
+            (
+                item
+                for item in bar_time["streams"]
+                if item["stream_id"] == decision_stream_id
+            ),
+            None,
+        )
+        if stream is None:
+            raise ValueError(
+                "statanalyser decision_stream_id must reference a bar_time stream"
+            )
+        return dict(stream["bar_spec"])
 
     def _selected_outputs(self, test_name: str, test_config: Dict[str, Any]) -> List[str]:
         output = test_config.get("output")

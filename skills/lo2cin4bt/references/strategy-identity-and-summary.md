@@ -56,6 +56,27 @@ Rules:
   fields, the structured fields remain executable truth and the config must be
   revised before acceptance.
 
+## Runtime Candidate Identity
+
+`metadata.strategy_id` is the stable base slug. Every executable candidate then
+uses exactly one three-segment runtime identity:
+
+```text
+base_strategy_id:workflow_id:parameter_suffix
+```
+
+- Fixed or otherwise parameterless candidates use `fixed` as
+  `parameter_suffix`.
+- Parameter suffix keys are sorted and values are deterministically slugged.
+- Python result `strategy_id`, EngineRequest `strategy.strategy_id`, Rust
+  `candidate_id`, artifact `Backtest_id`, Matrix/WFA rows, API payloads, and
+  frontend selectors must carry the same candidate value.
+- EngineRequest separately preserves `strategy.base_strategy_id`; reverse
+  projection restores this base slug to `metadata.strategy_id`.
+- Empty IDs, malformed segments, duplicate IDs, mismatched workflow/base/suffix,
+  and artifact identity disagreement are contract errors. No layer may invent,
+  rename, deduplicate, or silently fall back to another identifier.
+
 The result selector is generated as:
 
 ```text

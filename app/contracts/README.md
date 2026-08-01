@@ -45,6 +45,24 @@ The foundation MVP app must consume these contracts before any large UI implemen
   and backtest-detail index contracts. Every reference is a SHA-256 content
   address and is validated before materialization.
 
+6b. Typed result time and performance context
+- Metrics overview payload `1.28`, Parameter Matrix `3.8`, WFA dashboard `3.8`,
+  and API-visible Backtest Detail `backtest_detail_api.v2` expose one shared
+  `time_context`.
+- `time_context` preserves the bound execution and decision stream IDs, exact
+  `BarSpec`, source lineage, timestamp semantics, and session/calendar/timezone.
+  It supports direct daily bars, intraday bars, and calendar week/month decision
+  bars without translating them into legacy frequency aliases.
+- `annualization` is copied only from Rust `metrics_annualization.v1`. Its
+  canonical basis is `session_close_projection` with
+  `last_accepted_equity_per_session`; the browser must not infer a period count
+  from raw intraday timestamps.
+- PlotBundle and Backtest Detail `x` values preserve exact source timestamp
+  strings. Intraday allocation and trade markers match full instants rather
+  than truncating to the calendar date.
+- Cached payloads from earlier schema versions are stale and are not used as a
+  current result contract.
+
 7. `page-artifact-matrix-v1`
 - Declares page-level required artifacts, optional artifacts, blocking conditions, and fallback rules.
 

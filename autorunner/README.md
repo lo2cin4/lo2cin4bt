@@ -6,40 +6,11 @@ configuration format.
 
 ## Public Contract
 
-Every selectable backtest or standalone statistical-analysis config must use:
-
-```json
-{
-  "schema_version": "strategy_run",
-  "platform": {
-    "strategy_mode_id": "multi_asset_portfolio",
-    "strategy_profile_id": "selection_timing_portfolio",
-    "strategy_preset_id": "single_asset_signal",
-    "workflow_id": "single_backtest"
-  },
-  "data": {
-    "provider": "yfinance",
-    "frequency": "1D",
-    "start_date": "2015-01-01"
-  },
-  "universe": {
-    "symbols": ["QQQ"]
-  },
-  "computed_fields": [],
-  "signals": {},
-  "selection": {},
-  "allocation": {},
-  "rebalance": {},
-  "fill_model": {},
-  "risk": {},
-  "parameter_domains": {},
-  "metricstracker": {
-    "enable_metrics_analysis": true
-  },
-  "outputs": {},
-  "metadata": {}
-}
-```
+Every selectable backtest or standalone statistical-analysis config must use
+`schema_version=strategy_run`, including a typed `data.bar_time` contract and
+`data.stream_binding`. The complete runnable authoring example is
+`autorunner/templates/config_template.json`; legacy `frequency`, `interval`,
+`calendar`, and `timezone` fields are rejected rather than mapped or defaulted.
 
 The authoritative schema is
 `backtester/contracts/strategy/strategy-run.schema.json`. Working examples live
@@ -91,8 +62,8 @@ report settings. It is not a separate legacy config family.
 ## Verification
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests/test_strategy_run_config.py tests/test_unified_config_cutover_audit.py tests/test_statanalyser_autorunner_stage.py -q
-.\.venv\Scripts\python.exe -m ruff check autorunner backtester/StrategyRunConfig_backtester.py
+uv run --locked --exact python -m pytest tests/test_strategy_run_config.py tests/test_unified_config_cutover_audit.py tests/test_statanalyser_autorunner_stage.py -q
+uv run --locked --exact python -m ruff check autorunner backtester/StrategyRunConfig_backtester.py
 ```
 
 The cutover audit must stay green before adding or changing any public config

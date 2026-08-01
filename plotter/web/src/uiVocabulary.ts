@@ -162,6 +162,7 @@ const PARAMETER_LABELS: LabelMap = {
   live_adaptive_search: { en: 'Live Adaptive Search', 'zh-Hant': '即時自適應搜尋' },
   local_plateau_score: { en: 'Local Plateau Score', 'zh-Hant': '局部平台分數' },
   max_drawdown: { en: 'Max Drawdown', 'zh-Hant': '最大回撤' },
+  intraday_max_drawdown: { en: 'Intraday Max Drawdown', 'zh-Hant': '日內最大回撤' },
   mean: { en: 'Mean', 'zh-Hant': '平均數' },
   mean_oos_sharpe: { en: 'Mean OOS Sharpe', 'zh-Hant': '平均 OOS 夏普' },
   median: { en: 'Median', 'zh-Hant': '中位數' },

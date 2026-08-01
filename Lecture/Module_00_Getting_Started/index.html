@@ -19,7 +19,7 @@
         <p class="kicker">模組 00</p>
         <h1>開始使用與人工智能手冊（AI Manual）</h1>
         <p>
-          lo2cin4bt 2.1.0 是以瀏覽器為主要入口的量化研究與回測工作區（workspace）。
+          lo2cin4bt 2.2.0 是以瀏覽器為主要入口的量化研究與回測工作區（workspace）。
           用戶以結構化設定檔（config）描述策略。平台可執行單資產、多資產投資組合、
           參數矩陣（Parameter Matrix）及前向分析（WFA）。
         </p>
@@ -32,7 +32,7 @@
           <li>由同一個 <code>lo2cin4btWorkAgent</code> 按任務讀取教學、策略建立、回測、驗收或績效分析技能（skill）。</li>
           <li>任務資料包括 <code>skills/lo2cin4bt/references/</code>、<code>docs/ai/AI_MANUAL_SKILL.md</code>、設定檔（config）、測試（tests）與輸出檔案。</li>
           <li>要求人工智能（AI）區分程式庫（repo）已實作內容、尚未開發內容、外部建議與人工智能推論。</li>
-          <li>若缺少資產範圍（universe）、資料供應者（provider）、頻率（frequency）、交易日曆（calendar）、比較基準（benchmark）、入場、出場、配置（allocation）、風控門檻（risk gate）或參數範圍（parameter domain），人工智能（AI）會列出缺口，不會編造。</li>
+          <li>若缺少資產範圍（universe）、資料供應者（provider）、行情週期契約（bar_time）、執行／決策資料流、比較基準（benchmark）、入場、出場、配置（allocation）、風控門檻（risk gate）或參數範圍（parameter domain），人工智能（AI）會列出缺口，不會編造。</li>
         </ol>
 
         <pre><code>請先閱讀 agents/lo2cin4bt_PM.agent.md 和 skills/lo2cin4bt/SKILL.md。
@@ -51,14 +51,14 @@
         </div>
 
         <h2>安裝與啟動</h2>
-        <p>以下命令是程式庫（repo）內建路線。Python 或 Node.js 版本不同時，請按本機環境調整。</p>
+        <p>以下命令是程式庫（repo）唯一支援的鎖定安裝路線；請使用專案指定的 Python、uv、Node.js 與 Rust 版本。</p>
         <pre><code>cd lo2cin4bt
-python -m pip install -r requirements.lock
+uv sync --locked
 cd plotter/web
 npm ci
 npm run build
 cd ../..
-python main.py</code></pre>
+uv run --locked --exact python main.py</code></pre>
 
         <div class="callout-grid">
           <section class="note">

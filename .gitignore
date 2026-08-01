@@ -159,6 +159,7 @@ private/**
 !verification/fixtures/**/*.json
 !verification/fixtures/**/*.csv
 !verification/fixtures/**/*.xlsx
+!verification/fixtures/**/*.parquet
 
 # Public README visual assets. These are intentionally allowlisted because the
 # parent workspace ignores image and animation extensions by default.
@@ -180,6 +181,7 @@ docs/assets/readme/**
 !plotter/web/public/fonts/
 !plotter/web/public/fonts/shippori-mincho/
 !plotter/web/public/fonts/shippori-mincho/*.ttf
+plotter/web/public/fonts/shippori-mincho/*.woff2
 
 # App run artifacts stay out of source control.
 outputs/app/run_snapshots/**/*.json
@@ -196,6 +198,9 @@ verification/results/**
 reference/
 /assets/*
 !/assets/
+!/assets/desktop/
+/assets/desktop/*
+!/assets/desktop/lo2cin4bt-logo.ico
 !/assets/readme/
 !/assets/readme/**
 !assets/readme/logos/**/*.svg
@@ -204,6 +209,5 @@ reference/
 # reviewed still images instead.
 assets/readme/**/*.mp4
 assets/readme/**/*.mov
-assets/readme/scroll/en/06-metrics-parameter-matrix-scroll.gif
 .project_runtime.json
 .project_context.json

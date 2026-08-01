@@ -1,0 +1,207 @@
+{
+  "schema_version": "strategy_run",
+  "platform": {
+    "strategy_mode_id": "multi_asset_portfolio",
+    "strategy_profile_id": "calendar_event_portfolio",
+    "workflow_id": "parameter_matrix",
+    "created_at": "2026-07-29",
+    "run_type": "test",
+    "is_default": false,
+    "display_label": "BTC-USD | Monthly Nth Weekday | Same Session | Coinbase"
+  },
+  "data": {
+    "provider": "coinbase",
+    "bar_time": {
+      "schema_version": "bar_time_contract.v1",
+      "contract_id": "lo2cin4bt.bar_time_contract.v1",
+      "session_model": {
+        "calendar_id": "CRYPTO_24_7",
+        "timezone": "UTC",
+        "session_scope": "24x7",
+        "session_label_policy": "utc_date",
+        "non_session_bar_policy": "reject"
+      },
+      "timestamp_model": {
+        "time_standard": "UTC",
+        "precision": "nanosecond",
+        "clock": "historical_available_time",
+        "ordering": "available_time_then_event_time_then_external_execution_sequence_then_lifecycle_stage_then_stream_id_then_source_sequence"
+      },
+      "price_model": {
+        "price_basis": "raw",
+        "corporate_action_policy": "provider_applied"
+      },
+      "streams": [
+        {
+          "stream_id": "execution_daily",
+          "role": "execution",
+          "source": {
+            "kind": "external",
+            "provider_id": "coinbase"
+          },
+          "bar_spec": {
+            "aggregation": "time",
+            "step": 1,
+            "unit": "day",
+            "price_type": "last",
+            "alignment": "session_open"
+          },
+          "timestamp_semantics": {
+            "timestamp_convention": "bar_close",
+            "interval_boundary": "left_open_right_closed",
+            "bar_open_time_column": "bar_open_timestamp",
+            "bar_close_time_column": "bar_close_timestamp",
+            "available_time_column": "available_timestamp",
+            "session_label_column": "session_label",
+            "availability_policy": "bar_close"
+          }
+        }
+      ]
+    },
+    "stream_binding": {
+      "execution_stream_id": "execution_daily",
+      "decision_stream_id": "execution_daily"
+    },
+    "start_date": "2017-08-17",
+    "end_date": "2026-07-19",
+    "start_policy": "common_available",
+    "benchmark": {
+      "provider": "coinbase",
+      "symbol": "BTC-USD",
+      "label": "BTC-USD buy and hold"
+    }
+  },
+  "universe": {
+    "symbols": [
+      "BTC-USD"
+    ],
+    "universe_policy": "single_crypto_pair"
+  },
+  "computed_fields": [],
+  "signals": {
+    "entry": {
+      "op": "calendar.nth_weekday_of_month",
+      "months": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "ordinal": {
+        "param_ref": "month_week"
+      },
+      "weekday": {
+        "param_ref": "weekday"
+      }
+    },
+    "exit": {
+      "op": "session.same_session_close"
+    },
+    "side": "long",
+    "target_weight": 1,
+    "conflict_policy": "same_session_exit"
+  },
+  "selection": {},
+  "allocation": {
+    "method": "position_state",
+    "target_weight": 1,
+    "cash_policy": "keep_unallocated_cash"
+  },
+  "rebalance": {
+    "trigger": {
+      "op": "calendar.every_session"
+    }
+  },
+  "fill_model": {
+    "timing": "timeline",
+    "entry_price": "open",
+    "entry_time": "00:00:00",
+    "exit_price": "close",
+    "exit_time": "23:59:59",
+    "session_scope": "same_session",
+    "same_session_exit": true,
+    "position_policy": {
+      "on_entry_signal_while_holding": "ignore_new_signal"
+    },
+    "actions": [
+      {
+        "signal": "entry",
+        "offset_bars": 0,
+        "price": "open",
+        "action": "enter"
+      },
+      {
+        "signal": "entry",
+        "offset_bars": 0,
+        "price": "close",
+        "action": "exit"
+      }
+    ],
+    "matrix_workers": 5,
+    "matrix_result_retention": 25,
+    "cost": {
+      "transaction_cost": 0.001,
+      "slippage": 0.0005
+    }
+  },
+  "risk": {
+    "max_positions": 1,
+    "max_gross_exposure": 1,
+    "long_short": "long_only",
+    "allow_short": false
+  },
+  "parameter_domains": {
+    "month_week": {
+      "type": "range",
+      "start": 1,
+      "end": 4,
+      "step": 1
+    },
+    "weekday": {
+      "type": "set",
+      "values": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday"
+      ]
+    }
+  },
+  "combo_limits": {
+    "warn_combos": 28,
+    "hard_cap_combos": 40
+  },
+  "metricstracker": {
+    "enable_metrics_analysis": true,
+    "time_unit": 365,
+    "risk_free_rate": 0.04
+  },
+  "outputs": {
+    "equity_curve": true,
+    "trade_summary": true,
+    "entry_exit_markers": true,
+    "rebalance_audit": true,
+    "holdings": true
+  },
+  "metadata": {
+    "example": false,
+    "local_research_only": true,
+    "strategy_id": "btcusd_monthly_nth_weekday_same_session_coinbase_e2e_fixture",
+    "notes": [
+      "Deterministic contract-recovery fixture with a fixed inclusive data end of 2026-07-18.",
+      "This fixture validates current Rust artifacts and frontend contracts only.",
+      "It is not a profitability claim, live-trading signal, broker instruction, or investment advice."
+    ]
+  }
+}

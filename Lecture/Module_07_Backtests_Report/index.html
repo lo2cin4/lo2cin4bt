@@ -23,7 +23,7 @@ flowchart LR
 
 <h2>前端頁面分區</h2>
 <div class="grid">
-<section class="card"><h3>指標總覽（Metrics Overview）</h3><p>這頁顯示總報酬（Total Return）、年化複合成長率（CAGR）、夏普比率（Sharpe）、最大回撤（MDD）、卡瑪比率（Calmar）、比較基準報酬（Benchmark Return）、超額報酬（Excess Return）、年化波動率（Annualized Vol）、索提諾比率（Sortino）、風險值與條件風險值（VaR/CVaR）及月份分布。交易與持倉證據要到回測詳情（Backtests）查看。</p></section>
+<section class="card"><h3>指標總覽（Metrics Overview）</h3><p>這頁顯示總報酬（Total Return）、年化複合成長率（CAGR）、夏普比率（Sharpe）、最大回撤（MDD）、日內最大回撤（Intraday Max Drawdown）、卡瑪比率（Calmar）、比較基準報酬（Benchmark Return）、超額報酬（Excess Return）、年化波動率（Annualized Vol）、索提諾比率（Sortino）、風險值與條件風險值（VaR/CVaR）及月份分布。交易與持倉證據要到回測詳情（Backtests）查看。</p></section>
 <section class="card"><h3>參數矩陣（Parameter Matrix）</h3><p>比較 <code>parameter_domains</code> 展開後的候選。它回答「哪些參數在歷史樣本內較好」，不是樣本外（OOS）驗證。若沒有參數範圍（domain），應顯示沒有參數範圍（no-parameter-domain），再到回測詳情（Backtests）閱讀單一策略（policy）。</p></section>
 <section class="card"><h3>回測詳情（Backtests）</h3><p>閱讀單一執行（run）的細節：資金曲線（equity）、交易（trades）、持倉（holdings）、目標持倉（target holdings）、配置變化（allocation changes）、資產貢獻（asset contribution）、成本拖累（cost drag）、風控門檻稽核（Risk Gate Audit）、投資組合不變條件（Portfolio Invariant）及資料健康（Data Health）。</p></section>
 <section class="card"><h3>前向分析（WFA）</h3><p>閱讀選定最優解（selected optimum）的樣本外（OOS）結果。每個樣本內視窗（IS window）只選一個策略（policy）進入樣本外測試；候選診斷（candidate diagnostics）不會當成樣本外通過／失敗結果（OOS pass/fail）。</p></section>
@@ -33,6 +33,7 @@ flowchart LR
 <section class="note">
 <h2>年化與無風險利率假設</h2>
 <p>夏普比率（Sharpe）、索提諾比率（Sortino）、年化複合成長率（CAGR）、卡瑪比率（Calmar）、年化波動率（Annualized Vol）及比較基準（benchmark）年化指標使用設定檔（config）內的 <code>metricstracker.time_unit</code> 與 <code>metricstracker.risk_free_rate</code>。傳統日線資產預設 <code>252</code>，加密貨幣（crypto）預設 <code>365</code>，無風險利率預設 <code>0.04</code>。設定不同的執行結果（run）不能放在同一組夏普比率或年化複合成長率比較。</p>
+<p>分鐘策略的資金曲線及買賣標記仍保留日內時間。上述年化指標先從每個市場交易時段取最後一個已驗證資金點，再形成每日或每個二十四小時交易時段的報酬序列。只回測一個月仍會顯示年化數值，但短樣本會把該月表現外推到一年，解讀時要同時查看樣本日期、交易時段數及總報酬。</p>
 </section>
 
 <section class="note">
@@ -46,6 +47,7 @@ flowchart LR
 <tr><td>年化複合成長率（CAGR）</td><td>把整段總報酬換算成每年複利增長。</td><td>用來比較不同期間長度的策略。</td><td>短樣本數值容易誇大；不到完整市場週期要保守。</td><td>多資產要和曝險（exposure）、換手率（turnover）、比較基準（benchmark）一起看。</td></tr>
 <tr><td>夏普比率（Sharpe）</td><td>以總波動衡量的風險調整報酬。</td><td>數值越高，代表每承受一單位波動取得的報酬越高。</td><td>夏普比率不能描述尾部風險與回報路徑。</td><td>多資產分散（diversification）可能降低波動，但要確認不是假分散。</td></tr>
 <tr><td>最大回撤（Max Drawdown / MDD）</td><td>資金曲線（equity）從歷史高點到低點的最大跌幅。</td><td>衡量資金壓力與用戶能否承受策略。</td><td>低最大回撤不代表未來低風險；可能是樣本短或長期空倉。</td><td>多資產要搭配配置變化（allocation changes）尋找回撤來源。</td></tr>
+<tr><td>日內最大回撤（Intraday Max Drawdown）</td><td>以日內資金點計算的最大高點至低點跌幅。</td><td>補充日結資金曲線，看交易時段內曾承受的最大壓力。</td><td>不能用日結最大回撤代替；同一日先跌後回升時，日結數值可能看不到該段跌幅。</td><td>一分鐘及其他日內策略按原時間點計算；日線策略與日結最大回撤的差異有限。</td></tr>
 <tr><td>卡瑪比率（Calmar）</td><td><code>CAGR / abs(Max Drawdown)</code>。</td><td>用回撤（drawdown）衡量報酬品質。</td><td>最大回撤很小時，卡瑪比率會被放大。</td><td>多資產若靠低曝險壓低回撤，要同時看平均曝險（Avg Exposure）。</td></tr>
 <tr><td>比較基準報酬（Benchmark Return）</td><td>指定比較基準或推導比較基準的同期間報酬。</td><td>回答「持有比較基準會得到甚麼結果」。</td><td>錯誤比較基準會扭曲策略比較。</td><td>單資產可推導同資產買入持有（same-symbol buy-and-hold）；多資產要在設定檔（config）指定比較基準。</td></tr>
 <tr><td>超額報酬（Excess Return）</td><td>策略報酬減比較基準報酬。</td><td>判斷策略是否超越比較基準。</td><td>忽略回撤、換手率與成本會高估可用性。</td><td>多資產要確認比較基準能代表投資目標。</td></tr>

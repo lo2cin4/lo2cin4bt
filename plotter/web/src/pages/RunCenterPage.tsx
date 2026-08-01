@@ -204,9 +204,7 @@ function schedulerHint(progress: ReturnType<typeof batchProgress>, language: Lan
       ? '排程：目前有多個小型任務平行執行。'
       : 'Scheduler: multiple small jobs are running in parallel.'
   }
-  return language === 'zh-Hant'
-    ? '排程：任務會按可用容量開始；流程數字是 pipeline 階段，不是參數候選進度。'
-    : 'Scheduler: jobs start when capacity is available; the pipeline number is not parameter-candidate progress.'
+  return null
 }
 
 function parseTimeMs(value: unknown) {
@@ -371,6 +369,7 @@ function batchDebugPayload(batch: Record<string, any>) {
       stage: job.stage,
       stage_message: job.stage_message,
       error: job.error,
+      failure: job.failure,
       run_id: job.run_id,
       result_refs: job.result_refs,
       created_at: job.created_at,
@@ -1034,6 +1033,7 @@ export function RunCenterPage() {
               const cancelable = isBatchCancelable(batch)
               const displayStatus = batchDisplayStatus(batch)
               const collapsed = isCollapsedBatchStatus(displayStatus)
+              const schedulingNote = schedulerHint(progress, language)
               return (
               <div
                 key={batch.batch_id}
@@ -1085,7 +1085,9 @@ export function RunCenterPage() {
                     </span>
                   </div>
                 </div>
-                <div className="batch-scheduler-hint">{schedulerHint(progress, language)}</div>
+                {schedulingNote ? (
+                  <div className="batch-scheduler-hint">{schedulingNote}</div>
+                ) : null}
                 <div className="job-list">
                   {batch.jobs.map((job: any) => {
                     const stage = stageProgress(job)

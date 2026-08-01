@@ -98,6 +98,8 @@ class CalendarConditionMaterializer:
             return self._nth_weekday_of_month(node)
         if op == "calendar.event_date":
             return self._event_date(node)
+        if op == "calendar.session_offset_from_month_end":
+            return self._session_offset_from_month_end(node)
         return np.zeros(len(self._dates), dtype=np.bool_)
 
     def trigger_sessions(self, node: Dict[str, Any]) -> List[pd.Timestamp]:
@@ -271,6 +273,75 @@ class CalendarConditionMaterializer:
         }
         return self._normalized_dates.isin(targets).fillna(False).to_numpy(dtype=np.bool_)
 
+    def _session_offset_from_month_end(self, node: Dict[str, Any]) -> np.ndarray:
+        offset = self._session_offset_value(node)
+        mask = np.zeros(len(self._dates), dtype=np.bool_)
+        dates = self._normalized_dates.tolist()
+        start = 0
+        while start < len(dates):
+            if pd.isna(dates[start]):
+                start += 1
+                continue
+            month = pd.Timestamp(dates[start]).to_period("M")
+            end = start + 1
+            while (
+                end < len(dates)
+                and not pd.isna(dates[end])
+                and pd.Timestamp(dates[end]).to_period("M") == month
+            ):
+                end += 1
+            target = end - 1 + offset
+            if start <= target < end:
+                mask[target] = True
+            start = end
+        return mask
+
+    def _session_offset_from_month_end_audit_rows(
+        self, node: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        offset = self._session_offset_value(node)
+        mask = self._session_offset_from_month_end(node)
+        dates = self._normalized_dates.tolist()
+        rows: List[Dict[str, Any]] = []
+        for index, triggered in enumerate(mask):
+            if not triggered:
+                continue
+            target = pd.Timestamp(dates[index]).normalize()
+            rows.append(
+                {
+                    "calendar_op": "calendar.session_offset_from_month_end",
+                    "raw_event_date": None,
+                    "target_date": self._date_string(target),
+                    "resolved_session_date": self._date_string(target),
+                    "triggered": True,
+                    "skip_reason": None,
+                    "weekday": WEEKDAY_NAMES.get(int(target.weekday()), str(target.weekday())),
+                    "ordinal": None,
+                    "months": [],
+                    "period": str(target.to_period("M")),
+                    "adjustment_policy": "session_offset_from_available_month_end",
+                    "source_path": None,
+                    "date_column": None,
+                    "offset_sessions": offset,
+                }
+            )
+        return rows
+
+    @staticmethod
+    def _session_offset_value(node: Dict[str, Any]) -> int:
+        raw = node.get("offset_sessions", node.get("offset", 0))
+        try:
+            value = int(raw)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "calendar.session_offset_from_month_end requires integer offset_sessions"
+            ) from exc
+        if value > 0:
+            raise ValueError(
+                "calendar.session_offset_from_month_end offset_sessions must be <= 0"
+            )
+        return value
+
     def _collect_audit_rows(
         self,
         node: Any,
@@ -338,6 +409,8 @@ class CalendarConditionMaterializer:
             return self._weekday_target_audit_rows(node)
         if op == "calendar.event_date":
             return self._event_date_audit_rows(node)
+        if op == "calendar.session_offset_from_month_end":
+            return self._session_offset_from_month_end_audit_rows(node)
         if op == "calendar.every_session":
             return self._calendar_filter_audit_rows(node)
         if op == "calendar.first_session":

@@ -154,14 +154,14 @@ def test_rust_signal_timeline_batch_bridge_returns_summary_and_full_results():
         **common,
         "candidates": [
             {
-                "candidate_id": "entry_exit",
+                "candidate_id": "signal_probe:parameter_matrix:entry_exit",
                 "resolved_params": {"short_ma": "10"},
                 "entry_signal": [True, False, False],
                 "exit_signal": [False, True, False],
                 "target_weight": 1.0,
             },
             {
-                "candidate_id": "no_trade",
+                "candidate_id": "signal_probe:parameter_matrix:no_trade",
                 "resolved_params": {"short_ma": "20"},
                 "entry_signal": [False, False, False],
                 "exit_signal": [False, False, False],
@@ -178,13 +178,19 @@ def test_rust_signal_timeline_batch_bridge_returns_summary_and_full_results():
     )
 
     assert batch["candidate_count"] == 2
-    assert batch["results"][0]["candidate_id"] == "entry_exit"
+    assert (
+        batch["results"][0]["candidate_id"]
+        == "signal_probe:parameter_matrix:entry_exit"
+    )
     assert batch["results"][0]["resolved_params"] == {"short_ma": "10"}
     assert batch["results"][0]["final_equity"] == pytest.approx(single["final_equity"])
     assert "sharpe" in batch["results"][0]
     assert "cagr" in batch["results"][0]
     assert "max_drawdown" in batch["results"][0]
-    assert batch["results"][1]["candidate_id"] == "no_trade"
+    assert (
+        batch["results"][1]["candidate_id"]
+        == "signal_probe:parameter_matrix:no_trade"
+    )
     assert batch["results"][1]["final_equity"] == pytest.approx(100.0)
     assert full_batch["results"][0]["timeline"]["final_equity"] == pytest.approx(single["final_equity"])
     assert len(full_batch["results"][0]["timeline"]["daily_events"]) == 3
@@ -216,7 +222,7 @@ def test_rust_reset_timer_batch_bridge_reuses_server_for_multiple_requests():
         "include_full_results": False,
         "candidates": [
             {
-                "candidate_id": "hold_two_days",
+                "candidate_id": "signal_probe:single_backtest:fixed",
                 "resolved_params": {"reset_days": "2"},
                 "entry_signal": [True, False, False, False],
                 "hold_bars": 2,
@@ -228,7 +234,10 @@ def test_rust_reset_timer_batch_bridge_reuses_server_for_multiple_requests():
     second = bridge.run_reset_timer_batch_via_cli(payload, timeout=300)
 
     assert first["candidate_count"] == 1
-    assert first["results"][0]["candidate_id"] == "hold_two_days"
+    assert (
+        first["results"][0]["candidate_id"]
+        == "signal_probe:single_backtest:fixed"
+    )
     assert second["results"][0]["final_equity"] == pytest.approx(first["results"][0]["final_equity"])
 
 
@@ -240,9 +249,16 @@ def test_rust_metrics_batch_bridge_returns_full_metric_rows():
     payload = {
         "time_unit": 252,
         "risk_free_rate": 0.02,
-        "backtest_ids": ["a", "b"],
+        "backtest_ids": [
+            "a:parameter_matrix:fixed",
+            "b:parameter_matrix:fixed",
+        ],
         "equity": [100.0, 110.0, 121.0, 100.0, 90.0, 99.0],
         "bah_equity": [100.0, 105.0, 110.0, 100.0, 95.0, 100.0],
+        "session_labels": [
+            "2024-01-01", "2024-01-02", "2024-01-03",
+            "2024-01-01", "2024-01-02", "2024-01-03",
+        ],
         "trade_actions": [0.0, 1.0, 4.0, 0.0, 1.0, 4.0],
         "trade_returns": [None, None, 0.10, None, None, -0.05],
         "position_size": [0.0, 1.0, 0.0, 0.0, 1.0, 0.0],
@@ -253,12 +269,12 @@ def test_rust_metrics_batch_bridge_returns_full_metric_rows():
     summary = bridge.run_metrics_batch_via_cli(payload, timeout=60)
 
     assert summary["row_count"] == 2
-    assert summary["metrics"][0]["Backtest_id"] == "a"
+    assert summary["metrics"][0]["Backtest_id"] == "a:parameter_matrix:fixed"
     assert summary["metrics"][0]["Total_return"] == pytest.approx(0.21)
     assert summary["metrics"][0]["BAH_Total_return"] == pytest.approx(0.10)
     assert summary["metrics"][0]["Trade_count"] == pytest.approx(1.0)
     assert summary["metrics"][0]["Win_rate"] == pytest.approx(1.0)
-    assert summary["metrics"][1]["Backtest_id"] == "b"
+    assert summary["metrics"][1]["Backtest_id"] == "b:parameter_matrix:fixed"
     assert summary["metrics"][1]["Total_return"] == pytest.approx(-0.01)
     assert summary["metrics"][1]["Trade_count"] == pytest.approx(1.0)
 
@@ -578,9 +594,13 @@ def test_rust_metrics_trade_stats_only_use_closed_trade_returns():
     payload = {
         "time_unit": 252,
         "risk_free_rate": 0.0,
-        "backtest_ids": ["a"],
+        "backtest_ids": ["a:single_backtest:fixed"],
         "equity": [100.0, 100.0, 110.0, 110.0, 99.0],
         "bah_equity": [100.0, 100.0, 100.0, 100.0, 100.0],
+        "session_labels": [
+            "2024-01-01", "2024-01-02", "2024-01-03",
+            "2024-01-04", "2024-01-05",
+        ],
         "trade_actions": [0.0, 1.0, 4.0, 1.0, 4.0],
         "trade_returns": [None, 9.99, 0.10, -9.99, -0.10],
         "position_size": [0.0, 1.0, 0.0, 1.0, 0.0],
@@ -606,7 +626,18 @@ def test_rust_metrics_parquet_bridge_reuses_server_for_multiple_requests(tmp_pat
     frame = pd.DataFrame(
         {
             "Time": pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-01", "2024-01-02", "2024-01-03"]),
-            "Backtest_id": ["a", "a", "a", "b", "b", "b"],
+            "Backtest_id": [
+                "a:parameter_matrix:fixed",
+                "a:parameter_matrix:fixed",
+                "a:parameter_matrix:fixed",
+                "b:parameter_matrix:fixed",
+                "b:parameter_matrix:fixed",
+                "b:parameter_matrix:fixed",
+            ],
+            "Session_label": [
+                "2024-01-01", "2024-01-02", "2024-01-03",
+                "2024-01-01", "2024-01-02", "2024-01-03",
+            ],
             "Equity_value": [100.0, 110.0, 121.0, 100.0, 95.0, 100.0],
             "Close": [100.0, 110.0, 121.0, 100.0, 95.0, 100.0],
             "Trade_action": [0.0, 1.0, 4.0, 0.0, 1.0, 4.0],
@@ -649,14 +680,14 @@ def test_rust_calendar_same_session_batch_bridge_returns_full_results():
         "include_full_results": True,
         "candidates": [
             {
-                "candidate_id": "first_monday",
+                "candidate_id": "calendar_probe:parameter_matrix:first_monday",
                 "resolved_params": {"month_week": "1", "weekday": "monday"},
                 "ordinal": 1,
                 "weekday": "monday",
                 "target_weight": 1.0,
             },
             {
-                "candidate_id": "second_monday",
+                "candidate_id": "calendar_probe:parameter_matrix:second_monday",
                 "resolved_params": {"month_week": "2", "weekday": "monday"},
                 "ordinal": 2,
                 "weekday": "monday",
@@ -668,10 +699,16 @@ def test_rust_calendar_same_session_batch_bridge_returns_full_results():
     summary = bridge.run_calendar_same_session_batch_via_cli(payload, timeout=60)
 
     assert summary["candidate_count"] == 2
-    assert summary["results"][0]["candidate_id"] == "first_monday"
+    assert (
+        summary["results"][0]["candidate_id"]
+        == "calendar_probe:parameter_matrix:first_monday"
+    )
     assert summary["results"][0]["final_equity"] == pytest.approx(105.0)
     assert summary["results"][0]["timeline"]["active_rebalances"] == 2
-    assert summary["results"][1]["candidate_id"] == "second_monday"
+    assert (
+        summary["results"][1]["candidate_id"]
+        == "calendar_probe:parameter_matrix:second_monday"
+    )
     assert summary["results"][1]["final_equity"] == pytest.approx(110.0)
 
 
@@ -782,10 +819,11 @@ def test_rust_backtest_detail_bridge_pairs_trade_and_preserves_equity():
     result = bridge.run_backtest_detail_bundle_via_cli(
         {
             "run_id": "run-detail",
-            "backtest_id": "candidate-a",
+            "backtest_id": "candidate-a:single_backtest:fixed",
             "label": "Candidate A",
             "asset": "AAA",
             "time": ["2024-01-01", "2024-01-02"],
+            "session_labels": ["2024-01-01", "2024-01-02"],
             "open": [100.0, 110.0],
             "high": [101.0, 112.0],
             "low": [99.0, 109.0],

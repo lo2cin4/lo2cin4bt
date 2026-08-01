@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 from jsonschema import Draft202012Validator
+from referencing import Registry, Resource
 
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -13,6 +14,7 @@ if str(_REPO_ROOT) not in sys.path:
 from dataloader.market_data_loader import market_data_spec_from_requirements  # noqa: E402
 
 QQQ_SMA_EXAMPLE = "backtester/contracts/strategy/examples/strategy-run-qqq-yfinance-daily-sma-cross-matrix-example.json"
+BTCUSDT_1M_SMA_EXAMPLE = "backtester/contracts/strategy/examples/strategy-run-btcusdt-binance-1m-sma-10-20-example.json"
 BTCUSDT_MONTHLY_NTH_WEEKDAY_EXAMPLE = "backtester/contracts/strategy/examples/strategy-run-btcusdt-binance-monthly-nth-weekday-same-session-matrix-example.json"
 VOO_GLD_ROTATION_EXAMPLE = "backtester/contracts/strategy/examples/strategy-run-voo-gld-yfinance-daily-momentum90-sma250-rotation-example.json"
 ANNUAL_FIXED_ETF_EXAMPLE = "backtester/contracts/strategy/examples/strategy-run-vti-avuv-vxus-sgol-dbmf-yfinance-yearly-rebalance-example.json"
@@ -28,6 +30,64 @@ ADJUSTED_LONG_SHORT_TEST = "tests/fixtures/strategy-run-us-sector-etf-yfinance-m
 
 def _load(path: str):
     return json.loads((_REPO_ROOT / path).read_text(encoding="utf-8-sig"))
+
+
+def _typed_daily_data(provider: str = "yfinance", **extra) -> dict:
+    return {
+        "provider": provider,
+        "bar_time": {
+            "schema_version": "bar_time_contract.v1",
+            "contract_id": "lo2cin4bt.bar_time_contract.v1",
+            "session_model": {
+                "calendar_id": "XNYS",
+                "timezone": "America/New_York",
+                "session_scope": "regular",
+                "session_label_policy": "exchange_local_date",
+                "non_session_bar_policy": "reject",
+            },
+            "timestamp_model": {
+                "time_standard": "UTC",
+                "precision": "nanosecond",
+                "clock": "historical_available_time",
+                "ordering": (
+                    "available_time_then_event_time_then_external_execution_sequence"
+                    "_then_lifecycle_stage_then_stream_id_then_source_sequence"
+                ),
+            },
+            "price_model": {
+                "price_basis": "split_dividend_adjusted",
+                "corporate_action_policy": "provider_applied",
+            },
+            "streams": [
+                {
+                    "stream_id": "execution_daily",
+                    "role": "execution",
+                    "source": {"kind": "external", "provider_id": provider},
+                    "bar_spec": {
+                        "aggregation": "time",
+                        "step": 1,
+                        "unit": "day",
+                        "price_type": "last",
+                        "alignment": "session_open",
+                    },
+                    "timestamp_semantics": {
+                        "timestamp_convention": "bar_close",
+                        "interval_boundary": "left_open_right_closed",
+                        "bar_open_time_column": "bar_open_timestamp",
+                        "bar_close_time_column": "bar_close_timestamp",
+                        "available_time_column": "available_timestamp",
+                        "session_label_column": "session_label",
+                        "availability_policy": "bar_close",
+                    },
+                }
+            ],
+        },
+        "stream_binding": {
+            "execution_stream_id": "execution_daily",
+            "decision_stream_id": "execution_daily",
+        },
+        **extra,
+    }
 
 
 def test_strategy_run_rejects_nested_risk_gates_compatibility_shape() -> None:
@@ -132,15 +192,10 @@ def _external_breadth_timer_example() -> dict:
             "run_type": "example",
             "display_label": "SPY-IEF | External Breadth Timer | yfinance | Test",
         },
-        "data": {
-            "provider": "yfinance",
-            "frequency": "1D",
-            "interval": "1d",
-            "calendar": "XNYS",
-            "timezone": "America/New_York",
-            "start_date": "2010-01-01",
-            "start_policy": "common_available",
-            "external_features": [
+        "data": _typed_daily_data(
+            start_date="2010-01-01",
+            start_policy="common_available",
+            external_features=[
                 {
                     "name": "market_breadth",
                     "path": "workspace/datasets/MARKET_BREADTH_1D.csv",
@@ -149,13 +204,12 @@ def _external_breadth_timer_example() -> dict:
                     "scope": "market",
                 }
             ],
-            "benchmark": {
+            benchmark={
                 "provider": "yfinance",
                 "symbol": "SPY",
                 "label": "SPY buy and hold",
-                "interval": "1d",
             },
-        },
+        ),
         "universe": {
             "symbols": ["SPY", "IEF"],
             "universe_policy": "configured_symbols",
@@ -409,7 +463,7 @@ def test_single_asset_signal_preset_compiles_into_selection_timing_profile():
             "strategy_preset_id": "single_asset_signal",
             "workflow_id": "single_backtest",
         },
-        "data": {"provider": "yfinance", "frequency": "1D", "calendar": "XNYS"},
+        "data": _typed_daily_data(),
         "universe": {"symbols": ["QQQ"]},
         "computed_fields": [],
         "signals": {
@@ -476,8 +530,8 @@ def test_public_sector_long_short_example_is_strategy_run_contract():
     assert normalized["platform"]["strategy_profile_id"] == "rotation_portfolio"
     assert normalized["platform"]["workflow_id"] == "single_backtest"
     assert normalized["data"]["provider"] == "yfinance"
-    assert normalized["data"]["frequency"] == "1D"
-    assert normalized["data"]["calendar"] == "XNYS"
+    assert normalized["data"]["bar_time"]["streams"][0]["bar_spec"]["unit"] == "day"
+    assert normalized["data"]["bar_time"]["session_model"]["calendar_id"] == "XNYS"
     assert len(normalized["universe"]["symbols"]) == 11
     assert normalized["selection"]["long_top_n"] == 2
     assert normalized["selection"]["short_bottom_n"] == 2
@@ -500,14 +554,21 @@ def test_adjusted_momentum_research_config_uses_generic_computed_field_chain():
     config_mod = __import__("backtester.StrategyRunConfig_backtester", fromlist=["dummy"])
     request_mod = __import__("backtester.EngineRequest_backtester", fromlist=["dummy"])
     schema = _load("backtester/contracts/strategy/strategy-run.schema.json")
-    request_schema = _load("backtester/contracts/runtime/engine-request-v1.schema.json")
+    request_schema = _load("backtester/contracts/runtime/engine-request-v2.schema.json")
+    bar_time_schema = _load(
+        "backtester/contracts/runtime/bar-time-contract-v1.schema.json"
+    )
+    registry = Registry().with_resource(
+        bar_time_schema["$id"],
+        Resource.from_contents(bar_time_schema),
+    )
     config = _load(ADJUSTED_LONG_SHORT_TEST)
 
     Draft202012Validator(schema).validate(config)
     normalized = config_mod.normalize_strategy_run_config(config)
     request = request_mod.build_engine_request(normalized)
 
-    Draft202012Validator(request_schema).validate(request)
+    Draft202012Validator(request_schema, registry=registry).validate(request)
     assert normalized["selection"]["rank_by"] == "adjusted_momentum_score"
     assert [field["name"] for field in normalized["computed_fields"]] == [
         "recent_1m_return",
@@ -539,6 +600,43 @@ def test_all_default_runnable_strategies_charge_point_one_percent_transaction_co
                 offenders.append((str(path.relative_to(_REPO_ROOT)), transaction_cost))
 
     assert offenders == []
+
+
+def test_btcusdt_1m_sma_public_default_matches_complete_month_golden_contract():
+    mod = __import__("backtester.StrategyRunConfig_backtester", fromlist=["dummy"])
+    path = _REPO_ROOT / BTCUSDT_1M_SMA_EXAMPLE
+    config = _load(BTCUSDT_1M_SMA_EXAMPLE)
+    normalized = mod.normalize_strategy_run_config(config, source_path=path)
+
+    assert normalized["platform"]["is_default"] is True
+    assert normalized["platform"]["display_label"] == (
+        "BTCUSDT | 1m SMA 10/20 Cross | Binance"
+    )
+    assert normalized["platform"]["workflow_id"] == "single_backtest"
+    assert normalized["data"]["provider"] == "binance"
+    assert normalized["data"]["start_date"] == "2026-06-01T00:00:00Z"
+    assert normalized["data"]["end_date"] == "2026-07-01T00:00:00Z"
+    assert normalized["universe"]["symbols"] == ["BTCUSDT"]
+    assert normalized["data"]["stream_binding"] == {
+        "execution_stream_id": "execution_1m",
+        "decision_stream_id": "execution_1m",
+    }
+    assert {
+        field["name"]: field["period"] for field in normalized["computed_fields"]
+    } == {"short_ma": 10, "long_ma": 20}
+    assert {
+        (action["signal"], action["offset_bars"], action["price"])
+        for action in normalized["fill_model"]["actions"]
+    } == {("entry", 1, "open"), ("exit", 1, "open")}
+    assert normalized["fill_model"]["cost"]["transaction_cost"] == pytest.approx(
+        0.001
+    )
+    assert normalized["fill_model"]["cost"]["slippage"] == pytest.approx(0.0005)
+    assert normalized["metricstracker"] == {
+        "enable_metrics_analysis": True,
+        "time_unit": 365,
+        "risk_free_rate": pytest.approx(0.04),
+    }
 
 
 def test_normalizes_calendar_matrix_config_and_preserves_same_session_contract():
@@ -609,10 +707,9 @@ def test_normalizes_multi_asset_portfolio_matrix_config():
 
 def test_market_data_spec_preserves_external_features():
     config = {
-        "data": {
-            "provider": "yfinance",
-            "start_date": "2020-01-01",
-            "external_features": [
+        "data": _typed_daily_data(
+            start_date="2020-01-01",
+            external_features=[
                 {
                     "name": "market_breadth",
                     "path": "workspace/datasets/MARKET_BREADTH_1D.csv",
@@ -620,17 +717,23 @@ def test_market_data_spec_preserves_external_features():
                     "value_column": "breadth",
                 }
             ],
-        },
+        ),
         "universe": {"symbols": ["SPY", "GLD"]},
     }
 
     spec = market_data_spec_from_requirements(
         {
-            "provider": config["data"]["provider"],
-            "provider_config": config["data"],
-            "symbols": config["universe"]["symbols"],
-            "external_features": config["data"]["external_features"],
-        }
+                "provider": config["data"]["provider"],
+                "provider_config": config["data"],
+                "symbols": config["universe"]["symbols"],
+                "bar_time": config["data"]["bar_time"],
+                "external_features": config["data"]["external_features"],
+        },
+        {
+            "execution_stream_id": config["data"]["bar_time"]["streams"][0][
+                "stream_id"
+            ]
+        },
     )
 
     assert spec["provider"] == "yfinance"
@@ -650,11 +753,17 @@ def test_external_breadth_timer_example_uses_raw_external_feature_file():
     feature = normalized["data"]["external_features"][0]
     spec = market_data_spec_from_requirements(
         {
-            "provider": normalized["data"]["provider"],
-            "provider_config": normalized["data"],
-            "symbols": normalized["universe"]["symbols"],
-            "external_features": normalized["data"]["external_features"],
-        }
+                "provider": normalized["data"]["provider"],
+                "provider_config": normalized["data"],
+                "symbols": normalized["universe"]["symbols"],
+                "bar_time": normalized["data"]["bar_time"],
+                "external_features": normalized["data"]["external_features"],
+        },
+        {
+            "execution_stream_id": normalized["data"]["bar_time"]["streams"][0][
+                "stream_id"
+            ]
+        },
     )
     restore_action = normalized["fill_model"]["actions"][2]
 
@@ -691,7 +800,7 @@ def test_annual_fixed_etf_allocation_example_is_strategy_run_contract():
     assert normalized["platform"]["strategy_mode_id"] == "multi_asset_portfolio"
     assert normalized["platform"]["workflow_id"] == "single_backtest"
     assert normalized["data"]["provider"] == "yfinance"
-    assert normalized["data"]["calendar"] == "XNYS"
+    assert normalized["data"]["bar_time"]["session_model"]["calendar_id"] == "XNYS"
     assert normalized["data"]["start_policy"] == "common_available"
     assert normalized["data"]["benchmark"]["symbol"] == "VTI"
     assert normalized["universe"]["symbols"] == ["VTI", "AVUV", "VXUS", "SGOL", "DBMF"]
@@ -749,78 +858,38 @@ def test_execution_planner_uses_vector_hybrid_for_single_and_portfolio():
     assert portfolio_plan["combo_guard"]["estimated_total_combos"] == 0
 
 
-def test_factor_pipeline_is_first_class_contract_stage():
+def test_factor_pipeline_is_retired_and_fails_closed():
     mod = __import__("backtester.StrategyRunConfig_backtester", fromlist=["dummy"])
-    config = {
-        "schema_version": "strategy_run",
-        "platform": {
-            "strategy_mode_id": "multi_asset_portfolio",
-            "strategy_profile_id": "selection_timing_portfolio",
-            "workflow_id": "parameter_matrix",
-        },
-        "data": {
-            "provider": "local_parquet",
-            "frequency": "1D",
-            "calendar": "XNYS",
-            "benchmark": "SPY",
-        },
-        "universe": {"symbols": ["AAA", "BBB", "CCC"]},
-        "factor_pipeline": {
-            "schema_version": "factor_pipeline.v1",
-            "data_requirements": {
-                "price_fields": ["close", "volume"],
-                "fundamental_fields": ["book_value", "market_cap"],
-                "classification_fields": ["sector"],
-                "point_in_time_required": True,
-            },
-            "construction": [
-                {"name": "value", "family": "value", "op": "factor.book_to_market"},
-                {"name": "momentum", "family": "momentum", "op": "factor.price_momentum"},
-            ],
-            "preprocessing": [
-                {"op": "winsorize", "scope": "cross_section"},
-                {"op": "standardize", "scope": "cross_section"},
-                {"op": "neutralize", "scope": "cross_section", "group_by": ["sector"]},
-                {"op": "lag_audit", "scope": "point_in_time"},
-            ],
-            "composite": {
-                "method": "equal_weight",
-                "inputs": ["value", "momentum"],
-                "output": "factor_score",
-            },
-            "point_in_time": {
-                "known_at_field": "known_at",
-                "fail_on_lookahead": True,
-            },
-            "cache": {
-                "enabled": True,
-                "namespace": "lo2cin4bt.factor_pipeline",
-                "storage": "local_parquet",
-            },
-            "outputs": {"factor_score_frame": True, "statanalyser": True},
-        },
-        "computed_fields": [],
-        "selection": {
-            "eligible": {"field": "factor_score", "op": "gt", "value": -999999},
-            "rank_by": "factor_score",
-            "rank_order": "desc",
-            "top_n": 10,
-        },
-        "allocation": {"method": "equal_weight", "position_limit": 0.1},
-        "rebalance": {"trigger": {"op": "calendar.month_start"}},
-        "fill_model": {"timing": "signal_close_for_next_bar", "price": "close_to_close"},
-        "risk": {"max_positions": 10, "max_gross_exposure": 1.0, "long_short": "long_only"},
-        "parameter_domains": {
-            "value_weight": {"type": "range", "start": 0.0, "end": 1.0, "step": 0.25}
-        },
-        "outputs": {"equity_curve": True, "asset_contribution": True},
+    config = _load(
+        "backtester/contracts/strategy/examples/"
+        "strategy-run-voo-gld-yfinance-daily-momentum90-sma250-rotation-example.json"
+    )
+    config["factor_pipeline"] = {
+        "schema_version": "factor_pipeline.v1",
+        "construction": [
+            {
+                "name": "momentum",
+                "op": "factor.price_momentum",
+                "inputs": {"close": "close", "lookback": 20},
+            }
+        ],
     }
 
-    normalized = mod.normalize_strategy_run_config(config)
-    plan = mod.plan_strategy_execution(normalized)
+    schema = _load("backtester/contracts/strategy/strategy-run.schema.json")
+    schema_errors = list(Draft202012Validator(schema).iter_errors(config))
+    assert any(list(error.path) == ["factor_pipeline"] for error in schema_errors)
+    retired_schema = _load(
+        "backtester/contracts/strategy/factor-pipeline-v1.schema.json"
+    )
+    assert not Draft202012Validator(retired_schema).is_valid(
+        config["factor_pipeline"]
+    )
 
-    assert normalized["factor_pipeline"]["schema_version"] == "factor_pipeline.v1"
-    assert plan["uses_factor_pipeline"] is True
+    with pytest.raises(
+        mod.StrategyRunConfigError,
+        match=r"factor_pipeline is retired.*computed_fields\[\].*shared Rust",
+    ):
+        mod.normalize_strategy_run_config(config)
 
 
 def test_selection_timing_portfolio_profile_normalizes_under_multi_asset_portfolio() -> None:
@@ -832,11 +901,7 @@ def test_selection_timing_portfolio_profile_normalizes_under_multi_asset_portfol
             "strategy_profile_id": "selection_timing_portfolio",
             "workflow_id": "single_backtest",
         },
-        "data": {
-            "provider": "yfinance",
-            "frequency": "1D",
-            "calendar": "XNYS",
-        },
+        "data": _typed_daily_data(),
         "universe": {"symbols": ["AAA", "BBB", "CCC"]},
         "computed_fields": [
             {"name": "momentum_20", "op": "indicator.momentum", "source": "close", "period": 20}
@@ -884,7 +949,7 @@ def test_selection_timing_portfolio_profile_applies_authoring_defaults() -> None
             "strategy_profile_id": "selection_timing_portfolio",
             "workflow_id": "single_backtest",
         },
-        "data": {"provider": "yfinance", "frequency": "1D", "calendar": "XNYS"},
+        "data": _typed_daily_data(),
         "universe": {"symbols": ["AAA", "BBB", "CCC", "DDD"]},
         "computed_fields": [
             {"name": "momentum_90", "op": "indicator.momentum", "source": "close", "period": 90}
@@ -937,7 +1002,7 @@ def test_selection_timing_portfolio_profile_requires_holdings_cap() -> None:
             "strategy_profile_id": "selection_timing_portfolio",
             "workflow_id": "single_backtest",
         },
-        "data": {"provider": "yfinance", "frequency": "1D", "calendar": "XNYS"},
+        "data": _typed_daily_data(),
         "universe": {"symbols": ["AAA", "BBB", "CCC"]},
         "computed_fields": [],
         "selection": {
@@ -967,7 +1032,7 @@ def test_selection_timing_portfolio_profile_accepts_per_asset_signals_for_shared
             "strategy_profile_id": "selection_timing_portfolio",
             "workflow_id": "single_backtest",
         },
-        "data": {"provider": "yfinance", "frequency": "1D", "calendar": "XNYS"},
+        "data": _typed_daily_data(),
         "universe": {"symbols": ["AAA", "BBB", "CCC"]},
         "computed_fields": [
             {"name": "momentum_20", "op": "indicator.momentum", "source": "close", "period": 20}
@@ -1005,7 +1070,7 @@ def _monthly_long_short_rotation_config() -> dict:
             "strategy_profile_id": "rotation_portfolio",
             "workflow_id": "single_backtest",
         },
-        "data": {"provider": "yfinance", "frequency": "1D", "calendar": "XNYS"},
+        "data": _typed_daily_data(),
         "universe": {"symbols": ["SPY", "QQQ", "IWM", "EFA", "EEM", "TLT"]},
         "computed_fields": [
             {
@@ -1096,7 +1161,7 @@ def test_pair_spread_portfolio_profile_normalizes_under_multi_asset_portfolio() 
             "strategy_profile_id": "pair_spread_portfolio",
             "workflow_id": "single_backtest",
         },
-        "data": {"provider": "yfinance", "frequency": "1D", "calendar": "XNYS"},
+        "data": _typed_daily_data(),
         "universe": {"symbols": ["SPY", "QQQ"]},
         "computed_fields": [],
         "signals": {
@@ -1151,7 +1216,7 @@ def test_multi_leg_event_profile_requires_non_empty_timeline_actions() -> None:
             "strategy_profile_id": "multi_leg_event_portfolio",
             "workflow_id": "single_backtest",
         },
-        "data": {"provider": "yfinance", "frequency": "1D", "calendar": "XNYS"},
+        "data": _typed_daily_data(),
         "universe": {"symbols": ["QQQ", "TLT", "GLD"]},
         "computed_fields": [],
         "signals": {"entry": {"field": "close", "op": "gt", "value": 0}},
@@ -1177,7 +1242,7 @@ def test_multi_leg_event_profile_emits_profile_contract() -> None:
             "strategy_profile_id": "multi_leg_event_portfolio",
             "workflow_id": "single_backtest",
         },
-        "data": {"provider": "yfinance", "frequency": "1D", "calendar": "XNYS"},
+        "data": _typed_daily_data(),
         "universe": {"symbols": ["QQQ", "TLT", "GLD"]},
         "computed_fields": [],
         "signals": {
@@ -1374,7 +1439,7 @@ def test_invalid_strategy_mode_fails_fast():
             {
                 "schema_version": "strategy_run",
                 "platform": {"strategy_mode_id": "walk_forward_analysis", "workflow_id": "single_backtest"},
-                "data": {},
+                "data": _typed_daily_data(),
                 "universe": {"symbols": ["QQQ"]},
                 "computed_fields": [],
                 "allocation": {},
@@ -1395,7 +1460,7 @@ def test_autorunner_validator_accepts_strategy_run_primary_config(tmp_path):
             "strategy_profile_id": "selection_timing_portfolio",
             "workflow_id": "parameter_matrix",
         },
-        "data": {"provider": "local", "frequency": "1D", "benchmark": "SPY"},
+        "data": _typed_daily_data("local", benchmark="SPY"),
         "universe": {"symbols": ["VOO", "GLD"]},
         "computed_fields": [
             {"name": "return_momentum", "op": "indicator.momentum", "source": "close", "period": 20}
@@ -1464,7 +1529,8 @@ def test_autorunner_loader_accepts_strategy_run_primary_config(tmp_path):
             "strategy_profile_id": "selection_timing_portfolio",
             "workflow_id": "parameter_matrix",
         },
-        "data": {"provider": "yfinance", "frequency": "1D", "start_date": "2020-01-01"},
+        "metadata": {"strategy_id": "selection_timing_autorunner_probe"},
+        "data": _typed_daily_data(start_date="2020-01-01"),
         "universe": {"symbols": ["VOO", "GLD"]},
         "computed_fields": [
             {"name": "return_momentum", "op": "indicator.momentum", "source": "close", "period": 20}
@@ -1492,7 +1558,7 @@ def test_autorunner_loader_accepts_strategy_run_primary_config(tmp_path):
     assert loaded is not None
     assert loaded.dataloader_config["source"] == "multi_asset"
     assert loaded.dataloader_config["asset_symbols"] == ["VOO", "GLD"]
-    assert loaded.engine_request["schema_version"] == "engine_request.v1"
+    assert loaded.engine_request["schema_version"] == "engine_request.v2"
     assert loaded.engine_request["strategy"]["strategy_mode_id"] == "multi_asset_portfolio"
     assert loaded.engine_request["strategy"]["strategy_profile_id"] == "selection_timing_portfolio"
     assert "engine_request" not in loaded.backtester_config
@@ -1569,7 +1635,7 @@ def test_wfa_validator_rejects_referenced_subdaily_strategy_run(tmp_path):
     validator = validator_mod.ConfigValidator()
 
     assert validator.validate_config(str(wfa_path)) is False
-    assert any("session-level bars only" in message for message in validator.get_validation_errors(str(wfa_path)))
+    assert any("legacy time fields" in message for message in validator.get_validation_errors(str(wfa_path)))
 
 
 def test_wfa_loader_rejects_referenced_subdaily_strategy_run(tmp_path):

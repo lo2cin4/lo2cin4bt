@@ -10,6 +10,7 @@ import { InfoHint } from '../components/InfoHint'
 import { Plot, preloadPlotly } from '../components/LazyPlot'
 import { MissingState } from '../components/MissingState'
 import { SectionCard } from '../components/SectionCard'
+import { TimeContextPanel } from '../components/TimeContextPanel'
 import { useAppStore } from '../store'
 import {
   noParameterReasonLabel as controlledNoParameterReasonLabel,
@@ -245,8 +246,8 @@ const inferDatasetLabel = (rows: HeatmapRow[], language = 'zh-Hant') => {
   return language === 'zh-Hant' ? '目前回測' : 'Current Run'
 }
 const formatDateRangeLabel = (start: unknown, end: unknown, language = 'zh-Hant') => {
-  const left = String(start || '').slice(0, 10)
-  const right = String(end || '').slice(0, 10)
+  const left = String(start || '')
+  const right = String(end || '')
   if (left && right) return `${left} | ${right}`
   if (left) return left
   if (right) return right
@@ -287,7 +288,8 @@ export function ParameterMatrixPage() {
     setReviewRulesFeedback(operationErrorLabel(code, language))
   }
   const runsQuery = useQuery({ queryKey: ['metrics-runs'], queryFn: api.metricsRuns, staleTime: 60000 })
-  const runId = search.runId || selectedMetricsRunId || runsQuery.data?.[0]?.run_id || ''
+  const requestedRunId = search.runId || selectedMetricsRunId || ''
+  const runId = requestedRunId || runsQuery.data?.[0]?.run_id || ''
   const availableRunIds = (runsQuery.data || []).map((run: any) => run.run_id)
   const hasResolvedRun = Boolean(runId && availableRunIds.includes(String(runId)))
   const highlightedBacktestId = search.backtestId || ''
@@ -616,7 +618,10 @@ export function ParameterMatrixPage() {
     setReviewRulesFeedback(pm('已將進階檢視規則重設為本次回測的預設值。', 'Advanced review rules were reset to this run\'s defaults.'))
   }
 
-  if (runsQuery.isLoading || (!hasResolvedRun && runsQuery.data?.length) || query.isLoading) return <div className="page-loading">{t('common.loading.parameterMatrix')}</div>
+  if (runsQuery.isLoading || query.isLoading) return <div className="page-loading">{t('common.loading.parameterMatrix')}</div>
+  if (runId && runsQuery.data?.length && !hasResolvedRun) {
+    return <MissingState message={pm('指定的回測批次不存在；系統不會改用其他參數結果。', 'The requested run does not exist; the system will not substitute another parameter result.')} />
+  }
   if (!runId) return <MissingState message={t('parameterMatrix.selectMetricsFirst')} />
   if (query.error) return <MissingState message={t('parameterMatrix.noMatrix')} />
   if (!payload) return <div className="page-error">{pm('無法載入參數研究資料。', 'Unable to load parameter research data.')}</div>
@@ -627,6 +632,7 @@ export function ParameterMatrixPage() {
 
   return (
     <div className="page-stack">
+      <TimeContextPanel summary={payload.strategy_summary} />
       <SectionCard title={t('parameterMatrix.title')} subtitle={t('parameterMatrix.subtitle')}>
         <div className="parameter-workspace-topbar">
           <div className="parameter-status-strip">

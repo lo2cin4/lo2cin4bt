@@ -22,9 +22,11 @@ def resolve_metric_config(
 ) -> dict[str, Any]:
     """Return a normalized metricstracker config.
 
-    ``time_unit`` is the annualization period count. If the config omits it,
-    crypto-like providers/calendars/symbols default to 365 and traditional
-    daily assets default to 252. ``risk_free_rate`` accepts either 0.04 or 4.
+    ``time_unit`` is the annual session count used after Rust projects every
+    accepted equity stream to the last row of each canonical session. If the
+    config omits it, crypto-like providers/calendars/symbols default to 365 and
+    traditional exchange sessions default to 252. ``risk_free_rate`` accepts
+    either 0.04 or 4.
     """
 
     config = dict(metric_config or {})

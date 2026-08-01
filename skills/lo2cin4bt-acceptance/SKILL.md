@@ -1,7 +1,7 @@
 ---
 name: lo2cin4bt-acceptance
 description: Repo-local acceptance skill for lo2cin4bt. Use when checking whether a deliverable satisfies the user request, repo contracts, skills, public/GitHub boundary, tests, stale docs, forbidden paths, and no-trading-advice disclaimers.
-version: 2.1.0
+version: 2.2.0
 status: active
 category: auditor
 use_when:
@@ -65,14 +65,14 @@ Acceptance review checks deliverable quality only. It does not endorse any strat
 - Python remains control-plane only and all result-changing calculations use the shared Rust engine, mandatory Rust validator, Rust metrics, and PlotBundle contract
 - WFA and rolling validation remain explicit `validation_workflow/` workflows; Parameter Matrix is not mislabeled as validation
 - `plotter/web` is the only frontend and the app serves it on port `2424`
-- GitHub candidates contain only source-Git-tracked files below the resolved
-  `<project-root>/Repo` product boundary
-- GitHub sync uses an explicit destination URL and a clean clone outside the
-  parent Company tree; the clone fetch/push `origin` matches that URL
-- Company has no product remote added or changed, and no push runs from the
-  Company Git root
-- source, synchronized tree, and staged index release guards pass; otherwise
-  publishing is blocked without exceptions
+- the resolved Git root is the product `Repo` directory itself
+- product `origin` fetch/push URLs exactly match the approved GitHub repository
+- product `main` is clean, contains the fetched remote history, and is neither
+  behind nor diverged from `origin/main`
+- when nested in Company, the parent tracks only the product commit as a Git
+  submodule, has no product remote, and never pushes product code
+- candidate and tracked-index release guards pass; otherwise publishing is
+  blocked without exceptions
 
 ## Verdicts
 - `pass`
@@ -106,7 +106,7 @@ not_trading_advice_notice:
 ## Validation
 
 ```powershell
-python -m pytest tests/test_agent_skill_lecture_alignment.py tests/test_strategy_run_config.py tests/test_app_api_payloads.py -q
+uv run --locked --exact --group dev python -m pytest tests/test_agent_skill_lecture_alignment.py tests/test_strategy_run_config.py tests/test_app_api_payloads.py -q
 ```
 
 Pass criteria: user requirements and current architecture agree, selected tests pass, and no unsupported claim or retired path remains.

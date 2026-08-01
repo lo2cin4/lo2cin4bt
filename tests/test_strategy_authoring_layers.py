@@ -113,6 +113,11 @@ def test_strategy_config_dsl_template_keeps_logic_and_computed_fields_separate()
     assert "method: signal_state" not in text
     assert "trigger: signal_change" not in text
     assert "feature:" not in text
+    assert "bar_time:" in text
+    assert "stream_binding:" in text
+    assert "frequency:" not in text
+    assert "\n  calendar:" not in text
+    assert "\n  timezone:" not in text
 
 
 def test_ai_skill_docs_reference_two_layer_authoring_contract() -> None:

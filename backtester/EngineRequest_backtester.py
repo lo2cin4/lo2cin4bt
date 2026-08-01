@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 from copy import deepcopy
 from typing import Any, Dict, Mapping, Optional
 
@@ -18,11 +19,14 @@ from backtester.StrategyRunConfig_backtester import (
     normalize_strategy_run_config,
     plan_strategy_execution,
 )
+from backtester.timeframe_contracts import validate_bar_time_contract
 
-ENGINE_REQUEST_SCHEMA_VERSION = "engine_request.v1"
-ENGINE_REQUEST_CONTRACT_ID = "lo2cin4bt.engine_request.v1"
-MARKET_DATA_BUNDLE_SCHEMA_VERSION = "market_data_bundle.v1"
+ENGINE_REQUEST_SCHEMA_VERSION = "engine_request.v2"
+ENGINE_REQUEST_CONTRACT_ID = "lo2cin4bt.engine_request.v2"
+MARKET_DATA_BUNDLE_SCHEMA_VERSION = "market_data_bundle.v2"
 RESULT_VALIDATION_SCHEMA_VERSION = "result_validation_report.v1"
+CANDIDATE_ID_FIXED_SUFFIX = "fixed"
+CANDIDATE_ID_COMPONENT_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 RUN_SCOPE_IDS = {
     "single",
     "matrix_batch",
@@ -54,6 +58,20 @@ def build_engine_request(
 ) -> Dict[str, Any]:
     """Compile a canonical strategy config into one engine-neutral request."""
 
+    raw_data = _dict(raw_config.get("data"))
+    _reject_legacy_time_fields(raw_data)
+    bar_time = _dict(raw_data.get("bar_time"))
+    if not bar_time:
+        raise ValueError(
+            "EngineRequest v2 requires data.bar_time; legacy frequency mapping is not supported"
+        )
+    stream_binding = _validate_stream_binding(
+        _dict(raw_data.get("stream_binding")),
+        bar_time,
+        provider=str(raw_data.get("provider") or raw_data.get("source") or "").strip(),
+    )
+    validate_bar_time_contract(bar_time)
+
     normalized = normalize_strategy_run_config(raw_config)
     execution_plan = plan_strategy_execution(normalized)
     platform = _dict(normalized.get("platform"))
@@ -80,8 +98,14 @@ def build_engine_request(
         )
 
     decision_plan = _decision_plan(normalized)
-    strategy_id = str(metadata.get("strategy_id") or profile_id).strip()
-    resolved_request_id = str(request_id or f"{strategy_id}:{workflow_id}").strip()
+    base_strategy_id = validate_base_strategy_id(metadata.get("strategy_id"))
+    parameter_suffix = canonical_parameter_suffix(resolved_params)
+    strategy_id = canonical_candidate_id(
+        base_strategy_id,
+        workflow_id,
+        parameter_suffix,
+    )
+    resolved_request_id = str(request_id or strategy_id).strip()
     if not resolved_request_id:
         raise ValueError("EngineRequest request_id must not be empty")
 
@@ -91,6 +115,7 @@ def build_engine_request(
         "request_id": resolved_request_id,
         "request_hash": "",
         "strategy": {
+            "base_strategy_id": base_strategy_id,
             "strategy_id": strategy_id,
             "strategy_mode_id": str(platform.get("strategy_mode_id") or ""),
             "strategy_profile_id": profile_id,
@@ -100,6 +125,7 @@ def build_engine_request(
                 _dict(execution_plan.get("canonical_runtime_plan")).get("profile_contract", {})
             ),
             "decision_plan": decision_plan,
+            "stream_binding": deepcopy(stream_binding),
         },
         "workflow": {
             "workflow_id": workflow_id,
@@ -113,11 +139,9 @@ def build_engine_request(
             "bundle_schema_version": MARKET_DATA_BUNDLE_SCHEMA_VERSION,
             "provider": str(data.get("provider") or data.get("source") or "").strip(),
             "symbols": list(universe.get("symbols") or []),
-            "provider_config": deepcopy(data),
+            "provider_config": _provider_config(data),
             "universe_config": deepcopy(universe),
-            "frequency": str(data.get("frequency") or "").strip(),
-            "calendar": str(data.get("calendar") or "").strip(),
-            "timezone": str(data.get("timezone") or "").strip(),
+            "bar_time": deepcopy(bar_time),
             "start_date": str(data.get("start_date") or "").strip() or None,
             "end_date": str(data.get("end_date") or "").strip() or None,
             "start_policy": str(data.get("start_policy") or "").strip() or None,
@@ -149,6 +173,93 @@ def build_engine_request(
     return request
 
 
+def canonical_candidate_id(
+    base_strategy_id: str,
+    workflow_id: str,
+    parameter_suffix: str = CANDIDATE_ID_FIXED_SUFFIX,
+) -> str:
+    base_id = validate_base_strategy_id(base_strategy_id)
+    workflow = _validate_candidate_id_component(workflow_id, field="workflow_id")
+    if workflow not in WORKFLOW_IDS:
+        raise ValueError(f"Unknown canonical candidate workflow_id: {workflow}")
+    suffix = _validate_candidate_id_component(
+        parameter_suffix,
+        field="parameter_suffix",
+    )
+    candidate_id = f"{base_id}:{workflow}:{suffix}"
+    return candidate_id
+
+
+def canonical_parameter_suffix(parameters: Mapping[str, Any]) -> str:
+    if not parameters:
+        return CANDIDATE_ID_FIXED_SUFFIX
+    parts = []
+    for raw_key, raw_value in sorted(parameters.items(), key=lambda item: str(item[0])):
+        key = _slug_candidate_component(raw_key)
+        value = _slug_candidate_component(raw_value)
+        parts.append(f"{key}_{value}")
+    return _validate_candidate_id_component(
+        "_".join(parts),
+        field="parameter_suffix",
+    )
+
+
+def validate_base_strategy_id(value: Any) -> str:
+    return _validate_candidate_id_component(value, field="base_strategy_id")
+
+
+def validate_canonical_candidate_id(
+    candidate_id: Any,
+    *,
+    base_strategy_id: Any = "",
+    workflow_id: Any = "",
+    parameter_suffix: Any = "",
+) -> str:
+    text = str(candidate_id or "").strip()
+    parts = text.split(":")
+    if len(parts) != 3:
+        raise ValueError(
+            "candidate_id must use base_strategy_id:workflow_id:parameter_suffix"
+        )
+    parsed_base, parsed_workflow, parsed_suffix = parts
+    expected = canonical_candidate_id(parsed_base, parsed_workflow, parsed_suffix)
+    if text != expected:
+        raise ValueError("candidate_id is not canonical")
+    if str(base_strategy_id or "").strip() and parsed_base != validate_base_strategy_id(
+        base_strategy_id
+    ):
+        raise ValueError("candidate_id base_strategy_id does not match EngineRequest")
+    if str(workflow_id or "").strip() and parsed_workflow != str(workflow_id).strip():
+        raise ValueError("candidate_id workflow_id does not match EngineRequest")
+    if str(parameter_suffix or "").strip() and parsed_suffix != str(parameter_suffix).strip():
+        raise ValueError("candidate_id parameter_suffix does not match resolved parameters")
+    return text
+
+
+def _validate_candidate_id_component(value: Any, *, field: str) -> str:
+    text = str(value or "").strip()
+    if not text or not CANDIDATE_ID_COMPONENT_PATTERN.fullmatch(text):
+        raise ValueError(
+            f"{field} must start with an alphanumeric character and contain only "
+            "letters, numbers, '.', '_' or '-'"
+        )
+    return text
+
+
+def _slug_candidate_component(value: Any) -> str:
+    if isinstance(value, bool):
+        text = "true" if value else "false"
+    elif isinstance(value, (dict, list, tuple)):
+        text = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    else:
+        text = str(value).strip().lower()
+    text = text.replace("-", "m").replace(".", "p")
+    text = re.sub(r"[^A-Za-z0-9]+", "_", text).strip("_")
+    if not text:
+        raise ValueError("parameter values must produce a non-empty canonical suffix")
+    return text
+
+
 def engine_request_hash(request: Mapping[str, Any]) -> str:
     payload = deepcopy(dict(request or {}))
     payload.pop("request_hash", None)
@@ -170,6 +281,22 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
         raise ValueError("EngineRequest request_hash does not match canonical content")
 
     strategy = _dict(payload.get("strategy"))
+    _validate_exact_fields(
+        strategy,
+        {
+            "base_strategy_id",
+            "strategy_id",
+            "strategy_mode_id",
+            "strategy_profile_id",
+            "strategy_preset_id",
+            "plan_hash",
+            "profile_contract",
+            "decision_plan",
+            "stream_binding",
+        },
+        "EngineRequest strategy",
+    )
+    base_strategy_id = validate_base_strategy_id(strategy.get("base_strategy_id"))
     mode_id = str(strategy.get("strategy_mode_id") or "")
     profile_id = str(strategy.get("strategy_profile_id") or "")
     preset_id = str(strategy.get("strategy_preset_id") or "")
@@ -195,6 +322,12 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
             "Resolved parameters are not declared in parameter_domains: "
             + ", ".join(unknown_parameters)
         )
+    validate_canonical_candidate_id(
+        strategy.get("strategy_id"),
+        base_strategy_id=base_strategy_id,
+        workflow_id=workflow_id,
+        parameter_suffix=canonical_parameter_suffix(resolved_parameters),
+    )
     if run_scope == "matrix_batch" and not parameter_domains:
         raise ValueError("matrix_batch requires parameter_domains")
     if run_scope in {"validation_train_window", "validation_test_window"} and not isinstance(
@@ -210,8 +343,53 @@ def validate_engine_request(request: Mapping[str, Any]) -> None:
     symbols = data_requirements.get("symbols")
     if not isinstance(symbols, list) or not symbols:
         raise ValueError("EngineRequest data_requirements.symbols must not be empty")
+    _reject_legacy_time_fields(data_requirements)
+    _validate_exact_fields(
+        data_requirements,
+        {
+            "bundle_schema_version",
+            "provider",
+            "symbols",
+            "provider_config",
+            "universe_config",
+            "bar_time",
+            "start_date",
+            "end_date",
+            "start_policy",
+            "external_features",
+            "benchmark",
+        },
+        "EngineRequest data_requirements",
+    )
+    bar_time = _dict(data_requirements.get("bar_time"))
+    if not bar_time:
+        raise ValueError("EngineRequest data_requirements.bar_time must not be empty")
+    validate_bar_time_contract(bar_time)
+    _validate_stream_binding(
+        _dict(strategy.get("stream_binding")),
+        bar_time,
+        provider=str(data_requirements.get("provider") or "").strip(),
+    )
+    provider_config = _dict(data_requirements.get("provider_config"))
+    _reject_legacy_time_fields(provider_config)
+    legacy_provider_paths = _legacy_time_field_paths(provider_config)
+    if legacy_provider_paths:
+        raise ValueError(
+            "EngineRequest provider_config must not contain legacy time fields: "
+            + ", ".join(legacy_provider_paths)
+        )
+    if "bar_time" in provider_config or "stream_binding" in provider_config:
+        raise ValueError(
+            "EngineRequest provider_config must not duplicate bar_time or stream_binding"
+        )
     _validate_simulation_request(_dict(payload.get("simulation")))
     decision_plan = _dict(strategy.get("decision_plan"))
+    if _dict(decision_plan.get("factor_pipeline")):
+        raise ValueError(
+            "EngineRequest factor_pipeline is retired because it performed "
+            "result-changing calculations in Python. Use computed_fields[] so "
+            "the shared Rust engine owns the calculation."
+        )
     valid_operations = {
         str(spec["canonical_id"]) for spec in build_registry().all_ops()
     }
@@ -274,8 +452,12 @@ def strategy_run_from_engine_request(request: Mapping[str, Any]) -> Dict[str, An
         "metricstracker": deepcopy(_dict(outputs.get("metricstracker"))),
         "statanalyser": deepcopy(_dict(outputs.get("statanalyser"))),
         "outputs": deepcopy(_dict(outputs.get("requested"))),
-        "metadata": {"strategy_id": str(strategy.get("strategy_id") or "")},
+        "metadata": {
+            "strategy_id": validate_base_strategy_id(strategy.get("base_strategy_id"))
+        },
     }
+    config["data"]["bar_time"] = deepcopy(_dict(data_requirements.get("bar_time")))
+    config["data"]["stream_binding"] = deepcopy(_dict(strategy.get("stream_binding")))
     resolved_parameters = _dict(workflow.get("resolved_parameters"))
     if resolved_parameters:
         config = _replace_parameter_refs(config, resolved_parameters)
@@ -334,13 +516,17 @@ def _validate_simulation_request(simulation: Mapping[str, Any]) -> None:
         ),
         "simulation.risk.max_gross_exposure": risk.get("max_gross_exposure"),
     }
+    parsed_numbers: Dict[str, float] = {}
     for field, raw_value in required_numbers.items():
+        if raw_value is None:
+            raise ValueError(f"{field} must be explicit and numeric")
         try:
             value = float(raw_value)
         except (TypeError, ValueError) as exc:
             raise ValueError(f"{field} must be explicit and numeric") from exc
         if not math.isfinite(value):
             raise ValueError(f"{field} must be finite")
+        parsed_numbers[field] = value
     nonnegative_fields = (
         "simulation.fill_model.cost.transaction_cost",
         "simulation.fill_model.cost.slippage",
@@ -348,27 +534,25 @@ def _validate_simulation_request(simulation: Mapping[str, Any]) -> None:
         "simulation.fill_model.min_order_delta",
     )
     for field in nonnegative_fields:
-        if float(required_numbers[field]) < 0.0:
+        if parsed_numbers[field] < 0.0:
             raise ValueError(f"{field} must be non-negative")
-    if float(required_numbers["simulation.fill_model.cost.borrow_day_count"]) <= 0:
+    if parsed_numbers["simulation.fill_model.cost.borrow_day_count"] <= 0:
         raise ValueError("simulation.fill_model.cost.borrow_day_count must be positive")
-    max_fill_fraction = float(
-        required_numbers["simulation.fill_model.liquidity.max_fill_fraction"]
-    )
+    max_fill_fraction = parsed_numbers[
+        "simulation.fill_model.liquidity.max_fill_fraction"
+    ]
     if max_fill_fraction <= 0.0 or max_fill_fraction > 1.0:
         raise ValueError(
             "simulation.fill_model.liquidity.max_fill_fraction must be in (0, 1]"
         )
-    maintenance_margin = float(
-        required_numbers[
-            "simulation.fill_model.margin.maintenance_margin_ratio"
-        ]
-    )
+    maintenance_margin = parsed_numbers[
+        "simulation.fill_model.margin.maintenance_margin_ratio"
+    ]
     if maintenance_margin <= 0.0 or maintenance_margin > 1.0:
         raise ValueError(
             "simulation.fill_model.margin.maintenance_margin_ratio must be in (0, 1]"
         )
-    if float(required_numbers["simulation.risk.max_gross_exposure"]) <= 0.0:
+    if parsed_numbers["simulation.risk.max_gross_exposure"] <= 0.0:
         raise ValueError("simulation.risk.max_gross_exposure must be positive")
     if str(fill_model.get("time_in_force") or "") not in {"gtc", "ioc", "fok", "day"}:
         raise ValueError("simulation.fill_model.time_in_force is invalid")
@@ -376,6 +560,132 @@ def _validate_simulation_request(simulation: Mapping[str, Any]) -> None:
         raise ValueError("simulation.fill_model.atomic_batch must be explicit")
     if not isinstance(risk.get("allow_short"), bool):
         raise ValueError("simulation.risk.allow_short must be explicit")
+
+
+def _reject_legacy_time_fields(payload: Mapping[str, Any]) -> None:
+    legacy_fields = sorted(set(payload) & {"frequency", "interval", "calendar", "timezone"})
+    if legacy_fields:
+        raise ValueError(
+            "data.bar_time is the only time contract; legacy frequency fields are not "
+            "supported: " + ", ".join(legacy_fields)
+        )
+
+
+def _validate_exact_fields(
+    payload: Mapping[str, Any],
+    expected_fields: set[str],
+    label: str,
+) -> None:
+    missing_fields = sorted(expected_fields - set(payload))
+    unknown_fields = sorted(set(payload) - expected_fields)
+    if missing_fields or unknown_fields:
+        raise ValueError(
+            f"{label} fields are invalid: "
+            f"missing={missing_fields}, unknown={unknown_fields}"
+        )
+
+
+def _provider_config(data: Mapping[str, Any]) -> Dict[str, Any]:
+    provider_config = {
+        key: deepcopy(value)
+        for key, value in data.items()
+        if key not in {"bar_time", "stream_binding"}
+    }
+    legacy_paths = _legacy_time_field_paths(provider_config)
+    if legacy_paths:
+        raise ValueError(
+            "EngineRequest provider_config must not contain legacy time fields: "
+            + ", ".join(legacy_paths)
+        )
+    return provider_config
+
+
+def _legacy_time_field_paths(value: Any, prefix: str = "data") -> list[str]:
+    paths: list[str] = []
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            path = f"{prefix}.{key}"
+            if key in {"frequency", "interval", "calendar", "timezone"}:
+                paths.append(path)
+            else:
+                paths.extend(_legacy_time_field_paths(item, path))
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            paths.extend(_legacy_time_field_paths(item, f"{prefix}[{index}]"))
+    return paths
+
+
+def _validate_stream_binding(
+    binding: Mapping[str, Any],
+    bar_time: Mapping[str, Any],
+    *,
+    provider: str,
+) -> Dict[str, str]:
+    expected_fields = {"execution_stream_id", "decision_stream_id"}
+    unknown_fields = sorted(set(binding) - expected_fields)
+    missing_fields = sorted(expected_fields - set(binding))
+    if unknown_fields or missing_fields:
+        raise ValueError(
+            "data.stream_binding fields are invalid: "
+            f"missing={missing_fields}, unknown={unknown_fields}"
+        )
+    streams = {
+        str(stream.get("stream_id") or ""): stream
+        for stream in list(bar_time.get("streams") or [])
+        if isinstance(stream, Mapping)
+    }
+    execution_stream_id = str(binding.get("execution_stream_id") or "").strip()
+    decision_stream_id = str(binding.get("decision_stream_id") or "").strip()
+    execution_stream = streams.get(execution_stream_id)
+    if execution_stream is None or execution_stream.get("role") != "execution":
+        raise ValueError(
+            "data.stream_binding.execution_stream_id must reference the declared "
+            "execution stream"
+        )
+    execution_source = _dict(execution_stream.get("source"))
+    if execution_source.get("kind") != "external":
+        raise ValueError(
+            "data.stream_binding.execution_stream_id must reference an external stream"
+        )
+    if str(execution_source.get("provider_id") or "").strip() != provider:
+        raise ValueError(
+            "data.stream_binding.execution_stream_id provider_id must match data.provider"
+        )
+    if decision_stream_id not in streams:
+        raise ValueError(
+            "data.stream_binding.decision_stream_id must reference a declared stream"
+        )
+    decision_stream = streams[decision_stream_id]
+    if (
+        decision_stream_id != execution_stream_id
+        and decision_stream.get("role") != "decision"
+    ):
+        raise ValueError(
+            "data.stream_binding.decision_stream_id must reference a decision stream "
+            "or the execution stream"
+        )
+    current_stream_id = decision_stream_id
+    visited: set[str] = set()
+    while current_stream_id != execution_stream_id:
+        if current_stream_id in visited:
+            raise ValueError("data.stream_binding decision lineage contains a cycle")
+        visited.add(current_stream_id)
+        current = streams[current_stream_id]
+        source = _dict(current.get("source"))
+        if source.get("kind") != "derived":
+            raise ValueError(
+                "data.stream_binding.decision_stream_id must derive from "
+                "execution_stream_id"
+            )
+        current_stream_id = str(source.get("parent_stream_id") or "")
+        if current_stream_id not in streams:
+            raise ValueError(
+                "data.stream_binding.decision_stream_id has an undeclared parent stream"
+            )
+    return {
+        "execution_stream_id": execution_stream_id,
+        "decision_stream_id": decision_stream_id,
+    }
 
 
 def _decision_plan(config: Mapping[str, Any]) -> Dict[str, Any]:

@@ -1,11 +1,11 @@
-# Troubleshooting lo2cin4bt 2.1.0
+# Troubleshooting lo2cin4bt 2.2.0
 
 Use this for current browser-first lo2cin4bt.
 
 ## Fast Health Check
 
 ```bash
-python scripts/doctor.py
+uv run --locked --exact python scripts/doctor.py
 ```
 
 Expected:
@@ -19,7 +19,7 @@ Expected:
 
 Check:
 
-1. Did `python main.py` start without error?
+1. Did `uv run --locked --exact python main.py` start without error?
 2. Is the URL exactly `http://127.0.0.1:2424/`?
 3. Is port 2424 already occupied?
 4. Did `plotter/web/dist/` get built?
@@ -31,7 +31,7 @@ cd plotter/web
 npm ci
 npm run build
 cd ../..
-python main.py
+uv run --locked --exact python main.py
 ```
 
 Windows port check:
@@ -44,7 +44,7 @@ Get-NetTCPConnection -LocalPort 2424
 
 - Rebuild `plotter/web`.
 - Hard refresh the browser.
-- Restart `python main.py`.
+- Restart `uv run --locked --exact python main.py`.
 - Confirm API health: `http://127.0.0.1:2424/api/app/health`.
 
 ## No Configs In Run Center
@@ -58,7 +58,8 @@ Possible causes:
 Fix:
 
 - Ask the AI agent to initialize supported example configs from bundled contracts into the ignored workspace folders, then refresh Run Center.
-- Run `python scripts/doctor.py` if the folders are still empty after launch.
+- Run `uv run --locked --exact python scripts/doctor.py` if the folders are
+  still empty after launch.
 - If the user intentionally deleted the examples, ask Codex to create a supported `strategy_run` config using `indicator-recipes.md`.
 - Refresh Run Center after saving the config.
 
@@ -84,6 +85,10 @@ If artifacts are from an older contract and missing required fields, rerun with 
 - Check network access.
 - Try again later.
 - Confirm symbol spelling.
+- `1m` requests are limited to the most recent 8 calendar days by the current
+  fail-closed adapter contract.
+- Other certified yfinance intraday intervals are limited to the most recent
+  60 calendar days and are not paginated.
 - Use file-backed data if public provider is unavailable.
 
 ## Binance/Coinbase Symbol Problem
@@ -91,18 +96,26 @@ If artifacts are from an older contract and missing required fields, rerun with 
 - Binance examples usually use symbols such as `BTCUSDT`.
 - Coinbase examples may use product style such as `BTC-USD`.
 - Do not mix provider-specific symbol conventions without an adapter.
+- Binance and Coinbase history is paginated, but available depth still depends
+  on the product listing date and provider availability.
+- Requested end timestamps are exclusive. Provider rows outside the requested
+  half-open window are rejected before duplicate validation.
 
 ## FUTU / IBKR Does Not Work
 
 These are not first-run features. They require:
 
-- Optional Python packages from `requirements-brokers.lock`.
+- Optional Python packages from the locked `brokers` dependency group
+  (`uv sync --locked --group brokers`).
 - Local gateway app.
 - API permissions.
 - Host/port config.
 - Market-data entitlements.
 
 If the gateway is missing, call it an environment issue, not a strategy config issue.
+Config/schema acceptance proves only that the requested bar contract is
+supported by the adapter. It does not prove that the current machine has the
+package, gateway, login, permissions, or entitlement needed to download it.
 
 ## Result Looks Wrong
 
@@ -110,7 +123,7 @@ Inspect in order:
 
 1. Selected config.
 2. Normalized config/snapshot.
-3. Provider, frequency, calendar, timezone.
+3. Provider, bound execution/decision `BarSpec`, session calendar, timezone.
 4. Data health and effective start.
 5. Universe/provenance and missing assets.
 6. Benchmark symbol/provider.

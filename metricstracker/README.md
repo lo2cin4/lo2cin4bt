@@ -31,7 +31,8 @@ should use `compute_metrics_for_frame()` or `export_metrics_artifacts()`.
 
 ## Metric Assumptions
 
-- `time_unit`: annualization periods, usually `252` for traditional daily assets
+- `time_unit`: annual sessions after the mandatory Rust session-close
+  projection, usually `252` for traditional exchanges and `365` for crypto
   and `365` for crypto.
 - `risk_free_rate`: annual rate as decimal, for example `0.04` for 4%.
 - Calmar is canonicalized as:

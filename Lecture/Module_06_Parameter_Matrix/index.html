@@ -65,6 +65,10 @@ flowchart TB
           </section>
         </div>
 
+        <h2>大型矩陣如何保存結果</h2>
+        <p>候選較多或使用一分鐘資料時，系統會分批執行，避免一次把所有資金曲線、交易明細及圖表留在記憶體。每個候選仍有摘要、分數及排名；只有設定保留的前列候選會重播並保存完整資金曲線、交易和圖表產物。未被保留的候選沒有完整圖表，不代表回測失敗。</p>
+        <p>候選識別碼（candidate_id）使用 <code>base_strategy_id:workflow_id:parameter_suffix</code>；沒有參數時後綴為 <code>fixed</code>。排名、目標函數及完整產物必須使用同一識別碼。若前端找不到相符產物，應回報契約錯誤，不能改用第一個或相近候選。</p>
+
         <h2>哪些內容適合放進參數矩陣</h2>
         <div class="learning-rail">
           <div class="rail-item"><strong>技術指標週期</strong><span>簡單移動平均線（SMA）、動能（momentum）、相對強弱指數（RSI）、移動平均匯聚背離指標（MACD）等週期（period）。</span></div>
@@ -99,8 +103,8 @@ flowchart TB
             </tr>
             <tr>
               <td>無法載入前端資料（Unable to load payload）</td>
-              <td>產物（artifact）或應用程式介面資料（API payload）未能載入。</td>
-              <td>檢查受管產物（managed artifacts）與應用程式介面資料（API payload）。</td>
+              <td>已保留候選的產物（artifact）或應用程式介面資料（API payload）未能載入，或候選識別碼不相符。</td>
+              <td>檢查候選識別碼、受管產物（managed artifacts）與應用程式介面資料（API payload）；不要改用另一候選。</td>
             </tr>
           </table>
         </div>

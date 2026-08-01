@@ -7,7 +7,7 @@ use crate::{
     run_timeline_accounting, AccountingInput, BacktestDetailProjectionInput,
     CalendarOverlayBatchInput, CalendarSameSessionBatchInput, DailyRankAccountingInput,
     DailyRankBatchInput, EngineRequestBatchExecutionInput, EngineRequestExecutionInput,
-    EngineRequestV1, MetricsBatchInput, MetricsParquetInput, PlotProjectionInput,
+    EngineRequestV2, MetricsBatchInput, MetricsParquetInput, PlotProjectionInput,
     RankSelectionInput, ResetTimerBatchInput, SingleAssetNextOpenSignalInput,
     SingleAssetSignalBatchInput, TimelineAccountingInput,
 };
@@ -188,6 +188,8 @@ pub fn handle_engine_service_request(request: EngineServiceRequest) -> EngineSer
         EngineServiceCommand::Capabilities => EngineServiceResponse::success(
             &request,
             serde_json::json!({
+                "engine_request_schema_version": crate::engine_request::ENGINE_REQUEST_SCHEMA_VERSION,
+                "engine_request_contract_id": crate::engine_request::ENGINE_REQUEST_CONTRACT_ID,
                 "operations": [
                     "accounting", "timeline_accounting", "signal_timeline",
                     "signal_timeline_batch", "calendar_same_session_batch",
@@ -200,7 +202,7 @@ pub fn handle_engine_service_request(request: EngineServiceRequest) -> EngineSer
             }),
         ),
         EngineServiceCommand::ValidateEngineRequest => {
-            let result = serde_json::from_value::<EngineRequestV1>(request.payload.clone())
+            let result = serde_json::from_value::<EngineRequestV2>(request.payload.clone())
                 .map_err(|exc| exc.to_string())
                 .and_then(|engine_request| {
                     engine_request.validate().map_err(|exc| exc.to_string())?;
@@ -462,6 +464,40 @@ mod tests {
             handle_engine_service_request(request(EngineServiceCommand::Health, None, Value::Null));
         assert_eq!(response.status, EngineServiceStatus::Ok);
         assert_eq!(response.request_id, "request-1");
+    }
+
+    #[test]
+    fn capabilities_advertise_engine_request_v2_only() {
+        let response = handle_engine_service_request(request(
+            EngineServiceCommand::Capabilities,
+            None,
+            Value::Null,
+        ));
+        let result = response.result.unwrap();
+
+        assert_eq!(result["engine_request_schema_version"], "engine_request.v2");
+        assert_eq!(
+            result["engine_request_contract_id"],
+            "lo2cin4bt.engine_request.v2"
+        );
+    }
+
+    #[test]
+    fn validate_engine_request_rejects_v1_payloads() {
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../backtester/contracts/runtime/examples/engine-request-profile-fixtures-v2.json"
+        ))
+        .unwrap();
+        let mut payload = fixture["requests"][0].clone();
+        payload["schema_version"] = serde_json::json!("engine_request.v1");
+        payload["contract_id"] = serde_json::json!("lo2cin4bt.engine_request.v1");
+        let response = handle_engine_service_request(request(
+            EngineServiceCommand::ValidateEngineRequest,
+            None,
+            payload,
+        ));
+
+        assert_eq!(response.status, EngineServiceStatus::Error);
     }
 
     #[test]

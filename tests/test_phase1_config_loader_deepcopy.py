@@ -35,7 +35,10 @@ def test_config_loader_keeps_canonical_runs_isolated(tmp_path) -> None:
     assert second is not None
     assert (
         second.engine_request["strategy"]["strategy_id"]
-        == source_config["metadata"]["strategy_id"]
+        == (
+            f"{source_config['metadata']['strategy_id']}:"
+            f"{source_config['platform']['workflow_id']}:fixed"
+        )
     )
     assert second.metricstracker_config["enable_metrics_analysis"] is True
 

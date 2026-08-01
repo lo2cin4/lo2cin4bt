@@ -13,7 +13,9 @@
     "status",
     "created_at",
     "symbol",
-    "frequency",
+    "execution_stream_id",
+    "decision_stream_id",
+    "execution_bar_spec",
     "strategy_mode",
     "semantic_label",
     "config_snapshot_dir",
@@ -37,7 +39,14 @@
     "created_at": {"type": "string", "minLength": 1},
     "completed_at": {"type": ["string", "null"]},
     "symbol": {"type": "string", "minLength": 1},
-    "frequency": {"type": "string", "minLength": 1},
+    "execution_stream_id": {"type": "string", "minLength": 1},
+    "decision_stream_id": {"type": "string", "minLength": 1},
+    "execution_bar_spec": {
+      "oneOf": [
+        {"$ref": "#/$defs/bar_spec"},
+        {"type": "null"}
+      ]
+    },
     "strategy_mode": {"type": "string", "minLength": 1},
     "semantic_label": {"type": "string", "minLength": 1},
     "config_snapshot_dir": {"type": "string", "minLength": 1},
@@ -63,5 +72,27 @@
     "artifacts_total": {"type": "integer", "minimum": 0},
     "warnings": {"type": "array", "items": {"type": "string"}},
     "errors": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {
+    "bar_spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aggregation", "step", "unit", "price_type", "alignment"],
+      "properties": {
+        "aggregation": {"const": "time"},
+        "step": {"type": "integer", "minimum": 1},
+        "unit": {"enum": ["minute", "hour", "day", "week", "month"]},
+        "price_type": {"enum": ["last", "mark", "mid"]},
+        "alignment": {
+          "enum": [
+            "session_open",
+            "utc_boundary",
+            "calendar_week",
+            "calendar_month",
+            "calendar_period_start"
+          ]
+        }
+      }
+    }
   }
 }

@@ -10,11 +10,68 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 
+def _typed_daily_data(provider: str = "local") -> dict:
+    return {
+        "provider": provider,
+        "bar_time": {
+            "schema_version": "bar_time_contract.v1",
+            "contract_id": "lo2cin4bt.bar_time_contract.v1",
+            "session_model": {
+                "calendar_id": "XNYS",
+                "timezone": "America/New_York",
+                "session_scope": "regular",
+                "session_label_policy": "exchange_local_date",
+                "non_session_bar_policy": "reject",
+            },
+            "timestamp_model": {
+                "time_standard": "UTC",
+                "precision": "nanosecond",
+                "clock": "historical_available_time",
+                "ordering": (
+                    "available_time_then_event_time_then_external_execution_sequence"
+                    "_then_lifecycle_stage_then_stream_id_then_source_sequence"
+                ),
+            },
+            "price_model": {
+                "price_basis": "split_dividend_adjusted",
+                "corporate_action_policy": "provider_applied",
+            },
+            "streams": [
+                {
+                    "stream_id": "execution_daily",
+                    "role": "execution",
+                    "source": {"kind": "external", "provider_id": provider},
+                    "bar_spec": {
+                        "aggregation": "time",
+                        "step": 1,
+                        "unit": "day",
+                        "price_type": "last",
+                        "alignment": "session_open",
+                    },
+                    "timestamp_semantics": {
+                        "timestamp_convention": "bar_close",
+                        "interval_boundary": "left_open_right_closed",
+                        "bar_open_time_column": "bar_open_timestamp",
+                        "bar_close_time_column": "bar_close_timestamp",
+                        "available_time_column": "available_timestamp",
+                        "session_label_column": "session_label",
+                        "availability_policy": "bar_close",
+                    },
+                }
+            ],
+        },
+        "stream_binding": {
+            "execution_stream_id": "execution_daily",
+            "decision_stream_id": "execution_daily",
+        },
+    }
+
+
 def _base_strategy_config():
     return {
         "schema_version": "strategy_run",
         "platform": {"strategy_mode_id": "multi_asset_portfolio", "workflow_id": "single_backtest"},
-        "data": {"provider": "local", "frequency": "1D", "calendar": "XNYS"},
+        "data": _typed_daily_data(),
         "universe": {"symbols": ["QQQ"]},
         "computed_fields": [],
         "signals": {},
@@ -164,19 +221,13 @@ def test_strategy_run_support_checker_rejects_unknown_op_before_runtime() -> Non
         mod.validate_strategy_run_config(config)
 
 
-@pytest.mark.parametrize(
-    ("field_name", "value"),
-    [
-        ("frequency", "5m"),
-        ("interval", "1h"),
-    ],
-)
-def test_strategy_run_support_checker_rejects_subdaily_runtime_timeframes(field_name: str, value: str) -> None:
+@pytest.mark.parametrize("field_name", ["frequency", "interval", "calendar", "timezone"])
+def test_strategy_run_support_checker_rejects_legacy_data_time_fields(field_name: str) -> None:
     mod = __import__("backtester.StrategyRunConfig_backtester", fromlist=["dummy"])
     config = _base_strategy_config()
-    config["data"][field_name] = value
+    config["data"][field_name] = "legacy"
 
-    with pytest.raises(mod.StrategyRunConfigError, match="session-level bars only"):
+    with pytest.raises(mod.StrategyRunConfigError, match="legacy time fields"):
         mod.validate_strategy_run_config(config)
 
 
@@ -185,7 +236,7 @@ def test_strategy_run_support_checker_rejects_subdaily_market_data_timeframes() 
     config = _base_strategy_config()
     config["data"]["market_data"] = {"provider": "binance", "interval": "300"}
 
-    with pytest.raises(mod.StrategyRunConfigError, match="session-level bars only"):
+    with pytest.raises(mod.StrategyRunConfigError, match="legacy time fields"):
         mod.validate_strategy_run_config(config)
 
 

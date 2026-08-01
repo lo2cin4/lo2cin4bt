@@ -272,12 +272,12 @@ class ConfigLoader:
         data = self._dict_section(config, "data")
         universe = self._dict_section(config, "universe")
         symbols = [str(item).strip().upper() for item in universe.get("symbols", []) if str(item).strip()]
-        frequency = str(data.get("frequency") or "1D")
         return {
             "source": "multi_asset",
-            "frequency": frequency,
             "start_date": str(data.get("start_date") or ""),
             "asset_symbols": symbols,
+            "bar_time": copy.deepcopy(data["bar_time"]),
+            "stream_binding": copy.deepcopy(data["stream_binding"]),
         }
 
     def _strategy_run_backtester_config(self, config: Dict[str, Any]) -> Dict[str, Any]:

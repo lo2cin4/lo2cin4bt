@@ -4,15 +4,24 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
-DEFAULT_RUN_ID = "20260718_b64dcb042889"
+from app.api.payloads import AppPayloadService  # noqa: E402
+from app.api.shared_chart_series import SharedChartSeriesStore  # noqa: E402
+from app.runtime.registry import AppRegistry  # noqa: E402
+
+
+DEFAULT_RUN_ID = "20260729_c44dbf2c2176"
 DEFAULT_CANDIDATE_ID = (
-    "btcusd_monthly_nth_weekday_same_session_coinbase_example:"
+    "btcusd_monthly_nth_weekday_same_session_coinbase_e2e_fixture:"
     "parameter_matrix:month_week_1_weekday_wednesday"
 )
 
@@ -60,14 +69,25 @@ def collect_trace(repo_root: Path, run_id: str, candidate_id: str) -> dict[str, 
     artifacts = _artifact_paths(repo_root, run_id)
     snapshot = repo_root / "outputs" / "app" / "run_snapshots" / run_id
     chart_dir = repo_root / "outputs" / "app" / "chart_payloads" / run_id
+    registry = AppRegistry(repo_root)
+    shared_series = SharedChartSeriesStore(registry)
 
     strategy_run = _read_json(snapshot / "strategy_run.json")
     matrix_summary = _read_json(artifacts["portfolio_matrix_summary_json"])
     metrics_metadata = _read_json(artifacts["metricstracker_metadata"])
-    metrics_overview = _read_json(chart_dir / "metrics_overview_payload.json")
-    heatmap = _read_json(chart_dir / "parameter_heatmap_payload.json")
+    metrics_overview = shared_series.materialize_metrics_overview(
+        run_id,
+        _read_json(chart_dir / "metrics_overview_payload.json"),
+    )
+    heatmap = AppPayloadService(
+        repo_root,
+        registry,
+    ).build_parameter_matrix_payload(run_id, force=True)
     detail_path = next(chart_dir.glob("backtest_detail_*.json"))
-    detail = _read_json(detail_path)
+    detail = shared_series.materialize_backtest_detail(
+        run_id,
+        _read_json(detail_path),
+    )
 
     equity = _candidate_rows(
         pd.read_parquet(artifacts["portfolio_equity_curve_parquet"]), candidate_id

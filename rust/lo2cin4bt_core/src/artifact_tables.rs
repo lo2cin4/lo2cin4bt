@@ -89,9 +89,10 @@ fn infer_column_kind(rows: &[BTreeMap<String, Value>], column: &str) -> ColumnKi
 
 fn table_schema(table_key: &str) -> &'static [(&'static str, ColumnKind)] {
     match table_key {
-        "equity_curve" => &[
+        "equity_curve" | "execution_equity_curve" => &[
             ("Backtest_id", ColumnKind::String),
             ("Time", ColumnKind::String),
+            ("Session_label", ColumnKind::String),
             ("Equity_value", ColumnKind::Float),
             ("Portfolio_return", ColumnKind::Float),
             ("Turnover", ColumnKind::Float),

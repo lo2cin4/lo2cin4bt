@@ -13,6 +13,7 @@ import { SectionCard } from '../components/SectionCard'
 import { localizeStrategyRuleValue } from '../components/StrategyRulesPanel'
 import { TradeMarkerInfoPanel } from '../components/TradeMarkerInfoPanel'
 import { TradeMarkersToggleButton } from '../components/TradeMarkersToggleButton'
+import { TimeContextPanel } from '../components/TimeContextPanel'
 import { useAppStore } from '../store'
 import {
   PinnedTradeMarker,
@@ -950,7 +951,7 @@ function PortfolioBacktestDetail({ detail }: { detail: any }) {
     if (explicit) return explicit
     const raw = String(rowValue(row, 'Time', 'time', 'entry_time') || '').trim()
     if (!raw) return '-'
-    return raw.includes('T') ? raw.replace('T', ' ').slice(0, 16) : raw.slice(0, 10)
+    return raw.includes('T') ? raw.replace('T', ' ') : raw
   }
   const formatWhole = (value: unknown): string => {
     const numeric = asNumber(value)
@@ -1002,16 +1003,16 @@ function PortfolioBacktestDetail({ detail }: { detail: any }) {
       : bt('再平衡換手率', 'Rebalance Turnover')
   const tradeLegsLabel = isCalendarEventStrategy ? bt('交易分段', 'Trade Legs') : bt('交易事件', 'Trade Events')
   const weightLabel = bt('權重', 'Weight')
-  const allocationDates = Array.from(new Set(holdingsRows.map((row: any) => String(row.time || '').slice(0, 10)).filter(Boolean))).sort()
+  const allocationTimes = Array.from(new Set(holdingsRows.map((row: any) => String(row.time || '')).filter(Boolean))).sort()
   const allocationAssets = Array.from(new Set(holdingsRows.map((row: any) => String(row.asset || '')).filter(Boolean))).sort()
   const allocationSeries: any[] = allocationAssets.map((asset) => ({
     type: 'scatter',
     mode: 'lines',
     stackgroup: 'one',
     name: asset,
-    x: allocationDates,
-    y: allocationDates.map((date) => {
-      const row = holdingsRows.find((item: any) => String(item.time || '').slice(0, 10) === date && String(item.asset || '') === asset)
+    x: allocationTimes,
+    y: allocationTimes.map((time) => {
+      const row = holdingsRows.find((item: any) => String(item.time || '') === time && String(item.asset || '') === asset)
       return row ? asNumber(row.target_weight) : 0
     }),
     hovertemplate: `${asset}<br>%{x}<br>${weightLabel} %{y:.1%}<extra></extra>`,
@@ -1100,7 +1101,7 @@ function PortfolioBacktestDetail({ detail }: { detail: any }) {
     .map((row: any) => asNumber(row.turnover ?? row.Turnover ?? row.trade_turnover ?? row.Rebalance_turnover))
     .filter((value: number | null): value is number => value !== null && Number.isFinite(value) && value > 0)
   const allocationChartAvailable = Boolean(
-    visualAvailability.allocation_timeline ?? (allocationSeries.length && allocationDates.length),
+    visualAvailability.allocation_timeline ?? (allocationSeries.length && allocationTimes.length),
   )
 
   useEffect(() => {
@@ -1113,6 +1114,9 @@ function PortfolioBacktestDetail({ detail }: { detail: any }) {
 
   return (
     <div className="page-stack">
+      <TimeContextPanel
+        summary={{ ...strategySummary, annualization: detail.annualization }}
+      />
       <SectionCard captureId="best_summary" title={t('backtests.portfolioSummary')} subtitle={t('backtests.portfolioSummarySubtitle')}>
         {hasLegacyValidationWarning ? (
           <div className="page-warning portfolio-warning">
@@ -1135,7 +1139,7 @@ function PortfolioBacktestDetail({ detail }: { detail: any }) {
             <div className="snapshot-meta-grid">
               <div className="snapshot-meta-pill">
                 <span className="snapshot-meta-label">{bt('回測期間', 'Backtest Window')}</span>
-                <span className="snapshot-meta-value">{String(firstTime).slice(0, 10)} {'->'} {String(lastTime).slice(0, 10)}</span>
+                <span className="snapshot-meta-value">{String(firstTime)} {'->'} {String(lastTime)}</span>
               </div>
               <div className="snapshot-meta-pill">
                 <span className="snapshot-meta-label">{bt('資產範圍', 'Asset Universe')}</span>
@@ -1296,7 +1300,7 @@ function PortfolioBacktestDetail({ detail }: { detail: any }) {
                   <tbody>
                     {riskGateRows.slice(0, 20).map((row: any, index: number) => (
                       <tr key={`${row.Time || row.time}-${row.Gate || row.gate}-${index}`}>
-                        <td>{String(row.Time || row.time || '').slice(0, 10) || '-'}</td>
+                        <td>{String(row.Time || row.time || '') || '-'}</td>
                         <td>{row.Gate || row.gate || '-'}</td>
                         <td>{riskGateEventPhaseLabel(row)}</td>
                         <td>{riskGateThresholdLabel(row)}</td>
@@ -1579,14 +1583,14 @@ function PortfolioBacktestDetail({ detail }: { detail: any }) {
       <SectionCard
         captureId="allocation_timeline"
         title={bt('配置時間線', 'Allocation Timeline')}
-        subtitle={bt('按再平衡日期顯示目標權重；固定配置會把排程檢查點與實際權重變化分開理解。', 'Shows target weights by rebalance date; fixed-allocation checkpoints are interpreted separately from actual weight changes.')}
+        subtitle={bt('按正式事件時間顯示目標權重；同一交易日內不同時點不會合併。', 'Shows target weights by canonical event timestamp; distinct intraday events are not merged.')}
       >
         {allocationChartAvailable ? (
           <div data-testid="allocation-timeline-chart">
             <Plot
               data={allocationSeries}
               layout={makeChartLayout({
-                xTitle: bt('日期', 'Date'),
+                xTitle: bt('時間', 'Time'),
                 yTitle: bt('目標權重', 'Target Weight'),
                 yaxis: { tickformat: '.0%' },
               })}
@@ -1803,7 +1807,8 @@ export function BacktestsPage() {
   }, [])
 
   const metricsRunsQuery = useQuery({ queryKey: ['metrics-runs'], queryFn: api.metricsRuns, staleTime: 60000 })
-  const runId = search.runId || selectedMetricsRunId || metricsRunsQuery.data?.[0]?.run_id || ''
+  const requestedRunId = search.runId || selectedMetricsRunId || ''
+  const runId = requestedRunId || metricsRunsQuery.data?.[0]?.run_id || ''
   const availableRunIds = useMemo(
     () => (metricsRunsQuery.data || []).map((run: any) => run.run_id),
     [metricsRunsQuery.data],
@@ -1837,12 +1842,16 @@ export function BacktestsPage() {
     () => (overviewQuery.data?.rows || []).map((row: any) => row.backtest_id),
     [overviewQuery.data],
   )
+  const hasResolvedBacktest = Boolean(
+    searchBacktestId && availableBacktestIds.includes(String(searchBacktestId)),
+  )
   const preferredStoreBacktestId = availableBacktestIds.includes(String(selectedBacktestId))
     ? String(selectedBacktestId)
     : ''
-  const backtestId = availableBacktestIds.includes(String(searchBacktestId))
-    ? String(searchBacktestId)
-    : preferredStoreBacktestId || overviewQuery.data?.rows?.[0]?.backtest_id || ''
+  const backtestId = searchBacktestId
+    || preferredStoreBacktestId
+    || overviewQuery.data?.rows?.[0]?.backtest_id
+    || ''
 
   useEffect(() => {
     if (backtestId && backtestId !== selectedBacktestId) setSelectedBacktestId(backtestId)
@@ -1863,7 +1872,7 @@ export function BacktestsPage() {
   const detailQuery = useQuery({
     queryKey: ['backtest-detail', runId, backtestId],
     queryFn: () => api.backtestDetail(runId, backtestId),
-    enabled: Boolean(hasResolvedRun && backtestId),
+    enabled: Boolean(hasResolvedRun && backtestId && (!searchBacktestId || hasResolvedBacktest)),
     staleTime: 60000,
   })
 
@@ -1938,10 +1947,16 @@ export function BacktestsPage() {
     return { buys, sells }
   }, [detail])
 
-  if (metricsRunsQuery.isLoading || (!hasResolvedRun && metricsRunsQuery.data?.length) || overviewQuery.isLoading || detailQuery.isLoading) {
+  if (metricsRunsQuery.isLoading || overviewQuery.isLoading || detailQuery.isLoading) {
     return <div className="page-loading">{t('common.loading.backtestDetail')}</div>
   }
+  if (runId && metricsRunsQuery.data?.length && !hasResolvedRun) {
+    return <MissingState message={bt('指定的回測批次不存在；系統不會改用其他結果。', 'The requested run does not exist; the system will not substitute another result.')} />
+  }
   if (!runId) return <MissingState message={t('backtests.selectMetricsFirst')} />
+  if (searchBacktestId && overviewQuery.data && !hasResolvedBacktest) {
+    return <MissingState message={bt('指定的回測結果不存在；系統不會改用其他交易結果。', 'The requested backtest does not exist; the system will not substitute another result.')} />
+  }
   if (!backtestId) return <MissingState message={t('backtests.noBacktestSelected')} />
   if (detailQuery.error || !detailQuery.data) return <div className="page-error">{bt('無法載入回測詳細資料。', 'Unable to load backtest detail.')}</div>
   if (detail?.result_type === 'portfolio' || detail?.contract_id === 'lo2cin4bt-app-portfolio-detail-payload-v1') {
@@ -1990,6 +2005,12 @@ export function BacktestsPage() {
 
   return (
     <div className="page-stack">
+      <TimeContextPanel
+        summary={{
+          ...(detail.strategy_summary || {}),
+          annualization: detail.annualization,
+        }}
+      />
       <SectionCard title={t('backtests.summary')} subtitle={t('backtests.summarySubtitle')}>
         <div className="snapshot-hero-shell">
           <div className="snapshot-identity-card">

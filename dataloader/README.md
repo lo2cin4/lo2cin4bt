@@ -32,22 +32,38 @@ Use `MultiAssetMarketDataLoader` for current strategy configs. Single-asset
 strategies are represented as one-symbol `strategy_run` configs and are loaded
 by the unified runner through the same market-data boundary.
 
-## Multi-Asset Example
+## Multi-Asset Boundary
 
-```python
-from pathlib import Path
+Provider requests are compiled from an EngineRequest with
+`market_data_spec_from_requirements`. Do not author a loader interval directly:
+the provider adapter derives its exact provider value from the bound execution
+stream `BarSpec`, and rejects unsupported combinations without aliases or
+fallbacks.
 
-from dataloader.market_data_loader import MultiAssetMarketDataLoader
+## Exact Provider Window Contract
 
-frames = MultiAssetMarketDataLoader(repo_root=Path.cwd()).load(
-    {
-        "provider": "yfinance",
-        "symbols": ["QQQ", "GLD"],
-        "start": "2020-01-01",
-        "interval": "1d",
-    }
-)
-```
+The capability contract describes what the adapter can request exactly. It is
+not a promise that a local broker gateway, account permission, entitlement, or
+instrument history is available.
+
+| Provider | Certified native bars | Adapter history/window rule |
+| --- | --- | --- |
+| yfinance | 1d only | Intraday and higher direct periods are rejected. Missing rows, duplicate timestamps, and out-of-order timestamps fail the run; no provider or frequency fallback exists. |
+| Binance Spot | 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 8h, 12h, 1d | Pages at 1,000 candles. Explicit end timestamps are treated as exclusive and provider responses are filtered to `[start, end)`. Available history still begins at the symbol listing. |
+| Coinbase Exchange | 1m, 5m, 15m, 1h, 6h, 1d | Pages at 300 candles. Each response is filtered to its requested half-open page window before duplicate validation because the provider may return boundary candles outside that window. |
+| Futu OpenAPI | 1m, 5m, 15m, 30m, 1h, 1d | Pages at 1,000 candles. Requires the optional package, a running OpenD gateway, API permission, and market-data entitlement. |
+| IBKR | 1m, 5m, 15m, 30m, 1h, 1d | Current adapter makes one bounded request and rejects wider spans up front. Requires the optional package, a running TWS/IB Gateway, API permission, and market-data entitlement. |
+
+`unbounded` in a provider capability means “no additional adapter history
+window cap after pagination.” It never means pre-listing data, guaranteed
+broker entitlement, or guaranteed connectivity. Unsupported intervals and
+unavailable windows fail; the loader does not change provider or frequency.
+
+All certified providers apply one fail-closed quality gate after adapter
+normalization. Missing OHLCV fields or values, duplicate timestamps,
+out-of-order timestamps, misaligned fields, and missing bars stop the run.
+Failures use `run_failure.v1`; Run Center and AI-readable output receive the
+same `error_code`, provider, message, details, and corrective action.
 
 ## Provider Data Plus Local Features
 

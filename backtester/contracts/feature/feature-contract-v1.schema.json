@@ -53,7 +53,7 @@
       "required": [
         "field",
         "source",
-        "frequency",
+        "bar_spec",
         "timezone",
         "dtype",
         "fill_policy",
@@ -79,7 +79,7 @@
             "time_format": {"type": "string", "minLength": 1}
           }
         },
-        "frequency": {"type": "string", "minLength": 1},
+        "bar_spec": {"$ref": "#/$defs/bar_spec"},
         "timezone": {"type": "string", "minLength": 1},
         "dtype": {"type": "string", "enum": ["float", "int", "bool", "category", "string"]},
         "fill_policy": {"type": "string", "enum": ["none", "ffill", "bfill", "drop", "zero"]},
@@ -88,6 +88,27 @@
         "staleness_max_bars": {"type": "integer", "minimum": 0},
         "allowed_missing_ratio": {"type": "number", "minimum": 0, "maximum": 1},
         "description": {"type": "string"}
+      }
+    },
+    "bar_spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aggregation", "step", "unit", "price_type", "alignment"],
+      "properties": {
+        "aggregation": {"const": "time"},
+        "step": {"type": "integer", "minimum": 1},
+        "unit": {
+          "type": "string",
+          "enum": ["minute", "hour", "day", "week", "month"]
+        },
+        "price_type": {
+          "type": "string",
+          "enum": ["last", "mid", "bid", "ask", "mark"]
+        },
+        "alignment": {
+          "type": "string",
+          "enum": ["session_open", "clock", "utc_epoch"]
+        }
       }
     }
   }

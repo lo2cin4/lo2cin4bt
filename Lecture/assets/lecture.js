@@ -66,6 +66,24 @@ const lectureGlossaryTerms = [
     definition: "一份可驗證的策略說明，記錄市場資料、訊號、配置、成交、成本、風控及參數範圍。人工智能與執行引擎以同一份內容溝通。",
   },
   {
+    key: "bar-time",
+    label: "行情週期契約（bar_time）",
+    aliases: ["行情週期契約（bar_time）", "正式時間契約（bar_time）"],
+    definition: "聲明行情棒週期、交易時段、時區、時間戳、資料可用時間、價格處理及資料流來源。引擎據此判斷資料何時可用及能否成交。",
+  },
+  {
+    key: "execution-stream",
+    label: "執行資料流（execution stream）",
+    aliases: ["執行資料流（execution stream）"],
+    definition: "提供可成交時間與價格的市場資料流。外部執行資料流的週期必須由指定資料來源支援，否則執行會停止。",
+  },
+  {
+    key: "decision-stream",
+    label: "決策資料流（decision stream）",
+    aliases: ["決策資料流（decision stream）"],
+    definition: "提供策略計算指標及形成訊號的行情資料流。它可與執行資料流相同，或由共享 Rust 引擎按已完成行情棒衍生。",
+  },
+  {
     key: "run-center",
     label: "執行中心（Run Center）",
     aliases: ["執行中心（Run Center）"],
@@ -162,6 +180,12 @@ const lectureGlossaryTerms = [
     definition: "資金曲線由歷史高點跌至其後低點的最大幅度。它顯示最深跌幅，但不說明回撤持續多久。",
   },
   {
+    key: "intraday-max-drawdown",
+    label: "日內最大回撤（Intraday Max Drawdown）",
+    aliases: ["日內最大回撤（Intraday Max Drawdown）"],
+    definition: "使用日內資金點計算交易時段內最大的高點至低點跌幅。它補充日結最大回撤，避免同日回升掩蓋日內資金壓力。",
+  },
+  {
     key: "oos-is-ratio",
     label: "樣本外／樣本內比率（OOS / IS ratio）",
     aliases: ["樣本外／樣本內比率（OOS / IS ratio）", "樣本外／樣本內比率（OOS/IS ratio）"],
@@ -226,6 +250,12 @@ const lectureGlossaryTerms = [
     label: "參數範圍（parameter domain）",
     aliases: ["參數範圍（parameter domain）", "參數範圍（Parameter Domain）"],
     definition: "列出參數可採用的值，以及範圍起點、終點和間距。參數矩陣與前向尋優按這個範圍建立候選組合。",
+  },
+  {
+    key: "candidate-id",
+    label: "候選識別碼（candidate_id）",
+    aliases: ["候選識別碼（candidate_id）"],
+    definition: "用來配對候選摘要、排名、目標函數、前向分析視窗及完整產物。各處識別碼不相符時要回報契約錯誤，不能改用另一候選。",
   },
   {
     key: "data-health",

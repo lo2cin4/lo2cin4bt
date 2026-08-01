@@ -6,6 +6,7 @@ import pytest
 
 from app.api.metrics_contract_payload import MetricsContractPayloadService
 from app.api.shared_chart_series import SharedChartSeriesStore
+from app.api.time_context import bar_spec_label
 from app.runtime.registry import AppRegistry
 from backtester.StrategyRunConfig_backtester import normalize_strategy_run_config
 
@@ -36,7 +37,7 @@ def _contract_run(tmp_path: Path) -> tuple[MetricsContractPayloadService, str, P
             "run_id": run_id,
             "series": [
                 {
-                    "series_id": "candidate-a",
+                    "series_id": "candidate_a:single_backtest:fixed",
                     "label": "Candidate A",
                     "x": ["2024-01-01", "2024-01-02"],
                     "y": [100.0, 101.0],
@@ -55,11 +56,21 @@ def _contract_run(tmp_path: Path) -> tuple[MetricsContractPayloadService, str, P
         metadata_path,
         [
             {
-                "Backtest_id": "candidate-a",
+                "Backtest_id": "candidate_a:single_backtest:fixed",
+                "Annualization": {
+                    "schema_version": "metrics_annualization.v1",
+                    "basis": "session_close_projection",
+                    "projection_policy": "last_accepted_equity_per_session",
+                    "periods_per_year": 252,
+                    "risk_free_rate_annual": 0.04,
+                },
+                "Projected_session_count": 2,
+                "Projected_return_interval_count": 1,
                 "Total_return": 0.01,
                 "Sharpe": 1.2,
                 "Max_drawdown": -0.02,
                 "BAH_Total_return": 0.005,
+                "Excess_return": 0.005,
             }
         ],
     )
@@ -75,6 +86,21 @@ def _contract_run(tmp_path: Path) -> tuple[MetricsContractPayloadService, str, P
     return MetricsContractPayloadService(registry), run_id, plot_path
 
 
+@pytest.mark.parametrize(
+    ("step", "unit", "expected"),
+    [
+        (1, "week", "1 week"),
+        (2, "week", "2 weeks"),
+        (1, "month", "1 month"),
+        (3, "month", "3 months"),
+    ],
+)
+def test_typed_frequency_label_supports_calendar_periods(
+    step: int, unit: str, expected: str
+) -> None:
+    assert bar_spec_label({"step": step, "unit": unit}) == expected
+
+
 def test_metrics_contract_payload_reads_json_contracts_without_parquet(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -87,6 +113,14 @@ def test_metrics_contract_payload_reads_json_contracts_without_parquet(
     assert payload["rows"][0]["sharpe"] == 1.2
     assert payload["rows"][0]["excess_return"] == pytest.approx(0.005)
     assert payload["series"][0]["y"] == [100.0, 101.0]
+    assert payload["annualization"]["basis"] == "session_close_projection"
+    assert payload["strategy_summary"]["annualization"]["periods_per_year"] == 252
+    assert (
+        payload["time_context"]
+        == payload["strategy_summary"]["time_context"]
+    )
+    assert payload["rows"][0]["projected_session_count"] == 2
+    assert payload["rows"][0]["projected_return_interval_count"] == 1
 
 
 def test_metrics_contract_keeps_metricstracker_values_when_matrix_metrics_are_null_or_stale(
@@ -101,7 +135,8 @@ def test_metrics_contract_keeps_metricstracker_values_when_matrix_metrics_are_nu
             "schema_version": "portfolio_matrix_summary.v1",
             "rows": [
                 {
-                    "backtest_id": "candidate-a",
+                    "backtest_id": "candidate_a:single_backtest:fixed",
+                    "strategy_id": "candidate_a:single_backtest:fixed",
                     "total_return": 99.0,
                     "cagr": None,
                     "sharpe": None,
@@ -134,6 +169,20 @@ def test_metrics_contract_payload_rejects_unvalidated_plot_source(tmp_path: Path
 
     with pytest.raises(ValueError, match="matching validated canonical"):
         service.ensure(run_id)
+
+
+def test_metrics_contract_payload_rejects_missing_rust_annualization(
+    tmp_path: Path,
+) -> None:
+    service, run_id, _plot_path = _contract_run(tmp_path)
+    metadata_path = service._artifact_path(run_id, "metricstracker_metadata")
+    assert metadata_path is not None
+    rows = json.loads(metadata_path.read_text(encoding="utf-8"))
+    del rows[0]["Annualization"]
+    _write_json(metadata_path, rows)
+
+    with pytest.raises(ValueError, match="Rust Annualization"):
+        service.ensure(run_id, force=True)
 
 
 def test_metrics_contract_payload_exposes_complete_executable_strategy_logic(
@@ -199,6 +248,113 @@ def test_metrics_contract_payload_exposes_complete_executable_strategy_logic(
     assert "TLT 50%" in steps[5]["detail"]
     assert "calendar event known before session" in steps[6]["detail"]
     assert "QQQ 100%" in steps[6]["detail"]
+
+
+def test_metrics_contract_payload_exposes_exact_multitimeframe_context(
+    tmp_path: Path,
+) -> None:
+    service, run_id, _plot_path = _contract_run(tmp_path)
+    strategy_path = service.registry.build_run_paths(run_id)["snapshot_dir"] / "strategy_run.json"
+    strategy = {
+        "schema_version": "strategy_run",
+        "data": {
+            "bar_time": {
+                "schema_version": "bar_time_contract.v1",
+                "contract_id": "lo2cin4bt.bar_time_contract.v1",
+                "session_model": {
+                    "calendar_id": "XNYS",
+                    "timezone": "America/New_York",
+                    "session_scope": "regular",
+                    "session_label_policy": "exchange_local_date",
+                    "non_session_bar_policy": "reject",
+                },
+                "timestamp_model": {
+                    "time_standard": "UTC",
+                    "precision": "nanosecond",
+                    "clock": "historical_available_time",
+                    "ordering": "available_time_then_event_time",
+                },
+                "price_model": {
+                    "price_basis": "split_dividend_adjusted",
+                    "corporate_action_policy": "provider_applied",
+                },
+                "streams": [
+                    {
+                        "stream_id": "execution_1m",
+                        "role": "execution",
+                        "source": {"kind": "external", "provider_id": "fixture"},
+                        "bar_spec": {
+                            "aggregation": "time",
+                            "step": 1,
+                            "unit": "minute",
+                            "price_type": "last",
+                            "alignment": "session_open",
+                        },
+                        "timestamp_semantics": {
+                            "timestamp_convention": "bar_close",
+                            "interval_boundary": "left_open_right_closed",
+                            "bar_open_time_column": "bar_open_timestamp",
+                            "bar_close_time_column": "bar_close_timestamp",
+                            "available_time_column": "available_timestamp",
+                            "session_label_column": "session_label",
+                            "availability_policy": "bar_close",
+                        },
+                    },
+                    {
+                        "stream_id": "decision_5m",
+                        "role": "decision",
+                        "source": {
+                            "kind": "derived",
+                            "parent_stream_id": "execution_1m",
+                            "aggregation_engine": "shared_rust",
+                            "empty_bar_policy": "omit",
+                            "partial_first_bar_policy": "omit",
+                            "partial_final_bar_policy": "omit",
+                        },
+                        "bar_spec": {
+                            "aggregation": "time",
+                            "step": 5,
+                            "unit": "minute",
+                            "price_type": "last",
+                            "alignment": "session_open",
+                        },
+                        "timestamp_semantics": {
+                            "timestamp_convention": "bar_close",
+                            "interval_boundary": "left_open_right_closed",
+                            "bar_open_time_column": "bar_open_timestamp",
+                            "bar_close_time_column": "bar_close_timestamp",
+                            "available_time_column": "available_timestamp",
+                            "session_label_column": "session_label",
+                            "availability_policy": "bar_close",
+                        },
+                    },
+                ],
+            },
+            "stream_binding": {
+                "execution_stream_id": "execution_1m",
+                "decision_stream_id": "decision_5m",
+            },
+        },
+        "universe": {"symbols": ["QQQ"]},
+        "signals": {},
+        "fill_model": {},
+    }
+    _write_json(strategy_path, strategy)
+
+    payload = service.load(run_id, force=True)
+    summary = payload["strategy_summary"]
+    context = summary["time_context"]
+
+    assert context["execution"]["stream_id"] == "execution_1m"
+    assert context["execution"]["bar_spec"]["unit"] == "minute"
+    assert context["decision"]["stream_id"] == "decision_5m"
+    assert context["decision"]["bar_spec"]["step"] == 5
+    assert context["decision"]["source"]["kind"] == "derived"
+    assert context["decision"]["timestamp_semantics"]["availability_policy"] == "bar_close"
+    assert context["session"]["timezone"] == "America/New_York"
+    assert context["timestamp"]["time_standard"] == "UTC"
+    assert summary["frequency_label"] == "1 minute"
+    assert summary["decision_frequency_label"] == "5 minutes"
 
 
 def test_every_runnable_strategy_has_complete_logic_projection() -> None:

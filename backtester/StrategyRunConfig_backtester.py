@@ -23,6 +23,7 @@ from backtester.ops.support_checker import (
 )
 from backtester.ops.registry import build_registry, materialize_operation_defaults
 from backtester.RuntimeContracts_backtester import build_normalized_strategy_plan
+from backtester.timeframe_contracts import validate_bar_time_contract
 
 
 SCHEMA_VERSION = "strategy_run"
@@ -85,6 +86,13 @@ RISK_GATE_ACTION_IDS = {
     "shadow_until_recovery",
     "block_new_orders",
     "reduce_exposure",
+}
+
+LEGACY_DATA_TIME_FIELDS = {
+    "frequency",
+    "interval",
+    "calendar",
+    "timezone",
 }
 
 STRATEGY_RUN_TOP_LEVEL_FIELDS = {
@@ -376,7 +384,15 @@ def _finalize_normalized(config: Dict[str, Any]) -> Dict[str, Any]:
     out["schema_version"] = SCHEMA_VERSION
     out["platform"] = _dict(out.get("platform"))
     out["data"] = _dict(out.get("data"))
+    _validate_data_time_contract(out["data"])
     out["universe"] = _dict(out.get("universe"))
+    if _dict(out.get("factor_pipeline")):
+        raise StrategyRunConfigError(
+            "factor_pipeline is retired because it performed result-changing "
+            "calculations in Python. Express supported factor inputs with "
+            "computed_fields[] so the shared Rust engine owns the calculation; "
+            "unsupported factor operations require a reviewed Rust building block."
+        )
     out["factor_pipeline"] = _dict(out.get("factor_pipeline"))
     computed_fields = list(out.get("computed_fields") or [])
     if "features" in out or "indicators" in out or (
@@ -484,6 +500,72 @@ def _finalize_normalized(config: Dict[str, Any]) -> Dict[str, Any]:
     except StrategyBuildingBlockSupportError as exc:
         raise StrategyRunConfigError(str(exc)) from exc
     return out
+
+
+def _validate_data_time_contract(data: Mapping[str, Any]) -> None:
+    legacy_fields = sorted(set(data) & LEGACY_DATA_TIME_FIELDS)
+    if legacy_fields:
+        raise StrategyRunConfigError(
+            "data.bar_time is the only time contract; legacy time fields are not "
+            "supported: " + ", ".join(legacy_fields)
+        )
+    for section_name in ("benchmark", "market_data"):
+        section = data.get(section_name)
+        if not isinstance(section, Mapping):
+            continue
+        nested_legacy_fields = sorted(set(section) & LEGACY_DATA_TIME_FIELDS)
+        if nested_legacy_fields:
+            raise StrategyRunConfigError(
+                f"data.{section_name} must use the bound execution stream; legacy "
+                "time fields are not supported: " + ", ".join(nested_legacy_fields)
+            )
+
+    bar_time = data.get("bar_time")
+    if not isinstance(bar_time, Mapping) or not bar_time:
+        raise StrategyRunConfigError("Strategy Run Config requires data.bar_time")
+    try:
+        validate_bar_time_contract(bar_time)
+    except ValueError as exc:
+        raise StrategyRunConfigError(f"Invalid data.bar_time: {exc}") from exc
+
+    binding = data.get("stream_binding")
+    if not isinstance(binding, Mapping):
+        raise StrategyRunConfigError("Strategy Run Config requires data.stream_binding")
+    expected_fields = {"execution_stream_id", "decision_stream_id"}
+    missing_fields = sorted(expected_fields - set(binding))
+    unknown_fields = sorted(set(binding) - expected_fields)
+    if missing_fields or unknown_fields:
+        raise StrategyRunConfigError(
+            "data.stream_binding fields are invalid: "
+            f"missing={missing_fields}, unknown={unknown_fields}"
+        )
+
+    streams = {
+        str(stream.get("stream_id") or ""): stream
+        for stream in list(bar_time.get("streams") or [])
+        if isinstance(stream, Mapping)
+    }
+    execution_stream_id = str(binding.get("execution_stream_id") or "").strip()
+    decision_stream_id = str(binding.get("decision_stream_id") or "").strip()
+    execution_stream = streams.get(execution_stream_id)
+    if execution_stream is None or execution_stream.get("role") != "execution":
+        raise StrategyRunConfigError(
+            "data.stream_binding.execution_stream_id must reference the declared "
+            "execution stream"
+        )
+    decision_stream = streams.get(decision_stream_id)
+    if decision_stream is None:
+        raise StrategyRunConfigError(
+            "data.stream_binding.decision_stream_id must reference a declared stream"
+        )
+    if (
+        decision_stream_id != execution_stream_id
+        and decision_stream.get("role") != "decision"
+    ):
+        raise StrategyRunConfigError(
+            "data.stream_binding.decision_stream_id must reference a decision stream "
+            "or the execution stream"
+        )
 
 
 def _materialize_simulation(raw_simulation: Any) -> Dict[str, Any]:
@@ -1096,9 +1178,8 @@ def _resolved_strategy_snapshot(config: Mapping[str, Any]) -> Dict[str, Any]:
         "strategy_id": str(metadata.get("strategy_id") or ""),
         "display_label": str(platform.get("display_label") or ""),
         "provider": str(data.get("provider") or ""),
-        "frequency": str(data.get("frequency") or data.get("interval") or ""),
-        "calendar": str(data.get("calendar") or ""),
-        "timezone": str(data.get("timezone") or ""),
+        "bar_time": deepcopy(_dict(data.get("bar_time"))),
+        "stream_binding": deepcopy(_dict(data.get("stream_binding"))),
         "benchmark_symbol": benchmark_symbol,
         "symbol_count": len(symbols),
         "symbols": symbols,
@@ -1195,7 +1276,7 @@ def _engine_capability_requirements(
         "strategy_preset_id": str(platform.get("strategy_preset_id") or ""),
         "workflow_id": workflow_id,
         "result_type": result_type,
-        "requires_session_level_bars": True,
+        "requires_typed_bar_time": True,
         "requires_portfolio_accounting": bool(execution_plan.get("requires_portfolio_accounting")),
         "requires_vector_precompute": bool(execution_plan.get("vector_precompute")),
         "supports_factor_pipeline": bool(config.get("factor_pipeline")),
@@ -1204,7 +1285,8 @@ def _engine_capability_requirements(
         "supports_rolling_validation": True,
         "workflow_support": workflow_support,
         "timing_model": str(fill_model.get("timing") or ""),
-        "calendar": str(data.get("calendar") or ""),
+        "bar_time": deepcopy(_dict(data.get("bar_time"))),
+        "stream_binding": deepcopy(_dict(data.get("stream_binding"))),
         "max_positions": risk.get("max_positions"),
         "selection_top_n": selection.get("top_n"),
         "producer_requirements": producer_requirements,

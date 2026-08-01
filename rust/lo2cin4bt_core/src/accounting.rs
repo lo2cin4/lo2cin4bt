@@ -1,4 +1,5 @@
 use crate::artifact_tables::write_result_rows_parquet;
+use crate::computed_fields::returns::simple_return;
 use crate::result_validator::{
     validate_result_tables, ResultTableView, ResultValidationError, ResultValidationReport,
 };
@@ -6,6 +7,7 @@ use crate::risk::{
     RiskControlError, RiskControlState, PERMANENT_STOP_ACTION, SHADOW_ACTION,
     SHADOW_RECOVERY_ARMED_ACTION, SHADOW_RECOVERY_RESUMED_ACTION,
 };
+use crate::session_progress::SessionProgress;
 use crate::simulation::{
     execute_target_weight_orders, maintenance_margin_breached, SettlementEvent,
     SettlementInstruction, SettlementLedger, SimulatedAccountConfig, SimulatedOrderEvent,
@@ -48,6 +50,8 @@ pub enum AccountingError {
     MissingRiskGateAction,
     #[error("reduce_exposure requires reduce_exposure_factor in (0, 1]")]
     InvalidReduceExposureFactor,
+    #[error("invalid session progression: {0}")]
+    InvalidSessionProgress(String),
     #[error(transparent)]
     RiskControl(#[from] RiskControlError),
     #[error(transparent)]
@@ -67,6 +71,8 @@ pub struct AccountingConfig {
     #[serde(default = "default_borrow_day_count")]
     pub borrow_day_count: u32,
     #[serde(default)]
+    pub session_label_by_event_time: BTreeMap<String, String>,
+    #[serde(default)]
     pub risk_gates: AccountingRiskGateConfig,
     #[serde(default)]
     pub simulated_venue: SimulatedVenueConfig,
@@ -83,6 +89,7 @@ impl Default for AccountingConfig {
             allow_short: false,
             short_borrow_rate_annual: 0.0,
             borrow_day_count: default_borrow_day_count(),
+            session_label_by_event_time: BTreeMap::new(),
             risk_gates: AccountingRiskGateConfig::default(),
             simulated_venue: SimulatedVenueConfig::default(),
             simulated_account: SimulatedAccountConfig::default(),
@@ -156,6 +163,7 @@ pub struct AccountingInput {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccountingEvent {
     pub time: String,
+    pub session_label: String,
     pub equity_before_trade: f64,
     pub equity_after_trade: f64,
     pub portfolio_return: f64,
@@ -251,14 +259,18 @@ pub fn run_accounting(input: AccountingInput) -> Result<AccountingSummary, Accou
     let mut risk_gate_events = Vec::new();
     let mut drawdown_recovery = DrawdownRecoveryState::default();
     let mut settlement_ledger = SettlementLedger::default();
+    let mut session_progress = SessionProgress::default();
     let result_contexts = input
         .checkpoints
         .iter()
         .map(AccountingResultContext::from_checkpoint)
         .collect::<Vec<_>>();
 
-    for (checkpoint_index, checkpoint) in input.checkpoints.into_iter().enumerate() {
-        if checkpoint_index > 0 {
+    for checkpoint in input.checkpoints {
+        let session = session_progress
+            .observe(&checkpoint.time, &input.config.session_label_by_event_time)
+            .map_err(AccountingError::InvalidSessionProgress)?;
+        if session.advanced {
             settlement_ledger.advance_session();
         }
         validate_checkpoint(&checkpoint, &input.config)?;
@@ -284,7 +296,7 @@ pub fn run_accounting(input: AccountingInput) -> Result<AccountingSummary, Accou
         }
 
         let portfolio_return = if equity_before_return > 0.0 {
-            pre_trade_equity / equity_before_return - 1.0
+            simple_return(pre_trade_equity, equity_before_return)
         } else {
             0.0
         };
@@ -293,12 +305,14 @@ pub fn run_accounting(input: AccountingInput) -> Result<AccountingSummary, Accou
             .filter(|weight| **weight < 0.0)
             .map(|weight| weight.abs())
             .sum::<f64>();
-        let borrow_cost = if short_gross > 0.0 && input.config.short_borrow_rate_annual > 0.0 {
-            pre_trade_equity * short_gross * input.config.short_borrow_rate_annual
-                / input.config.borrow_day_count as f64
-        } else {
-            0.0
-        };
+        let borrow_cost =
+            if session.advanced && short_gross > 0.0 && input.config.short_borrow_rate_annual > 0.0
+            {
+                pre_trade_equity * short_gross * input.config.short_borrow_rate_annual
+                    / input.config.borrow_day_count as f64
+            } else {
+                0.0
+            };
         pre_trade_equity = (pre_trade_equity - borrow_cost).max(0.0);
         if pre_trade_equity > equity_peak {
             equity_peak = pre_trade_equity;
@@ -462,6 +476,7 @@ pub fn run_accounting(input: AccountingInput) -> Result<AccountingSummary, Accou
 
         events.push(AccountingEvent {
             time: checkpoint.time,
+            session_label: session.label,
             equity_before_trade: pre_trade_equity,
             equity_after_trade,
             portfolio_return,
@@ -495,6 +510,7 @@ pub fn run_accounting(input: AccountingInput) -> Result<AccountingSummary, Accou
     let result_validation = validate_result_tables(ResultTableView {
         result_schema_version: &result_tables.schema_version,
         equity_curve: &result_tables.equity_curve,
+        execution_equity_curve: &[],
         holdings: &result_tables.holdings,
         rebalance_audit: &result_tables.rebalance_audit,
         rebalance_trades: &result_tables.rebalance_trades,
@@ -517,7 +533,7 @@ pub fn run_accounting(input: AccountingInput) -> Result<AccountingSummary, Accou
     Ok(AccountingSummary {
         start_equity,
         final_equity: equity,
-        total_return: equity / start_equity - 1.0,
+        total_return: simple_return(equity, start_equity),
         checkpoints,
         active_rebalances,
         average_turnover: turnover_sum / checkpoints as f64,
@@ -612,6 +628,7 @@ fn build_equity_rows(events: &[AccountingEvent], cost_rate: f64) -> Vec<BTreeMap
         .map(|event| {
             let mut row = BTreeMap::new();
             row.insert("Time".to_string(), json!(event.time));
+            row.insert("Session_label".to_string(), json!(event.session_label));
             row.insert(
                 "Equity_value".to_string(),
                 json_f64(event.equity_after_trade),
@@ -864,6 +881,7 @@ fn export_accounting_bundle(
     let mut bundle_paths = BTreeMap::new();
     let table_specs = [
         ("equity_curve", "equity_curve"),
+        ("execution_equity_curve", "execution_equity_curve"),
         ("holdings", "holdings"),
         ("rebalance_audit", "rebalance_audit"),
         ("rebalance_trades", "rebalance_trades"),
@@ -871,7 +889,7 @@ fn export_accounting_bundle(
         ("settlements", "settlements"),
     ];
     for (table_key, file_key) in table_specs {
-        let rows = accounting_table_rows(result_tables, table_key, &safe_run_id);
+        let rows = accounting_table_rows(result_tables, table_key, run_id);
         let path = output_path.join(format!("{safe_run_id}_{file_key}.parquet"));
         write_result_rows_parquet(&path, &rows, table_key)
             .map_err(AccountingError::ArtifactExport)?;
@@ -892,7 +910,7 @@ fn accounting_table_rows(
     candidate_id: &str,
 ) -> Vec<BTreeMap<String, Value>> {
     let rows = match table_key {
-        "equity_curve" => &result_tables.equity_curve,
+        "equity_curve" | "execution_equity_curve" => &result_tables.equity_curve,
         "holdings" => &result_tables.holdings,
         "rebalance_audit" => &result_tables.rebalance_audit,
         "rebalance_trades" => &result_tables.rebalance_trades,
@@ -1264,7 +1282,7 @@ pub(crate) fn apply_risk_gates(
 
     if let Some(limit) = gates.max_drawdown {
         if equity.is_finite() && equity_peak.is_finite() && equity_peak > 0.0 {
-            let drawdown = equity / equity_peak - 1.0;
+            let drawdown = simple_return(equity, equity_peak);
             if drawdown <= -limit.abs() {
                 adjusted = apply_gate_action(gates, &adjusted, before_weights, symbols);
                 events.push(risk_gate_event(
@@ -1505,6 +1523,7 @@ mod tests {
                 allow_short: false,
                 short_borrow_rate_annual: 0.0,
                 borrow_day_count: 252,
+                session_label_by_event_time: BTreeMap::new(),
                 risk_gates: AccountingRiskGateConfig::default(),
                 simulated_venue: SimulatedVenueConfig::default(),
                 simulated_account: SimulatedAccountConfig::default(),

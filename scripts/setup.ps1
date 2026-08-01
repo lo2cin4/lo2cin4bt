@@ -6,9 +6,18 @@ param(
 
 $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-$VenvPython = Join-Path $RepoRoot ".venv\Scripts\python.exe"
+$RequiredUvVersion = "0.11.32"
 
 Set-Location $RepoRoot
+
+$uvCommand = Get-Command uv -ErrorAction SilentlyContinue
+if (-not $uvCommand) {
+    throw "uv $RequiredUvVersion is required. Install it from https://docs.astral.sh/uv/ and rerun setup."
+}
+$uvVersionLine = (& $uvCommand.Source --version | Select-Object -First 1)
+if ($uvVersionLine -notmatch "^uv $([regex]::Escape($RequiredUvVersion))(?:\s|$)") {
+    throw "uv $RequiredUvVersion is required; found '$uvVersionLine'."
+}
 
 $candidateNodeDirs = @(
     $env:LO2CIN4BT_NODE_HOME,
@@ -49,17 +58,15 @@ foreach ($rustRoot in $candidateRustRoots) {
     }
 }
 
-if (-not (Test-Path $VenvPython)) {
-    python -m venv .venv
-}
-
-& $VenvPython -m pip install --upgrade pip wheel setuptools
 if ($Brokers) {
-    & $VenvPython -m pip install -r requirements-brokers.lock
+    Write-Host "uv sync --locked --group brokers"
+    & $uvCommand.Source sync --locked --group brokers
 } elseif ($Dev) {
-    & $VenvPython -m pip install -r requirements-dev.lock
+    Write-Host "uv sync --locked --group dev"
+    & $uvCommand.Source sync --locked --group dev
 } else {
-    & $VenvPython -m pip install -r requirements.lock
+    Write-Host "uv sync --locked"
+    & $uvCommand.Source sync --locked
 }
 
 if (-not $SkipFrontend) {
@@ -73,4 +80,10 @@ Push-Location rust/lo2cin4bt_core
 cargo build --release --bins
 Pop-Location
 
-& $VenvPython scripts\doctor.py
+if ($Brokers) {
+    & $uvCommand.Source run --locked --exact --group brokers python scripts\doctor.py
+} elseif ($Dev) {
+    & $uvCommand.Source run --locked --exact --group dev python scripts\doctor.py
+} else {
+    & $uvCommand.Source run --locked --exact python scripts\doctor.py
+}

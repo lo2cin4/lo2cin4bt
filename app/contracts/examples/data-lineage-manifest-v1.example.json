@@ -31,11 +31,25 @@
       "requested_end": null,
       "actual_start": "2009-01-02",
       "actual_end": "2026-04-13",
-      "frequency_requested": "1D",
-      "frequency_resolved": "1d",
+      "external_execution_stream_id": "execution_daily",
+      "external_execution_bar_spec": {
+        "aggregation": "time",
+        "step": 1,
+        "unit": "day",
+        "price_type": "last",
+        "alignment": "session_open"
+      },
+      "decision_stream_id": "execution_daily",
+      "decision_bar_spec": {
+        "aggregation": "time",
+        "step": 1,
+        "unit": "day",
+        "price_type": "last",
+        "alignment": "session_open"
+      },
       "timezone": "America/New_York",
       "adjustment_policy": "auto_adjust_false",
-      "calendar_policy": "XNYS",
+      "calendar_id": "XNYS",
       "content_hash": null,
       "path_hash": null,
       "identity_hash": "sha256:example-provider-identity",

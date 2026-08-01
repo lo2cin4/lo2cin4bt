@@ -4,7 +4,7 @@ Use these as beginner-safe patterns. Always inspect the actual config before run
 
 ## Strategy Building Blocks
 
-lo2cin4bt 2.1.0 uses Strategy Building Blocks instead of one hard-coded template per indicator. A strategy should be assembled from:
+lo2cin4bt 2.2.0 uses Strategy Building Blocks instead of one hard-coded template per indicator. A strategy should be assembled from:
 
 - `computed_fields[]`: named values computed from market data, such as SMA, EMA, momentum, volatility, ATR, RSI, MACD, z-score, percentile, or Bollinger values.
 - `signals.entry` / `signals.exit`: entry and exit conditions using fields, right-side fields, comparators, crosses, `all`, `any`, and `not`.

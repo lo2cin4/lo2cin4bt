@@ -15,7 +15,13 @@
         "source_id": "spy_price",
         "time_field": "Time"
       },
-      "frequency": "1D",
+      "bar_spec": {
+        "aggregation": "time",
+        "step": 1,
+        "unit": "day",
+        "price_type": "last",
+        "alignment": "session_open"
+      },
       "timezone": "UTC",
       "dtype": "float",
       "fill_policy": "none",
@@ -34,7 +40,13 @@
         "source_id": "vix_daily",
         "time_field": "Time"
       },
-      "frequency": "1D",
+      "bar_spec": {
+        "aggregation": "time",
+        "step": 1,
+        "unit": "day",
+        "price_type": "last",
+        "alignment": "session_open"
+      },
       "timezone": "UTC",
       "dtype": "float",
       "fill_policy": "ffill",

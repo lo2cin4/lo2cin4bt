@@ -4,21 +4,22 @@ Use this before telling a user what will or will not upload to GitHub.
 
 ## Non-Negotiable Publishing Invariant
 
-The GitHub destination may change. The source boundary does not:
+This repository is the only product Git repository and the only GitHub push
+source:
 
-- Sync only source-Git-tracked files below the resolved `<project-root>/Repo`
-  product boundary.
-- Require the destination GitHub URL on every sync; do not keep a permanent
-  product remote on the parent repository.
-- Clone the destination into a new directory outside the parent Company tree.
-- Verify the clone root and both fetch/push `origin` URLs before committing or
-  pushing.
-- Run the release guard against the source candidate, synchronized tree, and
-  staged Git index.
-- Push only from the verified external clone. Never add a product remote to
-  Company and never push from the Company Git root.
-- Untracked source files, a destination inside Company, remote drift, or a guard
-  failure must stop the operation. There is no exception or fallback route.
+- Resolve the Git root exactly to this `Repo` directory before any release.
+- Keep one explicit `origin` whose fetch and push URLs both match the approved
+  GitHub repository.
+- Require a clean `main`, no untracked public candidate files, no staged or
+  unstaged changes, and a passing release guard before pushing.
+- Fetch before push and stop when local `main` is behind or has diverged from
+  `origin/main`; do not force push or create an alternate publication route.
+- When nested inside a Company workspace, the parent tracks only the product
+  commit as a Git submodule. The parent has no product remote and must never be
+  used to push product code.
+- Remote drift, source-root drift, dirty state, release-guard failure, or an
+  unexpected parent relationship must stop the operation. There is no exception
+  or fallback route.
 
 ## Public GitHub
 

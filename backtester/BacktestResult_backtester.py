@@ -19,3 +19,4 @@ class MultiAssetBacktestResult:
     config: Dict[str, Any]
     validation_report: Dict[str, Any]
     risk_gate_events: pd.DataFrame = field(default_factory=pd.DataFrame)
+    execution_equity_curve: pd.DataFrame = field(default_factory=pd.DataFrame)

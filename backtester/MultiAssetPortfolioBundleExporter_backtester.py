@@ -41,6 +41,7 @@ class MultiAssetPortfolioBundleExporterBacktester:
 
         table_specs = {
             "equity_curve": "equity_curve",
+            "execution_equity_curve": "execution_equity_curve",
             "holdings": "holdings",
             "rebalance_audit": "rebalance_audit",
             "rebalance_trades": "rebalance_trades",
@@ -121,6 +122,7 @@ class MultiAssetPortfolioBundleExporterBacktester:
                     "run_validation": result.validation_report,
                     "artifact_consistency": {
                         "equity_rows": int(len(result.equity_curve)),
+                        "execution_equity_rows": int(len(result.execution_equity_curve)),
                         "holding_rows": int(len(result.holdings)),
                         "rebalance_rows": int(len(result.rebalance_audit)),
                         "rebalance_trade_rows": int(len(result.rebalance_trades)),
@@ -132,8 +134,14 @@ class MultiAssetPortfolioBundleExporterBacktester:
         }
 
     def _candidate_metadata(self, result: MultiAssetBacktestResult) -> Dict[str, Any]:
-        equity_summary = canonical_equity_summary(result.equity_curve)
         validation = result.validation_report if isinstance(result.validation_report, dict) else {}
+        rust_summary = validation.get("rust_timeline_accounting_summary")
+        if not isinstance(rust_summary, dict):
+            raise ValueError("Portfolio export requires Rust accounting summary")
+        equity_summary = canonical_equity_summary(
+            result.equity_curve,
+            rust_total_return=rust_summary.get("total_return"),
+        )
         return {
             "schema_version": "multi_asset_portfolio_export.v1",
             "artifact_type": "multi_asset_portfolio_backtest",
@@ -141,6 +149,7 @@ class MultiAssetPortfolioBundleExporterBacktester:
             "run_id": result.strategy_id,
             "row_counts": {
                 "equity_curve": int(len(result.equity_curve)),
+                "execution_equity_curve": int(len(result.execution_equity_curve)),
                 "holdings": int(len(result.holdings)),
                 "rebalance_audit": int(len(result.rebalance_audit)),
                 "rebalance_trades": int(len(result.rebalance_trades)),

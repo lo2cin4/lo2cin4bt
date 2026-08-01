@@ -1,0 +1,370 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lo2cin4bt/contracts/runtime/engine-request-v2.schema.json",
+  "title": "EngineRequestV2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "contract_id",
+    "request_id",
+    "request_hash",
+    "strategy",
+    "workflow",
+    "data_requirements",
+    "simulation",
+    "outputs",
+    "lineage"
+  ],
+  "properties": {
+    "schema_version": {"const": "engine_request.v2"},
+    "contract_id": {"const": "lo2cin4bt.engine_request.v2"},
+    "request_id": {"type": "string", "minLength": 1},
+    "request_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "strategy": {"$ref": "#/$defs/strategy"},
+    "workflow": {"$ref": "#/$defs/workflow"},
+    "data_requirements": {"$ref": "#/$defs/dataRequirements"},
+    "simulation": {"$ref": "#/$defs/simulation"},
+    "outputs": {"$ref": "#/$defs/outputs"},
+    "lineage": {"$ref": "#/$defs/lineage"}
+  },
+  "$defs": {
+    "strategy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "base_strategy_id",
+        "strategy_id",
+        "strategy_mode_id",
+        "strategy_profile_id",
+        "strategy_preset_id",
+        "plan_hash",
+        "profile_contract",
+        "decision_plan",
+        "stream_binding"
+      ],
+      "properties": {
+        "base_strategy_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+        },
+        "strategy_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*:(single_backtest|parameter_matrix|walk_forward_analysis|rolling_validation|statanalyser):[A-Za-z0-9][A-Za-z0-9._-]*$"
+        },
+        "strategy_mode_id": {"const": "multi_asset_portfolio"},
+        "strategy_profile_id": {
+          "enum": [
+            "selection_timing_portfolio",
+            "allocation_portfolio",
+            "rotation_portfolio",
+            "calendar_event_portfolio",
+            "pair_spread_portfolio",
+            "multi_leg_event_portfolio"
+          ]
+        },
+        "strategy_preset_id": {
+          "type": ["string", "null"],
+          "enum": [null, "single_asset_signal"]
+        },
+        "plan_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "profile_contract": {"type": "object"},
+        "decision_plan": {"$ref": "#/$defs/decisionPlan"},
+        "stream_binding": {"$ref": "#/$defs/streamBinding"}
+      }
+    },
+    "streamBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["execution_stream_id", "decision_stream_id"],
+      "properties": {
+        "execution_stream_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "decision_stream_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        }
+      }
+    },
+    "decisionPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "factor_pipeline",
+        "computed_fields",
+        "signals",
+        "selection",
+        "allocation",
+        "rebalance",
+        "required_operations",
+        "required_actions"
+      ],
+      "properties": {
+        "factor_pipeline": {
+          "type": "object",
+          "maxProperties": 0,
+          "description": "Retired empty placeholder. Non-empty factor pipelines are rejected before execution."
+        },
+        "computed_fields": {"type": "array", "items": {"type": "object"}},
+        "signals": {"type": "object"},
+        "selection": {"type": "object"},
+        "allocation": {"type": "object"},
+        "rebalance": {"type": "object"},
+        "required_operations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "and",
+              "calendar.event_date",
+              "calendar.session_offset_from_month_end",
+              "calendar.every_session",
+              "calendar.first_session",
+              "calendar.last_weekday_of_month",
+              "calendar.month_end",
+              "calendar.month_in",
+              "calendar.month_start",
+              "calendar.nth_weekday_of_month",
+              "calendar.quarter_end",
+              "calendar.quarter_start",
+              "calendar.weekday_eq",
+              "calendar.year_end",
+              "calendar.year_start",
+              "cross_down",
+              "cross_up",
+              "eq",
+              "ge",
+              "gt",
+              "indicator.atr",
+              "indicator.bollinger",
+              "indicator.calendar_return",
+              "indicator.ema",
+              "indicator.macd",
+              "indicator.momentum",
+              "indicator.percentile",
+              "indicator.rsi",
+              "indicator.sma",
+              "indicator.volatility",
+              "indicator.zscore",
+              "math.abs",
+              "math.add",
+              "math.clip",
+              "math.divide",
+              "math.multiply",
+              "math.negate",
+              "math.subtract",
+              "transform.fill_missing",
+              "transform.lag",
+              "transform.where",
+              "rolling.correlation",
+              "rolling.max",
+              "rolling.median",
+              "rolling.min",
+              "rolling.sum",
+              "cross_section.percentile",
+              "cross_section.rank",
+              "cross_section.winsorize",
+              "cross_section.zscore",
+              "le",
+              "lt",
+              "ne",
+              "not",
+              "or",
+              "session.same_session_close",
+              "target.change",
+              "template.fixed_allocation_rebalance",
+              "template.momentum_rotation",
+              "template.monthly_nth_weekday_same_session",
+              "template.single_asset_ma_cross"
+            ]
+          }
+        },
+        "required_actions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"enum": ["enter", "exit", "flatten", "set_target_weights"]}
+        }
+      }
+    },
+    "workflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workflow_id",
+        "run_scope",
+        "parameter_domains",
+        "resolved_parameters",
+        "combo_guard",
+        "window"
+      ],
+      "properties": {
+        "workflow_id": {
+          "enum": [
+            "single_backtest",
+            "parameter_matrix",
+            "walk_forward_analysis",
+            "rolling_validation",
+            "statanalyser"
+          ]
+        },
+        "run_scope": {
+          "enum": [
+            "single",
+            "matrix_batch",
+            "validation_train_window",
+            "validation_test_window",
+            "statistics"
+          ]
+        },
+        "parameter_domains": {"type": "object"},
+        "resolved_parameters": {"type": "object"},
+        "combo_guard": {"type": "object"},
+        "window": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["start", "end"],
+              "properties": {
+                "start": {"type": "string", "minLength": 1},
+                "end": {"type": "string", "minLength": 1}
+              }
+            }
+          ]
+        }
+      }
+    },
+    "dataRequirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bundle_schema_version",
+        "provider",
+        "symbols",
+        "provider_config",
+        "universe_config",
+        "bar_time",
+        "start_date",
+        "end_date",
+        "start_policy",
+        "external_features",
+        "benchmark"
+      ],
+      "properties": {
+        "bundle_schema_version": {"const": "market_data_bundle.v2"},
+        "provider": {"type": "string", "minLength": 1},
+        "symbols": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "provider_config": {
+          "type": "object",
+          "allOf": [
+            {"not": {"required": ["bar_time"]}},
+            {"not": {"required": ["stream_binding"]}},
+            {"not": {"required": ["frequency"]}},
+            {"not": {"required": ["interval"]}},
+            {"not": {"required": ["calendar"]}},
+            {"not": {"required": ["timezone"]}}
+          ]
+        },
+        "universe_config": {"type": "object"},
+        "bar_time": {
+          "$ref": "bar-time-contract-v1.schema.json"
+        },
+        "start_date": {"type": ["string", "null"]},
+        "end_date": {"type": ["string", "null"]},
+        "start_policy": {"type": ["string", "null"]},
+        "external_features": {"type": "array", "items": {"type": "object"}},
+        "benchmark": {}
+      }
+    },
+    "simulation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["account", "venue", "clock", "fill_model", "risk"],
+      "properties": {
+        "account": {"$ref": "#/$defs/account"},
+        "venue": {"$ref": "#/$defs/venue"},
+        "clock": {"$ref": "#/$defs/clock"},
+        "fill_model": {"type": "object"},
+        "risk": {"type": "object"}
+      }
+    },
+    "account": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "base_currency",
+        "balance_mode",
+        "starting_balance",
+        "position_mode",
+        "account_type",
+        "leverage_limit"
+      ],
+      "properties": {
+        "base_currency": {"type": "string", "minLength": 3},
+        "balance_mode": {"enum": ["normalized_equity", "cash"]},
+        "starting_balance": {"type": "number", "exclusiveMinimum": 0},
+        "position_mode": {"enum": ["netting", "hedging"]},
+        "account_type": {"enum": ["cash", "margin"]},
+        "leverage_limit": {"type": "number", "minimum": 1}
+      }
+    },
+    "venue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["venue_id", "oms_type", "book_type", "routing", "settlement_days"],
+      "properties": {
+        "venue_id": {"type": "string", "minLength": 1},
+        "oms_type": {"enum": ["netting", "hedging"]},
+        "book_type": {"enum": ["bar", "l1_mbp", "l2_mbp", "l3_mbo"]},
+        "routing": {"const": "simulated"},
+        "settlement_days": {"type": "integer", "minimum": 0}
+      }
+    },
+    "clock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "event_ordering", "tie_breaker"],
+      "properties": {
+        "mode": {"const": "historical_event_time"},
+        "event_ordering": {"const": "event_time_then_sequence"},
+        "tie_breaker": {"const": "source_then_sequence"}
+      }
+    },
+    "outputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result_contract",
+        "validation_contract",
+        "requested",
+        "metricstracker",
+        "statanalyser"
+      ],
+      "properties": {
+        "result_contract": {"const": "canonical_result_bundle.v1"},
+        "validation_contract": {"const": "result_validation_report.v1"},
+        "requested": {"type": "object"},
+        "metricstracker": {"type": "object"},
+        "statanalyser": {"type": "object"}
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_schema_version", "source_config_hash", "plan_hash"],
+      "properties": {
+        "source_schema_version": {"const": "strategy_run"},
+        "source_config_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "plan_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

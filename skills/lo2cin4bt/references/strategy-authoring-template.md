@@ -57,8 +57,8 @@ Map the user's text request to these fields:
 
 - asset or universe
 - data provider
-- data frequency
-- calendar and timezone
+- typed execution and decision `BarSpec`
+- session calendar and timezone inside `data.bar_time.session_model`
 - Strategy Building Blocks needed
 - entry rule
 - exit rule
@@ -82,7 +82,7 @@ If any required building block does not exist, use `unsupported_needs_new_buildi
 For complex or undefined strategies, including any named pattern, custom signal, or external strategy rule that lacks a repo-supported observable definition, ask the user questions in this order. Ask at most three questions per turn, then continue the same queue after the user answers.
 
 1. Observable definition: What exact data conditions define the pattern using columns lo2cin4bt can observe, such as OHLCV, volume, moving averages, highs/lows, ranges, or calendar events?
-2. Data frequency: Should the pattern be observed on daily, hourly, minute, or another bar frequency?
+2. Bar cadence: What typed execution and decision `BarSpec` should observe the pattern (for example, one day or five minutes)?
 3. Entry: What exact condition triggers entry after the pattern is observed?
 4. Exit: What exact condition exits a winning or neutral trade?
 5. Invalidation: What condition proves the setup failed before or after entry?

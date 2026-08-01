@@ -17,6 +17,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: "0.11.32"
+          enable-cache: true
+
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "24"
@@ -27,9 +32,7 @@ jobs:
         run: rustup toolchain install 1.96.0 --profile minimal
 
       - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip wheel setuptools
-          python -m pip install -r requirements-dev.lock
+        run: uv sync --locked --group dev
 
       - name: Install frontend dependencies
         working-directory: plotter/web
@@ -44,25 +47,25 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Test Rust core
-        run: cargo +1.96.0 test --manifest-path rust/lo2cin4bt_core/Cargo.toml --quiet
+        run: cargo +1.96.0 test --manifest-path rust/lo2cin4bt_core/Cargo.toml --locked --quiet
 
       - name: Build Rust release service
-        run: cargo +1.96.0 build --manifest-path rust/lo2cin4bt_core/Cargo.toml --release --bins
+        run: cargo +1.96.0 build --manifest-path rust/lo2cin4bt_core/Cargo.toml --release --bins --locked
 
       - name: Type and lint gates
         run: |
-          python -m mypy
-          python -m ruff check .
+          uv run --locked --exact --group dev python -m mypy
+          uv run --locked --exact --group dev python -m ruff check .
 
       - name: Check repository setup
-        run: python scripts/doctor.py --require-frontend-build
+        run: uv run --locked --exact --group dev python scripts/doctor.py --require-frontend-build
 
       - name: Run complete Python, acceptance, and golden suite
-        run: python -m pytest -q
+        run: uv run --locked --exact --group dev python -m pytest -q
 
       - name: Run production frontend routes
         run: |
-          python main.py --no-browser >/tmp/lo2cin4bt-app.log 2>&1 &
+          uv run --locked --exact --group dev python main.py --no-browser >/tmp/lo2cin4bt-app.log 2>&1 &
           APP_PID=$!
           trap 'kill "$APP_PID" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 60); do
@@ -80,5 +83,5 @@ jobs:
 
       - name: Verify deterministic generated contracts
         run: |
-          python -m backtester.ops.export
+          uv run --locked --exact --group dev python -m backtester.ops.export
           git diff --exit-code -- app/contracts/generated/op-registry-v1.json

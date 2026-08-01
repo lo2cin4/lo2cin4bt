@@ -279,7 +279,7 @@ def test_strategy_authoring_template_defines_ai_building_block_flow() -> None:
         "needs_clarification",
         "unsupported_needs_new_building_block",
         "observable definition",
-        "data frequency",
+        "typed execution and decision `BarSpec`",
         "entry",
         "exit",
         "invalidation",
@@ -586,14 +586,12 @@ def test_readme_default_chinese_entry_and_english_article_are_marketing_pages() 
         REPO_ROOT / "assets" / "readme" / "zh-Hant" / "03-metrics-overview.png",
         REPO_ROOT / "assets" / "readme" / "zh-Hant" / "04-backtest-detail.png",
         REPO_ROOT / "assets" / "readme" / "zh-Hant" / "05-trades-or-rebalances.png",
-        REPO_ROOT / "assets" / "readme" / "zh-Hant" / "06-parameter-matrix.png",
         REPO_ROOT / "assets" / "readme" / "zh-Hant" / "07-wfa-dashboard.png",
         REPO_ROOT / "assets" / "readme" / "en" / "01-overview.png",
         REPO_ROOT / "assets" / "readme" / "en" / "02-run-center-first-run.png",
         REPO_ROOT / "assets" / "readme" / "en" / "03-metrics-overview.png",
         REPO_ROOT / "assets" / "readme" / "en" / "04-backtest-detail.png",
         REPO_ROOT / "assets" / "readme" / "en" / "05-trades-or-rebalances.png",
-        REPO_ROOT / "assets" / "readme" / "en" / "06-parameter-matrix.png",
         REPO_ROOT / "assets" / "readme" / "en" / "07-wfa-dashboard.png",
         REPO_ROOT / "assets" / "readme" / "logos" / "yfinance.svg",
         REPO_ROOT / "assets" / "readme" / "logos" / "binance.svg",
@@ -707,7 +705,7 @@ def test_readme_default_chinese_entry_and_english_article_are_marketing_pages() 
         "assets/readme/logos/binance.svg",
         "assets/readme/logos/ibkr-icon.png",
         "目前支援的策略與研究流程",
-        "公開版本提供 8 個可初始化的回測示範",
+            "公開版本提供 9 個可初始化的回測示範",
         "橫截面多空排名與動量輪動",
         "參數矩陣（Parameter Matrix）",
         "前向分析（Walk-Forward Analysis，WFA）",
@@ -762,7 +760,7 @@ def test_readme_default_chinese_entry_and_english_article_are_marketing_pages() 
         "assets/readme/logos/binance.svg",
         "assets/readme/logos/ibkr-icon.png",
         "Supported Strategies and Research Workflows",
-        "eight backtest examples that can be initialized locally",
+            "nine backtest examples that can be initialized locally",
         "Cross-sectional long-short ranking and momentum rotation",
         "Walk-Forward Analysis (WFA)",
         "Reusable Strategy Building Blocks",
@@ -964,6 +962,46 @@ def test_readme_scroll_gif_visual_assets_are_public_and_valid() -> None:
             assert image.height >= 500, relative_path
             assert image.format == "GIF", relative_path
             assert getattr(image, "n_frames", 1) >= 2, relative_path
+
+
+def test_readme_static_visual_assets_are_media_only_and_within_contract() -> None:
+    from PIL import Image
+
+    expected_filenames = {
+        "01-overview.png",
+        "02-run-center-first-run.png",
+        "03-metrics-overview.png",
+        "04-backtest-detail.png",
+        "05-trades-or-rebalances.png",
+        "07-wfa-dashboard.png",
+    }
+    allowed_suffixes = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+    for language in ("en", "zh-Hant"):
+        asset_root = REPO_ROOT / "assets" / "readme" / language
+        actual_files = {
+            path.name
+            for path in asset_root.iterdir()
+            if path.is_file() and path.name != ".gitkeep"
+        }
+        assert actual_files == expected_filenames
+        for path in asset_root.rglob("*"):
+            if not path.is_file() or path.name == ".gitkeep":
+                continue
+            assert path.suffix.lower() in allowed_suffixes, path
+            assert path.stat().st_size <= 10_000_000, path
+            with Image.open(path) as image:
+                assert image.width >= 1280, path
+                assert image.height >= 720, path
+
+    required_demo_fixtures = {
+        "backtester/contracts/strategy/examples/"
+        "strategy-run-qqq-yfinance-daily-sma-cross-matrix-example.json",
+        "tests/fixtures/smoke/price_data_ma_cross.csv",
+        "tests/fixtures/smoke/expected_trades_ma1_ma4.json",
+        "verification/fixtures/wfa/multi_asset_close_truth.csv",
+    }
+    for relative_path in required_demo_fixtures:
+        assert (REPO_ROOT / relative_path).is_file(), relative_path
 
 
 def test_active_public_docs_avoid_stale_paths() -> None:

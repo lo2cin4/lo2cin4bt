@@ -37,7 +37,9 @@ Use this checklist before promoting README changes or a GitHub demo snapshot.
 
 - Chinese README references `assets/readme/zh-Hant/`.
 - English README references `assets/readme/en/`.
-- Each language has seven media files: overview, Run Center, Metrics, Backtest Detail, Trades/Rebalances, Parameter Matrix, and WFA.
+- Each language keeps six reviewed media files: overview, Run Center, Metrics,
+  Backtest Detail, Trades/Rebalances, and WFA. Retired Parameter Matrix media
+  must not remain as unreferenced public assets.
 - The shared hero image `assets/readme/lo2cin4btneon.jpg` is allowed before the prompt
   hook when intentionally referenced by both READMEs.
 - WFA screenshots must visibly say the demo is not validated.

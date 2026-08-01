@@ -38,13 +38,20 @@ def export_metrics_artifacts(
     metrics, enriched_rows = summary.get("metrics"), summary.get("enriched_rows")
     if not isinstance(metrics, list) or not isinstance(enriched_rows, list):
         raise RuntimeError("Rust metrics_parquet returned an invalid contract")
+    annualization = summary.get("annualization")
+    if not isinstance(annualization, dict):
+        raise RuntimeError("Rust metrics_parquet returned no annualization contract")
     output_dir = source.parent.parent / "metricstracker"
     output_dir.mkdir(parents=True, exist_ok=True)
     stem = bounded_filename_stem(source.stem, max_length=96, fallback="metrics")
     metadata_path = output_dir / f"{stem}_metadata.json"
     parquet_path = output_dir / f"{stem}_metrics.parquet"
     metadata_rows = [
-        {**row, "Metrics_kernel": "rust_metrics_parquet_v1"}
+        {
+            **row,
+            "Annualization": annualization,
+            "Metrics_kernel": "rust_metrics_parquet_v1",
+        }
         for row in metrics
         if isinstance(row, dict)
     ]
@@ -52,7 +59,11 @@ def export_metrics_artifacts(
         json.dumps(metadata_rows, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     source_frame = pd.read_parquet(source)
-    columns = [name for name in ["Time", "Equity_value", "Backtest_id"] if name in source_frame]
+    columns = [
+        name
+        for name in ["Time", "Session_label", "Equity_value", "Backtest_id"]
+        if name in source_frame
+    ]
     output = source_frame[columns].copy()
     enriched = pd.DataFrame(enriched_rows).sort_values("row_index")
     if len(enriched) != len(output):

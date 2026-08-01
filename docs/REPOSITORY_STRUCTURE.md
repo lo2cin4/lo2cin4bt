@@ -5,11 +5,10 @@ while preparing a public GitHub snapshot.
 
 ## Dependency Profiles
 
-- `requirements.txt`, `requirements-dev.txt`, and `requirements-brokers.txt`
-  are maintainer-edited dependency inputs.
-- `requirements.lock`, `requirements-dev.lock`, and
-  `requirements-brokers.lock` are reproducible installation profiles for the
-  runtime, development/CI, and optional FUTU/IBKR data adapters.
+- `pyproject.toml` is the only maintainer-edited Python dependency authority.
+- `uv.lock` is the reproducible resolution for runtime, development/CI, and
+  optional FUTU/IBKR data-adapter groups.
+- `.python-version` selects the supported Python 3.12 runtime.
 - JavaScript dependencies are managed independently by
   `plotter/web/package-lock.json`.
 

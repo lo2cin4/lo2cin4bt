@@ -16,7 +16,7 @@
     "stale_ratio",
     "max_age_bars",
     "join_mode",
-    "calendar_policy",
+    "calendar_id",
     "source_audit_id",
     "warnings",
     "errors"
@@ -46,7 +46,7 @@
     "stale_ratio": {"type": ["number", "null"], "minimum": 0},
     "max_age_bars": {"type": ["integer", "null"], "minimum": 0},
     "join_mode": {"type": "string", "minLength": 1},
-    "calendar_policy": {"type": "string", "minLength": 1},
+    "calendar_id": {"type": "string", "minLength": 1},
     "source_audit_id": {"type": ["string", "null"]},
     "warnings": {"type": "array", "items": {"type": "string"}},
     "errors": {"type": "array", "items": {"type": "string"}}

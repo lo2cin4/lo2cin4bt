@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -63,25 +64,120 @@ def _run_public_strategy(case: dict[str, Any], tmp_path: Path) -> dict[str, Any]
 
 
 @pytest.mark.golden
+def test_xnys_multilevel_bar_time_vertical_slice_golden() -> None:
+    expected = _GOLDEN["phase2_multitimeframe"]
+    assert expected["partial_final_policy_1h"] == "emit"
+    assert [item["source_count"] for item in expected["decisions"]] == [390, 210]
+    rust_crate = Path(__file__).resolve().parents[1] / "rust" / "lo2cin4bt_core"
+    completed = subprocess.run(
+        [
+            "cargo",
+            "test",
+            "engine_runtime::timestamp_tests::one_minute_to_five_minute_to_hour_to_session_executes_at_next_external_open",
+            "--",
+            "--exact",
+        ],
+        cwd=rust_crate,
+        capture_output=True,
+        text=True,
+        timeout=180,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+
+
+@pytest.mark.golden
 def test_dataloader_matches_content_addressed_golden_bundle(tmp_path: Path) -> None:
     expected = _GOLDEN["dataloader"]
-    source = tmp_path / "close.csv"
-    pd.DataFrame(
+    source_frame = pd.DataFrame(
         {
             "Time": ["2024-01-04", "2024-01-02", "2024-01-03"],
             "AAA": [102, 100, 101],
             "BBB": [198, 200, 199],
         }
-    ).to_csv(source, index=False)
+    )
+    fields = {}
+    for name in ("open", "high", "low", "close", "volume"):
+        source = tmp_path / f"{name}.csv"
+        source_frame.to_csv(source, index=False)
+        fields[name] = {"path": str(source), "time_column": "Time"}
+    timeline_path = tmp_path / "execution_timeline.csv"
+    pd.DataFrame(
+        {
+            "Time": ["2024-01-02", "2024-01-03", "2024-01-04"],
+            "external_execution_sequence": [0, 1, 2],
+            "bar_open_timestamp": [
+                "2024-01-02T14:30:00Z",
+                "2024-01-03T14:30:00Z",
+                "2024-01-04T14:30:00Z",
+            ],
+            "bar_close_timestamp": [
+                "2024-01-02T21:00:00Z",
+                "2024-01-03T21:00:00Z",
+                "2024-01-04T21:00:00Z",
+            ],
+            "available_timestamp": [
+                "2024-01-02T21:00:00Z",
+                "2024-01-03T21:00:00Z",
+                "2024-01-04T21:00:00Z",
+            ],
+            "session_label": ["2024-01-02", "2024-01-03", "2024-01-04"],
+        }
+    ).to_csv(timeline_path, index=False)
+    execution_stream = {
+        "stream_id": "execution_daily",
+        "role": "execution",
+        "source": {"kind": "external", "provider_id": "fixture"},
+        "session_scope": "regular",
+        "row_key_kind": "session_label",
+        "bar_spec": {
+            "aggregation": "time",
+            "step": 1,
+            "unit": "day",
+            "price_type": "last",
+            "alignment": "session_open",
+        },
+        "timestamp_semantics": {
+            "timestamp_convention": "bar_close",
+            "interval_boundary": "left_open_right_closed",
+            "external_execution_sequence_column": "external_execution_sequence",
+            "bar_open_time_column": "bar_open_timestamp",
+            "bar_close_time_column": "bar_close_timestamp",
+            "available_time_column": "available_timestamp",
+            "session_label_column": "session_label",
+            "availability_policy": "bar_close",
+        },
+        "timeline_table": "execution_timeline",
+        "ohlcv_tables": {
+            "open": "open",
+            "high": "high",
+            "low": "low",
+            "close": "close",
+            "volume": "volume",
+        },
+    }
 
     bundle = MultiAssetMarketDataLoader(repo_root=tmp_path).load_bundle(
         {
             "provider": "fixture",
             "symbols": ["AAA", "BBB"],
-            "frequency": "1D",
-            "calendar": "XNYS",
+            "calendar_id": "XNYS",
             "timezone": "America/New_York",
-            "close": {"path": str(source), "time_column": "Time"},
+            "adjustment_policy": "raw",
+            "execution_stream": execution_stream,
+            "execution_timeline": {
+                "path": str(timeline_path),
+                "time_column": "Time",
+            },
+            "session_windows": [
+                {
+                    "session_label": label,
+                    "open_timestamp": f"{label}T14:30:00Z",
+                    "close_timestamp": f"{label}T21:00:00Z",
+                }
+                for label in ("2024-01-02", "2024-01-03", "2024-01-04")
+            ],
+            **fields,
         },
         output_root=tmp_path / "bundles",
     )
@@ -94,7 +190,7 @@ def test_dataloader_matches_content_addressed_golden_bundle(tmp_path: Path) -> N
     assert manifest["bundle_id"] == expected["bundle_id"]
     assert manifest["content_hash"] == expected["content_hash"]
     assert manifest["tables"]["close"]["content_hash"] == expected["table_hash"]
-    for field in ("symbols", "frequency", "calendar", "timezone"):
+    for field in ("symbols", "calendar", "timezone", "execution_stream", "session_windows"):
         assert manifest[field] == expected[field]
     assert close.to_dict("records") == expected["rows"]
 
@@ -135,9 +231,16 @@ def test_metricstracker_matches_rust_metrics_golden() -> None:
     payload = {
         "time_unit": 252,
         "risk_free_rate": 0.02,
-        "backtest_ids": ["winner", "loser"],
+        "backtest_ids": [
+            "winner:parameter_matrix:fixed",
+            "loser:parameter_matrix:fixed",
+        ],
         "equity": [100, 110, 121, 115, 126.5, 100, 95, 90, 99, 89.1],
         "bah_equity": [100, 104, 108, 112, 116, 100, 101, 102, 103, 104],
+        "session_labels": [
+            "2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05",
+            "2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05",
+        ],
         "trade_actions": [0, 1, 0, 4, 4, 0, 1, 0, 4, 4],
         "trade_returns": [None, None, None, 0.15, 0.10, None, None, None, -0.10, -0.05],
         "position_size": [0, 1, 1, 0, 0, 0, 1, 1, 0, 0],
@@ -152,6 +255,39 @@ def test_metricstracker_matches_rust_metrics_golden() -> None:
         actual = actual_by_id[backtest_id]
         for field, value in expected.items():
             _assert_optional_approx(actual[field], value)
+
+
+@pytest.mark.golden
+def test_subdaily_metrics_project_to_session_closes_golden() -> None:
+    expected = _GOLDEN["subdaily_session_projected_metrics"]
+    result = run_metrics_batch_via_cli(
+        {
+            "time_unit": 252,
+            "risk_free_rate": 0.0,
+            "backtest_ids": ["intraday:single_backtest:fixed"],
+            "equity": [100.0, 105.0, 101.0, 109.0, 102.0, 110.0],
+            "bah_equity": [100.0, 104.0, 101.0, 108.0, 102.0, 109.0],
+            "session_labels": [
+                "2024-01-02",
+                "2024-01-02",
+                "2024-01-03",
+                "2024-01-03",
+                "2024-01-04",
+                "2024-01-04",
+            ],
+            "trade_actions": [],
+            "trade_returns": [],
+            "position_size": [],
+            "group_start": [0],
+            "group_end": [6],
+        },
+        timeout=60,
+    )
+
+    assert result["annualization"] == expected["annualization"]
+    actual = result["metrics"][0]
+    for field, value in expected["metric"].items():
+        _assert_optional_approx(actual[field], value)
 
 
 @pytest.mark.golden

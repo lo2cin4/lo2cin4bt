@@ -1,7 +1,7 @@
 ---
 name: lo2cin4bt-strategy-builder
 description: Repo-local strategy builder skill for lo2cin4bt. Use when converting plain-language strategy ideas into supported, needs-clarification, or unsupported verdicts, and when drafting strategy run or WFA configs from Strategy Building Blocks.
-version: 2.1.0
+version: 2.2.0
 status: active
 category: workflow
 use_when:
@@ -58,8 +58,8 @@ Return one verdict before writing any runnable config:
 ## Parse The Strategy Into
 - asset or universe
 - data provider
-- frequency
-- calendar and timezone
+- typed execution and decision `BarSpec`
+- session calendar and timezone inside `data.bar_time.session_model`
 - strategy mode and workflow
 - short human strategy concept for `platform.display_label`
 - computed fields
@@ -156,7 +156,7 @@ not_trading_advice_notice:
 ## Validation
 
 ```powershell
-python -m pytest tests/test_strategy_run_config.py tests/test_strategy_authoring_layers.py tests/test_engine_request_contract.py tests/test_agent_skill_lecture_alignment.py -q
+uv run --locked --exact --group dev python -m pytest tests/test_strategy_run_config.py tests/test_strategy_authoring_layers.py tests/test_engine_request_contract.py tests/test_agent_skill_lecture_alignment.py -q
 ```
 
 Pass criteria: schema and support checks pass, previews derive from executable config, and the config compiles toward the shared EngineRequest.

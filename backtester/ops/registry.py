@@ -103,6 +103,7 @@ DISPLAY_NAMES = {
     "calendar.last_weekday_of_month": "Last Weekday Of Month",
     "calendar.nth_weekday_of_month": "Nth Weekday Of Month",
     "calendar.event_date": "Event Date",
+    "calendar.session_offset_from_month_end": "Session Offset From Month End",
     "target.change": "Target Change",
     "session.same_session_close": "Same-Session Close",
     "template.single_asset_ma_cross": "Single-Asset MA Cross",
@@ -146,6 +147,15 @@ def _unsupported_site(site: str, notes: str) -> Dict[str, Any]:
     return _site(site, [], support=UNSUPPORTED, notes=notes)
 
 
+def _canonical_source_bytes(raw: bytes) -> bytes:
+    """Keep implementation hashes stable across platform line endings."""
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw
+    return text.replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
+
+
 def _source_hash(path: str) -> str | None:
     full_path = (REPO_ROOT / path).resolve()
     try:
@@ -154,7 +164,7 @@ def _source_hash(path: str) -> str | None:
         return None
     if not full_path.is_file():
         return None
-    return hashlib.sha256(full_path.read_bytes()).hexdigest()
+    return hashlib.sha256(_canonical_source_bytes(full_path.read_bytes())).hexdigest()
 
 
 def _is_sha256(value: Any) -> bool:
@@ -553,6 +563,8 @@ def _calendar_params(canonical_id: str) -> Dict[str, Any]:
                 "adjustment_policy": {"type": "string", "enum": ["skip", "previous_trading_day", "next_trading_day"]},
             }
         )
+    elif canonical_id == "calendar.session_offset_from_month_end":
+        properties["offset_sessions"] = _integer_or_param_ref(minimum=-23, maximum=0)
     return {"type": "object", "additionalProperties": True, "properties": properties}
 
 
@@ -1035,6 +1047,7 @@ def _calendar_blocks() -> List[Dict[str, Any]]:
         "calendar.last_weekday_of_month",
         "calendar.nth_weekday_of_month",
         "calendar.event_date",
+        "calendar.session_offset_from_month_end",
     ]
     blocks: List[Dict[str, Any]] = []
     for canonical_id in calendar_ids:
@@ -1057,6 +1070,8 @@ def _calendar_blocks() -> List[Dict[str, Any]]:
             optimizable = ["weekday", "months"]
         elif canonical_id == "calendar.nth_weekday_of_month":
             optimizable = ["weekday", "months", "ordinal"]
+        elif canonical_id == "calendar.session_offset_from_month_end":
+            optimizable = ["offset_sessions"]
         blocks.append(
             _block(
                 canonical_id=canonical_id,
@@ -1162,9 +1177,35 @@ def _rebalance_trigger_blocks() -> List[Dict[str, Any]]:
 def _strategy_template_params(properties: Dict[str, Any], required_extra: Iterable[str]) -> Dict[str, Any]:
     common_properties: Dict[str, Any] = {
         "provider": {"type": "string", "minLength": 1},
-        "frequency": {"type": "string", "minLength": 1},
-        "calendar": {"type": "string", "minLength": 1},
-        "timezone": {"type": "string", "minLength": 1},
+        "bar_time": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "schema_version",
+                "contract_id",
+                "session_model",
+                "timestamp_model",
+                "price_model",
+                "streams",
+            ],
+            "properties": {
+                "schema_version": {"const": "bar_time_contract.v1"},
+                "contract_id": {"const": "lo2cin4bt.bar_time_contract.v1"},
+                "session_model": {"type": "object"},
+                "timestamp_model": {"type": "object"},
+                "price_model": {"type": "object"},
+                "streams": {"type": "array", "minItems": 1},
+            },
+        },
+        "stream_binding": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["execution_stream_id", "decision_stream_id"],
+            "properties": {
+                "execution_stream_id": {"type": "string", "minLength": 1},
+                "decision_stream_id": {"type": "string", "minLength": 1},
+            },
+        },
         "universe": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
         "universe_provenance": {"type": "object", "additionalProperties": True},
         "benchmark": {"oneOf": [{"type": "string", "minLength": 1}, {"type": "object"}, {"type": "null"}]},
@@ -1178,9 +1219,8 @@ def _strategy_template_params(properties: Dict[str, Any], required_extra: Iterab
         "additionalProperties": True,
         "required": [
             "provider",
-            "frequency",
-            "calendar",
-            "timezone",
+            "bar_time",
+            "stream_binding",
             "universe",
             "universe_provenance",
             "benchmark",
